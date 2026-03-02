@@ -4,6 +4,8 @@ import SignUpPage from './pages/SignUpPage.jsx';
 import SignInPage from './pages/SignInPage.jsx';
 import OnboardingPage from './pages/OnboardingPage.jsx';
 import DashboardPage from './pages/DashboardPage.jsx';
+import MemberPage from './pages/MemberPage.jsx';
+import AdminPage from './pages/AdminPage.jsx';
 import { getSession } from './lib.js';
 
 function ProtectedRoute({ children }) {
@@ -56,6 +58,36 @@ export default function App() {
           <ProtectedRoute>
             <RequireOnboarding>
               <DashboardPage />
+            </RequireOnboarding>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/members/:memberId"
+        element={
+          <ProtectedRoute>
+            <RequireOnboarding>
+              <MemberPage />
+            </RequireOnboarding>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin"
+        element={
+          <ProtectedRoute>
+            <RequireOnboarding>
+              <AdminPage />
+            </RequireOnboarding>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/dashboard/admin"
+        element={
+          <ProtectedRoute>
+            <RequireOnboarding>
+              <AdminPage />
             </RequireOnboarding>
           </ProtectedRoute>
         }
