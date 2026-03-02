@@ -1,0 +1,53 @@
+[
+  {
+    "type": "subscription.activated",
+    "actor": {
+      "kind": "staff",
+      "id": "stf_102"
+    },
+    "subject": {
+      "kind": "subscription",
+      "id": "sub_90021"
+    },
+    "data": {
+      "tenant_id": "tn_001",
+      "branch_id": "br_jkt_01",
+      "subscription_id": "sub_90021",
+      "member_id": "mem_4471",
+      "plan_id": "plan_monthly_unlimited",
+      "start_date": "2026-03-01",
+      "end_date": "2026-03-31",
+      "status": "active"
+    },
+    "refs": {
+      "payment_id": "pay_33210"
+    },
+    "ts": "2026-03-01T03:22:10Z"
+  },
+  {
+    "type": "class.booking.created",
+    "actor": {
+      "kind": "member",
+      "id": "mem_4471"
+    },
+    "subject": {
+      "kind": "booking",
+      "id": "book_77811"
+    },
+    "data": {
+      "tenant_id": "tn_001",
+      "branch_id": "br_jkt_01",
+      "booking_id": "book_77811",
+      "class_id": "class_hiit_20260302_1800",
+      "booking_kind": "member",
+      "member_id": "mem_4471",
+      "guest_name": null,
+      "status": "booked",
+      "booked_at": "2026-03-02T08:10:45Z"
+    },
+    "refs": {
+      "subscription_id": "sub_90021"
+    },
+    "ts": "2026-03-02T08:10:45Z"
+  }
+]
