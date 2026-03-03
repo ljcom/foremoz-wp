@@ -18,6 +18,14 @@ function DeleteButton({ onClick }) {
   );
 }
 
+function ViewButton({ onClick }) {
+  return (
+    <button className="btn ghost" type="button" onClick={onClick}>
+      View
+    </button>
+  );
+}
+
 export default function AdminPage() {
   const navigate = useNavigate();
   const session = getSession();
@@ -59,6 +67,15 @@ export default function AdminPage() {
     setUserMode('list');
   }
 
+  function viewUser(item) {
+    setUserForm({
+      full_name: item.full_name || '',
+      email: item.email || '',
+      role: item.role || 'staff'
+    });
+    setUserMode('add');
+  }
+
   function addClass(e) {
     e.preventDefault();
     if (!classForm.class_name || !classForm.trainer_name || !classForm.start_at) return;
@@ -66,6 +83,17 @@ export default function AdminPage() {
     setFeedback(`class.scheduled: ${classForm.class_name}`);
     setClassForm({ class_name: '', trainer_name: '', capacity: '20', start_at: '' });
     setClassMode('list');
+  }
+
+  function viewClass(item) {
+    const normalizedStartAt = item.start_at?.includes(' ') ? item.start_at.replace(' ', 'T') : item.start_at;
+    setClassForm({
+      class_name: item.class_name || '',
+      trainer_name: item.trainer_name || '',
+      capacity: item.capacity || '20',
+      start_at: normalizedStartAt || ''
+    });
+    setClassMode('add');
   }
 
   function addTrainer(e) {
@@ -77,6 +105,15 @@ export default function AdminPage() {
     setTrainerMode('list');
   }
 
+  function viewTrainer(item) {
+    setTrainerForm({
+      trainer_name: item.trainer_name || '',
+      phone: item.phone || '',
+      specialization: item.specialization || ''
+    });
+    setTrainerMode('add');
+  }
+
   function addSales(e) {
     e.preventDefault();
     if (!salesForm.sales_name || !salesForm.target_amount) return;
@@ -84,6 +121,15 @@ export default function AdminPage() {
     setFeedback(`sales.target.set: ${salesForm.sales_name}`);
     setSalesForm({ sales_name: '', channel: 'walkin', target_amount: '' });
     setSalesMode('list');
+  }
+
+  function viewSales(item) {
+    setSalesForm({
+      sales_name: item.sales_name || '',
+      channel: item.channel || 'walkin',
+      target_amount: item.target_amount || ''
+    });
+    setSalesMode('add');
   }
 
   function extendSaas(e) {
@@ -145,7 +191,14 @@ export default function AdminPage() {
                 <>
                   <div className="panel-head">
                     <h2>User list, delete</h2>
-                    <button className="btn" type="button" onClick={() => setUserMode('add')}>
+                    <button
+                      className="btn"
+                      type="button"
+                      onClick={() => {
+                        setUserForm({ full_name: '', email: '', role: 'staff' });
+                        setUserMode('add');
+                      }}
+                    >
                       Add New
                     </button>
                   </div>
@@ -156,16 +209,27 @@ export default function AdminPage() {
                           <strong>{item.full_name}</strong>
                           <p>{item.email} - {item.role}</p>
                         </div>
-                        <DeleteButton onClick={() => setUsers((prev) => prev.filter((v) => v.user_id !== item.user_id))} />
+                        <div className="row-actions">
+                          <ViewButton onClick={() => viewUser(item)} />
+                          <DeleteButton onClick={() => setUsers((prev) => prev.filter((v) => v.user_id !== item.user_id))} />
+                        </div>
                       </div>
                     ))}
                   </div>
                 </>
-              ) : (
+              ) : null}
+
+              {userMode === 'add' ? (
                 <>
                   <div className="panel-head">
                     <h2>Add user</h2>
-                    <button className="btn ghost" type="button" onClick={() => setUserMode('list')}>
+                    <button
+                      className="btn ghost"
+                      type="button"
+                      onClick={() => {
+                        setUserMode('list');
+                      }}
+                    >
                       Back to list
                     </button>
                   </div>
@@ -176,7 +240,7 @@ export default function AdminPage() {
                     <button className="btn" type="submit">Save user</button>
                   </form>
                 </>
-              )}
+              ) : null}
             </>
           ) : null}
 
@@ -198,7 +262,10 @@ export default function AdminPage() {
                           <strong>{item.class_name}</strong>
                           <p>{item.trainer_name} - cap {item.capacity} - {item.start_at}</p>
                         </div>
-                        <DeleteButton onClick={() => setClasses((prev) => prev.filter((v) => v.class_id !== item.class_id))} />
+                        <div className="row-actions">
+                          <ViewButton onClick={() => viewClass(item)} />
+                          <DeleteButton onClick={() => setClasses((prev) => prev.filter((v) => v.class_id !== item.class_id))} />
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -241,7 +308,10 @@ export default function AdminPage() {
                           <strong>{item.trainer_name}</strong>
                           <p>{item.phone} - {item.specialization || '-'}</p>
                         </div>
-                        <DeleteButton onClick={() => setTrainers((prev) => prev.filter((v) => v.trainer_id !== item.trainer_id))} />
+                        <div className="row-actions">
+                          <ViewButton onClick={() => viewTrainer(item)} />
+                          <DeleteButton onClick={() => setTrainers((prev) => prev.filter((v) => v.trainer_id !== item.trainer_id))} />
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -283,7 +353,10 @@ export default function AdminPage() {
                           <strong>{item.sales_name}</strong>
                           <p>{item.channel} - target {item.target_amount}</p>
                         </div>
-                        <DeleteButton onClick={() => setSales((prev) => prev.filter((v) => v.sales_id !== item.sales_id))} />
+                        <div className="row-actions">
+                          <ViewButton onClick={() => viewSales(item)} />
+                          <DeleteButton onClick={() => setSales((prev) => prev.filter((v) => v.sales_id !== item.sales_id))} />
+                        </div>
                       </div>
                     ))}
                   </div>
