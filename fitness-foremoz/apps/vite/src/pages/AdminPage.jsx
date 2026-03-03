@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { getSession } from '../lib.js';
+import { accountPath, getSession } from '../lib.js';
 
 const ADMIN_TABS = [
   { id: 'user', label: 'User' },
@@ -95,7 +95,7 @@ export default function AdminPage() {
         <div className="meta">
           <code>namespace: {namespace}</code>
           <code>chain: {chain}</code>
-          <button className="btn ghost" onClick={() => navigate('/dashboard')}>
+          <button className="btn ghost" onClick={() => navigate(accountPath(session, '/dashboard'))}>
             Back to dashboard
           </button>
         </div>
@@ -230,7 +230,7 @@ export default function AdminPage() {
       </section>
 
       <footer className="dash-foot">
-        <Link to="/dashboard">Back to search member</Link>
+        <Link to={accountPath(session, '/dashboard')}>Back to search member</Link>
       </footer>
     </main>
   );

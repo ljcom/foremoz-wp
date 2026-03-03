@@ -1,11 +1,11 @@
-# Foremoz Fitness Whitepaper v0.2 - Event Model
+# Foremoz Fitness Whitepaper v0.3 - Event Model
 
 ## Canonical Event Envelope
 
 ```json
 {
   "type": "event.type",
-  "actor": { "kind": "admin|sales|pt|member|system", "id": "..." },
+  "actor": { "kind": "admin|sales|pt|member|gov|owner|system", "id": "..." },
   "subject": { "kind": "entity", "id": "..." },
   "data": {},
   "refs": {},
@@ -13,7 +13,7 @@
 }
 ```
 
-Fields:
+Required envelope fields:
 - `type`
 - `actor`
 - `subject`
@@ -23,8 +23,7 @@ Fields:
 
 ## Minimum Event Types
 
-### Membership and Subscription
-
+Membership and subscription:
 - `member.registered`
 - `member.updated`
 - `subscription.activated`
@@ -33,47 +32,54 @@ Fields:
 - `subscription.unfrozen`
 - `subscription.expired`
 
-### Payment
-
+Payment and attendance:
 - `payment.recorded`
 - `payment.confirmed`
 - `payment.rejected`
-
-### Attendance and Booking
-
 - `checkin.logged`
+
+Class booking:
 - `class.scheduled`
 - `class.booking.created`
 - `class.booking.canceled`
 - `class.attendance.confirmed`
 
-### PT Session
-
+PT session:
 - `pt.package.assigned`
 - `pt.session.booked`
 - `pt.session.completed`
 - `pt.activity.logged`
 
-### Public and Member Self-service
-
-- `public.account.profile.updated`
-- `member.signup.completed`
+Member self-service:
+- `member.profile.updated`
+- `member.password.changed`
+- `member.photo.updated`
 - `member.self_booking.pt.created`
 
-### Sales CRM (Operational)
-
+Sales CRM:
 - `sales.prospect.created`
 - `sales.prospect.updated`
 - `sales.prospect.followup.logged`
 - `sales.prospect.converted`
 
+Owner and tenant setup:
+- `owner.tenant.setup.saved`
+- `owner.user.created`
+- `owner.saas.extended`
+
+Gov controls:
+- `gov.tenant.suspended`
+- `gov.tenant.unsuspended`
+- `gov.tenant.free_granted`
+- `gov.tenant.price.updated`
+- `gov.tenant.promotion.updated`
+
 ## Required Field Highlights
 
-- `member.registered`: `member_id`, `full_name`, `phone`, `status`, `tenant_id`, `branch_id`.
-- `subscription.activated`: `subscription_id`, `member_id`, `plan_id`, `start_date`, `end_date`, `status`.
-- `payment.recorded`: `payment_id`, `member_id`, `amount`, `currency`, `method`, `recorded_at`.
-- `pt.activity.logged`: `activity_id`, `member_id`, `trainer_id`, `note`, `session_at`.
+- `owner.tenant.setup.saved`: `tenant_id`, `branch_id`, `account_slug`, `gym_name`.
+- `member.profile.updated`: `member_id`, `full_name`, `phone`, `email`.
 - `sales.prospect.created`: `prospect_id`, `full_name`, `phone`, `source`, `stage`.
-- `public.account.profile.updated`: `account_slug`, `display_name`, `headline`, `cta_config`.
+- `gov.tenant.price.updated`: `tenant_id`, `old_price`, `new_price`, `effective_at`.
+- `gov.tenant.suspended`: `tenant_id`, `reason`, `suspended_at`.
 
-Sample canonical payload tersedia di `appendix/sample_event_payload.json`.
+Sample payload tersedia di `appendix/sample_event_payload.json`.

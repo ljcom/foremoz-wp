@@ -1,60 +1,59 @@
-# Foremoz Fitness Whitepaper v0.2 - Summary
+# Foremoz Fitness Whitepaper v0.3 - Summary
 
 ## What Foremoz Fitness Is
 
-Foremoz Fitness adalah vertical SaaS untuk operasional gym dan fitness studio dengan arsitektur event-driven.
+Foremoz Fitness adalah vertical SaaS untuk operasi gym dan fitness studio dengan arsitektur event-driven.
 
 Write layer:
-- EventDB append-only event store.
+- EventDB append-only event stream.
 
 Read layer:
 - projection worker membentuk read model untuk query layar operasional.
 
 ## Product Surfaces
 
-Surface utama:
-- `fitness.foremoz.com/web`: landing global Foremoz Fitness.
-- `fitness.foremoz.com/a/<account>`: public account page untuk promosi kegiatan dan konversi member.
-- Internal PWA app untuk role operasional.
+- `fitness.foremoz.com/web`: global landing.
+- `fitness.foremoz.com/web/owner`: owner control page (tenant setup, SaaS extension, user access).
+- `fitness.foremoz.com/a/<account>`: public account page.
+- `fitness.foremoz.com/a/<account>/member`: member self-service entry.
+- `fitness.foremoz.com/a/<account>/member/signup`: member signup.
+- `fitness.foremoz.com/a/<account>/member/signin`: member signin.
+- `fitness.foremoz.com/a/<account>/member/portal`: member portal.
+- `fitness.foremoz.com/a/<account>/dashboard`: admin dashboard.
+- `fitness.foremoz.com/a/<account>/admin`: admin control panel.
+- `fitness.foremoz.com/a/<account>/sales`: sales CRM workspace.
+- `fitness.foremoz.com/a/<account>/dashboard/pt`: PT workspace.
+- `fitness.foremoz.com/gov`: gov console lintas tenant.
 
-## Who It Serves
+## Access Model
 
-- gym dan studio owner/operator.
-- staff front desk.
-- sales untuk prospek dan follow-up.
-- PT untuk mencatat aktivitas/sesi member.
-- member untuk self-service membership dan PT booking.
+- tenant signin: `fitness.foremoz.com/signin` untuk role `admin`, `sales`, `pt`, `gov`.
+- member signin: `fitness.foremoz.com/a/<account>/member/signin` khusus role `member`.
 
 ## Core Capabilities
 
 - membership lifecycle: registration, subscription, extension, freeze/unfreeze, expiry.
 - class booking: schedule, capacity, booking, cancellation, attendance confirmation.
-- PT session: package, booking, completion, activity notes.
+- PT session: package, booking, completion, activity logging.
 - attendance: QR/manual checkin.
 - payment recording/confirmation + payment history.
-- CRM prospek ringan untuk sales pipeline operasional.
-- public account page untuk promosi kelas/program dan member conversion.
-
-## Role-based Access
-
-- admin: dashboard operasional + master data + payment confirmation + setup class/trainer.
-- sales: prospek CRM, follow-up, conversion tracking.
-- PT: catatan aktivitas member dan PT session log.
-- member: member portal untuk beli subscription dan self booking PT.
+- member self-service: profile/password/photo, membership purchase, PT self booking.
+- admin operations: member service, user/class/trainer/sales management.
+- sales CRM operations: prospect pipeline, funneling, conversion baseline.
+- owner operations: tenant setup, SaaS extension, access setup.
+- gov operations: cross-tenant performance, suspend/free/price/promotion control.
 
 ## Why Event-driven
 
-- auditability: tiap aksi operasional disimpan sebagai event immutable.
-- scalability: write throughput terpisah dari read query workload.
-- operational clarity: peran berbeda membaca read model yang sama tapi dengan query berbeda.
-- deterministic replay: read model bisa di-rebuild dari event stream.
+- auditability: setiap perubahan operasional adalah event immutable.
+- scalability: write throughput terpisah dari read query load.
+- replayability: read model dapat di-rebuild deterministik dari event.
+- operational clarity: role berbeda membaca read model yang sama sesuai kebutuhan.
 
-## Minimal Deployment Model (PWA-first)
+## Deployment Model
 
-- Vite PWA frontend (public + internal).
-- Gym API (command endpoint + read endpoint).
-- EventDB (write layer).
-- projector worker (read model + checkpoint).
+- Vite PWA frontend.
+- Gym API (command + read endpoints).
+- EventDB write layer.
+- projector worker + checkpoint.
 - Postgres read model.
-
-Model ini cukup ringan untuk single-branch, dan tetap siap untuk multi-branch via namespace + chain convention.

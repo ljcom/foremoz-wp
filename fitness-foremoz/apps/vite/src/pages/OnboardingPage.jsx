@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getSession, requireField, setSession } from '../lib.js';
+import { accountPath, getSession, requireField, setSession } from '../lib.js';
 
 export default function OnboardingPage() {
   const navigate = useNavigate();
@@ -30,6 +30,7 @@ export default function OnboardingPage() {
         isOnboarded: true,
         tenant: {
           id: tenant_id,
+          account_slug: tenant_id,
           namespace: `foremoz:fitness:${tenant_id}`,
           gym_name
         },
@@ -40,7 +41,7 @@ export default function OnboardingPage() {
         }
       });
 
-      navigate('/dashboard', { replace: true });
+      navigate(accountPath({ tenant: { account_slug: tenant_id } }, '/dashboard'), { replace: true });
     } catch (err) {
       setError(err.message);
     }

@@ -1,0 +1,16 @@
+{
+  "name": "foremoz-fitness-workspace",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "web:mockup": "npm --prefix ./apps/vite run dev",
+    "web": "npm --prefix ./apps/vite run dev",
+    "mockup": "npm --prefix ./apps/vite run dev",
+    "backend:setup": "npm --prefix ./apps/eventdb run db:schema && npm --prefix ./apps/api run db:read-model",
+    "backend:eventdb": "npm --prefix ./apps/eventdb run dev",
+    "backend:api": "npm --prefix ./apps/api run dev",
+    "setup:backend": "npm --prefix ./apps/eventdb run db:schema && npm --prefix ./apps/api run db:read-model",
+    "full": "sh -c 'npm --prefix ./apps/eventdb run dev & EVENTDB_PID=$!; npm --prefix ./apps/api run dev & API_PID=$!; npm --prefix ./apps/vite run dev; kill $EVENTDB_PID $API_PID 2>/dev/null || true'",
+    "fullstack": "sh -c 'npm --prefix ./apps/eventdb run dev & EVENTDB_PID=$!; npm --prefix ./apps/api run dev & API_PID=$!; npm --prefix ./apps/vite run dev; kill $EVENTDB_PID $API_PID 2>/dev/null || true'"
+  }
+}

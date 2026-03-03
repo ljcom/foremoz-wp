@@ -8,6 +8,8 @@ export default function WebLandingPage() {
         <div className="brand">Foremoz Fitness</div>
         <nav>
           <Link to="/signin">Sign in</Link>
+          <Link to="/gov">Gov</Link>
+          <Link to="/web/owner">Owner</Link>
           <Link className="btn small" to="/signup">
             Admin signup
           </Link>
@@ -28,6 +30,9 @@ export default function WebLandingPage() {
           <div className="hero-actions">
             <Link className="btn" to="/signup">
               Setup tenant
+            </Link>
+            <Link className="btn ghost" to="/web/owner">
+              Owner page
             </Link>
             <Link className="btn ghost" to="/signin">
               Sign in

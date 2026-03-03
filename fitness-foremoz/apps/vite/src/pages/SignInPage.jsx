@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AuthLayout from '../components/AuthLayout.jsx';
-import { getSession, requireField, setSession } from '../lib.js';
+import { accountPath, getAccountSlug, getOwnerSetup, getSession, requireField, setSession } from '../lib.js';
 
-function roleHome(role, onboarded) {
-  if (role === 'sales') return '/sales';
-  if (role === 'pt') return '/pt';
-  if (role === 'member') return '/member/portal';
-  return onboarded ? '/dashboard' : '/onboarding';
+function roleHome(session, role, onboarded) {
+  if (role === 'gov') return '/gov';
+  if (role === 'sales') return accountPath(session, '/sales');
+  if (role === 'pt') return accountPath(session, '/dashboard/pt');
+  return onboarded ? accountPath(session, '/dashboard') : '/onboarding';
 }
 
 export default function SignInPage() {
@@ -28,19 +28,40 @@ export default function SignInPage() {
       const current = getSession();
       const role = form.role;
       const user = { ...(current?.user || {}), fullName: current?.user?.fullName || 'Operator', email };
-      const isOnboarded = role === 'admin' ? Boolean(current?.isOnboarded) : true;
-
-      setSession({
+      const setup = getOwnerSetup();
+      const isOnboarded = role === 'admin'
+        ? Boolean(
+          current?.isOnboarded
+          || (setup?.tenant_id && setup?.branch_id && setup?.account_slug)
+        )
+        : true;
+      const tenant = current?.tenant || {
+        id: setup?.tenant_id || 'tn_001',
+        account_slug: setup?.account_slug || current?.tenant?.account_slug || 'tn_001',
+        namespace: `foremoz:fitness:${setup?.tenant_id || 'tn_001'}`,
+        gym_name: setup?.gym_name || 'Foremoz Demo Gym'
+      };
+      const nextSession = {
         ...(current || {}),
         isAuthenticated: true,
         isOnboarded,
         role,
         user,
-        tenant: current?.tenant || { id: 'tn_001', namespace: 'foremoz:fitness:tn_001', gym_name: 'Foremoz Demo Gym' },
+        tenant: {
+          ...tenant,
+          account_slug: getAccountSlug({ tenant })
+        },
         branch: current?.branch || { id: 'br_jkt_01', chain: 'branch:br_jkt_01' }
-      });
+      };
 
-      navigate(roleHome(role, isOnboarded), { replace: true });
+      setSession(nextSession);
+
+      if (role === 'admin' && !isOnboarded) {
+        navigate('/web/owner', { replace: true });
+        return;
+      }
+
+      navigate(roleHome(nextSession, role, isOnboarded), { replace: true });
     } catch (err) {
       setError(err.message);
     }
@@ -48,8 +69,8 @@ export default function SignInPage() {
 
   return (
     <AuthLayout
-      title="Sign in"
-      subtitle="Login as admin, sales, PT, or member."
+      title="Tenant sign in"
+      subtitle="Sign in as admin, sales, or PT."
       alternateHref="/signup"
       alternateText="Need admin account? Create one"
     >
@@ -60,7 +81,7 @@ export default function SignInPage() {
             <option value="admin">admin</option>
             <option value="sales">sales</option>
             <option value="pt">pt</option>
-            <option value="member">member</option>
+            <option value="gov">gov</option>
           </select>
         </label>
         <label>

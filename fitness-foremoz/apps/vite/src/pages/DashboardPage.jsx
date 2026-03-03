@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { API_BASE_URL, clearSession, getSession } from '../lib.js';
+import { API_BASE_URL, accountPath, clearSession, getAccountSlug, getSession } from '../lib.js';
 import { findMembers } from '../member-data.js';
 
 function Stat({ label, value }) {
@@ -20,6 +20,7 @@ export default function DashboardPage() {
 
   const namespace = session?.tenant?.namespace || '-';
   const chain = session?.branch?.chain || 'core';
+  const accountSlug = getAccountSlug(session);
 
   const stats = useMemo(
     () => [
@@ -35,7 +36,7 @@ export default function DashboardPage() {
 
   function signOut() {
     clearSession();
-    navigate('/signin', { replace: true });
+    navigate(`/a/${accountSlug}`, { replace: true });
   }
 
   function scanQrCode() {
@@ -57,7 +58,10 @@ export default function DashboardPage() {
           <code>namespace: {namespace}</code>
           <code>chain: {chain}</code>
           <code>api: {API_BASE_URL}</code>
-          <button className="btn ghost" onClick={() => navigate('/dashboard/admin')}>
+          <button className="btn ghost" onClick={() => navigate(`/a/${accountSlug}`)}>
+            Jump to account landing page
+          </button>
+          <button className="btn ghost" onClick={() => navigate(accountPath(session, '/admin'))}>
             Admin
           </button>
           <button className="btn ghost" onClick={signOut}>
@@ -111,7 +115,7 @@ export default function DashboardPage() {
                 <button
                   key={member.member_id}
                   className="member-row"
-                  onClick={() => navigate(`/members/${member.member_id}`)}
+                  onClick={() => navigate(accountPath(session, `/members/${member.member_id}`))}
                 >
                   <strong>{member.full_name}</strong>
                   <span>{member.member_id}</span>

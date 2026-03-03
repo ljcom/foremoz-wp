@@ -1,4 +1,4 @@
--- Foremoz Fitness v0.2 sample read model schema (Postgres)
+-- Foremoz Fitness v0.3 sample read model schema (Postgres)
 
 CREATE TABLE IF NOT EXISTS rm_checkpoint (
   projector_name TEXT NOT NULL,
@@ -50,6 +50,19 @@ CREATE TABLE IF NOT EXISTS rm_payment_queue (
   recorded_at TIMESTAMPTZ NOT NULL,
   reviewed_at TIMESTAMPTZ,
   reviewed_by TEXT,
+  updated_at TIMESTAMPTZ NOT NULL,
+  PRIMARY KEY (tenant_id, payment_id)
+);
+
+CREATE TABLE IF NOT EXISTS rm_payment_history (
+  tenant_id TEXT NOT NULL,
+  payment_id TEXT NOT NULL,
+  member_id TEXT NOT NULL,
+  amount NUMERIC(14,2) NOT NULL,
+  currency TEXT NOT NULL,
+  method TEXT NOT NULL,
+  status TEXT NOT NULL,
+  recorded_at TIMESTAMPTZ NOT NULL,
   updated_at TIMESTAMPTZ NOT NULL,
   PRIMARY KEY (tenant_id, payment_id)
 );
@@ -149,6 +162,27 @@ CREATE TABLE IF NOT EXISTS rm_member_self_booking (
   PRIMARY KEY (tenant_id, booking_id)
 );
 
+CREATE TABLE IF NOT EXISTS rm_tenant_performance (
+  tenant_id TEXT NOT NULL,
+  performance_date DATE NOT NULL,
+  mrr_amount NUMERIC(14,2) NOT NULL,
+  active_member_count INTEGER NOT NULL,
+  checkin_30d_count INTEGER NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL,
+  PRIMARY KEY (tenant_id, performance_date)
+);
+
+CREATE TABLE IF NOT EXISTS rm_tenant_policy (
+  tenant_id TEXT NOT NULL,
+  status TEXT NOT NULL,
+  price_monthly NUMERIC(14,2) NOT NULL,
+  free_months_granted INTEGER NOT NULL DEFAULT 0,
+  promotion_code TEXT,
+  promotion_active BOOLEAN NOT NULL DEFAULT FALSE,
+  updated_at TIMESTAMPTZ NOT NULL,
+  PRIMARY KEY (tenant_id)
+);
+
 CREATE INDEX IF NOT EXISTS idx_rm_sales_prospect_stage
   ON rm_sales_prospect (tenant_id, stage, updated_at DESC);
 
@@ -157,3 +191,6 @@ CREATE INDEX IF NOT EXISTS idx_rm_pt_activity_member
 
 CREATE INDEX IF NOT EXISTS idx_rm_member_self_booking_member
   ON rm_member_self_booking (tenant_id, member_id, status, booked_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_rm_tenant_performance_date
+  ON rm_tenant_performance (performance_date DESC);

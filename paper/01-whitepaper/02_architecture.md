@@ -1,95 +1,84 @@
-# Foremoz Fitness Whitepaper v0.2 - Architecture
+# Foremoz Fitness Whitepaper v0.3 - Architecture
 
 ## Purpose
 
-Menetapkan arsitektur runtime untuk public web + role-based operational app di atas EventDB.
+Menetapkan arsitektur runtime untuk public surface, role workspace, dan control surface di atas EventDB.
 
 ## High-Level Architecture
 
 ```text
-[Public Web]
+[Web Surfaces]
   /web
+  /web/owner
   /a/<account>
-      |
-      v
-[Role-based PWA App]
-  admin | sales | pt | member
-      |
-      v
+  /gov
+       |
+       v
+[Role Workspaces]
+  admin | sales | pt | member | gov
+       |
+       v
 [Gym API]
-  - auth + role guard
+  - tenant/member auth split
+  - role guard
   - command validation
   - append event
   - read model query
-      |
-      v
-[EventDB]
+       |
+       v
+[EventDB Write Layer]
   namespace: foremoz:fitness:<tenant_id>
   chain: branch:<branch_id> | core
-      |
-      v
-[Projector Workers]
-  - ordered consume by namespace + chain
-  - update read models
+       |
+       v
+[Projector]
+  - consume in-order by namespace + chain
+  - update read model
   - persist rm_checkpoint
-      |
-      v
+       |
+       v
 [Postgres Read Model]
   rm_member
   rm_subscription_active
   rm_payment_queue
+  rm_payment_history
   rm_sales_prospect
   rm_pt_activity_log
-  rm_class_availability
-  rm_booking_list
+  rm_tenant_performance
+  rm_tenant_policy
 ```
+
+## Auth and Routing Rules
+
+- tenant signin di `/signin` untuk `admin`, `sales`, `pt`, `gov`.
+- member signin di `/a/<account>/member/signin` untuk `member`.
+- admin yang belum setup tenant diarahkan ke `/web/owner`.
+- owner setup menulis tenant config (`tenant_id`, `branch_id`, `account_slug`) lalu mengaktifkan namespace/chain session.
 
 ## Namespace and Chain Convention
 
-- namespace: `foremoz:fitness:<tenant_id>`
-- chain:
-  - `branch:<branch_id>` untuk operasi branch.
-  - `core` untuk tenant-level/common stream.
-
-## Core Components
-
-- Public web layer:
-  - global landing dan account public page.
-- PWA app layer:
-  - workspace per role (`admin`, `sales`, `pt`, `member`).
-- Gym API:
-  - command endpoint by domain.
-  - read endpoint by read model.
-  - role-based access control.
-- EventDB:
-  - immutable write stream.
-- projector:
-  - projection handler idempotent.
-- read models:
-  - query-optimized operational tables.
+- namespace format: `foremoz:fitness:<tenant_id>`
+- chain format: `branch:<branch_id>` atau `core`
 
 ## Projection Checkpoint Strategy
 
 Table: `rm_checkpoint`
 
-Primary key segments:
+Fields:
 - `projector_name`
 - `namespace`
 - `chain`
-
-Checkpoint fields:
 - `last_event_id`
 - `last_event_ts`
 - `updated_at`
 
 Rules:
 - process event berurutan per namespace+chain.
-- read model update dan checkpoint commit dalam satu transaksi.
-- worker restart melanjutkan dari checkpoint terakhir.
+- update read model dan checkpoint dalam satu transaksi.
+- restart projector lanjut dari checkpoint.
 
-## Concurrency Note
+## Booking Concurrency Rule
 
-Booking capacity rule:
 - command `class.booking.created` hanya valid bila slot tersedia.
-- projector menghitung ulang availability dari booking events.
-- race condition ditangani dengan deterministic rejection di command path.
+- projection menghitung `rm_class_availability` dari stream booking.
+- race ditangani oleh deterministic rejection pada command path.

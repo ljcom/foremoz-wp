@@ -1,28 +1,25 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import AuthLayout from '../components/AuthLayout.jsx';
 import { requireField, setSession } from '../lib.js';
 
-export default function MemberSignUpPage() {
+export default function MemberSignInPage() {
   const navigate = useNavigate();
   const { account } = useParams();
-  const [form, setForm] = useState({ fullName: '', phone: '', email: '', password: '' });
+  const [form, setForm] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
 
   function submit(e) {
     e.preventDefault();
     try {
-      const fullName = requireField(form.fullName, 'full name');
       const email = requireField(form.email, 'email');
-      const phone = requireField(form.phone, 'phone');
       requireField(form.password, 'password');
 
       setSession({
         isAuthenticated: true,
         isOnboarded: true,
         role: 'member',
-        user: { fullName, email, phone },
+        user: { fullName: 'Member', email },
         tenant: {
           id: account || 'tn_001',
           account_slug: account || 'tn_001',
@@ -40,20 +37,12 @@ export default function MemberSignUpPage() {
 
   return (
     <AuthLayout
-      title="Member signup"
-      subtitle="Join as member and access membership purchase + self booking PT."
-      alternateHref={`/a/${account || 'tn_001'}/member/signin`}
-      alternateText="Already member? Sign in"
+      title="Member sign in"
+      subtitle="Sign in as member for membership and PT self booking."
+      alternateHref={`/a/${account || 'tn_001'}/member/signup`}
+      alternateText="New member? Sign up"
     >
       <form className="card form" onSubmit={submit}>
-        <label>
-          Full name
-          <input value={form.fullName} onChange={(e) => setForm((p) => ({ ...p, fullName: e.target.value }))} />
-        </label>
-        <label>
-          Phone
-          <input value={form.phone} onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))} />
-        </label>
         <label>
           Email
           <input type="email" value={form.email} onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))} />
@@ -63,7 +52,7 @@ export default function MemberSignUpPage() {
           <input type="password" value={form.password} onChange={(e) => setForm((p) => ({ ...p, password: e.target.value }))} />
         </label>
         {error ? <p className="error">{error}</p> : null}
-        <button className="btn" type="submit">Create member account</button>
+        <button className="btn" type="submit">Sign in as member</button>
       </form>
     </AuthLayout>
   );

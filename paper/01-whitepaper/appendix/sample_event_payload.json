@@ -1,5 +1,24 @@
 [
   {
+    "type": "owner.tenant.setup.saved",
+    "actor": {
+      "kind": "owner",
+      "id": "own_001"
+    },
+    "subject": {
+      "kind": "tenant",
+      "id": "tn_raifit"
+    },
+    "data": {
+      "tenant_id": "tn_raifit",
+      "branch_id": "br_main",
+      "account_slug": "raifit",
+      "gym_name": "RaiFit Studio"
+    },
+    "refs": {},
+    "ts": "2026-03-03T08:00:00Z"
+  },
+  {
     "type": "sales.prospect.created",
     "actor": {
       "kind": "sales",
@@ -10,8 +29,8 @@
       "id": "lead_20011"
     },
     "data": {
-      "tenant_id": "tn_001",
-      "branch_id": "br_jkt_01",
+      "tenant_id": "tn_raifit",
+      "branch_id": "br_main",
       "prospect_id": "lead_20011",
       "full_name": "Andi Saputra",
       "phone": "081355550001",
@@ -22,27 +41,21 @@
     "ts": "2026-03-03T08:10:00Z"
   },
   {
-    "type": "pt.activity.logged",
+    "type": "gov.tenant.suspended",
     "actor": {
-      "kind": "pt",
-      "id": "tr_001"
+      "kind": "gov",
+      "id": "gov_001"
     },
     "subject": {
-      "kind": "pt_activity",
-      "id": "pta_90001"
+      "kind": "tenant",
+      "id": "tn_motionlab"
     },
     "data": {
-      "tenant_id": "tn_001",
-      "branch_id": "br_jkt_01",
-      "activity_id": "pta_90001",
-      "member_id": "mem_4471",
-      "trainer_id": "tr_001",
-      "note": "Mobility warmup + strength block",
-      "session_at": "2026-03-03T07:00:00Z"
+      "tenant_id": "tn_motionlab",
+      "reason": "billing hold",
+      "suspended_at": "2026-03-03T09:30:00Z"
     },
-    "refs": {
-      "pt_booking_id": "ptb_11122"
-    },
-    "ts": "2026-03-03T07:50:00Z"
+    "refs": {},
+    "ts": "2026-03-03T09:30:00Z"
   }
 ]

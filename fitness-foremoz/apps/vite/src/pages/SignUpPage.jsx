@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AuthLayout from '../components/AuthLayout.jsx';
-import { requireField, setSession } from '../lib.js';
+import { getOwnerSetup, requireField, setSession } from '../lib.js';
 
 export default function SignUpPage() {
   const navigate = useNavigate();
@@ -19,16 +19,30 @@ export default function SignUpPage() {
       const email = requireField(form.email, 'email');
       requireField(form.password, 'password');
 
+      const setup = getOwnerSetup();
+
       setSession({
         isAuthenticated: true,
-        isOnboarded: false,
+        isOnboarded: Boolean(setup?.tenant_id && setup?.branch_id && setup?.account_slug),
         role: 'admin',
         user: { fullName, email },
-        tenant: null,
-        branch: null
+        tenant: setup
+          ? {
+            id: setup.tenant_id,
+            account_slug: setup.account_slug,
+            namespace: `foremoz:fitness:${setup.tenant_id}`,
+            gym_name: setup.gym_name
+          }
+          : null,
+        branch: setup
+          ? {
+            id: setup.branch_id,
+            chain: `branch:${setup.branch_id}`
+          }
+          : null
       });
 
-      navigate('/onboarding', { replace: true });
+      navigate('/web/owner', { replace: true });
     } catch (err) {
       setError(err.message);
     }

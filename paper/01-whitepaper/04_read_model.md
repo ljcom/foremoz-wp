@@ -1,6 +1,6 @@
-# Foremoz Fitness Whitepaper v0.2 - Read Model
+# Foremoz Fitness Whitepaper v0.3 - Read Model
 
-## Existing Core Read Models
+## Core Read Models
 
 - `rm_member`
 - `rm_subscription_active`
@@ -11,77 +11,65 @@
 - `rm_payment_queue`
 - `rm_dashboard`
 
-## Additional Read Models for New Scope
+## Role and Surface Read Models
 
 ### rm_public_account_profile
 
 - PK: `(tenant_id, account_slug)`
-- Columns:
-  - `tenant_id`
-  - `account_slug`
-  - `display_name`
-  - `headline`
-  - `hero_image_url`
-  - `cta_signup_url`
-  - `cta_signin_url`
-  - `updated_at`
-- Query use:
-  - render `fitness.foremoz.com/a/<account>`.
-
-### rm_sales_prospect
-
-- PK: `(tenant_id, prospect_id)`
-- Columns:
-  - `tenant_id`
-  - `branch_id`
-  - `prospect_id`
-  - `full_name`
-  - `phone`
-  - `source`
-  - `stage`
-  - `owner_sales_id`
-  - `last_followup_at`
-  - `converted_member_id`
-  - `updated_at`
-- Query use:
-  - sales pipeline view and conversion tracking.
-
-### rm_pt_activity_log
-
-- PK: `(tenant_id, activity_id)`
-- Columns:
-  - `tenant_id`
-  - `branch_id`
-  - `activity_id`
-  - `member_id`
-  - `trainer_id`
-  - `note`
-  - `session_at`
-  - `updated_at`
-- Query use:
-  - PT workspace activity feed.
-  - member detail PT history.
+- Query use: render public account page (`/a/<account>`).
 
 ### rm_member_self_booking
 
 - PK: `(tenant_id, booking_id)`
-- Columns:
-  - `tenant_id`
-  - `member_id`
-  - `booking_id`
-  - `booking_type` (`pt`|`class`)
-  - `target_id`
-  - `status`
-  - `booked_at`
-  - `updated_at`
-- Query use:
-  - member portal booking history and upcoming schedule.
+- Query use: member portal booking history.
 
-## Projection and Query Notes
+### rm_payment_history
+
+- PK: `(tenant_id, payment_id)`
+- Query use: member page payment history dan member portal payment recap.
+
+### rm_sales_prospect
+
+- PK: `(tenant_id, prospect_id)`
+- Query use: sales CRM pipeline/funneling/conversion.
+
+### rm_pt_activity_log
+
+- PK: `(tenant_id, activity_id)`
+- Query use: PT workspace activity feed dan member PT timeline.
+
+### rm_tenant_performance
+
+- PK: `(tenant_id, performance_date)`
+- Query use: gov console cross-tenant performance.
+
+Columns minimum:
+- `tenant_id`
+- `performance_date`
+- `mrr_amount`
+- `active_member_count`
+- `checkin_30d_count`
+- `updated_at`
+
+### rm_tenant_policy
+
+- PK: `(tenant_id)`
+- Query use: gov policy state (suspend/free/price/promotion).
+
+Columns minimum:
+- `tenant_id`
+- `status` (`active|suspended`)
+- `price_monthly`
+- `free_months_granted`
+- `promotion_code`
+- `promotion_active`
+- `updated_at`
+
+## Projection Notes
 
 - projector subscribe by namespace + chain.
-- all handlers idempotent untuk replay safety.
-- `rm_checkpoint` wajib dipakai untuk resume position.
-- read model mengoptimalkan query layar role-based, bukan write source of truth.
+- handler wajib idempotent.
+- `rm_checkpoint` dipakai untuk resume offset.
+- read model adalah query source, bukan write source of truth.
 
-Referensi SQL contoh: `appendix/sample_read_model.sql`.
+Referensi SQL: `appendix/sample_read_model.sql`.

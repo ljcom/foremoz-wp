@@ -8,9 +8,12 @@ export default function AccountPublicPage() {
       <header className="topbar">
         <div className="brand">{account}.fitness.foremoz.com</div>
         <nav>
-          <Link to="/member/signup">Member signup</Link>
-          <Link className="btn small" to="/signin">
-            Sign in
+          <Link to={`/a/${account}/member/signup`}>Member signup</Link>
+          <Link className="btn small" to={`/a/${account}/member/signin`}>
+            Member sign in
+          </Link>
+          <Link className="btn small ghost" to="/signin">
+            Tenant sign in
           </Link>
         </nav>
       </header>
@@ -23,11 +26,11 @@ export default function AccountPublicPage() {
             Promote class activities, trainer programs, and PT sessions for new and existing member conversion.
           </p>
           <div className="hero-actions">
-            <Link className="btn" to="/member/signup">
+            <Link className="btn" to={`/a/${account}/member/signup`}>
               Join as new member
             </Link>
-            <Link className="btn ghost" to="/signin">
-              Sign in
+            <Link className="btn ghost" to={`/a/${account}/member/signin`}>
+              Member sign in
             </Link>
           </div>
         </div>
