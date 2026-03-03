@@ -11,6 +11,8 @@ import DashboardPage from './pages/DashboardPage.jsx';
 import MemberPage from './pages/MemberPage.jsx';
 import AdminPage from './pages/AdminPage.jsx';
 import SalesPage from './pages/SalesPage.jsx';
+import SalesProspectNewPage from './pages/SalesProspectNewPage.jsx';
+import SalesProspectEditPage from './pages/SalesProspectEditPage.jsx';
 import PtPage from './pages/PtPage.jsx';
 import GovPage from './pages/GovPage.jsx';
 import { accountPath, getSession } from './lib.js';
@@ -180,6 +182,26 @@ export default function App() {
           <ProtectedRoute>
             <RoleRoute roles={['sales']}>
               <SalesPage />
+            </RoleRoute>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/a/:account/sales/prospects/new"
+        element={
+          <ProtectedRoute>
+            <RoleRoute roles={['sales']}>
+              <SalesProspectNewPage />
+            </RoleRoute>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/a/:account/sales/prospects/:prospectId/edit"
+        element={
+          <ProtectedRoute>
+            <RoleRoute roles={['sales']}>
+              <SalesProspectEditPage />
             </RoleRoute>
           </ProtectedRoute>
         }
