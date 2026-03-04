@@ -8,22 +8,43 @@ const ADMIN_TABS = [
   { id: 'trainer', label: 'Trainer' },
   { id: 'sales', label: 'Sales' },
   { id: 'member', label: 'Member' },
+  { id: 'transaction', label: 'Transaction' },
   // { id: 'saas', label: 'SaaS' }
 ];
 
 function DeleteButton({ onClick }) {
   return (
-    <button className="btn ghost" type="button" onClick={onClick}>
-      Delete
-    </button>
+    <span
+      role="button"
+      tabIndex={0}
+      style={{ cursor: 'pointer', background: '#fff', color: '#8f3f1e', border:'1px solid #d9bea0', margin: '2px', padding: '0.2rem 0.45rem', borderRadius: '10px' }}
+      onClick={onClick}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          onClick();
+        }
+      }}
+    >
+      delete
+    </span>
   );
 }
 
 function ViewButton({ onClick }) {
   return (
-    <button className="btn ghost" type="button" onClick={onClick}>
-      View
-    </button>
+    <span
+      role="button"
+      tabIndex={0}
+      style={{ cursor: 'pointer', background: '#fff', color: '#8f3f1e', border:'1px solid #d9bea0', margin: '2px', padding: '0.2rem 0.45rem', borderRadius: '10px' }}
+      onClick={onClick}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          onClick();
+        }
+      }}
+    >
+      view
+    </span>
   );
 }
 
@@ -36,14 +57,17 @@ export default function AdminPage() {
   const [trainerMode, setTrainerMode] = useState('list');
   const [salesMode, setSalesMode] = useState('list');
   const [memberMode, setMemberMode] = useState('list');
+  const [transactionMode, setTransactionMode] = useState('list');
   const [feedback, setFeedback] = useState('');
   const [memberQuery, setMemberQuery] = useState('');
+  const [transactionQuery, setTransactionQuery] = useState('');
 
   const [userForm, setUserForm] = useState({ full_name: '', email: '', role: 'staff' });
   const [classForm, setClassForm] = useState({ class_name: '', trainer_name: '', capacity: '20', start_at: '' });
   const [trainerForm, setTrainerForm] = useState({ trainer_name: '', phone: '', specialization: '' });
   const [salesForm, setSalesForm] = useState({ sales_name: '', channel: 'walkin', target_amount: '' });
   const [memberForm, setMemberForm] = useState({ member_name: '', phone: '', email: '' });
+  const [transactionForm, setTransactionForm] = useState({ no_transaction: '', product: '', qty: '1', price: '' });
   const [saasForm, setSaasForm] = useState({ months: '1', note: '' });
 
   const [users, setUsers] = useState([
@@ -61,11 +85,18 @@ export default function AdminPage() {
   const [members, setMembers] = useState([
     { member_id: 'member_001', member_name: 'Doni', phone: '081200001111', email: 'doni@foremoz.com' }
   ]);
+  const [transactions, setTransactions] = useState([
+    { transaction_id: 'trx_001', no_transaction: 'TRX-001', product: 'Monthly Membership', qty: '1', price: '350000' }
+  ]);
 
   const namespace = session?.tenant?.namespace || '-';
   const chain = session?.branch?.chain || 'core';
   const filteredMembers = members.filter((item) =>
     item.member_name.toLowerCase().includes(memberQuery.toLowerCase())
+  );
+  const filteredTransactions = transactions.filter((item) =>
+    item.no_transaction.toLowerCase().includes(transactionQuery.toLowerCase()) ||
+    item.product.toLowerCase().includes(transactionQuery.toLowerCase())
   );
 
   function addUser(e) {
@@ -160,6 +191,25 @@ export default function AdminPage() {
     setMemberMode('add');
   }
 
+  function addTransaction(e) {
+    e.preventDefault();
+    if (!transactionForm.no_transaction || !transactionForm.product || !transactionForm.qty || !transactionForm.price) return;
+    setTransactions((prev) => [{ ...transactionForm, transaction_id: `trx_${Date.now()}` }, ...prev]);
+    setFeedback(`transaction.created: ${transactionForm.no_transaction}`);
+    setTransactionForm({ no_transaction: '', product: '', qty: '1', price: '' });
+    setTransactionMode('list');
+  }
+
+  function viewTransaction(item) {
+    setTransactionForm({
+      no_transaction: item.no_transaction || '',
+      product: item.product || '',
+      qty: item.qty || '1',
+      price: item.price || ''
+    });
+    setTransactionMode('add');
+  }
+
   function extendSaas(e) {
     e.preventDefault();
     setFeedback(`saas.extended: +${saasForm.months} month(s)`);
@@ -206,6 +256,9 @@ export default function AdminPage() {
                 }
                 if (tab.id === 'member') {
                   setMemberMode('list');
+                }
+                if (tab.id === 'transaction') {
+                  setTransactionMode('list');
                 }
               }}
             >
@@ -418,16 +471,13 @@ export default function AdminPage() {
                 <>
                   <div className="panel-head">
                     <h2>Member list, delete</h2>
-                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginLeft: 'auto' }}>
                       <input
                         type="text"
                         placeholder="Cari member..."
                         value={memberQuery}
                         onChange={(e) => setMemberQuery(e.target.value)}
                       />
-                      <button className="btn" type="button" onClick={() => setMemberMode('add')}>
-                        Add New
-                      </button>
                     </div>
                   </div>
                   <div className="entity-list">
@@ -471,6 +521,96 @@ export default function AdminPage() {
                     <label>phone<input value={memberForm.phone} onChange={(e) => setMemberForm((p) => ({ ...p, phone: e.target.value }))} /></label>
                     <label>email<input type="email" value={memberForm.email} onChange={(e) => setMemberForm((p) => ({ ...p, email: e.target.value }))} /></label>
                     <button className="btn" type="submit">Save member</button>
+                  </form>
+                </>
+              )}
+            </>
+          ) : null}
+
+          {activeTab === 'transaction' ? (
+            <>
+              <p className="eyebrow">Transaction</p>
+              {transactionMode === 'list' ? (
+                <>
+                  <div className="panel-head">
+                    <h2>Transaction list, delete</h2>
+                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginLeft: 'auto' }}>
+                      <input
+                        type="text"
+                        placeholder="Cari transaction..."
+                        value={transactionQuery}
+                        onChange={(e) => setTransactionQuery(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  <div className="entity-list">
+                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                      <thead>
+                        <tr>
+                          <th style={{ textAlign: 'left', padding: '0.65rem 0.5rem', borderBottom: '1px solid #d1d5db', background: '#f7efe6', fontWeight: 700 }}>No Transaction</th>
+                          <th style={{ textAlign: 'left', padding: '0.65rem 0.5rem', borderBottom: '1px solid #d1d5db', background: '#f7efe6', fontWeight: 700 }}>Product</th>
+                          <th style={{ textAlign: 'left', padding: '0.65rem 0.5rem', borderBottom: '1px solid #d1d5db', background: '#f7efe6', fontWeight: 700 }}>Qty</th>
+                          <th style={{ textAlign: 'left', padding: '0.65rem 0.5rem', borderBottom: '1px solid #d1d5db', background: '#f7efe6', fontWeight: 700 }}>Price</th>
+                          <th style={{ textAlign: 'left', padding: '0.65rem 0.5rem', borderBottom: '1px solid #d1d5db', background: '#f7efe6', fontWeight: 700 }}>Aksi</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredTransactions.map((item, idx) => (
+                          <tr key={item.transaction_id} style={{ backgroundColor: idx % 2 === 0 ? '#ffffff' : '#f7efe6' }}>
+                            <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>{item.no_transaction}</td>
+                            <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>{item.product}</td>
+                            <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>{item.qty}</td>
+                            <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>{item.price}</td>
+                            <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>
+                              <div className="row-actions" style={{ display: 'flex', gap: '0' }}>
+                                <span
+                                  role="button"
+                                  tabIndex={0}
+                                  style={{ cursor: 'pointer', background: '#fff', color: '#8f3f1e', border:'1px solid #d9bea0', margin: '2px', padding: '0.2rem 0.45rem', borderRadius: '10px' }}
+                                  onClick={() => viewTransaction(item)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter' || e.key === ' ') {
+                                      viewTransaction(item);
+                                    }
+                                  }}
+                                >
+                                  view
+                                </span>
+                                <span
+                                  role="button"
+                                  tabIndex={0}
+                                  style={{ cursor: 'pointer', background: '#fff', color: '#8f3f1e', border:'1px solid #d9bea0', margin: '2px', padding: '0.2rem 0.45rem', borderRadius: '10px' }}
+                                  onClick={() => setTransactions((prev) => prev.filter((v) => v.transaction_id !== item.transaction_id))}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter' || e.key === ' ') {
+                                      setTransactions((prev) => prev.filter((v) => v.transaction_id !== item.transaction_id));
+                                    }
+                                  }}
+                                >
+                                  delete
+                                </span>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="panel-head">
+                    <h2>Add transaction</h2>
+                    <button className="btn ghost" type="button" onClick={() => setTransactionMode('list')}>
+                      Back to list
+                    </button>
+                  </div>
+                  <form className="form" onSubmit={addTransaction}>
+                    <label>no_transaction<input value={transactionForm.no_transaction} onChange={(e) => setTransactionForm((p) => ({ ...p, no_transaction: e.target.value }))} /></label>
+                    <label>product<input value={transactionForm.product} onChange={(e) => setTransactionForm((p) => ({ ...p, product: e.target.value }))} /></label>
+                    <label>qty<input type="number" min="1" value={transactionForm.qty} onChange={(e) => setTransactionForm((p) => ({ ...p, qty: e.target.value }))} /></label>
+                    <label>price<input type="number" min="0" value={transactionForm.price} onChange={(e) => setTransactionForm((p) => ({ ...p, price: e.target.value }))} /></label>
+                    <button className="btn" type="submit">Save transaction</button>
                   </form>
                 </>
               )}

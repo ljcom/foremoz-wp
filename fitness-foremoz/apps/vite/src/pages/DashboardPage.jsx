@@ -3,11 +3,19 @@ import { Link, useNavigate } from 'react-router-dom';
 import { API_BASE_URL, accountPath, clearSession, getAccountSlug, getSession } from '../lib.js';
 import { findMembers } from '../member-data.js';
 
-function Stat({ label, value }) {
+function Stat({ label, value, iconClass, tone, hint }) {
   return (
-    <article className="stat">
-      <p>{label}</p>
-      <h3>{value}</h3>
+    <article className={`stat ${tone}`}>
+      <div className="stat-top">
+        <p>{label}</p>
+        <span className="stat-icon" aria-hidden="true">
+          <i className={iconClass} />
+        </span>
+      </div>
+      <div className="stat-value-row">
+        <h3>{value}</h3>
+        <small>{hint}</small>
+      </div>
     </article>
   );
 }
@@ -24,10 +32,34 @@ export default function DashboardPage() {
 
   const stats = useMemo(
     () => [
-      { label: 'active subscription', value: 128 },
-      { label: 'today checkin', value: 94 },
-      { label: 'today booking', value: 36 },
-      { label: 'pending payment', value: 11 }
+      {
+        label: 'active subscription',
+        value: 128,
+        iconClass: 'fa-solid fa-id-card',
+        tone: 'tone-subscription',
+        hint: 'members with valid plan'
+      },
+      {
+        label: 'today checkin',
+        value: 94,
+        iconClass: 'fa-solid fa-door-open',
+        tone: 'tone-checkin',
+        hint: 'visits recorded today'
+      },
+      {
+        label: 'today booking',
+        value: 36,
+        iconClass: 'fa-solid fa-calendar-check',
+        tone: 'tone-booking',
+        hint: 'class seats reserved'
+      },
+      {
+        label: 'pending payment',
+        value: 11,
+        iconClass: 'fa-solid fa-money-bill',
+        tone: 'tone-payment',
+        hint: 'awaiting confirmation'
+      }
     ],
     []
   );
@@ -72,7 +104,7 @@ export default function DashboardPage() {
 
       <section className="stats-grid">
         {stats.map((s) => (
-          <Stat key={s.label} label={s.label} value={s.value} />
+          <Stat key={s.label} label={s.label} value={s.value} iconClass={s.iconClass} tone={s.tone} hint={s.hint} />
         ))}
       </section>
 

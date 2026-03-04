@@ -278,19 +278,95 @@ code {
   border: 1px solid #dfcfba;
   border-radius: 14px;
   background: linear-gradient(180deg, #fffdf8, #fff7ee);
-  padding: 0.95rem;
-  box-shadow: inset 0 1px 0 #ffffff;
+  padding: 1rem;
+  box-shadow: inset 0 1px 0 #ffffff, 0 10px 24px #6e563914;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.stat:hover {
+  transform: translateY(-2px);
+  box-shadow: inset 0 1px 0 #ffffff, 0 14px 28px #6e563922;
+}
+
+.stat-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.7rem;
+}
+
+.stat-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #d8cab5;
+  color: #8f3f1e;
+  background: #fff4e8;
+}
+
+.stat-value-row {
+  margin-top: 0.45rem;
+}
+
+.stat-value-row small {
+  display: block;
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-family: var(--font-mono);
+  margin-top: 0.1rem;
 }
 
 .stat p {
   margin: 0;
-  color: var(--muted);
+  color: #5f503f;
   font-size: 0.85rem;
+  text-transform: capitalize;
 }
 
 .stat h3 {
-  margin: 0.4rem 0 0;
-  font-size: 1.8rem;
+  margin: 0;
+  font-size: clamp(1.55rem, 3vw, 2rem);
+  line-height: 1.1;
+}
+
+.stat.tone-subscription {
+  border-color: #d3bf9f;
+}
+
+.stat.tone-checkin {
+  border-color: #b6d8c6;
+  background: linear-gradient(180deg, #fafffd, #f3fdf8);
+}
+
+.stat.tone-checkin .stat-icon {
+  color: #15724f;
+  background: #eaf8f1;
+  border-color: #b8ddc9;
+}
+
+.stat.tone-booking {
+  border-color: #b7c6e6;
+  background: linear-gradient(180deg, #fbfcff, #f3f6ff);
+}
+
+.stat.tone-booking .stat-icon {
+  color: #345ea9;
+  background: #edf2ff;
+  border-color: #bfd0f5;
+}
+
+.stat.tone-payment {
+  border-color: #e5b9b9;
+  background: linear-gradient(180deg, #fffdfd, #fff4f4);
+}
+
+.stat.tone-payment .stat-icon {
+  color: #9b2f2f;
+  background: #fdeeee;
+  border-color: #efc4c4;
 }
 
 .ops-grid {
