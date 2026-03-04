@@ -59,6 +59,9 @@ export default function AdminPage() {
   const [memberMode, setMemberMode] = useState('list');
   const [transactionMode, setTransactionMode] = useState('list');
   const [feedback, setFeedback] = useState('');
+  const [classQuery, setClassQuery] = useState('');
+  const [trainerQuery, setTrainerQuery] = useState('');
+  const [salesQuery, setSalesQuery] = useState('');
   const [memberQuery, setMemberQuery] = useState('');
   const [transactionQuery, setTransactionQuery] = useState('');
 
@@ -93,6 +96,21 @@ export default function AdminPage() {
   const chain = session?.branch?.chain || 'core';
   const filteredMembers = members.filter((item) =>
     item.member_name.toLowerCase().includes(memberQuery.toLowerCase())
+  );
+  const filteredClasses = classes.filter((item) =>
+    item.class_name.toLowerCase().includes(classQuery.toLowerCase()) ||
+    item.trainer_name.toLowerCase().includes(classQuery.toLowerCase()) ||
+    item.start_at.toLowerCase().includes(classQuery.toLowerCase())
+  );
+  const filteredTrainers = trainers.filter((item) =>
+    item.trainer_name.toLowerCase().includes(trainerQuery.toLowerCase()) ||
+    item.phone.toLowerCase().includes(trainerQuery.toLowerCase()) ||
+    item.specialization.toLowerCase().includes(trainerQuery.toLowerCase())
+  );
+  const filteredSales = sales.filter((item) =>
+    item.sales_name.toLowerCase().includes(salesQuery.toLowerCase()) ||
+    item.channel.toLowerCase().includes(salesQuery.toLowerCase()) ||
+    item.target_amount.toLowerCase().includes(salesQuery.toLowerCase())
   );
   const filteredTransactions = transactions.filter((item) =>
     item.no_transaction.toLowerCase().includes(transactionQuery.toLowerCase()) ||
@@ -335,23 +353,46 @@ export default function AdminPage() {
                 <>
                   <div className="panel-head">
                     <h2>Class list, delete</h2>
-                    <button className="btn" type="button" onClick={() => setClassMode('add')}>
-                      Add New
-                    </button>
+                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginLeft: 'auto' }}>
+                      <input
+                        type="text"
+                        placeholder="Cari class..."
+                        value={classQuery}
+                        onChange={(e) => setClassQuery(e.target.value)}
+                      />
+                      <button className="btn" type="button" onClick={() => setClassMode('add')}>
+                        Add New
+                      </button>
+                    </div>
                   </div>
                   <div className="entity-list">
-                    {classes.map((item) => (
-                      <div className="entity-row" key={item.class_id}>
-                        <div>
-                          <strong>{item.class_name}</strong>
-                          <p>{item.trainer_name} - cap {item.capacity} - {item.start_at}</p>
-                        </div>
-                        <div className="row-actions">
-                          <ViewButton onClick={() => viewClass(item)} />
-                          <DeleteButton onClick={() => setClasses((prev) => prev.filter((v) => v.class_id !== item.class_id))} />
-                        </div>
-                      </div>
-                    ))}
+                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                      <thead>
+                        <tr>
+                          <th style={{ textAlign: 'left', padding: '0.65rem 0.5rem', borderBottom: '1px solid #d1d5db', background: '#f7efe6', fontWeight: 700 }}>Class Name</th>
+                          <th style={{ textAlign: 'left', padding: '0.65rem 0.5rem', borderBottom: '1px solid #d1d5db', background: '#f7efe6', fontWeight: 700 }}>Trainer</th>
+                          <th style={{ textAlign: 'left', padding: '0.65rem 0.5rem', borderBottom: '1px solid #d1d5db', background: '#f7efe6', fontWeight: 700 }}>Capacity</th>
+                          <th style={{ textAlign: 'left', padding: '0.65rem 0.5rem', borderBottom: '1px solid #d1d5db', background: '#f7efe6', fontWeight: 700 }}>Start At</th>
+                          <th style={{ textAlign: 'left', padding: '0.65rem 0.5rem', borderBottom: '1px solid #d1d5db', background: '#f7efe6', fontWeight: 700 }}>Aksi</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredClasses.map((item, idx) => (
+                          <tr key={item.class_id} style={{ backgroundColor: idx % 2 === 0 ? '#ffffff' : '#f7efe6' }}>
+                            <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>{item.class_name}</td>
+                            <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>{item.trainer_name}</td>
+                            <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>{item.capacity}</td>
+                            <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>{item.start_at}</td>
+                            <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>
+                              <div className="row-actions">
+                                <ViewButton onClick={() => viewClass(item)} />
+                                <DeleteButton onClick={() => setClasses((prev) => prev.filter((v) => v.class_id !== item.class_id))} />
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 </>
               ) : (
@@ -381,23 +422,44 @@ export default function AdminPage() {
                 <>
                   <div className="panel-head">
                     <h2>Trainer list, delete</h2>
-                    <button className="btn" type="button" onClick={() => setTrainerMode('add')}>
-                      Add New
-                    </button>
+                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginLeft: 'auto' }}>
+                      <input
+                        type="text"
+                        placeholder="Cari trainer..."
+                        value={trainerQuery}
+                        onChange={(e) => setTrainerQuery(e.target.value)}
+                      />
+                      <button className="btn" type="button" onClick={() => setTrainerMode('add')}>
+                        Add New
+                      </button>
+                    </div>
                   </div>
                   <div className="entity-list">
-                    {trainers.map((item) => (
-                      <div className="entity-row" key={item.trainer_id}>
-                        <div>
-                          <strong>{item.trainer_name}</strong>
-                          <p>{item.phone} - {item.specialization || '-'}</p>
-                        </div>
-                        <div className="row-actions">
-                          <ViewButton onClick={() => viewTrainer(item)} />
-                          <DeleteButton onClick={() => setTrainers((prev) => prev.filter((v) => v.trainer_id !== item.trainer_id))} />
-                        </div>
-                      </div>
-                    ))}
+                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                      <thead>
+                        <tr>
+                          <th style={{ textAlign: 'left', padding: '0.65rem 0.5rem', borderBottom: '1px solid #d1d5db', background: '#f7efe6', fontWeight: 700 }}>Nama Trainer</th>
+                          <th style={{ textAlign: 'left', padding: '0.65rem 0.5rem', borderBottom: '1px solid #d1d5db', background: '#f7efe6', fontWeight: 700 }}>No. HP</th>
+                          <th style={{ textAlign: 'left', padding: '0.65rem 0.5rem', borderBottom: '1px solid #d1d5db', background: '#f7efe6', fontWeight: 700 }}>Specialization</th>
+                          <th style={{ textAlign: 'left', padding: '0.65rem 0.5rem', borderBottom: '1px solid #d1d5db', background: '#f7efe6', fontWeight: 700 }}>Aksi</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredTrainers.map((item, idx) => (
+                          <tr key={item.trainer_id} style={{ backgroundColor: idx % 2 === 0 ? '#ffffff' : '#f7efe6' }}>
+                            <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>{item.trainer_name}</td>
+                            <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>{item.phone}</td>
+                            <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>{item.specialization || '-'}</td>
+                            <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>
+                              <div className="row-actions">
+                                <ViewButton onClick={() => viewTrainer(item)} />
+                                <DeleteButton onClick={() => setTrainers((prev) => prev.filter((v) => v.trainer_id !== item.trainer_id))} />
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 </>
               ) : (
@@ -426,23 +488,44 @@ export default function AdminPage() {
                 <>
                   <div className="panel-head">
                     <h2>Sales list, delete</h2>
-                    <button className="btn" type="button" onClick={() => setSalesMode('add')}>
-                      Add New
-                    </button>
+                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginLeft: 'auto' }}>
+                      <input
+                        type="text"
+                        placeholder="Cari sales..."
+                        value={salesQuery}
+                        onChange={(e) => setSalesQuery(e.target.value)}
+                      />
+                      <button className="btn" type="button" onClick={() => setSalesMode('add')}>
+                        Add New
+                      </button>
+                    </div>
                   </div>
                   <div className="entity-list">
-                    {sales.map((item) => (
-                      <div className="entity-row" key={item.sales_id}>
-                        <div>
-                          <strong>{item.sales_name}</strong>
-                          <p>{item.channel} - target {item.target_amount}</p>
-                        </div>
-                        <div className="row-actions">
-                          <ViewButton onClick={() => viewSales(item)} />
-                          <DeleteButton onClick={() => setSales((prev) => prev.filter((v) => v.sales_id !== item.sales_id))} />
-                        </div>
-                      </div>
-                    ))}
+                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                      <thead>
+                        <tr>
+                          <th style={{ textAlign: 'left', padding: '0.65rem 0.5rem', borderBottom: '1px solid #d1d5db', background: '#f7efe6', fontWeight: 700 }}>Nama Sales</th>
+                          <th style={{ textAlign: 'left', padding: '0.65rem 0.5rem', borderBottom: '1px solid #d1d5db', background: '#f7efe6', fontWeight: 700 }}>Channel</th>
+                          <th style={{ textAlign: 'left', padding: '0.65rem 0.5rem', borderBottom: '1px solid #d1d5db', background: '#f7efe6', fontWeight: 700 }}>Target Amount</th>
+                          <th style={{ textAlign: 'left', padding: '0.65rem 0.5rem', borderBottom: '1px solid #d1d5db', background: '#f7efe6', fontWeight: 700 }}>Aksi</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredSales.map((item, idx) => (
+                          <tr key={item.sales_id} style={{ backgroundColor: idx % 2 === 0 ? '#ffffff' : '#f7efe6' }}>
+                            <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>{item.sales_name}</td>
+                            <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>{item.channel}</td>
+                            <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>{item.target_amount}</td>
+                            <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>
+                              <div className="row-actions">
+                                <ViewButton onClick={() => viewSales(item)} />
+                                <DeleteButton onClick={() => setSales((prev) => prev.filter((v) => v.sales_id !== item.sales_id))} />
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 </>
               ) : (
