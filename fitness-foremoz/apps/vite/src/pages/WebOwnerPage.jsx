@@ -67,6 +67,7 @@ export default function WebOwnerPage() {
   const [saasInfo, setSaasInfo] = useState(null);
   const [userForm, setUserForm] = useState({ full_name: '', email: '', role: '', password: '' });
   const [users, setUsers] = useState([]);
+  const [userMode, setUserMode] = useState('list');
   const [editingUserId, setEditingUserId] = useState('');
   const [editingUser, setEditingUser] = useState({ full_name: '', role: 'staff' });
   const [dangerConfirm, setDangerConfirm] = useState('');
@@ -281,6 +282,7 @@ export default function WebOwnerPage() {
       });
       setFeedback(`owner.user.created ${userForm.full_name}`);
       setUserForm({ full_name: '', email: '', role: '', password: '' });
+      setUserMode('list');
       await refreshOwnerData(setupForm.tenant_id || tenantSeed);
     } catch (error) {
       setFeedback(error.message);
@@ -455,7 +457,13 @@ export default function WebOwnerPage() {
             <button className={`side-item ${menu === 'package' ? 'active' : ''}`} onClick={() => setMenu('package')}>
               Paket dan SaaS
             </button>
-            <button className={`side-item ${menu === 'users' ? 'active' : ''}`} onClick={() => setMenu('users')}>
+            <button
+              className={`side-item ${menu === 'users' ? 'active' : ''}`}
+              onClick={() => {
+                setMenu('users');
+                setUserMode('list');
+              }}
+            >
               User access
             </button>
             <button className={`side-item ${menu === 'danger' ? 'active' : ''}`} onClick={() => setMenu('danger')}>
@@ -544,64 +552,84 @@ export default function WebOwnerPage() {
             {menu === 'users' ? (
               <>
                 <p className="eyebrow">User access</p>
-                <h2>Add/edit/delete user</h2>
-                <div className="entity-list">
-                  {users.map((u) => (
-                    <div className="entity-row" key={u.user_id}>
-                      <div>
-                        {editingUserId === u.user_id ? (
-                          <>
-                            <input value={editingUser.full_name} onChange={(e) => setEditingUser((p) => ({ ...p, full_name: e.target.value }))} />
-                            <select value={editingUser.role} onChange={(e) => setEditingUser((p) => ({ ...p, role: e.target.value }))}>
-                              <option value="admin">admin</option>
-                              <option value="cs">cs</option>
-                              <option value="sales">sales</option>
-                              <option value="pt">pt</option>
-                            </select>
-                          </>
-                        ) : (
-                          <>
-                            <strong>{u.full_name}</strong>
-                            <p>{u.email} - {u.role}</p>
-                          </>
-                        )}
-                      </div>
-                      <div style={{ display: 'flex', gap: '0.5rem' }}>
-                        {editingUserId === u.user_id ? (
-                          <button className="btn" onClick={() => saveEditUser(u.user_id)} disabled={loading}>Save</button>
-                        ) : (
-                          <button className="btn ghost" onClick={() => startEditUser(u)} disabled={loading}>Edit</button>
-                        )}
-                        <button className="btn ghost" onClick={() => deleteUser(u.user_id)} disabled={loading}>Delete</button>
+                {userMode === 'list' ? (
+                  <>
+                    <div className="panel-head">
+                      <h2>Add/edit/delete user</h2>
+                      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginLeft: 'auto' }}>
+                        <button className="btn" type="button" onClick={() => setUserMode('add')} disabled={loading}>
+                          Add New User
+                        </button>
                       </div>
                     </div>
-                  ))}
-                </div>
-                <form className="form" onSubmit={submitUser}>
-                  <label>
-                    full_name
-                    <input value={userForm.full_name} onChange={(e) => setUserForm((p) => ({ ...p, full_name: e.target.value }))} />
-                  </label>
-                  <label>
-                    email
-                    <input type="email" value={userForm.email} onChange={(e) => setUserForm((p) => ({ ...p, email: e.target.value }))} />
-                  </label>
-                  <label>
-                    password
-                    <input type="password" value={userForm.password} onChange={(e) => setUserForm((p) => ({ ...p, password: e.target.value }))} />
-                  </label>
-                  <label>
-                    role
-                    <select value={userForm.role} onChange={(e) => setUserForm((p) => ({ ...p, role: e.target.value }))}>
-                      <option value="">pilih role</option>
-                      <option value="admin">admin</option>
-                      <option value="cs">cs</option>
-                      <option value="sales">sales</option>
-                      <option value="pt">pt</option>
-                    </select>
-                  </label>
-                  <button className="btn" type="submit" disabled={loading}>Add user</button>
-                </form>
+                    <div className="entity-list">
+                      {users.map((u) => (
+                        <div className="entity-row" key={u.user_id}>
+                          <div>
+                            {editingUserId === u.user_id ? (
+                              <>
+                                <input value={editingUser.full_name} onChange={(e) => setEditingUser((p) => ({ ...p, full_name: e.target.value }))} />
+                                <select value={editingUser.role} onChange={(e) => setEditingUser((p) => ({ ...p, role: e.target.value }))}>
+                                  <option value="admin">admin</option>
+                                  <option value="cs">cs</option>
+                                  <option value="sales">sales</option>
+                                  <option value="pt">pt</option>
+                                </select>
+                              </>
+                            ) : (
+                              <>
+                                <strong>{u.full_name}</strong>
+                                <p>{u.email} - {u.role}</p>
+                              </>
+                            )}
+                          </div>
+                          <div style={{ display: 'flex', gap: '0.5rem' }}>
+                            {editingUserId === u.user_id ? (
+                              <button className="btn" onClick={() => saveEditUser(u.user_id)} disabled={loading}>Save</button>
+                            ) : (
+                              <button className="btn ghost" onClick={() => startEditUser(u)} disabled={loading}>Edit</button>
+                            )}
+                            <button className="btn ghost" onClick={() => deleteUser(u.user_id)} disabled={loading}>Delete</button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="panel-head">
+                      <h2>Add user</h2>
+                      <button className="btn ghost" type="button" onClick={() => setUserMode('list')} disabled={loading}>
+                        Back to list
+                      </button>
+                    </div>
+                    <form className="form" onSubmit={submitUser}>
+                      <label>
+                        full_name
+                        <input value={userForm.full_name} onChange={(e) => setUserForm((p) => ({ ...p, full_name: e.target.value }))} />
+                      </label>
+                      <label>
+                        email
+                        <input type="email" value={userForm.email} onChange={(e) => setUserForm((p) => ({ ...p, email: e.target.value }))} />
+                      </label>
+                      <label>
+                        password
+                        <input type="password" value={userForm.password} onChange={(e) => setUserForm((p) => ({ ...p, password: e.target.value }))} />
+                      </label>
+                      <label>
+                        role
+                        <select value={userForm.role} onChange={(e) => setUserForm((p) => ({ ...p, role: e.target.value }))}>
+                          <option value="">pilih role</option>
+                          <option value="admin">admin</option>
+                          <option value="cs">cs</option>
+                          <option value="sales">sales</option>
+                          <option value="pt">pt</option>
+                        </select>
+                      </label>
+                      <button className="btn" type="submit" disabled={loading}>Add user</button>
+                    </form>
+                  </>
+                )}
               </>
             ) : null}
 
