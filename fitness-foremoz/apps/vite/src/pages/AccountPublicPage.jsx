@@ -12,7 +12,7 @@ export default function AccountPublicPage() {
           <Link className="btn small" to={`/a/${account}/member/signin`}>
             Member sign in
           </Link>
-          <Link className="btn small ghost" to="/signin">
+          <Link className="btn small ghost" to={`/a/${account}/signin`}>
             Tenant sign in
           </Link>
         </nav>

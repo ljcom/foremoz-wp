@@ -53,10 +53,14 @@ CREATE TABLE IF NOT EXISTS read.rm_owner_setup (
   gym_name TEXT NOT NULL,
   branch_id TEXT NOT NULL,
   account_slug TEXT NOT NULL,
+  package_plan TEXT NOT NULL DEFAULT 'free',
   status TEXT NOT NULL,
   updated_at TIMESTAMPTZ NOT NULL,
   PRIMARY KEY (tenant_id)
 );
+
+ALTER TABLE read.rm_owner_setup
+  ADD COLUMN IF NOT EXISTS package_plan TEXT NOT NULL DEFAULT 'free';
 
 CREATE TABLE IF NOT EXISTS read.rm_owner_saas (
   tenant_id TEXT NOT NULL,

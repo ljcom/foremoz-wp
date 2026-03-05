@@ -1,7 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { API_BASE_URL, accountPath, clearSession, getAccountSlug, getSession } from '../lib.js';
-import { findMembers } from '../member-data.js';
+import { accountPath, apiJson, clearSession, getAccountSlug, getSession } from '../lib.js';
+import { MEMBER_FIXTURES } from '../member-data.js';
 
 function Stat({ label, value, iconClass, tone, hint }) {
   return (
@@ -25,50 +25,140 @@ export default function DashboardPage() {
   const session = getSession();
   const [searchBy, setSearchBy] = useState('all');
   const [query, setQuery] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [dashboardRow, setDashboardRow] = useState(null);
+  const [members, setMembers] = useState([]);
 
-  const namespace = session?.tenant?.namespace || '-';
-  const chain = session?.branch?.chain || 'core';
   const accountSlug = getAccountSlug(session);
+  const role = String(session?.role || 'admin').toLowerCase();
+  const fullName = session?.user?.fullName || session?.user?.full_name || 'User';
+  const [targetEnv, setTargetEnv] = useState(
+    role === 'sales' ? 'sales' : role === 'pt' ? 'pt' : role === 'cs' ? 'cs' : 'admin'
+  );
+
+  const allowedEnv = useMemo(() => {
+    if (role === 'owner' || role === 'admin') return ['admin', 'cs', 'pt', 'sales'];
+    if (role === 'cs') return ['cs'];
+    if (role === 'pt') return ['pt'];
+    if (role === 'sales') return ['sales'];
+    return [];
+  }, [role]);
+
+  useEffect(() => {
+    async function loadDashboard() {
+      const tenantId = session?.tenant?.id || 'tn_001';
+      const branchId = session?.branch?.id || 'core';
+      try {
+        setLoading(true);
+        setError('');
+        await apiJson('/v1/projections/run', {
+          method: 'POST',
+          body: JSON.stringify({
+            tenant_id: tenantId,
+            branch_id: 'core'
+          })
+        });
+
+        const [dashboardRes, membersRes] = await Promise.all([
+          apiJson(`/v1/read/dashboard?tenant_id=${encodeURIComponent(tenantId)}&branch_id=${encodeURIComponent(branchId)}`),
+          apiJson(`/v1/read/members?tenant_id=${encodeURIComponent(tenantId)}&limit=200`)
+        ]);
+
+        if (!dashboardRes.row && branchId !== 'core') {
+          const coreDashboard = await apiJson(
+            `/v1/read/dashboard?tenant_id=${encodeURIComponent(tenantId)}&branch_id=core`
+          );
+          setDashboardRow(coreDashboard.row || null);
+        } else {
+          setDashboardRow(dashboardRes.row || null);
+        }
+        setMembers(membersRes.rows || []);
+      } catch (err) {
+        setError(err.message || 'failed to load dashboard');
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadDashboard();
+  }, [session?.tenant?.id, session?.branch?.id]);
 
   const stats = useMemo(
     () => [
       {
         label: 'active subscription',
-        value: 128,
+        value: dashboardRow?.active_subscription_count ?? 0,
         iconClass: 'fa-solid fa-id-card',
         tone: 'tone-subscription',
         hint: 'members with valid plan'
       },
       {
         label: 'today checkin',
-        value: 94,
+        value: dashboardRow?.today_checkin_count ?? 0,
         iconClass: 'fa-solid fa-door-open',
         tone: 'tone-checkin',
         hint: 'visits recorded today'
       },
       {
         label: 'today booking',
-        value: 36,
+        value: dashboardRow?.today_booking_count ?? 0,
         iconClass: 'fa-solid fa-calendar-check',
         tone: 'tone-booking',
         hint: 'class seats reserved'
       },
       {
         label: 'pending payment',
-        value: 11,
+        value: dashboardRow?.pending_payment_count ?? 0,
         iconClass: 'fa-solid fa-money-bill',
         tone: 'tone-payment',
         hint: 'awaiting confirmation'
       }
     ],
-    []
+    [dashboardRow]
   );
 
-  const searchResults = useMemo(() => findMembers(searchBy, query), [searchBy, query]);
+  const searchSource = members.length > 0 ? members : MEMBER_FIXTURES;
+  const searchResults = useMemo(() => {
+    const q = String(query || '').trim().toLowerCase();
+    if (!q) return [];
+
+    return searchSource.filter((member) => {
+      const fields = {
+        full_name: String(member.full_name || '').toLowerCase(),
+        phone: String(member.phone || '').toLowerCase(),
+        ktp_number: String(member.ktp_number || '').toLowerCase(),
+        member_id: String(member.member_id || '').toLowerCase()
+      };
+
+      if (searchBy === 'all') {
+        return Object.values(fields).some((value) => value.includes(q));
+      }
+
+      return fields[searchBy]?.includes(q);
+    });
+  }, [searchBy, query, searchSource]);
 
   function signOut() {
     clearSession();
     navigate(`/a/${accountSlug}`, { replace: true });
+  }
+
+  function goToEnv(env) {
+    if (!allowedEnv.includes(env)) return;
+    if (env === 'sales') {
+      navigate(`/a/${accountSlug}/sales/dashboard`);
+      return;
+    }
+    if (env === 'pt') {
+      navigate(`/a/${accountSlug}/pt/dashboard`);
+      return;
+    }
+    if (env === 'cs') {
+      navigate(`/a/${accountSlug}/admin/dashboard`);
+      return;
+    }
+    navigate(`/a/${accountSlug}/admin/dashboard`);
   }
 
   function scanQrCode() {
@@ -84,18 +174,28 @@ export default function DashboardPage() {
         <div>
           <p className="eyebrow">Dashboard</p>
           <h1>{session?.tenant?.gym_name || 'Foremoz Fitness Tenant'}</h1>
-          <p>{session?.user?.email || '-'}</p>
+          <p>Welcome {fullName}</p>
         </div>
         <div className="meta">
-          <code>namespace: {namespace}</code>
-          <code>chain: {chain}</code>
-          <code>api: {API_BASE_URL}</code>
-          <button className="btn ghost" onClick={() => navigate(`/a/${accountSlug}`)}>
-            Jump to account landing page
-          </button>
-          <button className="btn ghost" onClick={() => navigate(accountPath(session, '/admin/settings'))}>
-            Admin
-          </button>
+          {allowedEnv.length > 0 ? (
+            <label>
+              Environment
+              <select
+                value={targetEnv}
+                onChange={(e) => {
+                  const next = e.target.value;
+                  setTargetEnv(next);
+                  goToEnv(next);
+                }}
+              >
+                {allowedEnv.map((env) => (
+                  <option key={env} value={env}>
+                    {env}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
           <button className="btn ghost" onClick={signOut}>
             Sign out
           </button>
@@ -107,6 +207,9 @@ export default function DashboardPage() {
           <Stat key={s.label} label={s.label} value={s.value} iconClass={s.iconClass} tone={s.tone} hint={s.hint} />
         ))}
       </section>
+
+      {loading ? <p className="feedback">Loading dashboard...</p> : null}
+      {error ? <p className="error">{error}</p> : null}
 
       <section className="card search-panel">
         <div className="panel-head">

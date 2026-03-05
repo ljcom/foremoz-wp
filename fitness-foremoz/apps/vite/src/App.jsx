@@ -24,6 +24,7 @@ function roleHome(session) {
   if (role === 'gov') return '/gov';
   if (role === 'sales') return accountPath(session, '/sales/dashboard');
   if (role === 'pt') return accountPath(session, '/pt/dashboard');
+  if (role === 'cs') return accountPath(session, '/admin/dashboard');
   if (role === 'member') return accountPath(session, '/member/portal');
   return accountPath(session, '/admin/dashboard');
 }
@@ -131,6 +132,7 @@ export default function App() {
       <Route path="/member/signup" element={<Navigate to="/a/tn_001/member/signup" replace />} />
       <Route path="/a/:account/member/signin" element={<MemberSignInPage />} />
       <Route path="/member/signin" element={<Navigate to="/a/tn_001/member/signin" replace />} />
+      <Route path="/a/:account/signin" element={<SignInPage />} />
       <Route path="/signin" element={<SignInPage />} />
       <Route path="/onboarding" element={<OnboardingOnly />} />
 
@@ -138,7 +140,7 @@ export default function App() {
         path="/a/:account/admin/dashboard"
         element={
           <ProtectedRoute>
-            <RoleRoute roles={['admin']}>
+            <RoleRoute roles={['admin', 'owner', 'cs']}>
               <RequireAdminOnboarding>
                 <DashboardPage />
               </RequireAdminOnboarding>
@@ -154,7 +156,7 @@ export default function App() {
         path="/a/:account/admin/settings"
         element={
           <ProtectedRoute>
-            <RoleRoute roles={['admin']}>
+            <RoleRoute roles={['admin', 'owner', 'cs']}>
               <RequireAdminOnboarding>
                 <AdminPage />
               </RequireAdminOnboarding>
@@ -168,7 +170,7 @@ export default function App() {
         path="/a/:account/members/:memberId"
         element={
           <ProtectedRoute>
-            <RoleRoute roles={['admin', 'pt']}>
+            <RoleRoute roles={['admin', 'owner', 'cs', 'pt']}>
               <RequireAdminOnboarding>
                 <MemberPage />
               </RequireAdminOnboarding>

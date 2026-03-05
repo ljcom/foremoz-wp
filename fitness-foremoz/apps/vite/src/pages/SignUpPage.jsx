@@ -1,9 +1,19 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AuthLayout from '../components/AuthLayout.jsx';
-import { apiJson, getOwnerSetup, requireField, setSession } from '../lib.js';
+import { apiJson, requireField, setOwnerSetup, setSession } from '../lib.js';
 
 const OPEN_MOCKUP_ACCESS = (import.meta.env.VITE_MOCKUP_OPEN_ACCESS ?? 'false') === 'true';
+
+function generateTenantId(email) {
+  const localPart = String(email || '')
+    .split('@')[0]
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '')
+    .slice(0, 10) || 'tenant';
+  const stamp = Date.now().toString(36);
+  return `tn_${localPart}_${stamp}`;
+}
 
 export default function SignUpPage() {
   const navigate = useNavigate();
@@ -23,10 +33,9 @@ export default function SignUpPage() {
       const fullName = requireField(form.fullName, 'full name');
       const email = requireField(form.email, 'email');
       const password = requireField(form.password, 'password');
+      const tenantId = generateTenantId(email);
 
       if (!OPEN_MOCKUP_ACCESS) {
-        const setup = getOwnerSetup();
-        const tenantId = setup?.tenant_id || 'tn_001';
         const result = await apiJson('/v1/tenant/auth/signup', {
           method: 'POST',
           body: JSON.stringify({
@@ -38,9 +47,11 @@ export default function SignUpPage() {
           })
         });
 
+        // New signup starts a fresh tenant onboarding flow.
+        setOwnerSetup(null);
         setSession({
           isAuthenticated: true,
-          isOnboarded: Boolean(setup?.tenant_id && setup?.branch_id && setup?.account_slug),
+          isOnboarded: false,
           role: 'owner',
           user: {
             fullName: result.user?.full_name || fullName,
@@ -49,16 +60,11 @@ export default function SignUpPage() {
           },
           tenant: {
             id: tenantId,
-            account_slug: setup?.account_slug || tenantId,
+            account_slug: '',
             namespace: `foremoz:fitness:${tenantId}`,
-            gym_name: setup?.gym_name || 'Foremoz Demo Gym'
+            gym_name: ''
           },
-          branch: setup
-            ? {
-              id: setup.branch_id,
-              chain: `branch:${setup.branch_id}`
-            }
-            : { id: 'br_jkt_01', chain: 'branch:br_jkt_01' },
+          branch: { id: '', chain: '' },
           auth: {
             tokenType: result.auth?.token_type || 'Bearer',
             accessToken: result.auth?.access_token || null,
@@ -70,27 +76,19 @@ export default function SignUpPage() {
         return;
       }
 
-      const setup = getOwnerSetup();
-
+      setOwnerSetup(null);
       setSession({
         isAuthenticated: true,
-        isOnboarded: Boolean(setup?.tenant_id && setup?.branch_id && setup?.account_slug),
-        role: 'admin',
+        isOnboarded: false,
+        role: 'owner',
         user: { fullName, email },
-        tenant: setup
-          ? {
-            id: setup.tenant_id,
-            account_slug: setup.account_slug,
-            namespace: `foremoz:fitness:${setup.tenant_id}`,
-            gym_name: setup.gym_name
-          }
-          : null,
-        branch: setup
-          ? {
-            id: setup.branch_id,
-            chain: `branch:${setup.branch_id}`
-          }
-          : null
+        tenant: {
+          id: tenantId,
+          account_slug: '',
+          namespace: `foremoz:fitness:${tenantId}`,
+          gym_name: ''
+        },
+        branch: { id: '', chain: '' }
       });
 
       navigate('/web/owner', { replace: true });

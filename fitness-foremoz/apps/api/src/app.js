@@ -1,7 +1,7 @@
 import express from 'express';
 import { randomUUID } from 'node:crypto';
-import { query, pool } from './db.js';
-import { appendDomainEvent } from './event-store.js';
+import { query, pool, withTx } from './db.js';
+import { appendDomainEvent, resolveNamespaceId } from './event-store.js';
 import { runFitnessProjection } from './projection.js';
 import { config } from './config.js';
 import {
@@ -48,6 +48,31 @@ function ok(res, data) {
 
 function created(res, data) {
   return res.status(201).json({ status: 'PASS', ...data });
+}
+
+function normalizeUserRole(input) {
+  const role = String(input || '').trim().toLowerCase();
+  const allowed = new Set(['admin', 'cs', 'sales', 'pt']);
+  if (!allowed.has(role)) {
+    throw fail(400, 'OWNER_INVALID_ROLE', 'role must be one of: admin, cs, sales, pt');
+  }
+  return role;
+}
+
+function validateAccountSlug(input) {
+  const slug = String(input || '').trim().toLowerCase();
+  const slugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+  if (!slugPattern.test(slug)) {
+    throw fail(
+      400,
+      'OWNER_INVALID_ACCOUNT_SLUG',
+      'account_slug must be URL-safe (lowercase letters, numbers, single hyphen between words)'
+    );
+  }
+  if (slug.length > 32) {
+    throw fail(400, 'OWNER_INVALID_ACCOUNT_SLUG', 'account_slug max length is 32');
+  }
+  return slug;
 }
 
 app.get('/health', async (_req, res) => {
@@ -139,19 +164,48 @@ app.post('/v1/tenant/auth/signup', async (req, res, next) => {
 app.post('/v1/tenant/auth/signin', async (req, res, next) => {
   try {
     const data = req.body || {};
-    const tenantId = data.tenant_id || config.defaultTenantId;
+    const requestedTenantId = data.tenant_id ? String(data.tenant_id).trim() : null;
     const email = normalizeEmail(required(data.email, 'email'));
     const password = String(required(data.password, 'password'));
     const requestedRole = data.role || null;
 
-    const authResult = await query(
-      `select tenant_id, user_id, full_name, email, role, password_hash, status
-       from read.rm_tenant_user_auth
-       where tenant_id = $1 and email = $2
-       limit 1`,
-      [tenantId, email]
-    );
-    const authRow = authResult.rows[0];
+    let authRow = null;
+    if (requestedTenantId) {
+      const authResult = await query(
+        `select tenant_id, user_id, full_name, email, role, password_hash, status
+         from read.rm_tenant_user_auth
+         where tenant_id = $1 and email = $2
+         limit 1`,
+        [requestedTenantId, email]
+      );
+      authRow = authResult.rows[0] || null;
+    }
+
+    // Owner signin from /signin may not know tenant_id yet.
+    if (!authRow && requestedRole === 'owner') {
+      const ownerResult = await query(
+        `select tenant_id, user_id, full_name, email, role, password_hash, status
+         from read.rm_tenant_user_auth
+         where email = $1 and role = 'owner'
+         order by updated_at desc
+         limit 1`,
+        [email]
+      );
+      authRow = ownerResult.rows[0] || null;
+    }
+
+    // Keep backward compatibility for callers that omit tenant_id.
+    if (!authRow && !requestedTenantId && requestedRole !== 'owner') {
+      const authResult = await query(
+        `select tenant_id, user_id, full_name, email, role, password_hash, status
+         from read.rm_tenant_user_auth
+         where tenant_id = $1 and email = $2
+         limit 1`,
+        [config.defaultTenantId, email]
+      );
+      authRow = authResult.rows[0] || null;
+    }
+
     if (!authRow) {
       throw fail(401, 'AUTH_INVALID_CREDENTIALS', 'invalid email or password');
     }
@@ -169,8 +223,9 @@ app.post('/v1/tenant/auth/signin', async (req, res, next) => {
       throw fail(401, 'AUTH_INVALID_CREDENTIALS', 'invalid email or password');
     }
 
+    const actualTenantId = authRow.tenant_id;
     const tokenSigned = signTenantJwt({
-      tenantId,
+      tenantId: actualTenantId,
       userId: authRow.user_id,
       email: authRow.email,
       role: authRow.role
@@ -178,7 +233,7 @@ app.post('/v1/tenant/auth/signin', async (req, res, next) => {
 
     return ok(res, {
       user: {
-        tenant_id: tenantId,
+        tenant_id: actualTenantId,
         user_id: authRow.user_id,
         full_name: authRow.full_name,
         email: authRow.email,
@@ -200,7 +255,7 @@ app.get('/v1/owner/setup', async (req, res, next) => {
   try {
     const tenantId = req.query.tenant_id || config.defaultTenantId;
     const { rows } = await query(
-      `select tenant_id, gym_name, branch_id, account_slug, status, updated_at
+      `select tenant_id, gym_name, branch_id, account_slug, package_plan, status, updated_at
        from read.rm_owner_setup
        where tenant_id = $1
        limit 1`,
@@ -217,7 +272,8 @@ app.post('/v1/owner/setup/save', async (req, res, next) => {
     const data = req.body || {};
     const tenantId = data.tenant_id || config.defaultTenantId;
     const branchId = required(data.branch_id, 'branch_id');
-    const accountSlug = required(data.account_slug, 'account_slug');
+    const accountSlug = validateAccountSlug(required(data.account_slug, 'account_slug'));
+    const packagePlan = data.package_plan || 'free';
     const event = await appendDomainEvent({
       tenantId,
       branchId: null,
@@ -231,6 +287,7 @@ app.post('/v1/owner/setup/save', async (req, res, next) => {
         gym_name: required(data.gym_name, 'gym_name'),
         branch_id: branchId,
         account_slug: accountSlug,
+        package_plan: packagePlan,
         saved_at: new Date().toISOString()
       },
       refs: {}
@@ -267,6 +324,81 @@ app.delete('/v1/owner/setup', async (req, res, next) => {
   }
 });
 
+app.post('/v1/owner/account/delete', async (req, res, next) => {
+  try {
+    const data = req.body || {};
+    const tenantId = required(data.tenant_id || config.defaultTenantId, 'tenant_id');
+    const confirmText = required(data.confirm_text, 'confirm_text');
+    const expectedConfirm = `DELETE ${tenantId}`;
+    if (confirmText !== expectedConfirm) {
+      throw fail(400, 'OWNER_DELETE_CONFIRM_MISMATCH', `confirm_text must be exactly "${expectedConfirm}"`);
+    }
+
+    const namespaceId = resolveNamespaceId(tenantId);
+    const result = await withTx(async (client) => {
+      await client.query(
+        `create table if not exists eventdb_unique_id (
+           namespace_id text not null,
+           id_scope text not null,
+           id_value text not null,
+           reserved_by_event_id text not null,
+           created_at timestamptz not null default now(),
+           primary key (namespace_id, id_scope, id_value)
+         )`
+      );
+
+      const checkpointDelete = await client.query(
+        `delete from read.rm_checkpoint where namespace_id = $1`,
+        [namespaceId]
+      );
+      const chainDelete = await client.query(
+        `delete from eventdb_chain where namespace_id = $1`,
+        [namespaceId]
+      );
+      const uniqueDelete = await client.query(
+        `delete from eventdb_unique_id where namespace_id = $1`,
+        [namespaceId]
+      );
+
+      const readTables = [
+        'read.rm_owner_setup',
+        'read.rm_owner_saas',
+        'read.rm_tenant_user_auth',
+        'read.rm_member_auth',
+        'read.rm_member',
+        'read.rm_subscription_active',
+        'read.rm_attendance_daily',
+        'read.rm_class_availability',
+        'read.rm_booking_list',
+        'read.rm_pt_balance',
+        'read.rm_payment_queue',
+        'read.rm_dashboard'
+      ];
+
+      let readDeleted = 0;
+      for (const tableName of readTables) {
+        const deleted = await client.query(`delete from ${tableName} where tenant_id = $1`, [tenantId]);
+        readDeleted += deleted.rowCount;
+      }
+
+      return {
+        namespace_id: namespaceId,
+        tenant_id: tenantId,
+        deleted: {
+          chain_rows: chainDelete.rowCount,
+          checkpoint_rows: checkpointDelete.rowCount,
+          unique_id_rows: uniqueDelete.rowCount,
+          read_model_rows: readDeleted
+        }
+      };
+    });
+
+    return ok(res, result);
+  } catch (error) {
+    return next(error);
+  }
+});
+
 app.get('/v1/owner/users', async (req, res, next) => {
   try {
     const tenantId = req.query.tenant_id || config.defaultTenantId;
@@ -288,7 +420,7 @@ app.post('/v1/owner/users', async (req, res, next) => {
   try {
     const data = req.body || {};
     const tenantId = data.tenant_id || config.defaultTenantId;
-    const role = data.role || 'staff';
+    const role = normalizeUserRole(required(data.role, 'role'));
     const email = normalizeEmail(required(data.email, 'email'));
     const password = String(required(data.password, 'password'));
     const fullName = required(data.full_name, 'full_name');
@@ -339,7 +471,7 @@ app.patch('/v1/owner/users/:userId', async (req, res, next) => {
     const tenantId = data.tenant_id || config.defaultTenantId;
     const userId = required(req.params.userId, 'userId');
     const fullName = data.full_name || null;
-    const role = data.role || null;
+    const role = data.role ? normalizeUserRole(data.role) : null;
     if (!fullName && !role) {
       throw fail(400, 'BAD_REQUEST', 'full_name or role is required');
     }

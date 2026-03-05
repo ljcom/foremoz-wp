@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import AuthLayout from '../components/AuthLayout.jsx';
 import {
   apiJson,
   getOwnerSetup,
   getSession,
   requireField,
+  setOwnerSetup,
   setSession
 } from '../lib.js';
 
@@ -13,6 +14,8 @@ const OPEN_MOCKUP_ACCESS = (import.meta.env.VITE_MOCKUP_OPEN_ACCESS ?? 'false') 
 
 export default function SignInPage() {
   const navigate = useNavigate();
+  const { account } = useParams();
+  const isAccountSignin = Boolean(account);
   const [form, setForm] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -28,43 +31,69 @@ export default function SignInPage() {
       setLoading(true);
       const email = requireField(form.email, 'email');
       const password = requireField(form.password, 'password');
-      const role = 'owner';
+      const requestedRole = isAccountSignin ? null : 'owner';
 
       if (!OPEN_MOCKUP_ACCESS) {
         const setup = getOwnerSetup();
-        const tenantId = setup?.tenant_id || getSession()?.tenant?.id || 'tn_001';
+        const requestedTenantId = isAccountSignin
+          ? (account || setup?.tenant_id || getSession()?.tenant?.id || 'tn_001')
+          : null;
         const result = await apiJson('/v1/tenant/auth/signin', {
           method: 'POST',
           body: JSON.stringify({
-            tenant_id: tenantId,
+            tenant_id: requestedTenantId,
             email,
             password,
-            role
+            role: requestedRole
           })
         });
-        if ((result.user?.role || role) !== 'owner') {
+        if (!isAccountSignin && (result.user?.role || requestedRole) !== 'owner') {
           throw new Error('Akun ini bukan owner. /signin hanya untuk owner.');
         }
 
+        const signedRole = result.user?.role || (isAccountSignin ? 'admin' : 'owner');
+        const signedTenantId = result.user?.tenant_id || requestedTenantId || setup?.tenant_id || 'tn_001';
+        let setupForTenant = null;
+        try {
+          const setupRes = await apiJson(`/v1/owner/setup?tenant_id=${encodeURIComponent(signedTenantId)}`);
+          setupForTenant = setupRes.row || null;
+        } catch {
+          setupForTenant = null;
+        }
+        const activeSetup = setupForTenant || (setup?.tenant_id === signedTenantId ? setup : null);
+        if (setupForTenant?.tenant_id === signedTenantId) {
+          setOwnerSetup({
+            gym_name: setupForTenant.gym_name,
+            tenant_id: setupForTenant.tenant_id,
+            branch_id: setupForTenant.branch_id,
+            account_slug: setupForTenant.account_slug,
+            package_plan: setupForTenant.package_plan || 'free'
+          });
+        } else if (!activeSetup) {
+          setOwnerSetup(null);
+        }
+        const isOnboarded = isAccountSignin
+          ? true
+          : Boolean(activeSetup?.tenant_id === signedTenantId && activeSetup?.branch_id && activeSetup?.account_slug);
+
         const nextSession = {
-          ...(getSession() || {}),
           isAuthenticated: true,
-          isOnboarded: Boolean(setup?.tenant_id && setup?.branch_id && setup?.account_slug),
-          role: 'owner',
+          isOnboarded,
+          role: signedRole,
           user: {
             fullName: result.user?.full_name || 'Operator',
             email: result.user?.email || email,
             userId: result.user?.user_id || null
           },
           tenant: {
-            id: tenantId,
-            account_slug: setup?.account_slug || tenantId,
-            namespace: `foremoz:fitness:${tenantId}`,
-            gym_name: setup?.gym_name || 'Foremoz Demo Gym'
+            id: signedTenantId,
+            account_slug: activeSetup?.account_slug || account || signedTenantId,
+            namespace: `foremoz:fitness:${signedTenantId}`,
+            gym_name: activeSetup?.gym_name || 'Foremoz Demo Gym'
           },
           branch: {
-            id: setup?.branch_id || 'br_jkt_01',
-            chain: `branch:${setup?.branch_id || 'br_jkt_01'}`
+            id: activeSetup?.branch_id || 'br_jkt_01',
+            chain: `branch:${activeSetup?.branch_id || 'br_jkt_01'}`
           },
           auth: {
             tokenType: result.auth?.token_type || 'Bearer',
@@ -73,7 +102,19 @@ export default function SignInPage() {
           }
         };
         setSession(nextSession);
-        navigate('/web/owner', { replace: true });
+        if (!isAccountSignin) {
+          navigate('/web/owner', { replace: true });
+          return;
+        }
+        if (signedRole === 'sales') {
+          navigate(`/a/${nextSession.tenant.account_slug}/sales/dashboard`, { replace: true });
+          return;
+        }
+        if (signedRole === 'pt') {
+          navigate(`/a/${nextSession.tenant.account_slug}/pt/dashboard`, { replace: true });
+          return;
+        }
+        navigate(`/a/${nextSession.tenant.account_slug}/admin/dashboard`, { replace: true });
         return;
       }
 
@@ -91,7 +132,6 @@ export default function SignInPage() {
         gym_name: setup?.gym_name || 'Foremoz Demo Gym'
       };
       const nextSession = {
-        ...(current || {}),
         isAuthenticated: true,
         isOnboarded,
         role: 'owner',
@@ -104,7 +144,7 @@ export default function SignInPage() {
       };
 
       setSession(nextSession);
-      navigate('/web/owner', { replace: true });
+      navigate(isAccountSignin ? `/a/${nextSession.tenant.account_slug}/admin/dashboard` : '/web/owner', { replace: true });
     } catch (err) {
       setError(err.message);
     } finally {
@@ -114,15 +154,17 @@ export default function SignInPage() {
 
   return (
     <AuthLayout
-      title="Owner sign in"
-      subtitle="Sign in as owner to manage tenant setup and access."
+      title={isAccountSignin ? `Tenant sign in - ${account}` : 'Owner sign in'}
+      subtitle={
+        isAccountSignin
+          ? 'Sign in as tenant user (admin, CS, sales, PT).'
+          : 'Sign in as owner to manage tenant setup and access.'
+      }
       alternateHref="/signup"
-      alternateText="Need owner account? Create one"
+      alternateText={isAccountSignin ? 'Need owner account? Create one' : 'Need owner account? Create one'}
     >
       <form className="card form" onSubmit={submit}>
-        {OPEN_MOCKUP_ACCESS ? (
-          <p className="error">Mock mode aktif: owner signin ini tidak memverifikasi akun ke backend.</p>
-        ) : null}
+        {OPEN_MOCKUP_ACCESS ? <p className="error">Mock mode aktif: signin ini tidak memverifikasi akun ke backend.</p> : null}
         <label>
           Email
           <input name="email" type="email" value={form.email} onChange={handleChange} />

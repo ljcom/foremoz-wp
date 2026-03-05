@@ -46,6 +46,7 @@ JWT_EXPIRES_IN_SEC=86400
 - `GET /v1/owner/setup`
 - `POST /v1/owner/setup/save`
 - `DELETE /v1/owner/setup`
+- `POST /v1/owner/account/delete` (danger zone)
 - `GET /v1/owner/users`
 - `POST /v1/owner/users`
 - `PATCH /v1/owner/users/:userId`
