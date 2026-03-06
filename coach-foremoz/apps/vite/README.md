@@ -1,13 +1,21 @@
-# Coach Web (Planned)
+# Coach Web Mockup
 
-Primary routes (coach POV):
-- `/` and `/<coach_handle>` microsite.
-- `/<coach_handle>/classes`
-- `/<coach_handle>/locations`
-- `/<coach_handle>/subscribe`
-- `/<coach_handle>/join/<class_slug>`
-- `/<coach_handle>/team`
-- `/signin`
-- `/workspace`
-- `/a/<account>`
-- `/a/<account>/dashboard/pt`
+Mockup front-end untuk `coach.foremoz.com` dengan fokus:
+- coach microsite growth funnel.
+- share channel attribution (WA/IG/TikTok).
+- class join by location.
+- support team workflow.
+- pricing tiers dengan free plan minimum.
+
+## Run
+
+```bash
+npm install --include=dev
+npm run dev
+```
+
+## Build
+
+```bash
+npm run build
+```
