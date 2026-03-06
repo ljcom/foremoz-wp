@@ -20,6 +20,7 @@ Foremoz Coach berfokus pada dua hal:
   - `member invite friend`
 - attribution tracking by source/channel/content.
 - support team feature untuk registrasi ulang di lokasi (higher service tier).
+- packaging komersial bertingkat dengan free tier minimum yang selalu tersedia.
 
 ## Domain Model Emphasis
 

@@ -5,6 +5,7 @@
 - `coach.foremoz.com/<coach_handle>` public page.
 - profile + offer publishing.
 - basic subscribe CTA.
+- free tier launch (minimum fitur wajib tersedia).
 
 ## Phase 2 - Social Share and Attribution
 
@@ -36,3 +37,9 @@
 - coach KPI dashboard.
 - retention/conversion baseline.
 - governance hooks untuk tenant/gov policy.
+
+## Phase 7 - Pricing Maturity
+
+- tier packaging refinement: `free`, `starter`, `growth`, `pro/team`.
+- billing + upgrade self-serve dari workspace coach.
+- pricing experiment framework dengan guardrail conversion dan churn.

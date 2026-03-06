@@ -57,6 +57,12 @@ Mapping istilah coach management:
 - tim melakukan registrasi ulang member di lokasi.
 - tim membantu check-in, validasi data, dan follow-up conversion onsite.
 
+### 3.5 Pricing and Packaging
+
+- tersedia free tier dengan fitur minimum untuk semua coach baru.
+- tier berbayar menambah capability growth, operasional tim, dan analytics.
+- upgrade dari free ke tier berbayar harus self-serve dari workspace coach.
+
 ## 4. Multi-tenant Model
 
 - namespace: `foremoz:coach:<tenant_id>`

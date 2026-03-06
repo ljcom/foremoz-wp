@@ -40,6 +40,7 @@ Walaupun beberapa capability overlap dengan fitness workspace, jalur akses dan f
 - invitation network (`coach-member-studio`).
 - conversion tracking dari source link/channel.
 - support team mode untuk registrasi ulang onsite pada paket service tinggi.
+- pricing tiers dengan free plan minimum sebagai entry default.
 
 ## Why Event-driven
 

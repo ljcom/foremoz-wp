@@ -30,6 +30,7 @@ Foremoz Coach bukan:
 5. Branch partition via chain.
 6. `coach.foremoz.com` adalah primary domain untuk growth funnel coach.
 7. Support team flow tersedia sebagai capability tiered service.
+8. Model komersial wajib menyediakan free tier permanen untuk minimum fitur.
 
 ## 4. Identity Domain Commitments
 

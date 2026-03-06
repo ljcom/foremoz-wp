@@ -6,6 +6,10 @@
 - subscription: proses join paket/layanan coach dari micro-site.
 - invitation network: pertumbuhan jaringan melalui undangan antar actor.
 - support team: tim operasional coach untuk registrasi ulang dan bantuan onsite.
+- rbac canonical roles: `owner`, `admin`, `sales`, `cs`, `pt`, `member`, `gov`.
+- partner coach: istilah bisnis, dipetakan ke role `pt`.
+- free tier: paket gratis permanen dengan minimum fitur.
+- starter/growth/pro-team: paket berbayar bertingkat sesuai kebutuhan scale coach.
 - namespace: tenant-isolated event domain (`foremoz:coach:<tenant_id>`).
 - chain: stream partition (`branch:<branch_id>` atau `core`).
 - event: immutable record di EventDB write layer.
