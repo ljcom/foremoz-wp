@@ -1,6 +1,14 @@
 import { spawn } from 'node:child_process';
+import { existsSync } from 'node:fs';
+import path from 'node:path';
 
-const npmCmd = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+const npmCmd = process.execPath;
+const npmCliFallback = path.join(path.dirname(process.execPath), 'node_modules', 'npm', 'bin', 'npm-cli.js');
+const npmCliPath = process.env.npm_execpath || (existsSync(npmCliFallback) ? npmCliFallback : null);
+
+if (!npmCliPath) {
+  throw new Error('Unable to locate npm CLI. Ensure npm is installed and available in this environment.');
+}
 
 const APPS = {
   fitness: {
@@ -37,7 +45,7 @@ const APPS = {
 
 function runNpm(args, env = process.env) {
   return new Promise((resolve, reject) => {
-    const child = spawn(npmCmd, args, {
+    const child = spawn(npmCmd, [npmCliPath, ...args], {
       stdio: 'inherit',
       env
     });
@@ -52,7 +60,7 @@ function runNpm(args, env = process.env) {
 }
 
 function spawnNpm(args, env = process.env) {
-  return spawn(npmCmd, args, {
+  return spawn(npmCmd, [npmCliPath, ...args], {
     stdio: 'inherit',
     env
   });
@@ -74,7 +82,7 @@ async function setupApp(appName) {
   const app = appRuntime(appName);
   const env = { ...process.env, DATABASE_URL: app.dbUrl };
   console.log(`[setup:${appName}] DATABASE_URL=${app.dbUrl}`);
-  await runNpm(['--prefix', './eventdb', 'run', 'db:schema'], env);
+  await runNpm(['--prefix', './eventdb/mvp-node', 'run', 'db:schema'], env);
   await runNpm(['--prefix', app.apiPrefix, 'run', 'db:read-model'], env);
 }
 
@@ -86,7 +94,10 @@ function devApp(appName) {
   );
 
   return [
-    spawnNpm(['--prefix', './eventdb', 'run', 'dev'], { ...baseEnv, PORT: app.eventdbPort }),
+    spawnNpm(['--prefix', './eventdb/mvp-node', 'run', 'dev'], {
+      ...baseEnv,
+      PORT: app.eventdbPort
+    }),
     spawnNpm(['--prefix', app.apiPrefix, 'run', 'dev'], { ...baseEnv, PORT: app.apiPort }),
     spawnNpm(['--prefix', app.vitePrefix, 'run', 'dev'], process.env)
   ];
