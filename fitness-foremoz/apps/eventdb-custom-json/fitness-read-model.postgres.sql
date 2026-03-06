@@ -15,6 +15,8 @@ CREATE TABLE IF NOT EXISTS read.rm_member (
   member_id TEXT NOT NULL,
   full_name TEXT NOT NULL,
   phone TEXT,
+  email TEXT,
+  photo_url TEXT,
   status TEXT NOT NULL,
   registered_at TIMESTAMPTZ NOT NULL,
   updated_at TIMESTAMPTZ NOT NULL,
@@ -58,9 +60,6 @@ CREATE TABLE IF NOT EXISTS read.rm_owner_setup (
   updated_at TIMESTAMPTZ NOT NULL,
   PRIMARY KEY (tenant_id)
 );
-
-ALTER TABLE read.rm_owner_setup
-  ADD COLUMN IF NOT EXISTS package_plan TEXT NOT NULL DEFAULT 'free';
 
 CREATE TABLE IF NOT EXISTS read.rm_owner_saas (
   tenant_id TEXT NOT NULL,
@@ -125,6 +124,17 @@ CREATE TABLE IF NOT EXISTS read.rm_booking_list (
   PRIMARY KEY (tenant_id, booking_id)
 );
 
+CREATE TABLE IF NOT EXISTS read.rm_member_self_booking (
+  tenant_id TEXT NOT NULL,
+  member_id TEXT NOT NULL,
+  booking_id TEXT NOT NULL,
+  booking_type TEXT NOT NULL,
+  status TEXT NOT NULL,
+  booked_at TIMESTAMPTZ NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL,
+  PRIMARY KEY (tenant_id, booking_id)
+);
+
 CREATE TABLE IF NOT EXISTS read.rm_pt_balance (
   tenant_id TEXT NOT NULL,
   branch_id TEXT NOT NULL,
@@ -137,6 +147,18 @@ CREATE TABLE IF NOT EXISTS read.rm_pt_balance (
   last_session_at TIMESTAMPTZ,
   updated_at TIMESTAMPTZ NOT NULL,
   PRIMARY KEY (tenant_id, pt_package_id)
+);
+
+CREATE TABLE IF NOT EXISTS read.rm_pt_activity_log (
+  tenant_id TEXT NOT NULL,
+  activity_id TEXT NOT NULL,
+  member_id TEXT NOT NULL,
+  trainer_id TEXT,
+  session_id TEXT,
+  activity_note TEXT,
+  session_at TIMESTAMPTZ,
+  updated_at TIMESTAMPTZ NOT NULL,
+  PRIMARY KEY (tenant_id, activity_id)
 );
 
 CREATE TABLE IF NOT EXISTS read.rm_payment_queue (
@@ -157,6 +179,90 @@ CREATE TABLE IF NOT EXISTS read.rm_payment_queue (
   PRIMARY KEY (tenant_id, payment_id)
 );
 
+CREATE TABLE IF NOT EXISTS read.rm_payment_history (
+  tenant_id TEXT NOT NULL,
+  payment_id TEXT NOT NULL,
+  member_id TEXT NOT NULL,
+  amount NUMERIC(14,2) NOT NULL,
+  currency TEXT NOT NULL,
+  status TEXT NOT NULL,
+  recorded_at TIMESTAMPTZ NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL,
+  PRIMARY KEY (tenant_id, payment_id)
+);
+
+CREATE TABLE IF NOT EXISTS read.rm_sales_prospect (
+  tenant_id TEXT NOT NULL,
+  prospect_id TEXT NOT NULL,
+  full_name TEXT NOT NULL,
+  phone TEXT,
+  source TEXT,
+  stage TEXT NOT NULL,
+  owner_sales_id TEXT,
+  converted_member_id TEXT,
+  updated_at TIMESTAMPTZ NOT NULL,
+  PRIMARY KEY (tenant_id, prospect_id)
+);
+
+CREATE TABLE IF NOT EXISTS read.rm_tenant_performance (
+  tenant_id TEXT NOT NULL,
+  performance_date DATE NOT NULL,
+  mrr_amount NUMERIC(14,2) NOT NULL DEFAULT 0,
+  active_member_count INTEGER NOT NULL DEFAULT 0,
+  checkin_30d_count INTEGER NOT NULL DEFAULT 0,
+  updated_at TIMESTAMPTZ NOT NULL,
+  PRIMARY KEY (tenant_id, performance_date)
+);
+
+CREATE TABLE IF NOT EXISTS read.rm_tenant_policy (
+  tenant_id TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'active',
+  price_monthly NUMERIC(14,2),
+  free_months_granted INTEGER NOT NULL DEFAULT 0,
+  promotion_code TEXT,
+  promotion_active BOOLEAN NOT NULL DEFAULT FALSE,
+  updated_at TIMESTAMPTZ NOT NULL,
+  PRIMARY KEY (tenant_id)
+);
+
+CREATE TABLE IF NOT EXISTS read.rm_actor_network (
+  tenant_id TEXT NOT NULL,
+  relation_id TEXT NOT NULL,
+  left_actor_kind TEXT NOT NULL,
+  left_actor_id TEXT NOT NULL,
+  right_actor_kind TEXT NOT NULL,
+  right_actor_id TEXT NOT NULL,
+  status TEXT NOT NULL,
+  source_invitation_id TEXT,
+  updated_at TIMESTAMPTZ NOT NULL,
+  PRIMARY KEY (tenant_id, relation_id)
+);
+
+CREATE TABLE IF NOT EXISTS read.rm_invitation_queue (
+  tenant_id TEXT NOT NULL,
+  invitation_id TEXT NOT NULL,
+  inviter_actor_kind TEXT NOT NULL,
+  invitee_actor_kind TEXT NOT NULL,
+  target_contact TEXT,
+  channel TEXT,
+  status TEXT NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL,
+  PRIMARY KEY (tenant_id, invitation_id)
+);
+
+CREATE TABLE IF NOT EXISTS read.rm_passport_profile (
+  tenant_id TEXT NOT NULL,
+  passport_id TEXT NOT NULL,
+  member_id TEXT NOT NULL,
+  sport_interests JSONB,
+  training_history_summary JSONB,
+  coach_relation_count INTEGER NOT NULL DEFAULT 0,
+  studio_relation_count INTEGER NOT NULL DEFAULT 0,
+  performance_milestone_count INTEGER NOT NULL DEFAULT 0,
+  updated_at TIMESTAMPTZ NOT NULL,
+  PRIMARY KEY (tenant_id, passport_id)
+);
+
 CREATE TABLE IF NOT EXISTS read.rm_dashboard (
   tenant_id TEXT NOT NULL,
   branch_id TEXT NOT NULL,
@@ -171,9 +277,9 @@ CREATE TABLE IF NOT EXISTS read.rm_dashboard (
 
 CREATE INDEX IF NOT EXISTS idx_rm_member_branch ON read.rm_member (tenant_id, branch_id, status);
 CREATE INDEX IF NOT EXISTS idx_rm_member_auth_email ON read.rm_member_auth (tenant_id, email);
-CREATE INDEX IF NOT EXISTS idx_rm_tenant_user_auth_email ON read.rm_tenant_user_auth (tenant_id, email, role);
-CREATE INDEX IF NOT EXISTS idx_rm_tenant_user_auth_status ON read.rm_tenant_user_auth (tenant_id, status, role);
-CREATE INDEX IF NOT EXISTS idx_rm_owner_setup_slug ON read.rm_owner_setup (account_slug, status);
 CREATE INDEX IF NOT EXISTS idx_rm_subscription_member ON read.rm_subscription_active (tenant_id, member_id, status, end_date);
 CREATE INDEX IF NOT EXISTS idx_rm_booking_class ON read.rm_booking_list (tenant_id, class_id, status, booked_at);
 CREATE INDEX IF NOT EXISTS idx_rm_payment_status ON read.rm_payment_queue (tenant_id, status, recorded_at);
+CREATE INDEX IF NOT EXISTS idx_rm_sales_stage ON read.rm_sales_prospect (tenant_id, stage, updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_rm_pt_activity_member ON read.rm_pt_activity_log (tenant_id, member_id, session_at DESC);
+CREATE INDEX IF NOT EXISTS idx_rm_invitation_status ON read.rm_invitation_queue (tenant_id, status, updated_at DESC);

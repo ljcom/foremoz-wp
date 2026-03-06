@@ -1,0 +1,32 @@
+{
+  "projector_name": "coach_v1",
+  "namespace_format": "foremoz:coach:<tenant_id>",
+  "chain_format": "branch:<branch_id>|core",
+  "event_types": {
+    "coach.profile.published": ["read.rm_coach_profile_public"],
+    "coach.offer.published": ["read.rm_coach_offer_catalog"],
+    "coach.microsite.link.shared": ["read.rm_subscription_funnel"],
+    "coach.campaign.clicked": ["read.rm_subscription_funnel"],
+    "subscription.created": ["read.rm_subscription_funnel", "read.rm_coach_performance"],
+
+    "class.scheduled": ["read.rm_location_class_list", "read.rm_coach_performance"],
+    "location.class.assigned": ["read.rm_location_class_list"],
+    "class.booking.created": ["read.rm_location_class_list", "read.rm_coach_performance"],
+    "class.booking.canceled": ["read.rm_location_class_list", "read.rm_coach_performance"],
+    "class.attendance.confirmed": ["read.rm_coach_performance"],
+
+    "invitation.sent": ["read.rm_invitation_queue", "read.rm_actor_network"],
+    "invitation.accepted": ["read.rm_invitation_queue", "read.rm_actor_network"],
+    "invitation.rejected": ["read.rm_invitation_queue", "read.rm_actor_network"],
+    "coach.member.linked": ["read.rm_actor_network"],
+    "coach.studio.linked": ["read.rm_actor_network"],
+
+    "coach.team.member.added": ["read.rm_support_team"],
+    "coach.team.member.removed": ["read.rm_support_team"],
+    "member.reregistration.logged": ["read.rm_support_team", "read.rm_coach_performance"],
+    "onsite.checkin.assisted": ["read.rm_support_team", "read.rm_coach_performance"],
+
+    "pricing.plan.changed": ["read.rm_pricing_plan_state"],
+    "billing.subscription.updated": ["read.rm_pricing_plan_state"]
+  }
+}

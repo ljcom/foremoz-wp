@@ -1,0 +1,8 @@
+{
+  "name": "foremoz-coach-workspace",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "spec:check": "echo 'spec baseline ready'"
+  }
+}

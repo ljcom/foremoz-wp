@@ -64,7 +64,6 @@ export default function WebLandingPage() {
         <div className="brand">Foremoz Fitness</div>
         <nav>
           <Link to="/signin">Sign in</Link>
-          {isMockupOpenAccess ? <Link to="/gov">Gov</Link> : null}
           <Link to="/web/owner">Owner</Link>
           {isMockupOpenAccess ? (
             <Link className="btn small" to="/signup">

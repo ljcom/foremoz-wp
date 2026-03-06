@@ -1,25 +1,66 @@
 {
-  "projector_name": "fitness_v1",
+  "projector_name": "fitness_v2",
   "namespace_format": "foremoz:fitness:<tenant_id>",
   "chain_format": "branch:<branch_id>|core",
   "event_types": {
-    "member.registered": ["read.rm_member"],
-    "member.updated": ["read.rm_member"],
+    "member.registered": ["read.rm_member", "read.rm_dashboard"],
+    "member.updated": ["read.rm_member", "read.rm_dashboard"],
+    "member.auth.registered": ["read.rm_member_auth"],
+    "member.auth.password.changed": ["read.rm_member_auth"],
+    "member.profile.updated": ["read.rm_member"],
+    "member.password.changed": ["read.rm_member_auth"],
+    "member.photo.updated": ["read.rm_member"],
+    "member.self_booking.pt.created": ["read.rm_member_self_booking", "read.rm_pt_balance"],
+
     "subscription.activated": ["read.rm_subscription_active", "read.rm_dashboard"],
     "subscription.extended": ["read.rm_subscription_active", "read.rm_dashboard"],
     "subscription.frozen": ["read.rm_subscription_active", "read.rm_dashboard"],
     "subscription.unfrozen": ["read.rm_subscription_active", "read.rm_dashboard"],
     "subscription.expired": ["read.rm_subscription_active", "read.rm_dashboard"],
-    "payment.recorded": ["read.rm_payment_queue", "read.rm_dashboard"],
-    "payment.confirmed": ["read.rm_payment_queue", "read.rm_dashboard"],
-    "payment.rejected": ["read.rm_payment_queue", "read.rm_dashboard"],
+
+    "payment.recorded": ["read.rm_payment_queue", "read.rm_payment_history", "read.rm_dashboard"],
+    "payment.confirmed": ["read.rm_payment_queue", "read.rm_payment_history", "read.rm_dashboard"],
+    "payment.rejected": ["read.rm_payment_queue", "read.rm_payment_history", "read.rm_dashboard"],
+
     "checkin.logged": ["read.rm_attendance_daily", "read.rm_dashboard"],
-    "class.scheduled": ["read.rm_class_availability"],
-    "class.booking.created": ["read.rm_booking_list", "read.rm_class_availability", "read.rm_dashboard"],
-    "class.booking.canceled": ["read.rm_booking_list", "read.rm_class_availability", "read.rm_dashboard"],
-    "class.attendance.confirmed": ["read.rm_booking_list"],
-    "pt.package.assigned": ["read.rm_pt_balance"],
-    "pt.session.booked": ["read.rm_pt_balance"],
-    "pt.session.completed": ["read.rm_pt_balance"]
+
+    "class.scheduled": ["read.rm_class_availability", "read.rm_dashboard"],
+    "class.booking.created": ["read.rm_booking_list", "read.rm_class_availability", "read.rm_member_self_booking", "read.rm_dashboard"],
+    "class.booking.canceled": ["read.rm_booking_list", "read.rm_class_availability", "read.rm_member_self_booking", "read.rm_dashboard"],
+    "class.attendance.confirmed": ["read.rm_booking_list", "read.rm_dashboard"],
+
+    "pt.package.assigned": ["read.rm_pt_balance", "read.rm_dashboard"],
+    "pt.session.booked": ["read.rm_pt_balance", "read.rm_pt_activity_log", "read.rm_dashboard"],
+    "pt.session.completed": ["read.rm_pt_balance", "read.rm_pt_activity_log", "read.rm_dashboard"],
+    "pt.activity.logged": ["read.rm_pt_activity_log", "read.rm_dashboard"],
+
+    "sales.prospect.created": ["read.rm_sales_prospect"],
+    "sales.prospect.updated": ["read.rm_sales_prospect"],
+    "sales.prospect.followup.logged": ["read.rm_sales_prospect"],
+    "sales.prospect.converted": ["read.rm_sales_prospect", "read.rm_dashboard"],
+
+    "owner.tenant.setup.saved": ["read.rm_owner_setup"],
+    "owner.tenant.setup.deleted": ["read.rm_owner_setup"],
+    "owner.user.created": ["read.rm_tenant_user_auth"],
+    "owner.user.updated": ["read.rm_tenant_user_auth"],
+    "owner.user.deleted": ["read.rm_tenant_user_auth"],
+    "owner.saas.extended": ["read.rm_owner_saas"],
+
+    "gov.tenant.suspended": ["read.rm_tenant_policy", "read.rm_tenant_performance"],
+    "gov.tenant.unsuspended": ["read.rm_tenant_policy", "read.rm_tenant_performance"],
+    "gov.tenant.free_granted": ["read.rm_tenant_policy", "read.rm_tenant_performance"],
+    "gov.tenant.price.updated": ["read.rm_tenant_policy", "read.rm_tenant_performance"],
+    "gov.tenant.promotion.updated": ["read.rm_tenant_policy", "read.rm_tenant_performance"],
+
+    "passport.created": ["read.rm_passport_profile"],
+    "passport.sport_interest.updated": ["read.rm_passport_profile"],
+
+    "invitation.sent": ["read.rm_actor_network", "read.rm_invitation_queue"],
+    "invitation.accepted": ["read.rm_actor_network", "read.rm_invitation_queue"],
+    "invitation.rejected": ["read.rm_actor_network", "read.rm_invitation_queue"],
+    "coach.studio.linked": ["read.rm_actor_network"],
+    "coach.member.linked": ["read.rm_actor_network"],
+    "member.studio.joined": ["read.rm_actor_network"],
+    "member.studio.left": ["read.rm_actor_network"]
   }
 }

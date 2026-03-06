@@ -1,0 +1,56 @@
+{
+  "name": "foremoz-passport-read-model-v1",
+  "namespace_format": "foremoz:passport:<tenant_id>",
+  "chain_format": "branch:<branch_id>|core",
+  "checkpoint_table": "read.rm_checkpoint",
+  "tables": [
+    {
+      "name": "read.rm_passport_profile",
+      "primary_key": ["tenant_id", "passport_id"],
+      "columns": ["tenant_id", "passport_id", "member_id", "full_name", "sport_interests", "updated_at"],
+      "query_use": "passport identity profile"
+    },
+    {
+      "name": "read.rm_passport_subscriptions",
+      "primary_key": ["tenant_id", "subscription_id"],
+      "columns": ["tenant_id", "subscription_id", "passport_id", "coach_id", "studio_id", "plan_id", "status", "updated_at"],
+      "query_use": "multi-coach and multi-studio subscription portfolio"
+    },
+    {
+      "name": "read.rm_passport_performance_log",
+      "primary_key": ["tenant_id", "metric_log_id"],
+      "columns": ["tenant_id", "metric_log_id", "passport_id", "metric_category", "metric_value_json", "measured_at", "created_at"],
+      "query_use": "personal performance timeline"
+    },
+    {
+      "name": "read.rm_passport_milestone",
+      "primary_key": ["tenant_id", "milestone_id"],
+      "columns": ["tenant_id", "milestone_id", "passport_id", "title", "detail", "recorded_at", "updated_at"],
+      "query_use": "personal milestones"
+    },
+    {
+      "name": "read.rm_passport_consent",
+      "primary_key": ["tenant_id", "consent_id"],
+      "columns": ["tenant_id", "consent_id", "passport_id", "coach_id", "metric_categories", "status", "granted_at", "revoked_at", "updated_at"],
+      "query_use": "consent state tracking"
+    },
+    {
+      "name": "read.rm_coach_shared_view",
+      "primary_key": ["tenant_id", "passport_id", "coach_id", "metric_category"],
+      "columns": ["tenant_id", "passport_id", "coach_id", "metric_category", "latest_metric_value_json", "latest_measured_at", "updated_at"],
+      "query_use": "consent-filtered coach view"
+    },
+    {
+      "name": "read.rm_passport_network",
+      "primary_key": ["tenant_id", "relation_id"],
+      "columns": ["tenant_id", "relation_id", "left_actor_kind", "left_actor_id", "right_actor_kind", "right_actor_id", "status", "updated_at"],
+      "query_use": "member active network relations"
+    },
+    {
+      "name": "read.rm_passport_plan_state",
+      "primary_key": ["tenant_id", "passport_id"],
+      "columns": ["tenant_id", "passport_id", "plan_code", "plan_status", "effective_at", "updated_at"],
+      "query_use": "freemium plan status"
+    }
+  ]
+}

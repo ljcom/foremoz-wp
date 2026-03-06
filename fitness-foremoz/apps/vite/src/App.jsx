@@ -14,14 +14,12 @@ import SalesPage from './pages/SalesPage.jsx';
 import SalesProspectNewPage from './pages/SalesProspectNewPage.jsx';
 import SalesProspectEditPage from './pages/SalesProspectEditPage.jsx';
 import PtPage from './pages/PtPage.jsx';
-import GovPage from './pages/GovPage.jsx';
 import { accountPath, getSession } from './lib.js';
 
 const OPEN_MOCKUP_ACCESS = (import.meta.env.VITE_MOCKUP_OPEN_ACCESS ?? 'false') === 'true';
 
 function roleHome(session) {
   const role = session?.role || 'admin';
-  if (role === 'gov') return '/gov';
   if (role === 'sales') return accountPath(session, '/sales/dashboard');
   if (role === 'pt') return accountPath(session, '/pt/dashboard');
   if (role === 'cs') return accountPath(session, '/cs/dashboard');
@@ -121,16 +119,6 @@ export default function App() {
       <Route path="/" element={<Navigate to="/web" replace />} />
       <Route path="/web" element={<WebLandingPage />} />
       <Route path="/web/owner" element={<WebOwnerPage />} />
-      <Route
-        path="/gov"
-        element={
-          <ProtectedRoute>
-            <RoleRoute roles={['gov']}>
-              <GovPage />
-            </RoleRoute>
-          </ProtectedRoute>
-        }
-      />
       <Route path="/a/:account" element={<AccountPublicPage />} />
       <Route path="/signup" element={<SignUpPage />} />
       <Route path="/a/:account/member/signup" element={<MemberSignUpPage />} />

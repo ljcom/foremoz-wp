@@ -1,0 +1,34 @@
+{
+  "projector_name": "passport_v1",
+  "namespace_format": "foremoz:passport:<tenant_id>",
+  "chain_format": "branch:<branch_id>|core",
+  "event_types": {
+    "passport.created": ["read.rm_passport_profile"],
+    "passport.profile.updated": ["read.rm_passport_profile"],
+    "passport.sport_interest.updated": ["read.rm_passport_profile"],
+
+    "coach.member.linked": ["read.rm_passport_network"],
+    "member.studio.joined": ["read.rm_passport_network"],
+    "member.studio.left": ["read.rm_passport_network"],
+
+    "subscription.created": ["read.rm_passport_subscriptions"],
+    "subscription.canceled": ["read.rm_passport_subscriptions"],
+    "class.booking.created": ["read.rm_passport_subscriptions"],
+    "class.attendance.confirmed": ["read.rm_passport_subscriptions"],
+    "pt.session.booked": ["read.rm_passport_subscriptions"],
+    "pt.session.completed": ["read.rm_passport_subscriptions"],
+
+    "performance.diet.logged": ["read.rm_passport_performance_log", "read.rm_coach_shared_view"],
+    "performance.weight.logged": ["read.rm_passport_performance_log", "read.rm_coach_shared_view"],
+    "performance.muscle.logged": ["read.rm_passport_performance_log", "read.rm_coach_shared_view"],
+    "performance.workout.logged": ["read.rm_passport_performance_log", "read.rm_coach_shared_view"],
+    "performance.milestone.recorded": ["read.rm_passport_milestone", "read.rm_coach_shared_view"],
+
+    "consent.granted": ["read.rm_passport_consent", "read.rm_coach_shared_view"],
+    "consent.revoked": ["read.rm_passport_consent", "read.rm_coach_shared_view"],
+    "consent.scope.updated": ["read.rm_passport_consent", "read.rm_coach_shared_view"],
+
+    "pricing.plan.changed": ["read.rm_passport_plan_state"],
+    "billing.subscription.updated": ["read.rm_passport_plan_state"]
+  }
+}
