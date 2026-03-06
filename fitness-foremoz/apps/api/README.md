@@ -25,7 +25,7 @@ npm run db:read-model
 npm run dev
 ```
 
-Pastikan `DATABASE_URL` menunjuk database EventDB yang sama dengan `apps/eventdb/mvp-node`.
+Pastikan `DATABASE_URL` menunjuk database EventDB yang sama dengan service di root workspace: `eventdb/mvp-node`.
 
 Tambahkan konfigurasi JWT di `.env`:
 

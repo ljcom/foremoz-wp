@@ -1,0 +1,16 @@
+{
+  "name": "foremoz-workspace-root",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "install:all": "npm --prefix ./eventdb/mvp-node install && npm --prefix ./fitness-foremoz/apps/api install && npm --prefix ./fitness-foremoz/apps/vite install && npm --prefix ./coach-foremoz/apps/api install && npm --prefix ./coach-foremoz/apps/vite install && npm --prefix ./passport-foremoz/apps/api install && npm --prefix ./passport-foremoz/apps/vite install",
+    "setup:all": "npm run setup:fitness && npm run setup:coach && npm run setup:passport",
+    "setup:fitness": "DATABASE_URL=postgresql://postgres:ljcom2x@localhost:15432/eventdb_fitness npm --prefix ./eventdb run db:schema && npm --prefix ./fitness-foremoz/apps/api run db:read-model",
+    "setup:coach": "DATABASE_URL=postgresql://postgres:ljcom2x@localhost:15432/eventdb_coach npm --prefix ./eventdb run db:schema && npm --prefix ./coach-foremoz/apps/api run db:read-model",
+    "setup:passport": "DATABASE_URL=postgresql://postgres:ljcom2x@localhost:15432/eventdb_passport npm --prefix ./eventdb run db:schema && npm --prefix ./passport-foremoz/apps/api run db:read-model",
+    "dev:fitness": "sh -c 'DATABASE_URL=postgresql://postgres:ljcom2x@localhost:15432/eventdb_fitness PORT=3020 npm --prefix ./eventdb run dev & E=$!; npm --prefix ./fitness-foremoz/apps/api run dev & A=$!; npm --prefix ./fitness-foremoz/apps/vite run dev & V=$!; trap \"kill $E $A $V 2>/dev/null || true\" INT TERM EXIT; wait'",
+    "dev:coach": "sh -c 'DATABASE_URL=postgresql://postgres:ljcom2x@localhost:15432/eventdb_coach PORT=3021 npm --prefix ./eventdb run dev & E=$!; npm --prefix ./coach-foremoz/apps/api run dev & A=$!; npm --prefix ./coach-foremoz/apps/vite run dev & V=$!; trap \"kill $E $A $V 2>/dev/null || true\" INT TERM EXIT; wait'",
+    "dev:passport": "sh -c 'DATABASE_URL=postgresql://postgres:ljcom2x@localhost:15432/eventdb_passport PORT=3022 npm --prefix ./eventdb run dev & E=$!; npm --prefix ./passport-foremoz/apps/api run dev & A=$!; npm --prefix ./passport-foremoz/apps/vite run dev & V=$!; trap \"kill $E $A $V 2>/dev/null || true\" INT TERM EXIT; wait'",
+    "dev:all": "sh -c 'DATABASE_URL=postgresql://postgres:ljcom2x@localhost:15432/eventdb_fitness PORT=3020 npm --prefix ./eventdb run dev & E1=$!; DATABASE_URL=postgresql://postgres:ljcom2x@localhost:5432/eventdb_coach PORT=3021 npm --prefix ./eventdb run dev & E2=$!; DATABASE_URL=postgresql://postgres:ljcom2x@localhost:5432/eventdb_passport PORT=3022 npm --prefix ./eventdb run dev & E3=$!; npm --prefix ./fitness-foremoz/apps/api run dev & A1=$!; npm --prefix ./coach-foremoz/apps/api run dev & A2=$!; npm --prefix ./passport-foremoz/apps/api run dev & A3=$!; npm --prefix ./fitness-foremoz/apps/vite run dev & V1=$!; npm --prefix ./coach-foremoz/apps/vite run dev & V2=$!; npm --prefix ./passport-foremoz/apps/vite run dev & V3=$!; trap \"kill $E1 $E2 $E3 $A1 $A2 $A3 $V1 $V2 $V3 2>/dev/null || true\" INT TERM EXIT; wait'"
+  }
+}

@@ -5,6 +5,7 @@ import { pool } from '../src/db.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const workspaceRoot = path.resolve(__dirname, '../../../../');
 
 async function pathExists(targetPath) {
   try {
@@ -15,35 +16,56 @@ async function pathExists(targetPath) {
   }
 }
 
-async function resolveCustomJsonDir() {
-  const defaultCandidates = [
-    path.resolve(__dirname, '../../eventdb-custom-json'),
-    path.resolve(__dirname, '../../../fitness-foremoz/apps/eventdb-custom-json')
-  ];
+function parseCustomJsonDirEntries(value) {
+  const input = String(value || '').trim();
+  if (!input) return [];
 
-  const configured = process.env.CUSTOM_JSON_DIR;
-  if (!configured) {
-    for (const candidate of defaultCandidates) {
-      if (await pathExists(candidate)) return candidate;
+  try {
+    const parsed = JSON.parse(input);
+    if (Array.isArray(parsed)) {
+      return parsed.map((item) => String(item || '').trim()).filter(Boolean);
     }
-    return defaultCandidates[0];
+    if (typeof parsed === 'string' && parsed.trim()) {
+      return [parsed.trim()];
+    }
+  } catch {
+    // noop, fallback to delimiter parsing
   }
 
-  const candidates = [
-    path.resolve(configured),
-    path.resolve(process.cwd(), configured),
-    path.resolve(__dirname, configured)
+  return input
+    .split(/[;,]/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function expandDirCandidates(entries) {
+  return entries.flatMap((entry) => [
+    path.resolve(entry),
+    path.resolve(process.cwd(), entry),
+    path.resolve(__dirname, entry)
+  ]);
+}
+
+async function resolveCustomJsonDir(fileName) {
+  const defaultDirs = [
+    path.resolve(workspaceRoot, 'coach-foremoz/apps/eventdb-custom-json'),
+    path.resolve(workspaceRoot, 'fitness-foremoz/apps/eventdb-custom-json'),
+    path.resolve(workspaceRoot, 'passport-foremoz/apps/eventdb-custom-json')
   ];
+
+  const configuredDirs = expandDirCandidates(parseCustomJsonDirEntries(process.env.CUSTOM_JSON_DIR));
+  const candidates = [...new Set([...configuredDirs, ...defaultDirs])];
 
   for (const candidate of candidates) {
-    if (await pathExists(candidate)) return candidate;
+    if (await pathExists(path.resolve(candidate, fileName))) return candidate;
   }
 
-  return path.resolve(process.cwd(), configured);
+  throw new Error(`Unable to resolve ${fileName}. Checked dirs: ${candidates.join(', ')}`);
 }
 
 async function main() {
-  const customJsonDir = await resolveCustomJsonDir();
+  const fileName = 'coach-read-model.postgres.sql';
+  const customJsonDir = await resolveCustomJsonDir(fileName);
   const sqlPath = path.resolve(customJsonDir, 'coach-read-model.postgres.sql');
   const sql = await fs.readFile(sqlPath, 'utf8');
   await pool.query(sql);
