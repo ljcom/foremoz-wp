@@ -54,7 +54,7 @@ export default function GovPage() {
         </div>
         <div className="meta">
           <code>role: gov</code>
-          <code>actor: {session?.user?.email || 'gov@foremoz.com'}</code>
+          <code>actor: {session?.user?.email || '-'}</code>
           <button className="btn ghost" onClick={() => navigate('/web')}>Back to web</button>
           <button
             className="btn ghost"

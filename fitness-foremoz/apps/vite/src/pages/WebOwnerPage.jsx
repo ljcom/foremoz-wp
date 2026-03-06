@@ -135,6 +135,9 @@ export default function WebOwnerPage() {
         tenant_id: setupRes.row.tenant_id || prev.tenant_id,
         branch_id: setupRes.row.branch_id || prev.branch_id,
         account_slug: setupRes.row.account_slug || prev.account_slug,
+        address: setupRes.row.address || '',
+        city: setupRes.row.city || '',
+        photo_url: setupRes.row.photo_url || '',
         package_plan: normalizePackagePlan(setupRes.row.package_plan || prev.package_plan)
       }));
       setOwnerSetup({
@@ -143,9 +146,9 @@ export default function WebOwnerPage() {
         branch_id: setupRes.row.branch_id,
         account_slug: setupRes.row.account_slug,
         package_plan: normalizePackagePlan(setupRes.row.package_plan || setupForm.package_plan),
-        address: setupForm.address || '',
-        city: setupForm.city || '',
-        photo_url: setupForm.photo_url || ''
+        address: setupRes.row.address || '',
+        city: setupRes.row.city || '',
+        photo_url: setupRes.row.photo_url || ''
       });
     } else {
       // Prevent stale local setup from another tenant leaking into wizard mode.

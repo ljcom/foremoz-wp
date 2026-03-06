@@ -11,7 +11,7 @@ export default function SalesProspectEditPage() {
     () => ({
       full_name: prospectId === 'lead_001' ? 'Arif' : 'Mira',
       phone: prospectId === 'lead_001' ? '081355550001' : '081366660002',
-      email: prospectId === 'lead_001' ? 'arif@example.com' : 'mira@example.com',
+      email: '',
       source: prospectId === 'lead_001' ? 'instagram' : 'walkin',
       stage: prospectId === 'lead_001' ? 'new' : 'follow_up',
       goal: '',

@@ -255,7 +255,7 @@ app.get('/v1/owner/setup', async (req, res, next) => {
   try {
     const tenantId = req.query.tenant_id || config.defaultTenantId;
     const { rows } = await query(
-      `select tenant_id, gym_name, branch_id, account_slug, package_plan, status, updated_at
+      `select tenant_id, gym_name, branch_id, account_slug, address, city, photo_url, package_plan, status, updated_at
        from read.rm_owner_setup
        where tenant_id = $1
        limit 1`,
@@ -275,7 +275,7 @@ app.get('/v1/public/account/resolve', async (req, res, next) => {
     }
 
     const { rows } = await query(
-      `select tenant_id, gym_name, branch_id, account_slug, package_plan, status, updated_at
+      `select tenant_id, gym_name, branch_id, account_slug, address, city, photo_url, package_plan, status, updated_at
        from read.rm_owner_setup
        where lower(account_slug) = $1 and status = 'active'
        order by updated_at desc
@@ -295,6 +295,20 @@ app.post('/v1/owner/setup/save', async (req, res, next) => {
     const branchId = required(data.branch_id, 'branch_id');
     const accountSlug = validateAccountSlug(required(data.account_slug, 'account_slug'));
     const packagePlan = data.package_plan || 'free';
+
+    const existingSlug = await query(
+      `select tenant_id
+       from read.rm_owner_setup
+       where lower(account_slug) = $1
+         and tenant_id <> $2
+         and status = 'active'
+       limit 1`,
+      [accountSlug, tenantId]
+    );
+    if (existingSlug.rows[0]) {
+      throw fail(409, 'OWNER_ACCOUNT_SLUG_EXISTS', `account_slug "${accountSlug}" already used`);
+    }
+
     const event = await appendDomainEvent({
       tenantId,
       branchId: null,
@@ -308,6 +322,9 @@ app.post('/v1/owner/setup/save', async (req, res, next) => {
         gym_name: required(data.gym_name, 'gym_name'),
         branch_id: branchId,
         account_slug: accountSlug,
+        address: data.address || null,
+        city: data.city || null,
+        photo_url: data.photo_url || null,
         package_plan: packagePlan,
         saved_at: new Date().toISOString()
       },

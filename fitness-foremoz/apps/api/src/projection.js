@@ -183,16 +183,29 @@ export async function runFitnessProjection({ tenantId, branchId }) {
       if (event.event_type === 'owner.tenant.setup.saved') {
         await client.query(
           `insert into read.rm_owner_setup (
-             tenant_id, gym_name, branch_id, account_slug, package_plan, status, updated_at
-           ) values ($1,$2,$3,$4,$5,'active',$6)
+             tenant_id, gym_name, branch_id, account_slug, address, city, photo_url, package_plan, status, updated_at
+           ) values ($1,$2,$3,$4,$5,$6,$7,$8,'active',$9)
            on conflict (tenant_id) do update set
              gym_name = excluded.gym_name,
              branch_id = excluded.branch_id,
              account_slug = excluded.account_slug,
+             address = excluded.address,
+             city = excluded.city,
+             photo_url = excluded.photo_url,
              package_plan = excluded.package_plan,
              status = 'active',
              updated_at = excluded.updated_at`,
-          [tenant, data.gym_name, data.branch_id, data.account_slug, data.package_plan || 'free', data.saved_at || eventTs]
+          [
+            tenant,
+            data.gym_name,
+            data.branch_id,
+            data.account_slug,
+            data.address || null,
+            data.city || null,
+            data.photo_url || null,
+            data.package_plan || 'free',
+            data.saved_at || eventTs
+          ]
         );
         applied += 1;
         continue;
