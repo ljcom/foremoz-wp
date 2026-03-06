@@ -5,7 +5,7 @@ const npmCmd = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 const APPS = {
   fitness: {
     dbEnv: 'DB_FITNESS_URL',
-    dbDefault: 'postgresql://postgres:ljcom2x@localhost:5432/eventdb_fitness',
+    dbDefault: 'postgresql://postgres:ljcom2x@localhost:15432/eventdb_fitness',
     eventdbPortEnv: 'EVENTDB_FITNESS_PORT',
     eventdbPortDefault: '3020',
     apiPortEnv: 'API_FITNESS_PORT',
@@ -15,7 +15,7 @@ const APPS = {
   },
   coach: {
     dbEnv: 'DB_COACH_URL',
-    dbDefault: 'postgresql://postgres:ljcom2x@localhost:5432/eventdb_coach',
+    dbDefault: 'postgresql://postgres:ljcom2x@localhost:15432/eventdb_coach',
     eventdbPortEnv: 'EVENTDB_COACH_PORT',
     eventdbPortDefault: '3021',
     apiPortEnv: 'API_COACH_PORT',
@@ -25,7 +25,7 @@ const APPS = {
   },
   passport: {
     dbEnv: 'DB_PASSPORT_URL',
-    dbDefault: 'postgresql://postgres:ljcom2x@localhost:5432/eventdb_passport',
+    dbDefault: 'postgresql://postgres:ljcom2x@localhost:15432/eventdb_passport',
     eventdbPortEnv: 'EVENTDB_PASSPORT_PORT',
     eventdbPortDefault: '3022',
     apiPortEnv: 'API_PASSPORT_PORT',

@@ -5,7 +5,7 @@
   "scripts": {
     "spec:check": "echo 'spec baseline ready'",
     "backend:eventdb": "npm --prefix ../eventdb run dev",
-    "backend:setup": "DATABASE_URL=postgresql://postgres:ljcom2x@localhost:5432/eventdb_coach npm --prefix ../eventdb run db:schema && npm --prefix ./apps/api run db:read-model",
+    "backend:setup": "DATABASE_URL=postgresql://postgres:ljcom2x@localhost:15432/eventdb_coach npm --prefix ../eventdb run db:schema && npm --prefix ./apps/api run db:read-model",
     "backend:api": "npm --prefix ./apps/api run dev"
   }
 }
