@@ -1,16 +1,25 @@
 # Coach Web Mockup
 
-Mockup front-end untuk `coach.foremoz.com` dengan fokus:
-- coach microsite growth funnel.
-- share channel attribution (WA/IG/TikTok).
-- class join by location.
-- support team workflow.
-- pricing tiers dengan free plan minimum.
+Mockup front-end untuk `coach.foremoz.com` dengan flow:
+- signup
+- signin
+- onboarding
+- dashboard
+
+Flow dan route guard mengikuti pattern fitness app (session + protected routes).
+
+## Routes
+
+- `/` landing
+- `/signup`
+- `/signin`
+- `/onboarding`
+- `/dashboard`
 
 ## Run
 
 ```bash
-npm install --include=dev
+npm install
 npm run dev
 ```
 

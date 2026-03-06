@@ -5,7 +5,6 @@
   --line: #e9d8bd;
   --card: #fffdf8;
   --accent: #ff5a36;
-  --accent-soft: #ffe3db;
   --ok: #0c8b63;
   --warn: #a56a00;
 }
@@ -21,6 +20,8 @@ body {
     radial-gradient(circle at 10% 25%, #ffd9df 0, transparent 30%),
     var(--bg);
 }
+
+a { color: inherit; }
 
 .page {
   max-width: 1080px;
@@ -72,6 +73,8 @@ h1 {
   border-radius: 12px;
   font-weight: 700;
   background: #fff;
+  text-decoration: none;
+  cursor: pointer;
 }
 
 .btn.primary {
@@ -142,9 +145,72 @@ h1 {
 
 .plan-card { background: linear-gradient(160deg, #fffdf8 0%, #fff4ef 100%); }
 
-.footer-note {
-  text-align: center;
+.footer-note,
+.origin {
   font-size: 12px;
+  color: var(--muted);
+}
+
+.auth-shell {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+}
+
+.auth-card {
+  width: min(560px, 100%);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--card);
+  padding: 18px;
+}
+
+.subtext {
+  margin-top: -4px;
+  color: var(--muted);
+}
+
+.form {
+  display: grid;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+label {
+  display: grid;
+  gap: 4px;
+  font-size: 14px;
+}
+
+input,
+select {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px;
+  font: inherit;
+  background: #fff;
+}
+
+.error {
+  color: #bb2a2a;
+  font-size: 13px;
+  margin: 0;
+}
+
+.hint {
+  border: 1px dashed var(--line);
+  border-radius: 12px;
+  padding: 10px;
+  display: grid;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.auth-alt {
+  margin-top: 12px;
+  font-size: 14px;
   color: var(--muted);
 }
 
