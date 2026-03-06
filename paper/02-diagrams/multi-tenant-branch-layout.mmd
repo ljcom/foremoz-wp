@@ -1,0 +1,20 @@
+flowchart TB
+  subgraph T1["Tenant A (namespace: foremoz:fitness:tn_a)"]
+    ACORE["chain: core"]
+    ABR1["chain: branch:br_jkt_01"]
+    ABR2["chain: branch:br_bdg_01"]
+  end
+
+  subgraph T2["Tenant B (namespace: foremoz:fitness:tn_b)"]
+    BCORE["chain: core"]
+    BBR1["chain: branch:br_sby_01"]
+  end
+
+  ACORE --> ARD[("read schema rows tenant_id=tn_a")]
+  ABR1 --> ARD
+  ABR2 --> ARD
+
+  BCORE --> BRD[("read schema rows tenant_id=tn_b")]
+  BBR1 --> BRD
+
+  ARD -.isolated by tenant_id.-> BRD

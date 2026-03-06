@@ -1,0 +1,12 @@
+flowchart TD
+  A["Read last checkpoint from rm_checkpoint"] --> B{"Checkpoint exists?"}
+  B -->|No| C["Start from sequence 1"]
+  B -->|Yes| D["Start from checkpoint_sequence + 1"]
+  C --> E["Fetch events from eventdb_event by namespace+chain"]
+  D --> E
+  E --> F{"Any new events?"}
+  F -->|No| G["Stop / wait next run"]
+  F -->|Yes| H["Project event into read tables"]
+  H --> I["Update rm_checkpoint in same transaction"]
+  I --> J["Next event"]
+  J --> F

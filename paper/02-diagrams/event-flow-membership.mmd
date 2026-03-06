@@ -1,0 +1,31 @@
+sequenceDiagram
+  autonumber
+  participant U as Member
+  participant W as Web App
+  participant A as API
+  participant E as EventDB
+  participant P as Projector
+  participant R as Read Model
+
+  U->>W: Submit signup form
+  W->>A: POST /v1/auth/signup
+  A->>E: append member.auth.created
+  A->>P: run projection
+  P->>R: upsert rm_member_auth
+
+  U->>W: Buy membership package
+  W->>A: POST subscription command
+  A->>E: append subscription.activated
+  A->>P: run projection
+  P->>R: upsert rm_subscription_active
+
+  U->>W: Confirm payment
+  W->>A: POST payment confirm
+  A->>E: append payment.confirmed
+  A->>P: run projection
+  P->>R: update rm_payment_queue + rm_dashboard
+
+  U->>W: Check-in request
+  W->>A: POST checkin
+  A->>R: verify active subscription
+  A-->>W: Eligible / rejected

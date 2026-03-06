@@ -1,0 +1,33 @@
+sequenceDiagram
+  autonumber
+  participant S as Staff/CS
+  participant W as Web App
+  participant A as API
+  participant E as EventDB
+  participant P as Projector
+  participant R as Read Model
+
+  S->>W: Create class schedule
+  W->>A: POST class.schedule.created
+  A->>E: append class.schedule.created
+  A->>P: run projection
+  P->>R: upsert rm_class_availability
+
+  S->>W: Book seat for member
+  W->>A: POST class.booking.created
+  A->>R: validate seat availability
+  A->>E: append class.booking.created
+  A->>P: run projection
+  P->>R: decrement seats / update booking list
+
+  S->>W: Cancel booking
+  W->>A: POST class.booking.cancelled
+  A->>E: append class.booking.cancelled
+  A->>P: run projection
+  P->>R: increment seats / update booking list
+
+  S->>W: Mark attendance
+  W->>A: POST class.attendance.confirmed
+  A->>E: append class.attendance.confirmed
+  A->>P: run projection
+  P->>R: finalize class participation

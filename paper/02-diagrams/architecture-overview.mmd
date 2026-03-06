@@ -1,0 +1,40 @@
+flowchart LR
+  subgraph FE["PWA Frontend"]
+    WEB["Web App (Vite)"]
+  end
+
+  subgraph API["Gym API (apps/api)"]
+    CMD["Command Endpoints"]
+    QRY["Query Endpoints"]
+  end
+
+  subgraph EVDB["EventDB"]
+    NS["namespace: foremoz:fitness:<tenant_id>"]
+    CH["chain: branch:<branch_id> | core"]
+    EVT[("eventdb_event")]
+  end
+
+  subgraph PROJ["Projector"]
+    WORKER["runFitnessProjection"]
+    CKP[("rm_checkpoint")]
+  end
+
+  subgraph RM["Read Model"]
+    DASH[("rm_dashboard")]
+    MEMBER[("rm_member")]
+    AUTH[("rm_tenant_user_auth")]
+  end
+
+  WEB --> CMD
+  WEB --> QRY
+  CMD --> NS
+  NS --> CH
+  CH --> EVT
+  EVT --> WORKER
+  WORKER --> CKP
+  WORKER --> DASH
+  WORKER --> MEMBER
+  WORKER --> AUTH
+  QRY --> DASH
+  QRY --> MEMBER
+  QRY --> AUTH
