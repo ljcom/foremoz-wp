@@ -146,23 +146,40 @@ export default function SalesPage() {
         </div>
         <div className="meta">
           {allowedEnv.length > 0 ? (
-            <label>
-              Environment
-              <select
-                value={targetEnv}
-                onChange={(e) => {
-                  const next = e.target.value;
-                  setTargetEnv(next);
-                  goToEnv(next);
-                }}
-              >
+            <div className="env-switcher">
+              <label className="env-lookup">
+                Environment
+                <select
+                  value={targetEnv}
+                  onChange={(e) => {
+                    const next = e.target.value;
+                    setTargetEnv(next);
+                    goToEnv(next);
+                  }}
+                >
+                  {allowedEnv.map((env) => (
+                    <option key={env} value={env}>
+                      {env}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div className="env-buttons" role="group" aria-label="Environment">
                 {allowedEnv.map((env) => (
-                  <option key={env} value={env}>
+                  <button
+                    key={env}
+                    type="button"
+                    className={`btn ghost small ${targetEnv === env ? 'active' : ''}`}
+                    onClick={() => {
+                      setTargetEnv(env);
+                      goToEnv(env);
+                    }}
+                  >
                     {env}
-                  </option>
+                  </button>
                 ))}
-              </select>
-            </label>
+              </div>
+            </div>
           ) : null}
           <button className="btn ghost" onClick={signOut}>Sign out</button>
         </div>

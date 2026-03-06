@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { apiJson, clearSession, getOwnerSetup, getSession, setOwnerSetup, setSession } from '../lib.js';
+import { APP_ORIGIN, apiJson, clearSession, getOwnerSetup, getSession, setOwnerSetup, setSession } from '../lib.js';
 
 const PLANS = [
   {
@@ -10,24 +10,47 @@ const PLANS = [
     note: 'Cocok untuk mulai uji operasional basic gym kecil.'
   },
   {
-    key: 'basic',
-    name: 'Basic',
-    price: 'IDR 299.000 / bulan',
-    note: 'Untuk gym berkembang yang butuh alur sales dan PT lebih rapi.'
+    key: 'starter',
+    name: 'Starter',
+    price: 'IDR 499.000 / bulan',
+    note: 'Untuk studio yang sudah running stabil dengan volume member awal.'
   },
   {
-    key: 'pro',
-    name: 'Pro',
-    price: 'IDR 799.000 / bulan',
-    note: 'Fitur lengkap untuk multi-role operation dengan skala lebih besar.'
+    key: 'growth',
+    name: 'Growth',
+    price: 'IDR 1.490.000 / bulan',
+    note: 'Untuk tenant dengan beban operasional dan tim lebih besar.'
+  },
+  {
+    key: 'multi_branch',
+    name: 'Multi-branch',
+    price: 'IDR 3.490.000 / bulan',
+    note: 'Untuk operator fitness dengan banyak cabang aktif.'
+  },
+  {
+    key: 'enterprise',
+    name: 'Enterprise',
+    price: 'Mulai IDR 7.500.000+ / bulan',
+    note: 'Untuk kebutuhan governance/compliance dan SLA custom.'
   }
 ];
 
 const PLAN_PRICE = {
   free: 0,
-  basic: 299000,
-  pro: 799000
+  starter: 499000,
+  growth: 1490000,
+  multi_branch: 3490000,
+  enterprise: 7500000,
+  basic: 499000,
+  pro: 1490000
 };
+
+function normalizePackagePlan(value) {
+  const plan = String(value || 'free').trim().toLowerCase();
+  if (plan === 'basic') return 'starter';
+  if (plan === 'pro') return 'growth';
+  return plan || 'free';
+}
 
 function formatIdr(value) {
   return `IDR ${Number(value || 0).toLocaleString('id-ID')}`;
@@ -40,6 +63,18 @@ function normalizeSlug(value) {
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
     .slice(0, 32);
+}
+
+function createEmptyUserForm() {
+  return { full_name: '', email: '', role: '', password: '' };
+}
+
+function openDashboardInNewTab(accountSlug) {
+  const slug = String(accountSlug || '').trim();
+  if (!slug) return;
+  const baseOrigin = APP_ORIGIN || window.location.origin;
+  const targetUrl = `${baseOrigin}/a/${slug}/dashboard`;
+  window.open(targetUrl, '_blank', 'noopener,noreferrer');
 }
 
 export default function WebOwnerPage() {
@@ -58,14 +93,17 @@ export default function WebOwnerPage() {
   const [setupForm, setSetupForm] = useState({
     gym_name: existingSetup?.gym_name || session?.tenant?.gym_name || '',
     account_slug: existingSetup?.account_slug || session?.tenant?.account_slug || '',
-    package_plan: existingSetup?.package_plan || 'free',
+    package_plan: normalizePackagePlan(existingSetup?.package_plan || 'free'),
     tenant_id: existingSetup?.tenant_id || session?.tenant?.id || 'tn_001',
-    branch_id: existingSetup?.branch_id || session?.branch?.id || ''
+    branch_id: existingSetup?.branch_id || session?.branch?.id || '',
+    address: existingSetup?.address || '',
+    city: existingSetup?.city || '',
+    photo_url: existingSetup?.photo_url || ''
   });
 
   const [saasForm, setSaasForm] = useState({ months: '1', note: '' });
   const [saasInfo, setSaasInfo] = useState(null);
-  const [userForm, setUserForm] = useState({ full_name: '', email: '', role: '', password: '' });
+  const [userForm, setUserForm] = useState(createEmptyUserForm);
   const [users, setUsers] = useState([]);
   const [userMode, setUserMode] = useState('list');
   const [editingUserId, setEditingUserId] = useState('');
@@ -97,14 +135,17 @@ export default function WebOwnerPage() {
         tenant_id: setupRes.row.tenant_id || prev.tenant_id,
         branch_id: setupRes.row.branch_id || prev.branch_id,
         account_slug: setupRes.row.account_slug || prev.account_slug,
-        package_plan: setupRes.row.package_plan || prev.package_plan
+        package_plan: normalizePackagePlan(setupRes.row.package_plan || prev.package_plan)
       }));
       setOwnerSetup({
         gym_name: setupRes.row.gym_name,
         tenant_id: setupRes.row.tenant_id,
         branch_id: setupRes.row.branch_id,
         account_slug: setupRes.row.account_slug,
-        package_plan: setupRes.row.package_plan || setupForm.package_plan
+        package_plan: normalizePackagePlan(setupRes.row.package_plan || setupForm.package_plan),
+        address: setupForm.address || '',
+        city: setupForm.city || '',
+        photo_url: setupForm.photo_url || ''
       });
     } else {
       // Prevent stale local setup from another tenant leaking into wizard mode.
@@ -115,7 +156,10 @@ export default function WebOwnerPage() {
         gym_name: '',
         account_slug: '',
         branch_id: '',
-        package_plan: 'free'
+        package_plan: 'free',
+        address: '',
+        city: '',
+        photo_url: ''
       }));
     }
 
@@ -181,7 +225,10 @@ export default function WebOwnerPage() {
         tenant_id: setupForm.tenant_id,
         branch_id: setupForm.branch_id,
         account_slug: normalizeSlug(setupForm.account_slug),
-        package_plan: setupForm.package_plan
+        package_plan: setupForm.package_plan,
+        address: setupForm.address,
+        city: setupForm.city,
+        photo_url: setupForm.photo_url
       };
 
       await persistSetup(payload);
@@ -209,7 +256,10 @@ export default function WebOwnerPage() {
         tenant_id: setupForm.tenant_id,
         branch_id: setupForm.branch_id,
         account_slug: setupForm.account_slug,
-        package_plan: setupForm.package_plan
+        package_plan: setupForm.package_plan,
+        address: setupForm.address,
+        city: setupForm.city,
+        photo_url: setupForm.photo_url
       };
       await persistSetup(payload);
       await refreshOwnerData(payload.tenant_id);
@@ -223,6 +273,10 @@ export default function WebOwnerPage() {
 
   async function submitSaas(e) {
     e.preventDefault();
+    if (setupForm.package_plan === 'free') {
+      setFeedback('Paket free tidak memerlukan perpanjangan.');
+      return;
+    }
     try {
       setLoading(true);
       await apiJson('/v1/owner/saas/extend', {
@@ -252,7 +306,10 @@ export default function WebOwnerPage() {
         tenant_id: setupForm.tenant_id,
         branch_id: setupForm.branch_id,
         account_slug: setupForm.account_slug,
-        package_plan: setupForm.package_plan
+        package_plan: setupForm.package_plan,
+        address: setupForm.address,
+        city: setupForm.city,
+        photo_url: setupForm.photo_url
       };
       await persistSetup(payload);
       await refreshOwnerData(payload.tenant_id);
@@ -281,7 +338,7 @@ export default function WebOwnerPage() {
         })
       });
       setFeedback(`owner.user.created ${userForm.full_name}`);
-      setUserForm({ full_name: '', email: '', role: '', password: '' });
+      setUserForm(createEmptyUserForm());
       setUserMode('list');
       await refreshOwnerData(setupForm.tenant_id || tenantSeed);
     } catch (error) {
@@ -376,7 +433,7 @@ export default function WebOwnerPage() {
           {isSetupReady ? (
             <button
               className="btn ghost"
-              onClick={() => navigate(`/a/${setupForm.account_slug}/dashboard`)}
+              onClick={() => openDashboardInNewTab(setupForm.account_slug)}
             >
               Jump to dashboard
             </button>
@@ -482,16 +539,37 @@ export default function WebOwnerPage() {
                     <input value={setupForm.gym_name} onChange={(e) => setSetupForm((p) => ({ ...p, gym_name: e.target.value }))} />
                   </label>
                   <label>
+                    address
+                    <input value={setupForm.address} onChange={(e) => setSetupForm((p) => ({ ...p, address: e.target.value }))} />
+                  </label>
+                  <label>
+                    city
+                    <input value={setupForm.city} onChange={(e) => setSetupForm((p) => ({ ...p, city: e.target.value }))} />
+                  </label>
+                  <label>
+                    photo_url
+                    <input
+                      type="url"
+                      placeholder="https://..."
+                      value={setupForm.photo_url}
+                      onChange={(e) => setSetupForm((p) => ({ ...p, photo_url: e.target.value }))}
+                    />
+                  </label>
+                  {setupForm.photo_url ? (
+                    <div className="photo-preview-box">
+                      <img
+                        src={setupForm.photo_url}
+                        alt="Gym preview"
+                        className="photo-preview-image"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                        }}
+                      />
+                    </div>
+                  ) : null}
+                  <label>
                     account_slug (read only)
                     <input value={setupForm.account_slug} disabled readOnly />
-                  </label>
-                  <label>
-                    tenant_id
-                    <input value={setupForm.tenant_id} disabled readOnly />
-                  </label>
-                  <label>
-                    branch_id
-                    <input value={setupForm.branch_id} disabled readOnly />
                   </label>
                   <div className="member-actions">
                     <button className="btn" type="submit" disabled={loading}>Save profile</button>
@@ -503,28 +581,34 @@ export default function WebOwnerPage() {
             {menu === 'package' ? (
               <>
                 <p className="eyebrow">Paket dan SaaS</p>
-                <h2>Perpanjang paket</h2>
+                <h2>Paket</h2>
                 {saasInfo ? <p className="feedback">Total extended months: {saasInfo.total_months || 0}</p> : null}
                 <p className="muted">Current package: {setupForm.package_plan}</p>
-                <form className="form" onSubmit={submitSaas}>
-                  <label>
-                    tambah_bulan
-                    <select value={saasForm.months} onChange={(e) => setSaasForm((p) => ({ ...p, months: e.target.value }))}>
-                      <option value="1">1</option>
-                      <option value="3">3</option>
-                      <option value="6">6</option>
-                      <option value="12">12</option>
-                    </select>
-                  </label>
-                  <label>
-                    note
-                    <input value={saasForm.note} onChange={(e) => setSaasForm((p) => ({ ...p, note: e.target.value }))} />
-                  </label>
+                {setupForm.package_plan === 'free' ? (
                   <p className="feedback">
-                    Harga perpanjang {selectedMonths} bulan: {formatIdr(extendTotalPrice)}
+                    Paket free aktif, jadi tidak perlu perpanjangan.
                   </p>
-                  <button className="btn" type="submit" disabled={loading}>Perpanjang</button>
-                </form>
+                ) : (
+                  <form className="form" onSubmit={submitSaas}>
+                    <label>
+                      tambah_bulan
+                      <select value={saasForm.months} onChange={(e) => setSaasForm((p) => ({ ...p, months: e.target.value }))}>
+                        <option value="1">1</option>
+                        <option value="3">3</option>
+                        <option value="6">6</option>
+                        <option value="12">12</option>
+                      </select>
+                    </label>
+                    <label>
+                      note
+                      <input value={saasForm.note} onChange={(e) => setSaasForm((p) => ({ ...p, note: e.target.value }))} />
+                    </label>
+                    <p className="feedback">
+                      Harga perpanjang {selectedMonths} bulan: {formatIdr(extendTotalPrice)}
+                    </p>
+                    <button className="btn" type="submit" disabled={loading}>Perpanjang</button>
+                  </form>
+                )}
                 <form className="form" onSubmit={changePackage}>
                   <p className="eyebrow">Change package</p>
                   <div className="plan-grid">
@@ -557,7 +641,15 @@ export default function WebOwnerPage() {
                     <div className="panel-head">
                       <h2>Add/edit/delete user</h2>
                       <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginLeft: 'auto' }}>
-                        <button className="btn" type="button" onClick={() => setUserMode('add')} disabled={loading}>
+                        <button
+                          className="btn"
+                          type="button"
+                          onClick={() => {
+                            setUserForm(createEmptyUserForm());
+                            setUserMode('add');
+                          }}
+                          disabled={loading}
+                        >
                           Add New User
                         </button>
                       </div>
@@ -603,7 +695,7 @@ export default function WebOwnerPage() {
                         Back to list
                       </button>
                     </div>
-                    <form className="form" onSubmit={submitUser}>
+                    <form className="form" autoComplete="off" onSubmit={submitUser}>
                       <label>
                         full_name
                         <input value={userForm.full_name} onChange={(e) => setUserForm((p) => ({ ...p, full_name: e.target.value }))} />

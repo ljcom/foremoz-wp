@@ -163,6 +163,106 @@ select:focus-visible {
   line-height: 1.8;
 }
 
+.public-hero-image {
+  border: 1px solid #ddc9a8;
+  border-radius: 18px;
+  min-height: 320px;
+  position: relative;
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, #00000022, #00000066),
+    url('https://images.unsplash.com/photo-1517836357463-d25dfeac3438?auto=format&fit=crop&w=1200&q=80') center/cover no-repeat;
+  box-shadow: 0 16px 30px #8d68411a;
+}
+
+.public-hero-overlay {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 1rem 1.1rem;
+  color: #fff;
+  background: linear-gradient(180deg, transparent, #000000a8);
+}
+
+.public-hero-overlay .eyebrow {
+  color: #f7dfc7;
+  margin-bottom: 0.4rem;
+}
+
+.public-hero-overlay h2 {
+  margin: 0;
+  color: #fff;
+}
+
+.public-hero-overlay p {
+  margin: 0.55rem 0 0;
+  color: #f6ece2;
+}
+
+.public-footer {
+  margin-top: 1rem;
+  padding: 0.4rem 0.2rem;
+  font-size: 0.9rem;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+}
+
+.public-footer p {
+  margin: 0;
+}
+
+.public-footer a {
+  color: var(--accent-dark);
+  text-decoration: underline;
+}
+
+.coach-grid {
+  margin-top: 1rem;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
+.coach-card {
+  border: 1px solid #ddccb2;
+  border-radius: 15px;
+  background: linear-gradient(180deg, #fffdf8, #fff7eb);
+  padding: 0.8rem;
+  display: grid;
+  gap: 0.7rem;
+  box-shadow: 0 10px 20px #6e56390f;
+}
+
+.coach-photo {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: 12px;
+}
+
+.coach-card h3 {
+  margin: 0;
+}
+
+.coach-card p {
+  margin: 0.4rem 0 0;
+  color: var(--muted);
+}
+
+.coach-role {
+  font-weight: 700;
+  color: var(--accent-dark) !important;
+}
+
+.coach-schedule {
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+}
+
 .landing-section {
   margin-top: 2.4rem;
 }
@@ -358,6 +458,26 @@ select {
   flex-direction: column;
   gap: 0.5rem;
   align-items: flex-end;
+}
+
+.env-switcher {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.env-buttons {
+  display: flex;
+  gap: 0.45rem;
+}
+
+.env-buttons .btn.active {
+  background: linear-gradient(180deg, #cc6a42, var(--accent));
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.env-lookup {
+  display: none;
 }
 
 code {
@@ -837,6 +957,7 @@ code {
   .hero,
   .auth-shell,
   .feature-grid,
+  .coach-grid,
   .info-grid,
   .plan-grid,
   .stats-grid,
@@ -855,6 +976,16 @@ code {
 
   .meta {
     align-items: flex-start;
+  }
+
+  .env-buttons {
+    display: none;
+  }
+
+  .env-lookup {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
   }
 
   .entity-row {
