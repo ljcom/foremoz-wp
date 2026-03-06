@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { accountPath, getAccountSlug, getSession } from '../lib.js';
 
@@ -13,6 +13,43 @@ const ADMIN_TABS = [
   { id: 'transaction', label: 'Transaction' },
   // { id: 'saas', label: 'SaaS' }
 ];
+
+const DEFAULT_CLASSES = [
+  { class_id: 'class_001', class_name: 'HIIT Morning', trainer_name: 'Raka', capacity: '20', start_at: '2026-03-03 07:00' }
+];
+const DEFAULT_TRAINERS = [
+  { trainer_id: 'tr_001', trainer_name: 'Raka', phone: '081234555500', specialization: 'HIIT' }
+];
+const DEFAULT_PRODUCTS = [
+  { product_id: 'prd_001', product_name: 'Whey Protein 1kg', category: 'retail', price: '450000', stock: '12' }
+];
+const DEFAULT_PACKAGES = [
+  { package_id: 'pkg_001', package_name: 'Membership 1 Month', package_type: 'membership', duration_months: '1', price: '350000' }
+];
+const DEFAULT_SALES = [
+  { sales_id: 'sales_001', sales_name: 'Nina', channel: 'instagram', target_amount: '20000000' }
+];
+const DEFAULT_MEMBERS = [
+  { member_id: 'member_001', member_name: 'Doni', phone: '081200001111', email: 'doni@foremoz.com' }
+];
+const DEFAULT_TRANSACTIONS = [
+  { transaction_id: 'trx_001', no_transaction: 'TRX-001', product: 'Monthly Membership', qty: '1', price: '350000' }
+];
+
+function getStorageKey(entity, accountSlug) {
+  return `ff.admin.${entity}.${accountSlug || 'foremoz-gym'}`;
+}
+
+function loadList(entity, accountSlug, fallbackList) {
+  if (typeof window === 'undefined') return fallbackList;
+  try {
+    const saved = JSON.parse(localStorage.getItem(getStorageKey(entity, accountSlug)) || 'null');
+    if (Array.isArray(saved) && saved.length > 0) return saved;
+  } catch {
+    // ignore invalid payload and fallback to defaults
+  }
+  return fallbackList;
+}
 
 function DeleteButton({ onClick }) {
   return (
@@ -87,27 +124,58 @@ export default function AdminPage() {
   const [users, setUsers] = useState([
     { user_id: 'usr_001', full_name: 'Aulia Admin', email: 'aulia@foremoz.com', role: 'admin' }
   ]);
-  const [classes, setClasses] = useState([
-    { class_id: 'class_001', class_name: 'HIIT Morning', trainer_name: 'Raka', capacity: '20', start_at: '2026-03-03 07:00' }
-  ]);
-  const [trainers, setTrainers] = useState([
-    { trainer_id: 'tr_001', trainer_name: 'Raka', phone: '081234555500', specialization: 'HIIT' }
-  ]);
-  const [products, setProducts] = useState([
-    { product_id: 'prd_001', product_name: 'Whey Protein 1kg', category: 'retail', price: '450000', stock: '12' }
-  ]);
-  const [packages, setPackages] = useState([
-    { package_id: 'pkg_001', package_name: 'Membership 1 Month', package_type: 'membership', duration_months: '1', price: '350000' }
-  ]);
-  const [sales, setSales] = useState([
-    { sales_id: 'sales_001', sales_name: 'Nina', channel: 'instagram', target_amount: '20000000' }
-  ]);
-  const [members, setMembers] = useState([
-    { member_id: 'member_001', member_name: 'Doni', phone: '081200001111', email: 'doni@foremoz.com' }
-  ]);
-  const [transactions, setTransactions] = useState([
-    { transaction_id: 'trx_001', no_transaction: 'TRX-001', product: 'Monthly Membership', qty: '1', price: '350000' }
-  ]);
+  const [classes, setClasses] = useState(() => loadList('classes', accountSlug, DEFAULT_CLASSES));
+  const [trainers, setTrainers] = useState(() => loadList('trainers', accountSlug, DEFAULT_TRAINERS));
+  const [products, setProducts] = useState(() => loadList('products', accountSlug, DEFAULT_PRODUCTS));
+  const [packages, setPackages] = useState(() => loadList('packages', accountSlug, DEFAULT_PACKAGES));
+  const [sales, setSales] = useState(() => loadList('sales', accountSlug, DEFAULT_SALES));
+  const [members, setMembers] = useState(() => loadList('members', accountSlug, DEFAULT_MEMBERS));
+  const [transactions, setTransactions] = useState(() => loadList('transactions', accountSlug, DEFAULT_TRANSACTIONS));
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(getStorageKey('classes', accountSlug), JSON.stringify(classes));
+  }, [accountSlug, classes]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(getStorageKey('trainers', accountSlug), JSON.stringify(trainers));
+  }, [accountSlug, trainers]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(getStorageKey('products', accountSlug), JSON.stringify(products));
+  }, [accountSlug, products]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(getStorageKey('packages', accountSlug), JSON.stringify(packages));
+  }, [accountSlug, packages]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(getStorageKey('sales', accountSlug), JSON.stringify(sales));
+  }, [accountSlug, sales]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(getStorageKey('members', accountSlug), JSON.stringify(members));
+  }, [accountSlug, members]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(getStorageKey('transactions', accountSlug), JSON.stringify(transactions));
+  }, [accountSlug, transactions]);
+
+  useEffect(() => {
+    setClasses(loadList('classes', accountSlug, DEFAULT_CLASSES));
+    setTrainers(loadList('trainers', accountSlug, DEFAULT_TRAINERS));
+    setProducts(loadList('products', accountSlug, DEFAULT_PRODUCTS));
+    setPackages(loadList('packages', accountSlug, DEFAULT_PACKAGES));
+    setSales(loadList('sales', accountSlug, DEFAULT_SALES));
+    setMembers(loadList('members', accountSlug, DEFAULT_MEMBERS));
+    setTransactions(loadList('transactions', accountSlug, DEFAULT_TRANSACTIONS));
+  }, [accountSlug]);
 
   const allowedEnv = useMemo(() => {
     if (role === 'owner' || role === 'admin') return ['admin', 'cs', 'pt', 'sales'];
@@ -827,6 +895,9 @@ export default function AdminPage() {
                         value={memberQuery}
                         onChange={(e) => setMemberQuery(e.target.value)}
                       />
+                      <button className="btn" type="button" onClick={() => setMemberMode('add')}>
+                        Add New
+                      </button>
                     </div>
                   </div>
                   <div className="entity-list">
@@ -890,6 +961,9 @@ export default function AdminPage() {
                         value={transactionQuery}
                         onChange={(e) => setTransactionQuery(e.target.value)}
                       />
+                      <button className="btn" type="button" onClick={() => setTransactionMode('add')}>
+                        Add New
+                      </button>
                     </div>
                   </div>
                   <div className="entity-list">
