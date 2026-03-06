@@ -44,7 +44,6 @@ Foremoz Fitness berfokus pada operasi fitness center end-to-end:
 - `/a/<account>/admin`
 - `/a/<account>/sales`
 - `/a/<account>/dashboard/pt`
-- `/gov`
 
 ## Actor Identity Domains
 

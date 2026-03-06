@@ -13,6 +13,20 @@ Goal utamanya adalah membantu coach mempromosikan layanan, mengajak koneksi berg
 - studio (place)
 - coach support team (opsional, untuk paket service tinggi)
 
+## 2.1 RBAC Canonical Terms (Aligned with Fitness)
+
+- `owner`: pemilik tenant/bisnis, kontrol tertinggi konfigurasi.
+- `admin`: pengelola operasional tenant.
+- `sales`: pengelola lead, conversion, dan pipeline komersial.
+- `cs`: operator administratif/frontdesk/support.
+- `pt`: coach practitioner role (termasuk partner coach).
+- `member`: end-user peserta layanan.
+- `gov`: governance role lintas kebijakan platform.
+
+Mapping istilah coach management:
+- `partner (coach)` -> gunakan role canonical `pt`.
+- `coach support team` -> gunakan role canonical `cs` (dan dapat diberi privilege tambahan terbatas).
+
 ## 3. Core Functional Coverage
 
 ### 3.1 Coach Promotion Micro-site

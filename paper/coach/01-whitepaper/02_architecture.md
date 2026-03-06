@@ -53,8 +53,14 @@ Mendefinisikan runtime architecture untuk coach micro-site growth funnel dan ope
 - support team signin di workspace sesuai role operasional yang diberikan coach.
 - studio/account operational surface diakses lewat `coach.foremoz.com/a/<account>`.
 - PT tenant workspace diakses lewat `coach.foremoz.com/a/<account>/dashboard/pt`.
-- governance lintas tenant diakses lewat `coach.foremoz.com/gov`.
 - jika ada overlap capability dengan fitness layer, routing tetap diprioritaskan dari domain coach (coach-first POV).
+
+## RBAC Mapping
+
+- canonical role set mengikuti fitness: `owner`, `admin`, `sales`, `cs`, `pt`, `member`, `gov`.
+- `partner coach` dipetakan ke role `pt`.
+- support team administratif dipetakan ke role `cs` dengan permission terbatas.
+- kebijakan akses sensitif tetap melalui `owner`/`admin` scope, bukan role `pt`.
 
 ## Support Team Operational Mode
 

@@ -32,7 +32,7 @@
 
 ## Phase 5 - Gov Console
 
-- `/gov` cross-tenant dashboard.
+- governance dashboard lintas tenant.
 - tenant suspend/unsuspend.
 - free grant control.
 - tenant price override.

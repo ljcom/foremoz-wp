@@ -35,7 +35,6 @@ Dengan pendekatan ini, platform tidak hanya mengelola operasional internal tenan
 - `fitness.foremoz.com/a/<account>/admin`: admin control panel.
 - `fitness.foremoz.com/a/<account>/sales`: sales CRM workspace.
 - `fitness.foremoz.com/a/<account>/dashboard/pt`: PT workspace.
-- `fitness.foremoz.com/gov`: gov console lintas tenant.
 
 ## Access Model
 

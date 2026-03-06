@@ -5,7 +5,7 @@
 ```json
 {
   "type": "event.type",
-  "actor": { "kind": "coach|member|studio|coach_staff|admin|gov|system", "id": "..." },
+  "actor": { "kind": "coach|studio|member|owner|admin|sales|cs|pt|gov|system", "id": "..." },
   "subject": { "kind": "entity", "id": "..." },
   "data": {},
   "refs": {},

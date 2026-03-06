@@ -21,7 +21,6 @@ Foremoz Coach adalah growth surface yang bisa dibagikan langsung ke jaringan coa
 - `coach.foremoz.com`: coach micro-site + growth funnel + workspace.
 - `coach.foremoz.com/a/<account>`: studio/account surface untuk operasional lokasi dari entry coach.
 - `coach.foremoz.com/a/<account>/dashboard/pt`: PT workspace tenant dari entry coach.
-- `coach.foremoz.com/gov`: governance surface lintas tenant dari entry coach.
 
 Walaupun beberapa capability overlap dengan fitness workspace, jalur akses dan framing produk tetap dimulai dari coach POV.
 

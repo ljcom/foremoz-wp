@@ -1,0 +1,15 @@
+{
+  "type": "gov.tenant.suspended",
+  "actor": { "kind": "gov", "id": "gov_admin_01" },
+  "subject": { "kind": "tenant", "id": "tenant_7788" },
+  "data": {
+    "tenant_id": "tenant_7788",
+    "reason": "security policy violation",
+    "effective_at": "2026-03-06T10:00:00Z",
+    "approved_by": "gov_lead_01"
+  },
+  "refs": {
+    "action_id": "act_9001"
+  },
+  "ts": "2026-03-06T10:00:00Z"
+}

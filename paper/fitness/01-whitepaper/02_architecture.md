@@ -14,7 +14,6 @@ Arsitektur ini juga menjadi infrastructure layer untuk interaksi antar actor uta
   /a/<account>
   coach.foremoz.com
   passport.foremoz.com
-  /gov
        |
        v
 [Role Workspaces]

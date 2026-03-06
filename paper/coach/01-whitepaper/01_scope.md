@@ -28,6 +28,20 @@ Foremoz Coach berfokus pada dua hal:
 - dokumen ini tidak membahas detail passport product secara mendalam.
 - surface yang overlap dengan fitness tetap diakses dari domain coach agar pengalaman dimulai dari coach POV.
 
+## RBAC Canonical Terms (Aligned with Fitness)
+
+- `owner`
+- `admin`
+- `sales`
+- `cs`
+- `pt` (canonical role untuk coach practitioner/partner coach)
+- `member`
+- `gov`
+
+Terminologi implementasi:
+- gunakan `pt`, bukan istilah role baru `partner`.
+- gunakan `cs` untuk peran administratif/frontdesk/support team.
+
 ## Canonical URL Map
 
 - `coach.foremoz.com/`
@@ -41,7 +55,6 @@ Foremoz Coach berfokus pada dua hal:
 - `coach.foremoz.com/workspace`
 - `coach.foremoz.com/a/<account>`
 - `coach.foremoz.com/a/<account>/dashboard/pt`
-- `coach.foremoz.com/gov`
 
 ## Multi-tenant and Branch Model
 
