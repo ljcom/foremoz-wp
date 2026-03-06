@@ -16,8 +16,6 @@ import SalesProspectEditPage from './pages/SalesProspectEditPage.jsx';
 import PtPage from './pages/PtPage.jsx';
 import { accountPath, getSession } from './lib.js';
 
-const OPEN_MOCKUP_ACCESS = (import.meta.env.VITE_MOCKUP_OPEN_ACCESS ?? 'false') === 'true';
-
 function roleHome(session) {
   const role = session?.role || 'admin';
   if (role === 'sales') return accountPath(session, '/sales/dashboard');
@@ -28,10 +26,6 @@ function roleHome(session) {
 }
 
 function ProtectedRoute({ children }) {
-  if (OPEN_MOCKUP_ACCESS) {
-    return children;
-  }
-
   const location = useLocation();
   const session = getSession();
 
@@ -43,10 +37,6 @@ function ProtectedRoute({ children }) {
 }
 
 function MemberProtectedRoute({ children }) {
-  if (OPEN_MOCKUP_ACCESS) {
-    return children;
-  }
-
   const session = getSession();
   if (!session?.isAuthenticated) {
     return <Navigate to="/a/tn_001/member/signin" replace />;
@@ -55,10 +45,6 @@ function MemberProtectedRoute({ children }) {
 }
 
 function RoleRoute({ roles, children }) {
-  if (OPEN_MOCKUP_ACCESS) {
-    return children;
-  }
-
   const session = getSession();
   if (!roles.includes(session?.role || 'admin')) {
     return <Navigate to={roleHome(session)} replace />;
@@ -67,10 +53,6 @@ function RoleRoute({ roles, children }) {
 }
 
 function RequireAdminOnboarding({ children }) {
-  if (OPEN_MOCKUP_ACCESS) {
-    return children;
-  }
-
   const session = getSession();
   const role = session?.role || 'admin';
   if (role === 'admin' && !session?.isOnboarded) {

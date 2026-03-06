@@ -3,8 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import AuthLayout from '../components/AuthLayout.jsx';
 import { apiJson, requireField, setOwnerSetup, setSession } from '../lib.js';
 
-const OPEN_MOCKUP_ACCESS = (import.meta.env.VITE_MOCKUP_OPEN_ACCESS ?? 'false') === 'true';
-
 function generateTenantId(email) {
   const localPart = String(email || '')
     .split('@')[0]
@@ -35,60 +33,40 @@ export default function SignUpPage() {
       const password = requireField(form.password, 'password');
       const tenantId = generateTenantId(email);
 
-      if (!OPEN_MOCKUP_ACCESS) {
-        const result = await apiJson('/v1/tenant/auth/signup', {
-          method: 'POST',
-          body: JSON.stringify({
-            tenant_id: tenantId,
-            full_name: fullName,
-            email,
-            password,
-            role: 'owner'
-          })
-        });
+      const result = await apiJson('/v1/tenant/auth/signup', {
+        method: 'POST',
+        body: JSON.stringify({
+          tenant_id: tenantId,
+          full_name: fullName,
+          email,
+          password,
+          role: 'owner'
+        })
+      });
 
-        // New signup starts a fresh tenant onboarding flow.
-        setOwnerSetup(null);
-        setSession({
-          isAuthenticated: true,
-          isOnboarded: false,
-          role: 'owner',
-          user: {
-            fullName: result.user?.full_name || fullName,
-            email: result.user?.email || email,
-            userId: result.user?.user_id || null
-          },
-          tenant: {
-            id: tenantId,
-            account_slug: '',
-            namespace: `foremoz:fitness:${tenantId}`,
-            gym_name: ''
-          },
-          branch: { id: '', chain: '' },
-          auth: {
-            tokenType: result.auth?.token_type || 'Bearer',
-            accessToken: result.auth?.access_token || null,
-            expiresIn: result.auth?.expires_in || null
-          }
-        });
-
-        navigate('/web/owner', { replace: true });
-        return;
-      }
-
+      // New signup starts a fresh tenant onboarding flow.
       setOwnerSetup(null);
       setSession({
         isAuthenticated: true,
         isOnboarded: false,
         role: 'owner',
-        user: { fullName, email },
+        user: {
+          fullName: result.user?.full_name || fullName,
+          email: result.user?.email || email,
+          userId: result.user?.user_id || null
+        },
         tenant: {
           id: tenantId,
           account_slug: '',
           namespace: `foremoz:fitness:${tenantId}`,
           gym_name: ''
         },
-        branch: { id: '', chain: '' }
+        branch: { id: '', chain: '' },
+        auth: {
+          tokenType: result.auth?.token_type || 'Bearer',
+          accessToken: result.auth?.access_token || null,
+          expiresIn: result.auth?.expires_in || null
+        }
       });
 
       navigate('/web/owner', { replace: true });
@@ -107,9 +85,6 @@ export default function SignUpPage() {
       alternateText="Already owner? Sign in"
     >
       <form className="card form" onSubmit={submit}>
-        {OPEN_MOCKUP_ACCESS ? (
-          <p className="error">Mock mode aktif: signup ini tidak membuat akun ke backend.</p>
-        ) : null}
         <label>
           Full name
           <input name="fullName" value={form.fullName} onChange={handleChange} />
