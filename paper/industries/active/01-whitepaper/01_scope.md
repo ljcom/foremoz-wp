@@ -31,7 +31,7 @@ Foremoz Active berfokus pada operasi active center end-to-end (fitness + sport):
 - payment queue + payment history.
 - interaction model antar actor: coach-studio, coach-member, member-studio.
 - invitation workflow: coach invite member/studio, studio invite coach, member invite friend.
-- passport sebagai identity layer olahraga yang portable lintas coach/studio.
+- passport sebagai identity layer olahraga yang portable lintas creator/host.
 - owner page operations (`/web/owner`): tenant setup namespace/chain, perpanjang SaaS, user access.
 - role workspaces: `admin`, `sales`, `pt`, `member`, `gov`.
 - public web/account surfaces (`/web`, `/a/<account>`).
@@ -40,27 +40,20 @@ Foremoz Active berfokus pada operasi active center end-to-end (fitness + sport):
 - gov policy operations (suspend/free/price/promotion).
 - packaging komersial bertingkat dengan free tier minimum untuk tenant kecil.
 
-## Canonical URL Map
+## Canonical Surface Model
 
-- `/web`
-- `/web/owner`
-- `/a/<account>`
-- `/a/<account>/member`
-- `/a/<account>/member/signup`
-- `/a/<account>/member/signin`
-- `/a/<account>/member/portal`
-- `/a/<account>/dashboard`
-- `/a/<account>/admin`
-- `/a/<account>/sales`
-- `/a/<account>/dashboard/pt`
+Identity:
+- `passport.foremoz.com/<account>`
 
-## Actor Identity Domains
+Operating:
+- `tenant.foremoz.com/a/<account>`
+- `tenant.foremoz.com/a/<account>/dashboard`
+- `tenant.foremoz.com/a/<account>/events/<event_id>`
 
-Invitation network membutuhkan identity endpoint yang konsisten untuk tiap actor.
-Minimal domain yang wajib tersedia:
-
-- `coach.foremoz.com` untuk coach identity surface (invite acceptance, profile, network relation).
-- `passport.foremoz.com` untuk member passport identity surface (invite acceptance, sport identity, portable history).
+Public:
+- `foremoz.com/active/<account>`
+- `foremoz.com/e/<event_slug>`
+- optional vanity alias: `<account>.foremoz.com/<event_slug>`
 
 ## Multi-tenant and Branch Model
 

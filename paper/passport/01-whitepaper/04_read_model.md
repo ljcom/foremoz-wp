@@ -68,7 +68,7 @@ Rule:
 ### rm_passport_network
 
 - PK: `(tenant_id, relation_id)`
-- Query use: relasi aktif member dengan coach/studio.
+- Query use: relasi aktif participant dengan creator/host.
 
 ## Projection Notes
 

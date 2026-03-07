@@ -5,6 +5,8 @@ Foremoz memakai 3 role inti lintas vertical:
 - Participant
 - Host
 
+A role is contextual to event participation and operating scope, not a permanent identity type.
+
 ## Role Mapping
 
 Creator bisa berupa:
@@ -27,6 +29,7 @@ Host bisa berupa:
 ## Multi-role Account
 
 Satu account dapat memegang lebih dari satu role.
+Satu Passport dapat beroperasi sebagai Creator, Participant, dan Host di event yang berbeda.
 
 Contoh:
 - Arman sebagai Creator (coach)

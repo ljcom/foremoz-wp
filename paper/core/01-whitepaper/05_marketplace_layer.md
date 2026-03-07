@@ -1,24 +1,25 @@
 # 5. Marketplace Layer
 
-Foremoz berfungsi sebagai discovery marketplace untuk pengalaman berbasis event.
+Marketplace pada Foremoz adalah **discovery, distribution, dan growth surface**, bukan inti inovasi platform.
 
-## Discovery Objects
+## Function of Marketplace
 
-- events
-- creators
-- places
-- experiences
+- membantu participant menemukan event/creator/host
+- memperluas distribusi event lintas komunitas
+- meningkatkan conversion dari discovery ke participation
 
-## Contoh Discovery
-
-- Yoga class near me
-- AI workshop this weekend
-- Comedy show tonight
-- Food tour in Jakarta
-
-## Marketplace Features
+## Core Features
 
 - search
 - recommendation
-- filter
-- trending events
+- filtering
+- trending views
+
+## Position in Architecture
+
+Marketplace bekerja di atas Event OS, Passport, dan Collaboration Layer.
+Foremoz tetap diposisikan pertama sebagai:
+- Event OS
+- creator infrastructure
+- collaboration platform
+- identity network

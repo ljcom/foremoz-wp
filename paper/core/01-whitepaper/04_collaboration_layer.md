@@ -1,22 +1,18 @@
 # 4. Collaboration Layer
 
-Core platform mendukung kolaborasi lintas actor untuk mengeksekusi event.
+Foremoz bukan hanya marketplace atau ticketing layer.
+Foremoz adalah **collaboration operating layer** antara Creator dan Host untuk menjalankan pengalaman bersama.
 
-## Contoh Kolaborasi
+## What This Layer Enables
 
-- coach + studio
-- instructor + academy
-- performer + venue
-- guide + attraction
+- invitation flow antar actor
+- explicit role assignment
+- access permission per event context
+- revenue split dan commercial terms
+- koordinasi eksekusi event creator-led
 
-## Contoh Nyata
+## Strategic Differentiation
 
-- Coach Arman mengadakan yoga class di Sunter Gym.
-- Studio mengundang coach untuk mengisi class.
+Foremoz memungkinkan creator dan infrastructure provider berkolaborasi di sekitar shared event dengan role, permission, dan terms yang jelas.
 
-## Fitur Kolaborasi
-
-- invitation
-- revenue sharing
-- role assignment
-- access permission
+Ini membedakan Foremoz dari event marketplace biasa yang berfokus pada listing/discovery saja.

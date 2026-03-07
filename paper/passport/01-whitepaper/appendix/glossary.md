@@ -2,7 +2,7 @@
 
 - passport: identitas olahraga personal milik member.
 - member: individu yang join/subscribe layanan coach dan studio.
-- subscription portfolio: kumpulan subscription aktif member lintas coach/studio.
+- subscription portfolio: kumpulan subscription aktif participant lintas creator/host.
 - performance log: catatan diet, weight, muscle, workout, dan metric lain.
 - consent: izin eksplisit dari member untuk berbagi data ke coach.
 - consent scope: kategori data yang diizinkan untuk dilihat coach.

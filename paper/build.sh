@@ -28,7 +28,6 @@ SECTIONS=(
   "industries/tourism"
   "passport"
   "gov"
-  "creator-events"
 )
 
 collect_markdown_files() {

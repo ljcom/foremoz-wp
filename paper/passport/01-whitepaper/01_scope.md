@@ -2,17 +2,18 @@
 
 ## Objective
 
-Foremoz Passport berfokus pada peran member sebagai:
+Foremoz Passport berfokus pada actor identity universal sebagai:
 - identity owner,
-- subscriber lintas coach/fitness,
-- pemilik data performa pribadi,
+- multi-role account (creator/participant/host),
+- pemilik history dan reputation portable,
 - dan pengendali izin data sharing.
 
 ## In Scope
 
 - passport onboarding dan profile lifecycle.
-- multi-join class di berbagai lokasi.
-- multi-subscription ke coach/fitness.
+- role activation per context event/operational scope.
+- multi-join event di berbagai lokasi/vertical.
+- multi-subscription ke creator/host.
 - personal tracking:
   - diet
   - body weight
@@ -20,22 +21,22 @@ Foremoz Passport berfokus pada peran member sebagai:
   - workout log
   - performance milestones
 - privacy controls:
-  - grant consent ke coach
+- grant consent ke actor lain
   - revoke consent
   - consent per category
-- consent-aware data presentation di coach workspace.
+- consent-aware data presentation di operating workspace.
 - freemium packaging (free default + premium personal features opsional).
 
 ## Canonical URL Map
 
-- `passport.foremoz.com/`
-- `passport.foremoz.com/signin`
-- `passport.foremoz.com/profile`
-- `passport.foremoz.com/subscriptions`
-- `passport.foremoz.com/history`
-- `passport.foremoz.com/performance`
-- `passport.foremoz.com/privacy`
-- `passport.foremoz.com/consents`
+- `passport.foremoz.com/<account>`
+- `passport.foremoz.com/<account>/signin`
+- `passport.foremoz.com/<account>/profile`
+- `passport.foremoz.com/<account>/roles`
+- `passport.foremoz.com/<account>/history`
+- `passport.foremoz.com/<account>/reputation`
+- `passport.foremoz.com/<account>/privacy`
+- `passport.foremoz.com/<account>/consents`
 
 ## Multi-tenant and Branch Model
 

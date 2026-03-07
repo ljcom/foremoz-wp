@@ -8,7 +8,6 @@
 - `paper/industries/learning/`
 - `paper/industries/tourism/`
 - `paper/industries/performance/`
-- `paper/creator-events/`
 
 ## Identity
 - `paper/passport/`

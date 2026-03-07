@@ -1,29 +1,43 @@
 # 3. Event Engine
 
-Event Engine adalah jantung platform. Semua aktivitas utama dipetakan sebagai event.
+Event Engine adalah jantung Foremoz.
 
-## Contoh Event
+**In Foremoz, the event is the atomic unit of activity, interaction, and monetization.**
 
-- Yoga Class
-- Badminton Tournament
-- AI Workshop
-- Comedy Show
-- City Tour
+## Universal Event Structure
 
-## Struktur Event
-
+Setiap event memiliki elemen minimum:
 - creator
-- event
+- participant set
+- host/venue context
 - time
 - location
 - capacity
-- participants
+- policy and pricing
 
-## Event Lifecycle
+## Universal Lifecycle
 
 - create event
 - publish event
 - participants join
-- check-in
+- check-in/attendance
 - event completed
-- feedback
+- feedback/distribution
+
+## Event-Driven Economic Flows
+
+Monetisasi berjalan melalui struktur event-driven, termasuk:
+- ticket sales
+- booking fees
+- class/session fees
+- subscriptions linked to activity
+- sponsorship
+- merchandise/add-ons
+- venue revenue share
+
+## Event URL as First-class Entity
+
+Event memiliki identitas URL sendiri agar ownership, discovery, dan operasi terpisah jelas:
+- operating route: `tenant.foremoz.com/a/<account>/events/<event_id>`
+- public route: `foremoz.com/e/<event_slug>`
+- public vanity option: `<account>.foremoz.com/<event_slug>`

@@ -1,43 +1,39 @@
 # 1. Identity Layer (Passport)
 
-Passport adalah fondasi identitas digital lintas vertical.
+Passport adalah lapisan identitas persisten yang memungkinkan actor membawa history, trust, dan reputasi lintas industri dan lintas event.
+Passport adalah identity universal Foremoz untuk semua actor.
 
-## Fungsi Utama
+## Strategic Role
 
-- identity
-- activity history
-- reputation
-- verification
+Passport adalah pembeda utama platform karena menyediakan:
+- portable identity across verticals
+- portable activity history
+- portable creator/participant/host reputation
+- trust layer untuk interaction dan collaboration
+- optional consent-based data sharing
 
-## Berlaku untuk Semua Role
+Aturan platform:
+- every account owns one Passport
+- roles melekat pada Passport yang sama, bukan dipisah menjadi identity product terisolasi
+
+## Why Cross-Vertical Identity Matters
+
+Tanpa Passport, nilai actor terpecah per aplikasi. Dengan Passport:
+- Creator dapat membawa reputasi ke vertical baru.
+- Participant dapat menunjukkan history aktivitas dan status partisipasi.
+- Host dapat memvalidasi trust dan track record kolaborator.
+
+## Canonical Passport Types
 
 - Creator Passport
 - Participant Passport
 - Host Passport
 
-## Contoh
+## Core Data Surface
 
-Creator Passport:
-- Coach Arman
-- Events created: 120
-- Followers: 800
-- Rating: 4.9
-
-Participant Passport:
-- Samuel
-- Events attended: 42
-- Skills learned: AI, Yoga
-- Countries visited: 3
-
-Host Passport:
-- Sunter Gym
-- Events hosted: 210
-- Capacity: 80
-- Rating: 4.7
-
-## Nilai Strategis
-
-Passport membentuk:
-- trust
+- identity
+- activity history
 - reputation
-- network identity
+- verification
+- consent settings
+- network relationships

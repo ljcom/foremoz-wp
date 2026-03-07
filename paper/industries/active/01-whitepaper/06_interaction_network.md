@@ -17,7 +17,7 @@ Primary actors adalah entitas yang menghasilkan nilai ekonomi utama dalam ekosis
 
 Model relasi inti:
 
-`coach <-> member <-> studio`
+`creator <-> participant <-> host`
 
 ### Supporting Roles
 
@@ -106,17 +106,16 @@ Actor dapat mengundang actor lain:
 
 Pendekatan ini menurunkan ketergantungan pertumbuhan pada tim sales terpusat.
 
-## Identity Subdomain Implication
+## Identity and Network Implication
 
-Agar invitation network berjalan konsisten, setiap actor memerlukan identity surface berbasis subdomain.
-Minimum requirement:
+Interaction network berjalan antar Passport actor identities.
+Semua actor (coach, member, studio owner/operator) memakai identity universal:
 
-- `coach.foremoz.com` untuk actor coach.
-- `passport.foremoz.com` untuk actor member.
+- `passport.foremoz.com/<account>`
 
 Implikasi operasional:
-- invitation link diarahkan ke subdomain actor yang relevan.
-- acceptance flow dan actor profile diselesaikan pada identity surface masing-masing.
+- invitation link diarahkan ke passport identity target actor.
+- acceptance flow dan actor profile diselesaikan pada Passport.
 - relasi actor yang aktif tetap dicatat sebagai event dan diproyeksikan ke read model network.
 
 ## Event Representation

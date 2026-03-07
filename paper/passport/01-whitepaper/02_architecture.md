@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Mendefinisikan runtime architecture untuk member identity, personal performance tracking, dan consent-based coach data sharing.
+Mendefinisikan runtime architecture untuk universal actor identity, personal tracking, dan consent-based data sharing.
 
 ## High-Level Architecture
 
@@ -45,10 +45,10 @@ Mendefinisikan runtime architecture untuk member identity, personal performance 
 
 ## Auth and Data Access Rules
 
-- member signin di `passport.foremoz.com/signin`.
+- signin identity di `passport.foremoz.com/<account>`.
 - member adalah owner data performa pribadi.
-- coach read access harus lewat `rm_coach_shared_view` yang difilter consent.
-- jika consent dicabut, coach view langsung menyesuaikan di projection berikutnya.
+- creator/coach read access harus lewat `rm_coach_shared_view` yang difilter consent.
+- jika consent dicabut, shared view actor langsung menyesuaikan di projection berikutnya.
 
 ## Projection Checkpoint Strategy
 

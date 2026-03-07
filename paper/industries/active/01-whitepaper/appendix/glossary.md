@@ -11,13 +11,12 @@
 - booking: reservasi slot class atau PT session.
 - PT session: unit sesi personal training.
 - owner page: `foremoz.com/active//owner` untuk setup tenant dan kontrol owner.
-- public account page: `active.foremoz.com/a/<account>` untuk promosi dan conversion.
+- public account page: `foremoz.com/active/<account>` untuk promosi dan conversion.
 - prospect: calon member di pipeline sales CRM.
 - gov console: surface lintas tenant untuk policy dan performance control.
 - coach: actor utama pembuat aktivitas olahraga (kelas, PT session, program).
 - studio (place): actor utama penyedia infrastruktur fisik olahraga.
-- passport: identitas olahraga member yang portable lintas coach/studio.
-- interaction network: model relasi `coach <-> member <-> studio` berbasis event stream.
+- passport: identitas actor universal (creator/participant/host) yang portable lintas event.
+- interaction network: model relasi `creator <-> participant <-> host` berbasis event stream.
 - invitation network: mekanisme pertumbuhan actor melalui undangan antar actor.
-- coach identity domain: `coach.foremoz.com` sebagai surface identitas dan invitation flow actor coach.
-- passport identity domain: `passport.foremoz.com` sebagai surface identitas dan invitation flow actor member.
+- passport identity domain: `passport.foremoz.com/<account>` sebagai surface identitas universal dan invitation flow semua actor.

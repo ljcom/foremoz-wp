@@ -1,12 +1,15 @@
 # Foremoz Core Platform - Executive Summary
 
-Foremoz adalah Event Experience Platform yang berjalan di atas **Core Platform** yang dipakai semua vertical:
-- Active
-- Learning
-- Performance
-- Tourism (phase 2)
+Foremoz adalah **multi-industry Event OS** untuk Creator, Participant, dan Host.
 
-Core ini menjelaskan fondasi produk dan model ekonomi platform, tanpa masuk ke detail teknis implementasi per app.
+Foremoz bukan sekadar fitness app, learning app, atau tourism app terpisah.
+Foremoz dibangun sebagai:
+- Core Platform (infrastruktur universal)
+- Vertical Modules (Active, Learning, Performance, Tourism)
+
+Di Foremoz, **event adalah unit ekonomi utama** yang menghubungkan aktivitas, kolaborasi, dan monetisasi.
+
+Passport berfungsi sebagai lapisan identitas dan reputasi portabel lintas vertical, sehingga actor dapat membawa history, trust, dan network relationship dari satu konteks event ke konteks lainnya.
 
 ## 7 Core Components
 
@@ -17,5 +20,3 @@ Core ini menjelaskan fondasi produk dan model ekonomi platform, tanpa masuk ke d
 5. Marketplace Layer
 6. Transaction Layer
 7. Sponsorship Layer
-
-Semua vertical menambahkan fitur spesifik industri di atas core yang sama.

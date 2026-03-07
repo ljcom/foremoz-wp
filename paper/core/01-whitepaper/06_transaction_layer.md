@@ -1,24 +1,33 @@
 # 6. Transaction Layer
 
-Setiap event dapat memiliki model transaksi sesuai konteks vertical.
+Transaction Layer adalah infrastruktur ekonomi untuk ekosistem event, bukan sekadar payment logging.
 
 ## Transaction Models
 
-- ticket
+- ticketing
 - booking
-- subscription
-- donation
-- sponsorship
+- class/session fee
+- recurring subscriptions
+- sponsorship-backed monetization
+- donation/support pattern (opsional sesuai vertical)
+- merchandise/add-ons (opsional)
 
-## Contoh
+## Revenue Models
 
-- Yoga class: $10 ticket
-- Food tour: $40 per person
+- creator revenue model
+- operator/host revenue model
+- shared event collaboration model
+- recurring member/subscriber model
 
-## Revenue Sharing
+## Revenue Distribution in Collaborative Events
 
-Core platform mendukung pembagian nilai antara:
-- creator revenue
-- host revenue
+Kolaborasi event dapat melibatkan:
+- creator payout
+- host payout
 - platform fee
 - sponsor contribution
+- optional third-party collaborator share
+
+## Platform-Level Economic Role
+
+Layer ini membuat Foremoz berfungsi sebagai economic infrastructure untuk event ecosystem lintas vertical.
