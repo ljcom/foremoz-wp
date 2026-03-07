@@ -1,0 +1,9 @@
+sequenceDiagram
+  participant U as User
+  participant APP as Industry App
+  participant PP as Passport
+
+  U->>APP: Sign in / Join Event
+  APP->>PP: Resolve identity
+  PP-->>APP: Identity + consent
+  APP-->>U: Access granted

@@ -1,0 +1,13 @@
+{
+  "event_id": "evt_01",
+  "event_type": "event.published",
+  "aggregate_type": "event",
+  "aggregate_id": "ev_sunday_bootcamp",
+  "tenant_id": "tn_active_demo",
+  "occurred_at": "2026-03-07T10:00:00Z",
+  "payload": {
+    "title": "Sunday Bootcamp",
+    "starts_at": "2026-03-14T07:00:00Z",
+    "venue_id": "vn_studio_x"
+  }
+}

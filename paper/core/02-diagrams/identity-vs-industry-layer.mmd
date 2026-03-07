@@ -1,0 +1,16 @@
+flowchart TB
+  subgraph Identity[Identity Layer]
+    P[Passport]
+  end
+
+  subgraph Industry[Industry Event Layer]
+    A[Active]
+    L[Learning]
+    PF[Performance]
+    T[Tourism - Phase 2]
+  end
+
+  P --- A
+  P --- L
+  P --- PF
+  P --- T

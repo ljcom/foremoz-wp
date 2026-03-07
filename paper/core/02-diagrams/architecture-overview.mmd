@@ -1,0 +1,7 @@
+flowchart LR
+  U[Web / Mobile Client] --> API[Industry API]
+  API --> EDB[(EventDB)]
+  EDB --> PRJ[Projector]
+  PRJ --> RDB[(Read Model DB)]
+  API --> RDB
+  API <--> P[Passport Layer]

@@ -1,13 +1,13 @@
 # Paper Structure
 
-## General
-- `paper/general/01-whitepaper/foremoz-event-os-whitepaper-v1.md`
+## Core
+- `paper/core/01-whitepaper/00_summary.md`
 
 ## Industry Papers
-- `paper/active/`
-- `paper/learning/`
-- `paper/tourism/`
-- `paper/performance/`
+- `paper/industries/active/`
+- `paper/industries/learning/`
+- `paper/industries/tourism/`
+- `paper/industries/performance/`
 - `paper/creator-events/`
 
 ## Identity
@@ -15,6 +15,10 @@
 
 ## Note
 - Folder `paper/coach/` telah dihapus.
-- Folder `paper/seminar/` dan `paper/workshop/` digabung menjadi `paper/learning/`.
-- Folder `paper/fitness/` dan `paper/sport/` digabung menjadi `paper/active/`.
-- Sponsorship untuk sementara dibahas di whitepaper general.
+- Folder `paper/seminar/` dan `paper/workshop/` digabung menjadi `paper/industries/learning/`.
+- Folder `paper/fitness/` dan `paper/sport/` digabung menjadi `paper/industries/active/`.
+- Sponsorship untuk sementara dibahas di whitepaper core.
+
+## Build
+- Gunakan `paper/build.sh` untuk generate satu PDF gabungan seluruh dokumen.
+- Output default: `paper/04-build/foremoz-unified-whitepaper.pdf`.

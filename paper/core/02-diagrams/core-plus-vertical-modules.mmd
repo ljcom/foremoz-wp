@@ -1,0 +1,22 @@
+flowchart TB
+  subgraph C[Foremoz Core Platform]
+    I[1. Identity Layer\nPassport]
+    R[2. Role System\nCreator/Participant/Host]
+    E[3. Event Engine]
+    CL[4. Collaboration Layer]
+    M[5. Marketplace Layer]
+    T[6. Transaction Layer]
+    S[7. Sponsorship Layer]
+  end
+
+  subgraph V[Vertical Modules]
+    A[Active]
+    L[Learning]
+    P[Performance]
+    TO[Tourism - Phase 2]
+  end
+
+  C --> A
+  C --> L
+  C --> P
+  C --> TO
