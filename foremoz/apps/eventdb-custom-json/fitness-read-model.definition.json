@@ -1,0 +1,134 @@
+{
+  "name": "foremoz-fitness-read-model-v2",
+  "namespace_format": "foremoz:<tenant_id>",
+  "chain_format": "branch:<branch_id>|core",
+  "checkpoint_table": "read.rm_checkpoint",
+  "tables": [
+    {
+      "name": "read.rm_member",
+      "primary_key": ["tenant_id", "member_id"],
+      "columns": ["tenant_id", "branch_id", "member_id", "full_name", "phone", "email", "photo_url", "status", "registered_at", "updated_at"],
+      "query_use": "member list, profile header, member portal"
+    },
+    {
+      "name": "read.rm_member_auth",
+      "primary_key": ["tenant_id", "member_id"],
+      "columns": ["tenant_id", "member_id", "email", "password_hash", "status", "registered_at", "password_changed_at", "updated_at"],
+      "query_use": "member signup/signin/me"
+    },
+    {
+      "name": "read.rm_tenant_user_auth",
+      "primary_key": ["tenant_id", "user_id"],
+      "columns": ["tenant_id", "user_id", "full_name", "email", "role", "password_hash", "status", "created_at", "updated_at"],
+      "query_use": "tenant auth and role guard"
+    },
+    {
+      "name": "read.rm_owner_setup",
+      "primary_key": ["tenant_id"],
+      "columns": ["tenant_id", "gym_name", "branch_id", "account_slug", "package_plan", "status", "updated_at"],
+      "query_use": "owner setup state"
+    },
+    {
+      "name": "read.rm_owner_saas",
+      "primary_key": ["tenant_id"],
+      "columns": ["tenant_id", "total_months", "last_note", "last_extended_at", "updated_at"],
+      "query_use": "owner SaaS extension status"
+    },
+    {
+      "name": "read.rm_subscription_active",
+      "primary_key": ["tenant_id", "subscription_id"],
+      "columns": ["tenant_id", "branch_id", "subscription_id", "member_id", "plan_id", "status", "start_date", "end_date", "freeze_until", "updated_at"],
+      "query_use": "active subscription check"
+    },
+    {
+      "name": "read.rm_attendance_daily",
+      "primary_key": ["tenant_id", "branch_id", "attendance_date"],
+      "columns": ["tenant_id", "branch_id", "attendance_date", "total_checkin", "unique_member_count", "updated_at"],
+      "query_use": "daily attendance recap"
+    },
+    {
+      "name": "read.rm_class_availability",
+      "primary_key": ["tenant_id", "class_id"],
+      "columns": ["tenant_id", "branch_id", "class_id", "class_name", "start_at", "end_at", "capacity", "booked_count", "available_slots", "updated_at"],
+      "query_use": "class slot availability"
+    },
+    {
+      "name": "read.rm_booking_list",
+      "primary_key": ["tenant_id", "booking_id"],
+      "columns": ["tenant_id", "branch_id", "booking_id", "class_id", "booking_kind", "member_id", "guest_name", "status", "booked_at", "canceled_at", "attendance_confirmed_at", "updated_at"],
+      "query_use": "class roster and booking status"
+    },
+    {
+      "name": "read.rm_member_self_booking",
+      "primary_key": ["tenant_id", "booking_id"],
+      "columns": ["tenant_id", "member_id", "booking_id", "booking_type", "status", "booked_at", "updated_at"],
+      "query_use": "member portal booking history"
+    },
+    {
+      "name": "read.rm_pt_balance",
+      "primary_key": ["tenant_id", "pt_package_id"],
+      "columns": ["tenant_id", "branch_id", "pt_package_id", "member_id", "trainer_id", "total_sessions", "consumed_sessions", "remaining_sessions", "last_session_at", "updated_at"],
+      "query_use": "PT package balance"
+    },
+    {
+      "name": "read.rm_pt_activity_log",
+      "primary_key": ["tenant_id", "activity_id"],
+      "columns": ["tenant_id", "activity_id", "member_id", "trainer_id", "session_id", "activity_note", "session_at", "updated_at"],
+      "query_use": "PT workspace activity timeline"
+    },
+    {
+      "name": "read.rm_payment_queue",
+      "primary_key": ["tenant_id", "payment_id"],
+      "columns": ["tenant_id", "branch_id", "payment_id", "member_id", "subscription_id", "amount", "currency", "method", "proof_url", "status", "recorded_at", "reviewed_at", "reviewed_by", "updated_at"],
+      "query_use": "payment confirmation queue"
+    },
+    {
+      "name": "read.rm_payment_history",
+      "primary_key": ["tenant_id", "payment_id"],
+      "columns": ["tenant_id", "payment_id", "member_id", "amount", "currency", "status", "recorded_at", "updated_at"],
+      "query_use": "member payment history"
+    },
+    {
+      "name": "read.rm_sales_prospect",
+      "primary_key": ["tenant_id", "prospect_id"],
+      "columns": ["tenant_id", "prospect_id", "full_name", "phone", "source", "stage", "owner_sales_id", "converted_member_id", "updated_at"],
+      "query_use": "sales CRM pipeline"
+    },
+    {
+      "name": "read.rm_tenant_performance",
+      "primary_key": ["tenant_id", "performance_date"],
+      "columns": ["tenant_id", "performance_date", "mrr_amount", "active_member_count", "checkin_30d_count", "updated_at"],
+      "query_use": "cross-tenant performance metrics"
+    },
+    {
+      "name": "read.rm_tenant_policy",
+      "primary_key": ["tenant_id"],
+      "columns": ["tenant_id", "status", "price_monthly", "free_months_granted", "promotion_code", "promotion_active", "updated_at"],
+      "query_use": "tenant policy state"
+    },
+    {
+      "name": "read.rm_actor_network",
+      "primary_key": ["tenant_id", "relation_id"],
+      "columns": ["tenant_id", "relation_id", "left_actor_kind", "left_actor_id", "right_actor_kind", "right_actor_id", "status", "source_invitation_id", "updated_at"],
+      "query_use": "coach-member-studio network graph"
+    },
+    {
+      "name": "read.rm_invitation_queue",
+      "primary_key": ["tenant_id", "invitation_id"],
+      "columns": ["tenant_id", "invitation_id", "inviter_actor_kind", "invitee_actor_kind", "target_contact", "channel", "status", "updated_at"],
+      "query_use": "pending invitation tracking"
+    },
+    {
+      "name": "read.rm_passport_profile",
+      "primary_key": ["tenant_id", "passport_id"],
+      "columns": ["tenant_id", "passport_id", "member_id", "sport_interests", "training_history_summary", "coach_relation_count", "studio_relation_count", "performance_milestone_count", "updated_at"],
+      "query_use": "passport identity summary"
+    },
+    {
+      "name": "read.rm_dashboard",
+      "primary_key": ["tenant_id", "branch_id", "dashboard_date"],
+      "columns": ["tenant_id", "branch_id", "dashboard_date", "active_subscription_count", "today_checkin_count", "today_booking_count", "pending_payment_count", "updated_at"],
+      "query_use": "daily operational summary"
+    }
+  ]
+}

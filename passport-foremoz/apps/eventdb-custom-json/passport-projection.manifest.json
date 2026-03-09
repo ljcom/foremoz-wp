@@ -6,12 +6,13 @@
     "passport.created": ["read.rm_passport_profile"],
     "passport.profile.updated": ["read.rm_passport_profile"],
     "passport.sport_interest.updated": ["read.rm_passport_profile"],
+    "actor.profile.upserted": ["read.rm_actor_profile"],
 
-    "coach.member.linked": ["read.rm_passport_network"],
-    "member.studio.joined": ["read.rm_passport_network"],
-    "member.studio.left": ["read.rm_passport_network"],
+    "coach.member.linked": ["read.rm_passport_network", "read.rm_actor_profile"],
+    "member.studio.joined": ["read.rm_passport_network", "read.rm_actor_profile"],
+    "member.studio.left": ["read.rm_passport_network", "read.rm_actor_profile"],
 
-    "subscription.created": ["read.rm_passport_subscriptions"],
+    "subscription.created": ["read.rm_passport_subscriptions", "read.rm_actor_profile"],
     "subscription.canceled": ["read.rm_passport_subscriptions"],
     "class.booking.created": ["read.rm_passport_subscriptions"],
     "class.attendance.confirmed": ["read.rm_passport_subscriptions"],

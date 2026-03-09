@@ -202,6 +202,42 @@ app.post('/v1/passport/create', async (req, res, next) => {
   }
 });
 
+app.post('/v1/actors/profile/upsert', async (req, res, next) => {
+  try {
+    const d = req.body || {};
+    const tenantId = d.tenant_id || config.defaultTenantId;
+    const actorKind = String(required(d.actor_kind, 'actor_kind')).trim().toLowerCase();
+    const actorId = String(required(d.actor_id, 'actor_id')).trim();
+    const payload = {
+      tenant_id: tenantId,
+      actor_kind: actorKind,
+      actor_id: actorId,
+      passport_id: d.passport_id || null,
+      display_name: d.display_name || null,
+      headline: d.headline || null,
+      bio: d.bio || null,
+      avatar_url: d.avatar_url || null,
+      contact_json: d.contact_json || null,
+      status: d.status || 'active',
+      updated_at: new Date().toISOString()
+    };
+    const result = await appendAndProject({
+      tenantId,
+      branchId: d.branch_id || null,
+      actorId: d.actor_id || actorId,
+      actorKind,
+      eventType: 'actor.profile.upserted',
+      subjectKind: 'actor_profile',
+      subjectId: `${actorKind}:${actorId}`,
+      data: payload,
+      refs: {}
+    });
+    return res.status(201).json({ status: 'PASS', ...result });
+  } catch (error) {
+    return next(error);
+  }
+});
+
 app.get('/v1/passport/profile', async (req, res, next) => {
   try {
     const tenantId = req.query.tenant_id || config.defaultTenantId;
@@ -410,6 +446,34 @@ app.get('/v1/read/subscriptions', async (req, res, next) => {
   try {
     const tenantId = req.query.tenant_id || config.defaultTenantId;
     const { rows } = await query(`select * from read.rm_passport_subscriptions where tenant_id = $1 order by updated_at desc limit 200`, [tenantId]);
+    return res.json({ status: 'PASS', items: rows });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.get('/v1/read/actors/profile', async (req, res, next) => {
+  try {
+    const tenantId = req.query.tenant_id || config.defaultTenantId;
+    const actorKind = req.query.actor_kind ? String(req.query.actor_kind).trim().toLowerCase() : null;
+    const actorId = req.query.actor_id || null;
+    const passportId = req.query.passport_id || null;
+    const params = [tenantId];
+    let sql = `select * from read.rm_actor_profile where tenant_id = $1`;
+    if (actorKind) {
+      params.push(actorKind);
+      sql += ` and actor_kind = $${params.length}`;
+    }
+    if (actorId) {
+      params.push(actorId);
+      sql += ` and actor_id = $${params.length}`;
+    }
+    if (passportId) {
+      params.push(passportId);
+      sql += ` and passport_id = $${params.length}`;
+    }
+    sql += ` order by updated_at desc limit 300`;
+    const { rows } = await query(sql, params);
     return res.json({ status: 'PASS', items: rows });
   } catch (error) {
     return next(error);

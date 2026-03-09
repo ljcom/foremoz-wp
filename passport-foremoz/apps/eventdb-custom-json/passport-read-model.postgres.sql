@@ -19,6 +19,21 @@ CREATE TABLE IF NOT EXISTS read.rm_passport_profile (
   PRIMARY KEY (tenant_id, passport_id)
 );
 
+CREATE TABLE IF NOT EXISTS read.rm_actor_profile (
+  tenant_id TEXT NOT NULL,
+  actor_kind TEXT NOT NULL,
+  actor_id TEXT NOT NULL,
+  passport_id TEXT,
+  display_name TEXT,
+  headline TEXT,
+  bio TEXT,
+  avatar_url TEXT,
+  contact_json JSONB,
+  status TEXT NOT NULL DEFAULT 'active',
+  updated_at TIMESTAMPTZ NOT NULL,
+  PRIMARY KEY (tenant_id, actor_kind, actor_id)
+);
+
 CREATE TABLE IF NOT EXISTS read.rm_passport_account_auth (
   tenant_id TEXT NOT NULL,
   passport_id TEXT NOT NULL,
@@ -114,3 +129,6 @@ CREATE TABLE IF NOT EXISTS read.rm_passport_plan_state (
 
 CREATE INDEX IF NOT EXISTS idx_rm_passport_account_auth_email
   ON read.rm_passport_account_auth (tenant_id, email);
+
+CREATE INDEX IF NOT EXISTS idx_rm_actor_profile_passport
+  ON read.rm_actor_profile (tenant_id, passport_id, actor_kind);

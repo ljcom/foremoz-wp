@@ -18,18 +18,8 @@ const APPS = {
     eventdbPortDefault: '3020',
     apiPortEnv: 'API_FITNESS_PORT',
     apiPortDefault: '3310',
-    apiPrefix: './fitness-foremoz/apps/api',
-    vitePrefix: './fitness-foremoz/apps/vite'
-  },
-  coach: {
-    dbEnv: 'DB_COACH_URL',
-    dbDefault: 'postgresql://postgres:ljcom2x@localhost:15432/eventdb_coach',
-    eventdbPortEnv: 'EVENTDB_COACH_PORT',
-    eventdbPortDefault: '3021',
-    apiPortEnv: 'API_COACH_PORT',
-    apiPortDefault: '3400',
-    apiPrefix: './coach-foremoz/apps/api',
-    vitePrefix: './coach-foremoz/apps/vite'
+    apiPrefix: './foremoz/apps/api',
+    vitePrefix: './foremoz/apps/vite'
   },
   passport: {
     dbEnv: 'DB_PASSPORT_URL',
@@ -86,21 +76,34 @@ async function setupApp(appName) {
   await runNpm(['--prefix', app.apiPrefix, 'run', 'db:read-model'], env);
 }
 
-function devApp(appName) {
+function devApp(appName, options = {}) {
+  const { includeEventdb = true } = options;
   const app = appRuntime(appName);
   const baseEnv = { ...process.env, DATABASE_URL: app.dbUrl };
   console.log(
     `[dev:${appName}] DATABASE_URL=${app.dbUrl} EVENTDB_PORT=${app.eventdbPort} API_PORT=${app.apiPort}`
   );
 
-  return [
-    spawnNpm(['--prefix', './eventdb/mvp-node', 'run', 'dev'], {
-      ...baseEnv,
-      PORT: app.eventdbPort
-    }),
-    spawnNpm(['--prefix', app.apiPrefix, 'run', 'dev'], { ...baseEnv, PORT: app.apiPort }),
-    spawnNpm(['--prefix', app.vitePrefix, 'run', 'dev'], process.env)
-  ];
+  const children = [];
+  if (includeEventdb) {
+    children.push(
+      spawnNpm(['--prefix', './eventdb/mvp-node', 'run', 'dev'], {
+        ...baseEnv,
+        PORT: app.eventdbPort
+      })
+    );
+  }
+  children.push(spawnNpm(['--prefix', app.apiPrefix, 'run', 'dev'], { ...baseEnv, PORT: app.apiPort }));
+  children.push(
+    spawnNpm(
+      ['--prefix', app.vitePrefix, 'run', 'dev'],
+      {
+        ...process.env,
+        VITE_API_BASE_URL: process.env.VITE_API_BASE_URL || `http://localhost:${app.apiPort}`
+      }
+    )
+  );
+  return children;
 }
 
 async function main() {
@@ -108,7 +111,7 @@ async function main() {
   const target = process.argv[3];
 
   if (!action || !target) {
-    console.error('Usage: node ./scripts/workspace.mjs <setup|dev> <fitness|coach|passport|all>');
+    console.error('Usage: node ./scripts/workspace.mjs <setup|dev> <fitness|passport|all>');
     process.exit(1);
   }
 
@@ -147,8 +150,10 @@ async function main() {
     process.on('SIGINT', stopAll);
     process.on('SIGTERM', stopAll);
 
-    for (const name of names) {
-      children.push(...devApp(name));
+    for (let i = 0; i < names.length; i += 1) {
+      const name = names[i];
+      const includeEventdb = i === 0;
+      children.push(...devApp(name, { includeEventdb }));
     }
 
     await Promise.race(

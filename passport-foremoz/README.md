@@ -8,6 +8,7 @@ Member-first identity and personal performance:
 - one passport for multi coach/studio subscriptions.
 - personal tracking (diet, weight, muscle, workout, milestone).
 - consent-first data sharing ke coach.
+- actor profile registry lintas role (member/coach/studio).
 
 ## Applied Artifacts
 

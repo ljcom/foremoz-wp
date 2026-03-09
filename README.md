@@ -1,1 +1,1 @@
-# fitness-foremoz-wp
+# foremoz-wp

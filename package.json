@@ -3,14 +3,15 @@
   "private": true,
   "version": "0.1.0",
   "scripts": {
-    "install:all": "npm --prefix ./eventdb/mvp-node install && npm --prefix ./fitness-foremoz/apps/api install && npm --prefix ./fitness-foremoz/apps/vite install && npm --prefix ./coach-foremoz/apps/api install && npm --prefix ./coach-foremoz/apps/vite install && npm --prefix ./passport-foremoz/apps/api install && npm --prefix ./passport-foremoz/apps/vite install",
-    "setup:all": "npm run setup:fitness && npm run setup:coach && npm run setup:passport",
+    "install:all": "npm --prefix ./eventdb/mvp-node install && npm --prefix ./foremoz/apps/api install && npm --prefix ./foremoz/apps/vite install && npm --prefix ./passport-foremoz/apps/api install && npm --prefix ./passport-foremoz/apps/vite install",
+    "setup:all": "npm run setup:fitness && npm run setup:passport",
     "setup:fitness": "node ./scripts/workspace.mjs setup fitness",
-    "setup:coach": "node ./scripts/workspace.mjs setup coach",
     "setup:passport": "node ./scripts/workspace.mjs setup passport",
     "dev:fitness": "node ./scripts/workspace.mjs dev fitness",
-    "dev:coach": "node ./scripts/workspace.mjs dev coach",
+    "dev:fitness:mockup": "VITE_APP_MODE=mock VITE_MOCKUP_OPEN_ACCESS=true node ./scripts/workspace.mjs dev fitness",
     "dev:passport": "node ./scripts/workspace.mjs dev passport",
-    "dev:all": "node ./scripts/workspace.mjs dev all"
+    "dev:passport:mockup": "VITE_APP_MODE=mock VITE_MOCKUP_OPEN_ACCESS=true node ./scripts/workspace.mjs dev passport",
+    "dev:all": "node ./scripts/workspace.mjs dev all",
+    "dev:all:mockup": "VITE_APP_MODE=mock VITE_MOCKUP_OPEN_ACCESS=true node ./scripts/workspace.mjs dev all"
   }
 }

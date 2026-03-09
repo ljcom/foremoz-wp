@@ -11,6 +11,12 @@
       "query_use": "passport identity profile"
     },
     {
+      "name": "read.rm_actor_profile",
+      "primary_key": ["tenant_id", "actor_kind", "actor_id"],
+      "columns": ["tenant_id", "actor_kind", "actor_id", "passport_id", "display_name", "headline", "bio", "avatar_url", "contact_json", "status", "updated_at"],
+      "query_use": "cross-actor profile registry (member/coach/studio)"
+    },
+    {
       "name": "read.rm_passport_subscriptions",
       "primary_key": ["tenant_id", "subscription_id"],
       "columns": ["tenant_id", "subscription_id", "passport_id", "coach_id", "studio_id", "plan_id", "status", "updated_at"],

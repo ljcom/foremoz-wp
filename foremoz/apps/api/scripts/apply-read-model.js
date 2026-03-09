@@ -48,8 +48,8 @@ function expandDirCandidates(entries) {
 
 async function resolveCustomJsonDir(fileName) {
   const defaultDirs = [
-    path.resolve(workspaceRoot, 'passport-foremoz/apps/eventdb-custom-json'),
-    path.resolve(workspaceRoot, 'foremoz/apps/eventdb-custom-json')
+    path.resolve(workspaceRoot, 'foremoz/apps/eventdb-custom-json'),
+    path.resolve(workspaceRoot, 'passport-foremoz/apps/eventdb-custom-json')
   ];
 
   const configuredDirs = expandDirCandidates(parseCustomJsonDirEntries(process.env.CUSTOM_JSON_DIR));
@@ -63,9 +63,9 @@ async function resolveCustomJsonDir(fileName) {
 }
 
 async function main() {
-  const fileName = 'passport-read-model.postgres.sql';
+  const fileName = 'fitness-read-model.postgres.sql';
   const customJsonDir = await resolveCustomJsonDir(fileName);
-  const sqlPath = path.resolve(customJsonDir, 'passport-read-model.postgres.sql');
+  const sqlPath = path.resolve(customJsonDir, 'fitness-read-model.postgres.sql');
   const sql = await fs.readFile(sqlPath, 'utf8');
   await pool.query(sql);
   // eslint-disable-next-line no-console

@@ -7,6 +7,8 @@
 - Consent grant/revoke model.
 - Coach shared view filtered by consent.
 - Freemium pricing baseline.
+- Namespace tetap `foremoz:passport:<tenant_id>` sesuai whitepaper Passport terbaru (identity layer terpisah dari Active runtime).
+- Actor profile registry lintas role (`member`, `coach`, `studio`) via `rm_actor_profile`.
 
 ## Next Build Tasks
 

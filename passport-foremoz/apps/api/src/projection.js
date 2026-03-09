@@ -7,6 +7,49 @@ function j(value) {
   return JSON.stringify(value ?? null);
 }
 
+async function upsertActorProfile(client, {
+  tenantId,
+  actorKind,
+  actorId,
+  passportId = null,
+  displayName = null,
+  headline = null,
+  bio = null,
+  avatarUrl = null,
+  contactJson = null,
+  status = 'active',
+  updatedAt
+}) {
+  if (!actorKind || !actorId) return;
+  await client.query(
+    `insert into read.rm_actor_profile
+       (tenant_id, actor_kind, actor_id, passport_id, display_name, headline, bio, avatar_url, contact_json, status, updated_at)
+     values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+     on conflict (tenant_id, actor_kind, actor_id) do update set
+       passport_id = coalesce(excluded.passport_id, read.rm_actor_profile.passport_id),
+       display_name = coalesce(excluded.display_name, read.rm_actor_profile.display_name),
+       headline = coalesce(excluded.headline, read.rm_actor_profile.headline),
+       bio = coalesce(excluded.bio, read.rm_actor_profile.bio),
+       avatar_url = coalesce(excluded.avatar_url, read.rm_actor_profile.avatar_url),
+       contact_json = coalesce(excluded.contact_json, read.rm_actor_profile.contact_json),
+       status = coalesce(excluded.status, read.rm_actor_profile.status),
+       updated_at = excluded.updated_at`,
+    [
+      tenantId,
+      actorKind,
+      actorId,
+      passportId,
+      displayName,
+      headline,
+      bio,
+      avatarUrl,
+      contactJson ? j(contactJson) : null,
+      status,
+      updatedAt
+    ]
+  );
+}
+
 export async function runPassportProjection({ tenantId, branchId }) {
   const namespaceId = resolveNamespaceId(tenantId);
   const chainId = resolveChainId(branchId);
@@ -66,6 +109,16 @@ export async function runPassportProjection({ tenantId, branchId }) {
             ts
           ]
         );
+        await upsertActorProfile(client, {
+          tenantId: tenant,
+          actorKind: 'member',
+          actorId: data.passport_id,
+          passportId: data.passport_id,
+          displayName: data.full_name || null,
+          contactJson: data.email ? { email: data.email } : null,
+          status: data.status || 'active',
+          updatedAt: ts
+        });
       } else if (evt.event_type === 'passport.created' || evt.event_type === 'passport.profile.updated' || evt.event_type === 'passport.sport_interest.updated') {
         await client.query(
           `insert into read.rm_passport_profile
@@ -78,6 +131,31 @@ export async function runPassportProjection({ tenantId, branchId }) {
              updated_at = excluded.updated_at`,
           [tenant, data.passport_id, data.member_id, data.full_name || null, j(data.sport_interests), ts]
         );
+        await upsertActorProfile(client, {
+          tenantId: tenant,
+          actorKind: 'member',
+          actorId: data.member_id || data.passport_id,
+          passportId: data.passport_id,
+          displayName: data.full_name || null,
+          headline: 'passport member',
+          contactJson: data.sport_interests ? { sport_interests: data.sport_interests } : null,
+          status: 'active',
+          updatedAt: ts
+        });
+      } else if (evt.event_type === 'actor.profile.upserted') {
+        await upsertActorProfile(client, {
+          tenantId: tenant,
+          actorKind: data.actor_kind,
+          actorId: data.actor_id,
+          passportId: data.passport_id || null,
+          displayName: data.display_name || null,
+          headline: data.headline || null,
+          bio: data.bio || null,
+          avatarUrl: data.avatar_url || null,
+          contactJson: data.contact_json || null,
+          status: data.status || 'active',
+          updatedAt: ts
+        });
       } else if (evt.event_type === 'subscription.created' || evt.event_type === 'subscription.canceled') {
         await client.query(
           `insert into read.rm_passport_subscriptions
@@ -100,6 +178,26 @@ export async function runPassportProjection({ tenantId, branchId }) {
             ts
           ]
         );
+        if (data.coach_id) {
+          await upsertActorProfile(client, {
+            tenantId: tenant,
+            actorKind: 'coach',
+            actorId: data.coach_id,
+            headline: 'coach',
+            status: 'active',
+            updatedAt: ts
+          });
+        }
+        if (data.studio_id) {
+          await upsertActorProfile(client, {
+            tenantId: tenant,
+            actorKind: 'studio',
+            actorId: data.studio_id,
+            headline: 'studio',
+            status: 'active',
+            updatedAt: ts
+          });
+        }
       } else if (
         evt.event_type === 'performance.diet.logged' ||
         evt.event_type === 'performance.weight.logged' ||
@@ -178,6 +276,20 @@ export async function runPassportProjection({ tenantId, branchId }) {
             ts
           ]
         );
+        await upsertActorProfile(client, {
+          tenantId: tenant,
+          actorKind: data.left_actor_kind,
+          actorId: data.left_actor_id,
+          status: 'active',
+          updatedAt: ts
+        });
+        await upsertActorProfile(client, {
+          tenantId: tenant,
+          actorKind: data.right_actor_kind,
+          actorId: data.right_actor_id,
+          status: data.status || (evt.event_type === 'member.studio.left' ? 'inactive' : 'active'),
+          updatedAt: ts
+        });
       } else if (evt.event_type === 'pricing.plan.changed' || evt.event_type === 'billing.subscription.updated') {
         await client.query(
           `insert into read.rm_passport_plan_state

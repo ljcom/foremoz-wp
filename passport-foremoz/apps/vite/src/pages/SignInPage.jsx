@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { apiJson, normalizeEmail, requireField, setSession } from '../lib.js';
+import { apiJson, IS_MOCK_MODE, IS_MOCKUP_OPEN_ACCESS, normalizeEmail, requireField, setSession } from '../lib.js';
 
 const features = [
   'Akses cepat ke seluruh langganan aktif kamu.',
@@ -25,6 +25,28 @@ export default function SignInPage() {
       setLoading(true);
       const email = normalizeEmail(requireField(form.email, 'email'));
       const password = requireField(form.password, 'password');
+      if (IS_MOCK_MODE && IS_MOCKUP_OPEN_ACCESS) {
+        setSession({
+          isAuthenticated: true,
+          isOnboarded: true,
+          role: 'member',
+          user: {
+            userId: 'pass_mock_001',
+            fullName: 'Mock Passport User',
+            email
+          },
+          tenant: { id: 'ps_mock' },
+          passport: {
+            id: 'pass_mock_001',
+            fullName: 'Mock Passport User',
+            memberId: 'mem_mock_001',
+            sportInterests: ['fitness'],
+            planCode: 'free'
+          }
+        });
+        navigate('/dashboard', { replace: true });
+        return;
+      }
 
       const auth = await apiJson('/v1/tenant/auth/signin', {
         method: 'POST',
