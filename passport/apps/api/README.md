@@ -5,7 +5,7 @@ API ini menyiapkan command + projection + read endpoint untuk domain `passport.f
 ## Setup
 
 ```bash
-cd passport-foremoz/apps/api
+cd passport/apps/api
 npm install
 cp .env.example .env
 npm run db:read-model

@@ -28,8 +28,8 @@ const APPS = {
     eventdbPortDefault: '3022',
     apiPortEnv: 'API_PASSPORT_PORT',
     apiPortDefault: '3600',
-    apiPrefix: './passport-foremoz/apps/api',
-    vitePrefix: './passport-foremoz/apps/vite'
+    apiPrefix: './passport/apps/api',
+    vitePrefix: './passport/apps/vite'
   }
 };
 

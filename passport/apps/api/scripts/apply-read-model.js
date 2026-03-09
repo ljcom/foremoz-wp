@@ -48,7 +48,7 @@ function expandDirCandidates(entries) {
 
 async function resolveCustomJsonDir(fileName) {
   const defaultDirs = [
-    path.resolve(workspaceRoot, 'passport-foremoz/apps/eventdb-custom-json'),
+    path.resolve(workspaceRoot, 'passport/apps/eventdb-custom-json'),
     path.resolve(workspaceRoot, 'foremoz/apps/eventdb-custom-json')
   ];
 
