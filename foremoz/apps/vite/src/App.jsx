@@ -1,6 +1,11 @@
 import { Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom';
 import WebLandingPage from './pages/WebLandingPage.jsx';
 import VerticalLandingPage from './pages/VerticalLandingPage.jsx';
+import PassportLandingPage from './pages/PassportLandingPage.jsx';
+import PassportSignUpPage from './pages/PassportSignUpPage.jsx';
+import PassportSignInPage from './pages/PassportSignInPage.jsx';
+import PassportOnboardingPage from './pages/PassportOnboardingPage.jsx';
+import PassportDashboardPage from './pages/PassportDashboardPage.jsx';
 import WebOwnerPage from './pages/WebOwnerPage.jsx';
 import AccountPublicPage from './pages/AccountPublicPage.jsx';
 import SignUpPage from './pages/SignUpPage.jsx';
@@ -16,6 +21,7 @@ import SalesProspectNewPage from './pages/SalesProspectNewPage.jsx';
 import SalesProspectEditPage from './pages/SalesProspectEditPage.jsx';
 import PtPage from './pages/PtPage.jsx';
 import { accountPath, getSession } from './lib.js';
+import { getPassportSession } from './passport-client.js';
 
 function roleHome(session) {
   const role = session?.role || 'admin';
@@ -96,11 +102,48 @@ function LegacyPtRedirect() {
   return <Navigate to={`/a/${account}/pt/dashboard`} replace />;
 }
 
+function PassportProtectedRoute({ children }) {
+  const location = useLocation();
+  const session = getPassportSession();
+  if (!session?.isAuthenticated) {
+    return <Navigate to="/passport/signin" replace state={{ from: location.pathname }} />;
+  }
+  return children;
+}
+
+function PassportRequireOnboarding({ children }) {
+  const session = getPassportSession();
+  if (!session?.isAuthenticated) return <Navigate to="/passport/signin" replace />;
+  if (!session?.isOnboarded) return <Navigate to="/passport/onboarding" replace />;
+  return children;
+}
+
 export default function App() {
   return (
     <Routes>
       <Route path="/" element={<Navigate to="/web" replace />} />
       <Route path="/web" element={<WebLandingPage />} />
+      <Route path="/passport" element={<PassportLandingPage />} />
+      <Route path="/passport/signup" element={<PassportSignUpPage />} />
+      <Route path="/passport/signin" element={<PassportSignInPage />} />
+      <Route
+        path="/passport/onboarding"
+        element={
+          <PassportProtectedRoute>
+            <PassportOnboardingPage />
+          </PassportProtectedRoute>
+        }
+      />
+      <Route
+        path="/passport/dashboard"
+        element={
+          <PassportProtectedRoute>
+            <PassportRequireOnboarding>
+              <PassportDashboardPage />
+            </PassportRequireOnboarding>
+          </PassportProtectedRoute>
+        }
+      />
       <Route path="/active" element={<VerticalLandingPage />} />
       <Route path="/learning" element={<VerticalLandingPage />} />
       <Route path="/arts" element={<VerticalLandingPage />} />

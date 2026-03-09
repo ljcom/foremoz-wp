@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "scripts": {
-    "install:all": "npm --prefix ./eventdb/mvp-node install && npm --prefix ./foremoz/apps/api install && npm --prefix ./foremoz/apps/vite install && npm --prefix ./passport/apps/api install && npm --prefix ./passport/apps/vite install",
+    "install:all": "npm --prefix ./eventdb/mvp-node install && npm --prefix ./foremoz/apps/api install && npm --prefix ./foremoz/apps/vite install && npm --prefix ./passport/apps/api install",
     "setup:all": "npm run setup:fitness && npm run setup:passport",
     "setup:fitness": "node ./scripts/workspace.mjs setup fitness",
     "setup:passport": "node ./scripts/workspace.mjs setup passport",

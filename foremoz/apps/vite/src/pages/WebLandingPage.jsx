@@ -44,6 +44,11 @@ export default function WebLandingPage() {
       title: 'Performance',
       body: 'Creator-led entertainment events: lineup, production, fan engagement, and monetization loops.',
     },
+    {
+      slug: 'passport',
+      title: 'Passport',
+      body: 'Cross-vertical identity layer untuk profile, consent, dan continuity antar program.',
+    },
   ];
 
   return (
@@ -52,6 +57,7 @@ export default function WebLandingPage() {
         <div className="brand">Foremoz</div>
         <nav>
           <Link to="/web">Home</Link>
+          <Link to="/passport">Passport</Link>
           <Link to="/active">Active</Link>
           <Link to="/learning">Learning</Link>
           <Link to="/arts">Arts</Link>

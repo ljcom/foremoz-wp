@@ -13,8 +13,8 @@ if (!npmCliPath) {
 const APPS = {
   fitness: {
     dbEnv: 'DB_FITNESS_URL',
-    dbDefault: 'postgresql://postgres:ljcom2x@localhost:15432/eventdb_fitness',
-    eventdbPortEnv: 'EVENTDB_FITNESS_PORT',
+    dbDefault: 'postgresql://postgres:ljcom2x@localhost:15432/eventdb_foremoz',
+    eventdbPortEnv: 'EVENTDB_FOREMOZ_PORT',
     eventdbPortDefault: '3020',
     apiPortEnv: 'API_FITNESS_PORT',
     apiPortDefault: '3310',
@@ -29,7 +29,7 @@ const APPS = {
     apiPortEnv: 'API_PASSPORT_PORT',
     apiPortDefault: '3600',
     apiPrefix: './passport/apps/api',
-    vitePrefix: './passport/apps/vite'
+    vitePrefix: null
   }
 };
 
@@ -94,15 +94,20 @@ function devApp(appName, options = {}) {
     );
   }
   children.push(spawnNpm(['--prefix', app.apiPrefix, 'run', 'dev'], { ...baseEnv, PORT: app.apiPort }));
-  children.push(
-    spawnNpm(
-      ['--prefix', app.vitePrefix, 'run', 'dev'],
-      {
-        ...process.env,
-        VITE_API_BASE_URL: process.env.VITE_API_BASE_URL || `http://localhost:${app.apiPort}`
-      }
-    )
-  );
+  if (app.vitePrefix) {
+    const passportRuntime = appRuntime('passport');
+    children.push(
+      spawnNpm(
+        ['--prefix', app.vitePrefix, 'run', 'dev'],
+        {
+          ...process.env,
+          VITE_API_BASE_URL: process.env.VITE_API_BASE_URL || `http://localhost:${app.apiPort}`,
+          VITE_PASSPORT_API_BASE_URL:
+            process.env.VITE_PASSPORT_API_BASE_URL || `http://localhost:${passportRuntime.apiPort}`
+        }
+      )
+    );
+  }
   return children;
 }
 
