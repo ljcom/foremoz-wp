@@ -1,78 +1,60 @@
 import { Link } from 'react-router-dom';
 import { APP_ORIGIN } from '../lib.js';
 
-function FeatureIcon({ name }) {
-  if (name === 'member') {
-    return (
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Zm0 2c-3.86 0-7 2.24-7 5v1h14v-1c0-2.76-3.14-5-7-5Z" />
-      </svg>
-    );
-  }
-
-  if (name === 'booking') {
-    return (
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M7 2h2v2h6V2h2v2h3v18H4V4h3V2Zm11 8H6v10h12V10Zm0-4H6v2h12V6Z" />
-      </svg>
-    );
-  }
-
-  if (name === 'sales') {
-    return (
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M4 19h16v2H2V3h2v16Zm3-4 4-4 3 3 5-6 2 1.5-6.5 8L11 14l-2.5 2.5L7 15Z" />
-      </svg>
-    );
-  }
-
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M11 3h2v4h-2V3Zm0 14h2v4h-2v-4ZM3 11h4v2H3v-2Zm14 0h4v2h-4v-2Zm-9.9-5.49 1.41-1.42 2.83 2.83-1.41 1.42-2.83-2.83Zm5.66 11.31 1.41-1.42 2.83 2.83-1.41 1.42-2.83-2.83Zm-5.66.01 2.83-2.83 1.41 1.42-2.83 2.83-1.41-1.42Zm11.31-5.67-2.83-2.83 1.41-1.42 2.83 2.83-1.41 1.42Z" />
-    </svg>
-  );
-}
-
 export default function WebLandingPage() {
   const isMockupOpenAccess = (import.meta.env.VITE_MOCKUP_OPEN_ACCESS ?? 'false') === 'true';
-  const infoItems = [
+  const promiseItems = [
     {
-      title: 'Operasional Gym Lebih Terkendali',
-      body: 'Satu workspace untuk urus member, jadwal kelas, booking PT, dan aktivitas frontdesk harian.',
+      title: 'From Idea to Execution',
+      body: 'Bantu gig worker merancang event, produk layanan, dan alur operasional dari nol.',
     },
     {
-      title: 'Growth dan Retention Terukur',
-      body: 'Pantau funnel sales, check-in, dan performa membership agar keputusan operasional lebih presisi.',
+      title: 'Operational Control',
+      body: 'Semua role kerja di workspace yang sama, dengan read model cepat untuk keputusan harian.',
     },
+    {
+      title: 'Lifecycle Until Done',
+      body: 'Dari onboarding, booking, attendance, payment, sampai post-event retention dan repeat loop.',
+    }
   ];
-  const features = [
+
+  const caseStudies = [
     {
-      icon: 'member',
-      title: 'Manajemen Member Otomatis',
-      body: 'Kelola data member, status membership, dan riwayat kunjungan dalam satu dashboard.',
+      slug: 'active',
+      title: 'Active',
+      body: 'Fitness dan sport operations: membership, booking, PT, team, match, ranking.',
     },
     {
-      icon: 'booking',
-      title: 'Booking PT Tanpa Ribet',
-      body: 'Member bisa pilih jadwal trainer langsung dari portal, lengkap dengan slot real-time.',
+      slug: 'learning',
+      title: 'Learning',
+      body: 'Course dan cohort operations: enrollment, schedule, attendance, mentor workflow, progress.',
     },
     {
-      icon: 'sales',
-      title: 'Pantau Pipeline Penjualan',
-      body: 'Tim sales dapat tracking lead sampai closing agar akuisisi member lebih terukur.',
+      slug: 'arts',
+      title: 'Arts',
+      body: 'Creative gig operations: showcase, session booking, rehearsal flow, ticketing, creator collaboration.',
     },
     {
-      icon: 'role',
-      title: 'Workspace per Role',
-      body: 'Admin, sales, PT, dan member punya tampilan kerja masing-masing sesuai kebutuhan.',
+      slug: 'tourism',
+      title: 'Tourism',
+      body: 'Experience-led trips: itinerary event ops, participant handling, guide workflow, service checkpoints.',
+    },
+    {
+      slug: 'performance',
+      title: 'Performance',
+      body: 'Creator-led entertainment events: lineup, production, fan engagement, and monetization loops.',
     },
   ];
 
   return (
     <main className="landing">
       <header className="topbar">
-        <div className="brand">Foremoz Fitness</div>
+        <div className="brand">Foremoz</div>
         <nav>
+          <Link to="/web">Home</Link>
+          <Link to="/active">Active</Link>
+          <Link to="/learning">Learning</Link>
+          <Link to="/arts">Arts</Link>
           <Link to="/signin">Sign in</Link>
           <Link to="/web/owner">Owner</Link>
           {isMockupOpenAccess ? (
@@ -85,11 +67,12 @@ export default function WebLandingPage() {
 
       <section className="hero">
         <div>
-          <p className="eyebrow">fitness.foremoz.com</p>
-          <h1>Platform operasional gym modern untuk growth, retention, dan experience member.</h1>
+          <p className="eyebrow">foremoz.com</p>
+          <h1>Event Operating System untuk Gig Workers, dari persiapan sampai event selesai.</h1>
           <p>
-            Foremoz membantu gym Anda menjalankan operasional harian lebih cepat, rapi, dan terukur.
-            Dari onboarding member baru sampai manajemen sesi personal training.
+            Foremoz membantu creator, trainer, mentor, performer, dan operator mengelola operasi event-driven
+            secara end-to-end: bikin layanan, jalankan event, monitor performa, lalu maintain relationship
+            setelah event berakhir.
           </p>
           <div className="hero-actions">
             {isMockupOpenAccess ? (
@@ -110,19 +93,20 @@ export default function WebLandingPage() {
         <aside className="hero-card">
           <h2>Kenapa Foremoz</h2>
           <ul>
-            <li>Operasional harian jadi lebih terstruktur</li>
-            <li>Alur penjualan member lebih konsisten</li>
-            <li>Pengalaman member lebih cepat dan modern</li>
-            <li>Data penting mudah dipantau dari satu tempat</li>
+            <li>Domain-specific workflows per kategori</li>
+            <li>Role workspaces untuk tim operasional</li>
+            <li>EventDB write layer + projection read model</li>
+            <li>Scalable dari operator kecil ke multi-branch</li>
+            <li>Built for recurring gig interactions</li>
           </ul>
         </aside>
       </section>
 
       <section className="landing-section">
-        <p className="eyebrow">Informasi</p>
-        <h2 className="landing-title">Platform fitness untuk owner, staff, trainer, dan member</h2>
+        <p className="eyebrow">Narrative</p>
+        <h2 className="landing-title">Satu platform untuk seluruh lifecycle operasi gig</h2>
         <div className="info-grid">
-          {infoItems.map((item) => (
+          {promiseItems.map((item) => (
             <article className="info-card" key={item.title}>
               <h3>{item.title}</h3>
               <p>{item.body}</p>
@@ -132,18 +116,19 @@ export default function WebLandingPage() {
       </section>
 
       <section className="landing-section">
-        <p className="eyebrow">Fitur</p>
-        <h2 className="landing-title">Yang bisa dijalankan dari Fitness Web</h2>
-        <div className="feature-grid">
-          {features.map((feature) => (
-            <article className="feature-card" key={feature.title}>
-              <div className="feature-head">
-                <span className="feature-icon">
-                  <FeatureIcon name={feature.icon} />
-                </span>
-                <h3>{feature.title}</h3>
+        <p className="eyebrow">Case Study Verticals</p>
+        <h2 className="landing-title">Pilih kategori yang paling relevan untuk operasimu</h2>
+        <div className="case-grid">
+          {caseStudies.map((item) => (
+            <article className="feature-card case-card" key={item.slug}>
+              <p className="eyebrow">foremoz.com/{item.slug}</p>
+              <h3>{item.title}</h3>
+              <p>{item.body}</p>
+              <div className="hero-actions">
+                <Link className="btn small" to={`/${item.slug}`}>
+                  Explore {item.title}
+                </Link>
               </div>
-              <p>{feature.body}</p>
             </article>
           ))}
         </div>
@@ -151,9 +136,10 @@ export default function WebLandingPage() {
 
       <section className="cta">
         <p className="eyebrow">CTA</p>
-        <h2>Mulai digitalisasi operasional gym Anda hari ini</h2>
+        <h2>Start dari kategori yang paling dekat dengan model bisnismu</h2>
         <p>
-          Aktivasi tenant, atur tim, lalu jalankan member management, sales pipeline, dan booking PT dari satu dashboard.
+          Setiap kategori punya blueprint operasional berbeda. Masuk ke halaman kategori untuk lihat scope fitur,
+          actor model, dan workflow yang sesuai.
         </p>
         <div className="hero-actions">
           {isMockupOpenAccess ? (

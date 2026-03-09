@@ -347,6 +347,20 @@ select:focus-visible {
   color: var(--muted);
 }
 
+.case-grid {
+  margin-top: 1rem;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
+.case-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 220px;
+}
+
 .cta {
   margin-top: 2.4rem;
   border: 1px solid #dcbf9b;
@@ -957,6 +971,7 @@ code {
   .hero,
   .auth-shell,
   .feature-grid,
+  .case-grid,
   .coach-grid,
   .info-grid,
   .plan-grid,

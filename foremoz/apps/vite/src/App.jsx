@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom';
 import WebLandingPage from './pages/WebLandingPage.jsx';
+import VerticalLandingPage from './pages/VerticalLandingPage.jsx';
 import WebOwnerPage from './pages/WebOwnerPage.jsx';
 import AccountPublicPage from './pages/AccountPublicPage.jsx';
 import SignUpPage from './pages/SignUpPage.jsx';
@@ -100,6 +101,11 @@ export default function App() {
     <Routes>
       <Route path="/" element={<Navigate to="/web" replace />} />
       <Route path="/web" element={<WebLandingPage />} />
+      <Route path="/active" element={<VerticalLandingPage />} />
+      <Route path="/learning" element={<VerticalLandingPage />} />
+      <Route path="/arts" element={<VerticalLandingPage />} />
+      <Route path="/tourism" element={<VerticalLandingPage />} />
+      <Route path="/performance" element={<VerticalLandingPage />} />
       <Route path="/web/owner" element={<WebOwnerPage />} />
       <Route path="/a/:account" element={<AccountPublicPage />} />
       <Route path="/signup" element={<SignUpPage />} />

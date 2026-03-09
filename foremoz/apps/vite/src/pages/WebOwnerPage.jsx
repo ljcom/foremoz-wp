@@ -1,6 +1,16 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { APP_ORIGIN, apiJson, clearSession, getOwnerSetup, getSession, setOwnerSetup, setSession } from '../lib.js';
+import {
+  APP_ORIGIN,
+  apiJson,
+  clearSession,
+  getOwnerSetup,
+  getSession,
+  IS_MOCK_MODE,
+  IS_MOCKUP_OPEN_ACCESS,
+  setOwnerSetup,
+  setSession
+} from '../lib.js';
 
 const PLANS = [
   {
@@ -174,6 +184,47 @@ export default function WebOwnerPage() {
     refreshOwnerData(tenantSeed).catch((error) => setFeedback(error.message));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tenantSeed]);
+
+  useEffect(() => {
+    if (!(IS_MOCK_MODE && IS_MOCKUP_OPEN_ACCESS)) return;
+    const current = getSession();
+    const currentSetup = getOwnerSetup();
+    const setup = setupRow || currentSetup || null;
+    const accountSlug = setup?.account_slug || current?.tenant?.account_slug || 'tn_mock';
+    const tenantId = setup?.tenant_id || current?.tenant?.id || 'tn_mock';
+    const branchId = setup?.branch_id || current?.branch?.id || 'br_mock_01';
+    const gymName = setup?.gym_name || current?.tenant?.gym_name || 'Foremoz Mock Gym';
+
+    if (!current?.isAuthenticated || (current?.role || 'owner') !== 'owner') {
+      setSession({
+        isAuthenticated: true,
+        isOnboarded: true,
+        role: 'owner',
+        user: {
+          fullName: 'Mock Owner',
+          email: 'owner@mock.foremoz.local',
+          userId: 'usr_mock_owner'
+        },
+        tenant: {
+          id: tenantId,
+          account_slug: accountSlug,
+          namespace: `foremoz:${tenantId}`,
+          gym_name: gymName
+        },
+        branch: {
+          id: branchId,
+          chain: `branch:${branchId}`
+        },
+        auth: {
+          tokenType: 'Bearer',
+          accessToken: 'mock-token',
+          expiresIn: 86400
+        }
+      });
+    }
+
+    navigate(`/a/${accountSlug}/admin/dashboard`, { replace: true });
+  }, [navigate, setupRow]);
 
   function continueToPlan() {
     const gymName = setupForm.gym_name.trim();
