@@ -85,6 +85,15 @@ function estimateEventPostingPrice(durationMinutes) {
   return blocks * 99000;
 }
 
+function isPublishedStatus(status) {
+  const normalized = String(status || '').toLowerCase();
+  return normalized === 'published' || normalized === 'posted';
+}
+
+function displayEventStatus(status) {
+  return isPublishedStatus(status) ? 'PUBLISHED' : String(status || 'scheduled').toUpperCase();
+}
+
 function getStorageKey(entity, accountSlug) {
   return `ff.admin.${entity}.${accountSlug || 'foremoz-gym'}`;
 }
@@ -228,6 +237,7 @@ export default function AdminPage() {
   const [memberQuery, setMemberQuery] = useState('');
   const [transactionQuery, setTransactionQuery] = useState('');
   const [eventPostQuote, setEventPostQuote] = useState(null);
+  const [pendingPostedEventId, setPendingPostedEventId] = useState('');
 
   const [userForm, setUserForm] = useState({ full_name: '', email: '', role: 'staff' });
   const [eventForm, setEventForm] = useState({ event_name: '', location: '', image_url: '', start_at: '', duration_minutes: '60' });
@@ -577,6 +587,8 @@ export default function AdminPage() {
     item.no_transaction.toLowerCase().includes(transactionQuery.toLowerCase()) ||
     item.product.toLowerCase().includes(transactionQuery.toLowerCase())
   );
+  const editingEvent = events.find((item) => String(item.event_id || '') === String(editingEventId || ''));
+  const isEditingEventPublished = isPublishedStatus(editingEvent?.status);
 
   function addUser(e) {
     e.preventDefault();
@@ -1120,6 +1132,10 @@ export default function AdminPage() {
       setFeedback('Simpan event dulu sebelum post ke Foremoz Event.');
       return;
     }
+    if (isEditingEventPublished) {
+      setFeedback('Event sudah published.');
+      return;
+    }
     const startAtIso = toApiDatetime(eventForm.start_at);
     const durationMinutes = Number(eventForm.duration_minutes);
     if (!startAtIso) {
@@ -1152,7 +1168,7 @@ export default function AdminPage() {
           image_url: eventForm.image_url || null,
           start_at: eventPostQuote.start_at,
           duration_minutes: eventPostQuote.duration_minutes,
-          status: 'posted'
+          status: 'published'
         })
       });
       await loadEvents();
@@ -1167,11 +1183,12 @@ export default function AdminPage() {
           qty: '1',
           price: String(eventPostQuote.price)
         });
+        setPendingPostedEventId(editingEventId);
         setTransactionMode('add');
         setActiveTab('transaction');
-        setFeedback(`event.posted: ${eventForm.event_name}. Foremoz Events ditampilkan, lanjut pembayaran.`);
+        setFeedback(`event.published: ${eventForm.event_name}. Foremoz Events ditampilkan, lanjut pembayaran.`);
       } else {
-        setFeedback(`event.posted: ${eventForm.event_name}. Foremoz Events ditampilkan. harga ${formatIdr(eventPostQuote.price)}.`);
+        setFeedback(`event.published: ${eventForm.event_name}. Foremoz Events ditampilkan. harga ${formatIdr(eventPostQuote.price)}.`);
       }
     } catch (error) {
       setFeedback(error.message);
@@ -1180,13 +1197,34 @@ export default function AdminPage() {
     }
   }
 
-  function addTransaction(e) {
+  async function addTransaction(e) {
     e.preventDefault();
     if (!transactionForm.no_transaction || !transactionForm.product || !transactionForm.qty || !transactionForm.price) return;
-    setTransactions((prev) => [{ ...transactionForm, transaction_id: `trx_${Date.now()}` }, ...prev]);
-    setFeedback(`transaction.created: ${transactionForm.no_transaction}`);
-    setTransactionForm({ no_transaction: '', product: '', qty: '1', price: '' });
-    setTransactionMode('list');
+    try {
+      setTransactions((prev) => [{ ...transactionForm, transaction_id: `trx_${Date.now()}` }, ...prev]);
+      if (pendingPostedEventId) {
+        await apiJson(`/v1/admin/events/${encodeURIComponent(pendingPostedEventId)}`, {
+          method: 'PATCH',
+          body: JSON.stringify({
+            tenant_id: tenantId,
+            branch_id: branchId,
+            status: 'published'
+          })
+        });
+        if (typeof window !== 'undefined') {
+          const postedUrl = `${window.location.origin}/events?event=${encodeURIComponent(pendingPostedEventId)}`;
+          window.open(postedUrl, '_blank', 'noopener,noreferrer');
+        }
+        setFeedback(`payment.recorded: ${transactionForm.no_transaction}. event sudah tampil di Foremoz Events.`);
+        setPendingPostedEventId('');
+      } else {
+        setFeedback(`transaction.created: ${transactionForm.no_transaction}`);
+      }
+      setTransactionForm({ no_transaction: '', product: '', qty: '1', price: '' });
+      setTransactionMode('list');
+    } catch (error) {
+      setFeedback(error.message);
+    }
   }
 
   function viewTransaction(item) {
@@ -1341,7 +1379,7 @@ export default function AdminPage() {
                         <div className="event-admin-body">
                           <div className="event-admin-title-row">
                             <h3>{item.event_name}</h3>
-                            <span className="event-admin-status">{item.status || 'scheduled'}</span>
+                            <span className="event-admin-status">{displayEventStatus(item.status)}</span>
                           </div>
                           <p>{item.location || '-'}</p>
                           <p>Start: {formatClassDatetime(item.start_at)}</p>
@@ -1371,10 +1409,13 @@ export default function AdminPage() {
                     <label>start_at<input type="datetime-local" value={eventForm.start_at} onChange={(e) => setEventForm((p) => ({ ...p, start_at: e.target.value }))} /></label>
                     <label>duration_minutes<input type="number" min="1" value={eventForm.duration_minutes} onChange={(e) => setEventForm((p) => ({ ...p, duration_minutes: e.target.value }))} /></label>
                     <button className="btn" type="submit" disabled={eventSaving}>{eventSaving ? 'Saving...' : 'Save event'}</button>
-                    {editingEventId ? (
+                    {editingEventId && !isEditingEventPublished ? (
                       <button className="btn ghost" type="button" disabled={eventSaving} onClick={preparePostEventQuote}>
                         Post to Foremoz Event
                       </button>
+                    ) : null}
+                    {editingEventId && isEditingEventPublished ? (
+                      <p className="feedback">Status: PUBLISHED (event sudah diposting ke Foremoz Events)</p>
                     ) : null}
                     {editingEventId ? (
                       <button
@@ -1392,7 +1433,7 @@ export default function AdminPage() {
                       </button>
                     ) : null}
                   </form>
-                  {editingEventId && eventPostQuote ? (
+                  {editingEventId && eventPostQuote && !isEditingEventPublished ? (
                     <div className="card" style={{ marginTop: '0.8rem', borderStyle: 'dashed' }}>
                       <p className="eyebrow">Post Preview</p>
                       <p>Mulai: {formatClassDatetime(eventPostQuote.start_at)}</p>

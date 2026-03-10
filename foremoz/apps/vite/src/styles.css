@@ -122,6 +122,10 @@ select:focus-visible {
   align-items: start;
 }
 
+.hero.hero-no-aside {
+  grid-template-columns: 1fr;
+}
+
 .hero h1 {
   margin: 0;
   font-size: clamp(1.8rem, 4vw, 3rem);

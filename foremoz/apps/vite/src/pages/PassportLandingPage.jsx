@@ -1,6 +1,8 @@
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { apiJson } from '../lib.js';
 
-const liveEvents = [
+const fallbackEvents = [
   {
     title: 'Morning Strength Camp',
     vertical: 'Active',
@@ -39,6 +41,9 @@ const liveEvents = [
 export default function PassportLandingPage() {
   const location = useLocation();
   const isPassportSurface = location.pathname.startsWith('/passport');
+  const [events, setEvents] = useState(fallbackEvents);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const entryLabel = isPassportSurface ? 'passport.foremoz.com' : 'foremoz.com/events';
   const title = isPassportSurface
     ? 'Passport Showcase untuk Member'
@@ -46,18 +51,75 @@ export default function PassportLandingPage() {
   const description = isPassportSurface
     ? 'Passport dipakai member untuk menunjukkan identity, history, dan trust signal lintas event yang sudah diikuti.'
     : 'Fokus utama di Foremoz adalah event. Pilih event yang sedang berlangsung, join, dan lanjutkan pengalamanmu di vertical yang kamu minati.';
+  const highlightedEventId = useMemo(() => {
+    const params = new URLSearchParams(location.search);
+    return params.get('event') || '';
+  }, [location.search]);
+
+  useEffect(() => {
+    let isMounted = true;
+    async function loadEvents() {
+      try {
+        setLoading(true);
+        setError('');
+        const result = await apiJson('/v1/read/events?status=published&limit=24');
+        const rows = Array.isArray(result.rows) ? result.rows : [];
+        const mapped = rows.map((row) => {
+          const startAt = new Date(row.start_at || '');
+          const validStart = !Number.isNaN(startAt.getTime());
+          const vertical = guessVertical(row);
+          return {
+            event_id: row.event_id || '',
+            title: row.event_name || 'Untitled Event',
+            vertical,
+            category: guessCategory(row),
+            host: `${row.location || 'Foremoz Venue'} - ${vertical}`,
+            time: validStart
+              ? `Mulai ${startAt.toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' })}`
+              : 'Jadwal belum ditentukan',
+            participant: 'Participants akan tampil setelah registrasi dibuka',
+            status: String(row.status || 'published').toUpperCase(),
+            image: row.image_url || fallbackEvents[0].image
+          };
+        });
+        if (!isMounted) return;
+        setEvents(mapped);
+      } catch (err) {
+        if (!isMounted) return;
+        setError(err.message || 'Gagal memuat event');
+        setEvents(fallbackEvents);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    }
+    loadEvents();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const orderedEvents = useMemo(() => {
+    if (!highlightedEventId) return events;
+    const list = [...events];
+    list.sort((a, b) => {
+      const ah = String(a.event_id || '') === highlightedEventId ? 1 : 0;
+      const bh = String(b.event_id || '') === highlightedEventId ? 1 : 0;
+      return bh - ah;
+    });
+    return list;
+  }, [events, highlightedEventId]);
 
   return (
     <main className="landing">
       <header className="topbar">
         <div className="brand">{isPassportSurface ? 'Foremoz Passport' : 'Foremoz Events'}</div>
         <nav>
-          <Link to="/web">Foremoz Home</Link>
+          <Link to="/web">Home</Link>
           <Link to={isPassportSurface ? '/passport/signin' : '/events/signin'}>Sign in</Link>
         </nav>
       </header>
 
-      <section className="hero">
+      <section className="hero hero-no-aside">
         <div>
           <p className="eyebrow">{entryLabel}</p>
           <h1>{title}</h1>
@@ -68,24 +130,16 @@ export default function PassportLandingPage() {
             </Link>
           </div>
         </div>
-
-        <aside className="hero-card">
-          <h2>{isPassportSurface ? 'Passport untuk Show Off Member' : 'Passport Itu Konsekuensi Join Event'}</h2>
-          <ul>
-            <li>kamu join event dulu, bukan bikin passport dulu</li>
-            <li>identity akan tersimpan otomatis setelah ikut event</li>
-            <li>riwayat event lintas vertical tetap terhubung</li>
-            <li>member bisa menampilkan pencapaian di passport.foremoz.com</li>
-          </ul>
-        </aside>
       </section>
 
       <section className="landing-section">
         <p className="eyebrow">Live Events</p>
         <h2 className="landing-title">Upcoming events</h2>
+        {loading ? <p className="feedback">Loading events...</p> : null}
+        {error ? <p className="feedback">{error}</p> : null}
         <div className="passport-live-grid">
-          {liveEvents.map((event) => (
-            <article className="passport-live-card" key={event.title}>
+          {orderedEvents.map((event, idx) => (
+            <article className="passport-live-card" key={event.event_id || `${event.title}-${idx}`}>
               <img className="passport-live-image" src={event.image} alt={event.title} />
               <div className="passport-live-head">
                 <span className="passport-live-badge">{event.status}</span>
@@ -98,6 +152,12 @@ export default function PassportLandingPage() {
               <p className="passport-live-participant">{event.participant}</p>
             </article>
           ))}
+          {!loading && orderedEvents.length === 0 ? (
+            <article className="passport-live-card">
+              <h3>Belum ada event published</h3>
+              <p className="passport-live-time">Silakan post event dari dashboard admin.</p>
+            </article>
+          ) : null}
         </div>
       </section>
 
@@ -121,4 +181,19 @@ export default function PassportLandingPage() {
       </section>
     </main>
   );
+}
+
+function guessVertical(row) {
+  const text = `${row.event_name || ''} ${row.location || ''}`.toLowerCase();
+  if (text.includes('learn') || text.includes('english') || text.includes('class')) return 'Learning';
+  if (text.includes('dance') || text.includes('art') || text.includes('music')) return 'Arts';
+  return 'Active';
+}
+
+function guessCategory(row) {
+  const text = `${row.event_name || ''}`.toLowerCase();
+  if (text.includes('bootcamp') || text.includes('strength')) return 'Strength Training';
+  if (text.includes('english') || text.includes('language')) return 'Language Practice';
+  if (text.includes('dance') || text.includes('art')) return 'Creative Session';
+  return 'General Event';
 }

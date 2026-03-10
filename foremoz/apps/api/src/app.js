@@ -1825,6 +1825,60 @@ app.post('/v1/projections/run', async (req, res, next) => {
   }
 });
 
+app.get('/v1/read/events', async (req, res, next) => {
+  try {
+    const tenantId = req.query.tenant_id || config.defaultTenantId;
+    const branchId = req.query.branch_id || null;
+    const status = String(req.query.status || 'published').trim().toLowerCase();
+    const limit = Math.min(Math.max(Number(req.query.limit || 50), 1), 200);
+    const namespaceId = resolveNamespaceId(tenantId);
+    const eventTypes = ['event.created', 'event.updated', 'event.deleted'];
+    const params = [namespaceId, eventTypes];
+    let branchFilter = '';
+    if (branchId) {
+      params.push(branchId);
+      branchFilter = ` and payload->'data'->>'branch_id' = $${params.length}`;
+    }
+
+    const { rows } = await query(
+      `select distinct on (payload->'data'->>'event_id')
+          event_type,
+          payload->'data' as data
+       from eventdb_event
+       where namespace_id = $1
+         and event_type = any($2::text[])
+         and payload->'data'->>'event_id' is not null
+         ${branchFilter}
+       order by payload->'data'->>'event_id', sequence desc`,
+      params
+    );
+
+    let activeRows = rows
+      .filter((row) => row.event_type !== 'event.deleted')
+      .map((row) => row.data || {});
+
+    if (status !== 'all') {
+      activeRows = activeRows.filter((row) => {
+        const rowStatus = String(row.status || '').toLowerCase();
+        if (status === 'published') return rowStatus === 'published' || rowStatus === 'posted';
+        return rowStatus === status;
+      });
+    }
+
+    activeRows = activeRows
+      .sort((a, b) => {
+        const ta = new Date(a.start_at || 0).getTime();
+        const tb = new Date(b.start_at || 0).getTime();
+        return ta - tb;
+      })
+      .slice(0, limit);
+
+    return ok(res, { rows: activeRows, limit, status });
+  } catch (error) {
+    return next(error);
+  }
+});
+
 app.get('/v1/read/members', async (req, res, next) => {
   try {
     const tenantId = req.query.tenant_id || config.defaultTenantId;
