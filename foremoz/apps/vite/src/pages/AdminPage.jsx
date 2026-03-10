@@ -193,6 +193,26 @@ function normalizeScheduleItemsForPayload(text) {
   });
 }
 
+function parseTrainerTokens(value) {
+  return [...new Set(
+    String(value || '')
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean)
+  )];
+}
+
+function normalizeToken(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function compactCode(value) {
+  return String(value || '')
+    .replace(/[^a-zA-Z0-9]/g, '')
+    .toUpperCase()
+    .slice(0, 12);
+}
+
 function formatRegistrationAnswers(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return '-';
   const entries = Object.entries(value)
@@ -352,10 +372,15 @@ export default function AdminPage() {
   const [pendingPostedEventId, setPendingPostedEventId] = useState('');
   const [eventParticipants, setEventParticipants] = useState([]);
   const [eventParticipantsLoading, setEventParticipantsLoading] = useState(false);
+  const [eventEditTab, setEventEditTab] = useState('general');
+  const [eventCheckinMap, setEventCheckinMap] = useState(() => loadMap('event-checkins', accountSlug, {}));
+  const [eventCheckinSearch, setEventCheckinSearch] = useState('');
+  const [eventCheckinBarcode, setEventCheckinBarcode] = useState('');
 
   const [userForm, setUserForm] = useState({ full_name: '', email: '', role: 'staff' });
   const [eventForm, setEventForm] = useState(() => createEmptyEventForm());
   const [classForm, setClassForm] = useState({ class_name: '', trainer_name: '', capacity: '20', start_at: '' });
+  const [classTrainerDraft, setClassTrainerDraft] = useState('');
   const [trainerForm, setTrainerForm] = useState({ trainer_name: '', phone: '', specialization: '' });
   const [productForm, setProductForm] = useState({ product_name: '', category: 'retail', price: '', stock: '' });
   const [packageForm, setPackageForm] = useState({ package_name: '', package_type: 'membership', max_months: '1', session_count: '1', trainer_user_id: '', class_id: '', price: '' });
@@ -414,6 +439,11 @@ export default function AdminPage() {
     localStorage.setItem(getStorageKey('sales-enabled', accountSlug), JSON.stringify(salesEnabledMap));
   }, [accountSlug, salesEnabledMap]);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(getStorageKey('event-checkins', accountSlug), JSON.stringify(eventCheckinMap));
+  }, [accountSlug, eventCheckinMap]);
+
   async function loadUsers() {
     try {
       setUserLoading(true);
@@ -461,6 +491,7 @@ export default function AdminPage() {
           start_at: item.start_at || '',
           duration_minutes: String(item.duration_minutes || '60'),
           status: item.status || 'scheduled',
+          participant_count: Number(item.participant_count || 0),
           registration_fields: Array.isArray(item.registration_fields) ? item.registration_fields : []
         }))
       );
@@ -638,6 +669,18 @@ export default function AdminPage() {
     item.phone.toLowerCase().includes(trainerQuery.toLowerCase()) ||
     item.specialization.toLowerCase().includes(trainerQuery.toLowerCase())
   );
+  const trainerNameOptions = useMemo(
+    () =>
+      [...new Set((trainers || []).map((item) => String(item.trainer_name || '').trim()).filter(Boolean))].sort((a, b) =>
+        a.localeCompare(b)
+      ),
+    [trainers]
+  );
+  const selectedClassTrainerTokens = useMemo(() => parseTrainerTokens(classForm.trainer_name), [classForm.trainer_name]);
+  const availableClassTrainerOptions = useMemo(
+    () => trainerNameOptions.filter((name) => !selectedClassTrainerTokens.includes(name)),
+    [trainerNameOptions, selectedClassTrainerTokens]
+  );
   const filteredProducts = products.filter((item) =>
     String(item.product_name || '').toLowerCase().includes(productQuery.toLowerCase()) ||
     String(item.category || '').toLowerCase().includes(productQuery.toLowerCase()) ||
@@ -705,6 +748,21 @@ export default function AdminPage() {
     item.no_transaction.toLowerCase().includes(transactionQuery.toLowerCase()) ||
     item.product.toLowerCase().includes(transactionQuery.toLowerCase())
   );
+  const filteredEventCheckinParticipants = useMemo(() => {
+    const q = normalizeToken(eventCheckinSearch);
+    if (!q) return eventParticipants;
+    return eventParticipants.filter((participant) => {
+      const haystack = [
+        participant?.full_name,
+        participant?.email,
+        participant?.passport_id,
+        participant?.registration_id
+      ]
+        .map((item) => normalizeToken(item))
+        .join(' ');
+      return haystack.includes(q);
+    });
+  }, [eventParticipants, eventCheckinSearch]);
   const editingEvent = events.find((item) => String(item.event_id || '') === String(editingEventId || ''));
   const isEditingEventPublished = isPublishedStatus(editingEvent?.status);
 
@@ -756,6 +814,7 @@ export default function AdminPage() {
 
       setFeedback(editingClassId ? `class.updated: ${classForm.class_name}` : `class.scheduled: ${classForm.class_name}`);
       setClassForm({ class_name: '', trainer_name: '', capacity: '20', start_at: '' });
+      setClassTrainerDraft('');
       setEditingClassId('');
       setClassMode('list');
       await loadClasses();
@@ -774,14 +833,29 @@ export default function AdminPage() {
       capacity: item.capacity || '20',
       start_at: normalizedStartAt || ''
     });
+    setClassTrainerDraft('');
     setEditingClassId(item.class_id || '');
     setClassMode('add');
   }
 
   function startAddClass() {
     setClassForm({ class_name: '', trainer_name: '', capacity: '20', start_at: '' });
+    setClassTrainerDraft('');
     setEditingClassId('');
     setClassMode('add');
+  }
+
+  function addClassTrainerToken(name) {
+    const token = String(name || '').trim();
+    if (!token) return;
+    const nextTokens = [...new Set([...selectedClassTrainerTokens, token])];
+    setClassForm((prev) => ({ ...prev, trainer_name: nextTokens.join(', ') }));
+    setClassTrainerDraft('');
+  }
+
+  function removeClassTrainerToken(name) {
+    const nextTokens = selectedClassTrainerTokens.filter((item) => item !== name);
+    setClassForm((prev) => ({ ...prev, trainer_name: nextTokens.join(', ') }));
   }
 
   async function deleteClass(classId) {
@@ -1195,6 +1269,9 @@ export default function AdminPage() {
     });
     setEventPostQuote(null);
     setEditingEventId(item.event_id || '');
+    setEventEditTab('general');
+    setEventCheckinSearch('');
+    setEventCheckinBarcode('');
     setEventMode('add');
     if (item?.event_id) {
       loadEventParticipants(item.event_id);
@@ -1208,6 +1285,9 @@ export default function AdminPage() {
     setEventPostQuote(null);
     setEditingEventId('');
     setEventParticipants([]);
+    setEventEditTab('general');
+    setEventCheckinSearch('');
+    setEventCheckinBarcode('');
     setEventMode('add');
   }
 
@@ -1276,7 +1356,54 @@ export default function AdminPage() {
   function openEventParticipants(item) {
     setActiveTab('event');
     viewEvent(item);
+    setEventEditTab('participants');
     setFeedback(`event.participants: ${item?.event_name || item?.event_id || '-'}`);
+  }
+
+  function getParticipantCheckinKey(participant, index = 0) {
+    const participantKey =
+      String(participant?.registration_id || '').trim() ||
+      String(participant?.passport_id || '').trim() ||
+      String(participant?.email || '').trim().toLowerCase() ||
+      `idx_${index}`;
+    return `${editingEventId || 'event'}::${participantKey}`;
+  }
+
+  function getParticipantScanCode(participant, index = 0) {
+    const direct = String(participant?.registration_id || '').trim();
+    if (direct) return direct;
+    const eventKey = compactCode(editingEventId || 'EVT');
+    const identityKey = compactCode(
+      participant?.passport_id || participant?.email || participant?.full_name || `IDX${index + 1}`
+    );
+    return `EVR-${eventKey}-${identityKey || `IDX${index + 1}`}`;
+  }
+
+  function findParticipantByScanCode(rawCode) {
+    const code = normalizeToken(rawCode);
+    if (!code) return null;
+    return eventParticipants.find((participant, index) => {
+      const candidates = [
+        participant?.registration_id,
+        participant?.passport_id,
+        participant?.email,
+        participant?.full_name,
+        getParticipantScanCode(participant, index)
+      ].map((item) => normalizeToken(item));
+      return candidates.some((item) => item && (code === item || code.includes(item) || item.includes(code)));
+    }) || null;
+  }
+
+  function scanCheckinByBarcode() {
+    const participant = findParticipantByScanCode(eventCheckinBarcode);
+    if (!participant) {
+      setFeedback('Barcode/tiket tidak ditemukan di daftar participant.');
+      return;
+    }
+    const key = getParticipantCheckinKey(participant);
+    setEventCheckinMap((prev) => ({ ...prev, [key]: true }));
+    setFeedback(`checkin.success: ${participant.full_name || participant.email || participant.passport_id || '-'}`);
+    setEventCheckinBarcode('');
   }
 
   function preparePostEventQuote() {
@@ -1464,6 +1591,7 @@ export default function AdminPage() {
                 if (tab.id === 'class') {
                   setEditingClassId('');
                   setClassForm({ class_name: '', trainer_name: '', capacity: '20', start_at: '' });
+                  setClassTrainerDraft('');
                   setClassMode('list');
                 }
                 if (tab.id === 'event') {
@@ -1471,6 +1599,7 @@ export default function AdminPage() {
                   setEventForm(createEmptyEventForm());
                   setEventPostQuote(null);
                   setEventParticipants([]);
+                  setEventEditTab('general');
                   setEventMode('list');
                 }
                 if (tab.id === 'user') {
@@ -1541,6 +1670,7 @@ export default function AdminPage() {
                           <p>{item.location || '-'}</p>
                           <p>Start: {formatClassDatetime(item.start_at)}</p>
                           <p>Duration: {item.duration_minutes || '60'} minutes</p>
+                          <p>Participants: {Number(item.participant_count || 0)}</p>
                           <div className="row-actions">
                             <ParticipantsButton onClick={() => openEventParticipants(item)} />
                             <ShareButton onClick={() => shareEvent(item)} />
@@ -1559,39 +1689,74 @@ export default function AdminPage() {
                       Back to list
                     </button>
                   </div>
+                  <div className="landing-tabs" style={{ marginBottom: '0.8rem' }}>
+                    <button
+                      type="button"
+                      className={`landing-tab ${eventEditTab === 'general' ? 'active' : ''}`}
+                      onClick={() => setEventEditTab('general')}
+                    >
+                      General information
+                    </button>
+                    <button
+                      type="button"
+                      className={`landing-tab ${eventEditTab === 'custom_fields' ? 'active' : ''}`}
+                      onClick={() => setEventEditTab('custom_fields')}
+                    >
+                      Custom fields
+                    </button>
+                    <button
+                      type="button"
+                      className={`landing-tab ${eventEditTab === 'participants' ? 'active' : ''}`}
+                      onClick={() => setEventEditTab('participants')}
+                    >
+                      Participants
+                    </button>
+                    <button
+                      type="button"
+                      className={`landing-tab ${eventEditTab === 'checkin' ? 'active' : ''}`}
+                      onClick={() => setEventEditTab('checkin')}
+                    >
+                      Check in
+                    </button>
+                  </div>
                   <form className="form" onSubmit={addEvent}>
-                    <label>event_name<input value={eventForm.event_name} onChange={(e) => setEventForm((p) => ({ ...p, event_name: e.target.value }))} /></label>
-                    <label>location<input value={eventForm.location} onChange={(e) => setEventForm((p) => ({ ...p, location: e.target.value }))} /></label>
-                    <label>image_url<input value={eventForm.image_url} onChange={(e) => setEventForm((p) => ({ ...p, image_url: e.target.value }))} /></label>
-                    <label>
-                      description
-                      <textarea
-                        rows={4}
-                        value={eventForm.description}
-                        onChange={(e) => setEventForm((p) => ({ ...p, description: e.target.value }))}
-                      />
-                    </label>
-                    <label>
-                      gallery_images (satu URL per baris)
-                      <textarea
-                        rows={4}
-                        placeholder={'https://...\nhttps://...'}
-                        value={eventForm.gallery_images_text}
-                        onChange={(e) => setEventForm((p) => ({ ...p, gallery_images_text: e.target.value }))}
-                      />
-                    </label>
-                    <label>
-                      schedule_items (format: waktu | judul | catatan)
-                      <textarea
-                        rows={5}
-                        placeholder={'09:00 | Registrasi | Check in peserta\n09:30 | Opening | Sambutan coach'}
-                        value={eventForm.schedule_items_text}
-                        onChange={(e) => setEventForm((p) => ({ ...p, schedule_items_text: e.target.value }))}
-                      />
-                    </label>
-                    <label>start_at<input type="datetime-local" value={eventForm.start_at} onChange={(e) => setEventForm((p) => ({ ...p, start_at: e.target.value }))} /></label>
-                    <label>duration_minutes<input type="number" min="1" value={eventForm.duration_minutes} onChange={(e) => setEventForm((p) => ({ ...p, duration_minutes: e.target.value }))} /></label>
-                    <div className="card" style={{ borderStyle: 'dashed' }}>
+                    {eventEditTab === 'general' ? (
+                      <>
+                        <label>event_name<input value={eventForm.event_name} onChange={(e) => setEventForm((p) => ({ ...p, event_name: e.target.value }))} /></label>
+                        <label>location<input value={eventForm.location} onChange={(e) => setEventForm((p) => ({ ...p, location: e.target.value }))} /></label>
+                        <label>image_url<input value={eventForm.image_url} onChange={(e) => setEventForm((p) => ({ ...p, image_url: e.target.value }))} /></label>
+                        <label>
+                          description
+                          <textarea
+                            rows={4}
+                            value={eventForm.description}
+                            onChange={(e) => setEventForm((p) => ({ ...p, description: e.target.value }))}
+                          />
+                        </label>
+                        <label>
+                          gallery_images (satu URL per baris)
+                          <textarea
+                            rows={4}
+                            placeholder={'https://...\nhttps://...'}
+                            value={eventForm.gallery_images_text}
+                            onChange={(e) => setEventForm((p) => ({ ...p, gallery_images_text: e.target.value }))}
+                          />
+                        </label>
+                        <label>
+                          schedule_items (format: waktu | judul | catatan)
+                          <textarea
+                            rows={5}
+                            placeholder={'09:00 | Registrasi | Check in peserta\n09:30 | Opening | Sambutan coach'}
+                            value={eventForm.schedule_items_text}
+                            onChange={(e) => setEventForm((p) => ({ ...p, schedule_items_text: e.target.value }))}
+                          />
+                        </label>
+                        <label>start_at<input type="datetime-local" value={eventForm.start_at} onChange={(e) => setEventForm((p) => ({ ...p, start_at: e.target.value }))} /></label>
+                        <label>duration_minutes<input type="number" min="1" value={eventForm.duration_minutes} onChange={(e) => setEventForm((p) => ({ ...p, duration_minutes: e.target.value }))} /></label>
+                      </>
+                    ) : null}
+                    {eventEditTab === 'custom_fields' ? (
+                      <div className="card" style={{ borderStyle: 'dashed' }}>
                       <p className="eyebrow">Registration fields</p>
                       <p className="feedback">Informasi yang dikumpulkan saat member register event.</p>
                       <div className="row-actions" style={{ marginBottom: '0.5rem' }}>
@@ -1717,64 +1882,153 @@ export default function AdminPage() {
                           ))}
                         </div>
                       )}
-                    </div>
-                    {editingEventId ? (
-                      <div className="card" style={{ borderStyle: 'dashed' }}>
-                        <div className="panel-head" style={{ marginBottom: '0.5rem' }}>
-                          <h3 style={{ margin: 0 }}>Participants</h3>
-                          <button
-                            className="btn ghost small"
-                            type="button"
-                            onClick={() => loadEventParticipants(editingEventId)}
-                            disabled={eventParticipantsLoading}
-                          >
-                            {eventParticipantsLoading ? 'Refreshing...' : 'Refresh'}
-                          </button>
-                        </div>
-                        {eventParticipantsLoading ? <p className="feedback">Loading participants...</p> : null}
-                        {!eventParticipantsLoading && eventParticipants.length === 0 ? (
-                          <p className="feedback">Belum ada participant yang join event ini.</p>
-                        ) : null}
-                        {!eventParticipantsLoading && eventParticipants.length > 0 ? (
-                          <div className="entity-list">
-                            {eventParticipants.map((participant, index) => (
-                              <div className="entity-row" key={participant.registration_id || `${participant.email || participant.passport_id || 'participant'}-${index}`}>
-                                <div>
-                                  <strong>{participant.full_name || participant.email || participant.passport_id || 'Participant'}</strong>
-                                  <p>{participant.email || '-'}</p>
-                                  <p>Registered: {formatClassDatetime(participant.registered_at || '')}</p>
-                                  <p>Answers: {formatRegistrationAnswers(participant.registration_answers)}</p>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        ) : null}
                       </div>
                     ) : null}
-                    <button className="btn" type="submit" disabled={eventSaving}>{eventSaving ? 'Saving...' : 'Save event'}</button>
-                    {editingEventId && !isEditingEventPublished ? (
-                      <button className="btn ghost" type="button" disabled={eventSaving} onClick={preparePostEventQuote}>
-                        Post to Foremoz Event
-                      </button>
+                    {eventEditTab === 'participants' ? (
+                      editingEventId ? (
+                        <div className="card" style={{ borderStyle: 'dashed' }}>
+                          <div className="panel-head" style={{ marginBottom: '0.5rem' }}>
+                            <h3 style={{ margin: 0 }}>Participants</h3>
+                            <button
+                              className="btn ghost small"
+                              type="button"
+                              onClick={() => loadEventParticipants(editingEventId)}
+                              disabled={eventParticipantsLoading}
+                            >
+                              {eventParticipantsLoading ? 'Refreshing...' : 'Refresh'}
+                            </button>
+                          </div>
+                          {eventParticipantsLoading ? <p className="feedback">Loading participants...</p> : null}
+                          {!eventParticipantsLoading && eventParticipants.length === 0 ? (
+                            <p className="feedback">Belum ada participant yang join event ini.</p>
+                          ) : null}
+                          {!eventParticipantsLoading && eventParticipants.length > 0 ? (
+                            <div className="entity-list">
+                              {eventParticipants.map((participant, index) => (
+                                <div className="entity-row" key={participant.registration_id || `${participant.email || participant.passport_id || 'participant'}-${index}`}>
+                                  <div>
+                                    <strong>{participant.full_name || participant.email || participant.passport_id || 'Participant'}</strong>
+                                    <p>{participant.email || '-'}</p>
+                                    <p>Unique No: {getParticipantScanCode(participant, index)}</p>
+                                    <p>Registered: {formatClassDatetime(participant.registered_at || '')}</p>
+                                    <p>Answers: {formatRegistrationAnswers(participant.registration_answers)}</p>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : null}
+                        </div>
+                      ) : (
+                        <p className="feedback">Simpan event dulu untuk melihat participants.</p>
+                      )
                     ) : null}
-                    {editingEventId && isEditingEventPublished ? (
-                      <p className="feedback">Status: PUBLISHED (event sudah diposting ke Foremoz Events)</p>
+                    {eventEditTab === 'checkin' ? (
+                      editingEventId ? (
+                        <div className="card" style={{ borderStyle: 'dashed' }}>
+                          <div className="panel-head" style={{ marginBottom: '0.5rem' }}>
+                            <h3 style={{ margin: 0 }}>Check in</h3>
+                            <button
+                              className="btn ghost small"
+                              type="button"
+                              onClick={() => loadEventParticipants(editingEventId)}
+                              disabled={eventParticipantsLoading}
+                            >
+                              {eventParticipantsLoading ? 'Refreshing...' : 'Refresh participants'}
+                            </button>
+                          </div>
+                          <div className="entity-list" style={{ marginBottom: '0.6rem' }}>
+                            <label>
+                              Search participant (ketik biasa)
+                              <input
+                                value={eventCheckinSearch}
+                                placeholder="Nama / email / passport id / registration id"
+                                onChange={(e) => setEventCheckinSearch(e.target.value)}
+                              />
+                            </label>
+                            <label>
+                              Scan barcode
+                              <input
+                                value={eventCheckinBarcode}
+                                placeholder="Scan code di sini lalu Enter"
+                                onChange={(e) => setEventCheckinBarcode(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    scanCheckinByBarcode();
+                                  }
+                                }}
+                              />
+                            </label>
+                            <button className="btn ghost small" type="button" onClick={scanCheckinByBarcode}>
+                              Check in from barcode
+                            </button>
+                          </div>
+                          {eventParticipants.length === 0 ? <p className="feedback">Belum ada peserta untuk check in.</p> : null}
+                          {eventParticipants.length > 0 ? (
+                            <div className="entity-list">
+                              {filteredEventCheckinParticipants.map((participant, index) => {
+                                const checkinKey = getParticipantCheckinKey(participant, index);
+                                const isCheckedIn = Boolean(eventCheckinMap[checkinKey]);
+                                return (
+                                  <div className="entity-row" key={checkinKey}>
+                                    <div>
+                                      <strong>{participant.full_name || participant.email || participant.passport_id || 'Participant'}</strong>
+                                      <p>Unique No: {getParticipantScanCode(participant, index)}</p>
+                                      <p>Status: {isCheckedIn ? 'Checked in' : 'Belum check in'}</p>
+                                    </div>
+                                    <button
+                                      className="btn ghost small"
+                                      type="button"
+                                      onClick={() =>
+                                        setEventCheckinMap((prev) => ({
+                                          ...prev,
+                                          [checkinKey]: !isCheckedIn
+                                        }))
+                                      }
+                                    >
+                                      {isCheckedIn ? 'Undo check in' : 'Check in'}
+                                    </button>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          ) : null}
+                          {eventParticipants.length > 0 && filteredEventCheckinParticipants.length === 0 ? (
+                            <p className="feedback">Tidak ada peserta yang cocok dengan pencarian.</p>
+                          ) : null}
+                        </div>
+                      ) : (
+                        <p className="feedback">Simpan event dulu untuk menggunakan check in.</p>
+                      )
                     ) : null}
-                    {editingEventId ? (
-                      <button
-                        className="btn ghost"
-                        type="button"
-                        disabled={eventSaving}
-                        onClick={async () => {
-                          await deleteEvent(editingEventId);
-                          setEditingEventId('');
-                          setEventForm(createEmptyEventForm());
-                          setEventParticipants([]);
-                          setEventMode('list');
-                        }}
-                      >
-                        Delete event
-                      </button>
+                    {eventEditTab === 'general' ? (
+                      <>
+                        <button className="btn" type="submit" disabled={eventSaving}>{eventSaving ? 'Saving...' : 'Save event'}</button>
+                        {editingEventId && !isEditingEventPublished ? (
+                          <button className="btn ghost" type="button" disabled={eventSaving} onClick={preparePostEventQuote}>
+                            Post to Foremoz Event
+                          </button>
+                        ) : null}
+                        {editingEventId && isEditingEventPublished ? (
+                          <p className="feedback">Status: PUBLISHED (event sudah diposting ke Foremoz Events)</p>
+                        ) : null}
+                        {editingEventId ? (
+                          <button
+                            className="btn ghost"
+                            type="button"
+                            disabled={eventSaving}
+                            onClick={async () => {
+                              await deleteEvent(editingEventId);
+                              setEditingEventId('');
+                              setEventForm(createEmptyEventForm());
+                              setEventParticipants([]);
+                              setEventMode('list');
+                            }}
+                          >
+                            Delete event
+                          </button>
+                        ) : null}
+                      </>
                     ) : null}
                   </form>
                   {editingEventId && eventPostQuote && !isEditingEventPublished ? (
@@ -1913,7 +2167,58 @@ export default function AdminPage() {
                   </div>
                   <form className="form" onSubmit={addClass}>
                     <label>class_name<input value={classForm.class_name} onChange={(e) => setClassForm((p) => ({ ...p, class_name: e.target.value }))} /></label>
-                    <label>trainer_name<input value={classForm.trainer_name} onChange={(e) => setClassForm((p) => ({ ...p, trainer_name: e.target.value }))} /></label>
+                    <div className="card" style={{ borderStyle: 'dashed' }}>
+                      <p className="eyebrow">trainer_name (token input)</p>
+                      <div className="row-actions" style={{ marginBottom: '0.5rem' }}>
+                        {selectedClassTrainerTokens.length === 0 ? <span className="feedback">Belum ada trainer dipilih.</span> : null}
+                        {selectedClassTrainerTokens.map((name) => (
+                          <span key={name} className="passport-chip">
+                            {name}
+                            <button
+                              type="button"
+                              className="btn ghost small"
+                              style={{ marginLeft: '0.35rem' }}
+                              onClick={() => removeClassTrainerToken(name)}
+                            >
+                              x
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                      {availableClassTrainerOptions.length > 0 ? (
+                        <label>
+                          Pilih dari trainer
+                          <select
+                            value=""
+                            onChange={(e) => {
+                              if (e.target.value) addClassTrainerToken(e.target.value);
+                            }}
+                          >
+                            <option value="">Pilih trainer...</option>
+                            {availableClassTrainerOptions.map((name) => (
+                              <option key={name} value={name}>
+                                {name}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      ) : null}
+                      <label>
+                        Tambah manual
+                        <input
+                          value={classTrainerDraft}
+                          placeholder="Ketik nama trainer lalu Enter"
+                          onChange={(e) => setClassTrainerDraft(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              addClassTrainerToken(classTrainerDraft);
+                            }
+                          }}
+                        />
+                      </label>
+                      <p className="feedback">Tersimpan sebagai: {classForm.trainer_name || '-'}</p>
+                    </div>
                     <label>capacity<input type="number" min="1" value={classForm.capacity} onChange={(e) => setClassForm((p) => ({ ...p, capacity: e.target.value }))} /></label>
                     <label>start_at<input type="datetime-local" value={classForm.start_at} onChange={(e) => setClassForm((p) => ({ ...p, start_at: e.target.value }))} /></label>
                     <button className="btn" type="submit" disabled={classSaving}>{classSaving ? 'Saving...' : 'Save class'}</button>

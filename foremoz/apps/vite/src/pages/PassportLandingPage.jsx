@@ -11,6 +11,7 @@ const fallbackEvents = [
     vertical: 'Active',
     category: 'Strength Training',
     host: 'Coach Rafi - Foremoz Active Center',
+    organizer: 'Foremoz Active Team',
     time: 'Sedang berlangsung (06:00 - 07:30 WIB)',
     status: 'Live',
     image:
@@ -21,6 +22,7 @@ const fallbackEvents = [
     vertical: 'Learning',
     category: 'Language Practice',
     host: 'Mentor Dita - Learning Hub Bandung',
+    organizer: 'Foremoz Learning Team',
     time: 'Sedang berlangsung (09:00 - 10:30 WIB)',
     status: 'Live',
     image:
@@ -31,6 +33,7 @@ const fallbackEvents = [
     vertical: 'Arts',
     category: 'Dance Rehearsal',
     host: 'Studio Kroma - Creative Stage',
+    organizer: 'Foremoz Arts Team',
     time: 'Sedang berlangsung (19:00 - 21:00 WIB)',
     status: 'Live',
     image:
@@ -86,6 +89,12 @@ export default function PassportLandingPage() {
             vertical,
             category: guessCategory(row),
             host: `${row.location || 'Foremoz Venue'} - ${vertical}`,
+            organizer:
+              row.organizer_name ||
+              row.host_name ||
+              row.created_by_name ||
+              row.tenant_name ||
+              'Foremoz Organizer',
             time: validStart
               ? `Mulai ${startAt.toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' })}`
               : 'Jadwal belum ditentukan',
@@ -240,6 +249,7 @@ export default function PassportLandingPage() {
                   <h3>{event.title}</h3>
                   <p className="passport-live-category">Category: {event.category}</p>
                   <p className="passport-live-host">{event.host}</p>
+                  <p className="passport-live-host">Penyelenggara: {event.organizer || 'Foremoz Organizer'}</p>
                   <p className="passport-live-time">{event.time}</p>
                   {joinedEventIds.includes(String(event.event_id || '')) ? (
                     <span className="passport-live-badge joined">Sudah joined</span>

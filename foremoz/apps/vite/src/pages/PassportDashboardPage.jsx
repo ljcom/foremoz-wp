@@ -17,6 +17,26 @@ function profilePrefsKey(passportId) {
   return `ff.passport.profile-prefs.${passportId || 'unknown'}`;
 }
 
+function publicVisibilityKey(account) {
+  return `ff.passport.public-visibility.${account || 'member'}`;
+}
+
+function normalizePublicVisibility(raw) {
+  return {
+    allowPublicPublish: raw?.allowPublicPublish !== false,
+    showRolesCapabilities: raw?.showRolesCapabilities !== false,
+    showProgramsProducts: raw?.showProgramsProducts !== false,
+    showUpcomingEvents: raw?.showUpcomingEvents !== false,
+    showPastEvents: raw?.showPastEvents !== false,
+    showAchievements: raw?.showAchievements !== false,
+    showCommunity: raw?.showCommunity !== false,
+    showActivityFeed: raw?.showActivityFeed !== false,
+    showHostLocations: raw?.showHostLocations !== false,
+    showPassportStats: raw?.showPassportStats !== false,
+    showContactBooking: raw?.showContactBooking !== false
+  };
+}
+
 export default function PassportDashboardPage() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -37,6 +57,7 @@ export default function PassportDashboardPage() {
   const [socialPosts, setSocialPosts] = useState([]);
   const [memberStatus, setMemberStatus] = useState('');
   const [avatarDataUrl, setAvatarDataUrl] = useState('');
+  const [publicVisibility, setPublicVisibility] = useState(() => normalizePublicVisibility({}));
 
   useEffect(() => {
     async function load() {
@@ -204,6 +225,21 @@ export default function PassportDashboardPage() {
     .join('') || 'M';
   const publicAccount = session?.tenant?.account_slug || session?.tenant?.id || passportId || 'member';
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const raw = JSON.parse(localStorage.getItem(publicVisibilityKey(publicAccount)) || '{}');
+      setPublicVisibility(normalizePublicVisibility(raw));
+    } catch {
+      setPublicVisibility(normalizePublicVisibility({}));
+    }
+  }, [publicAccount]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(publicVisibilityKey(publicAccount), JSON.stringify(publicVisibility));
+  }, [publicAccount, publicVisibility]);
+
   return (
     <main className="dashboard">
       <header className="dash-head card">
@@ -290,6 +326,142 @@ export default function PassportDashboardPage() {
           <p>Achievements</p>
           <h3>{performance.length}</h3>
         </article>
+      </section>
+
+      <section className="card">
+        <p className="eyebrow">Public Passport Visibility</p>
+        <p className="sub">Data system tidak bisa diedit. Anda hanya bisa atur publish dan tampil/sembunyi.</p>
+        <label>
+          <input
+            type="checkbox"
+            checked={publicVisibility.allowPublicPublish}
+            onChange={(event) =>
+              setPublicVisibility((prev) => ({ ...prev, allowPublicPublish: event.target.checked }))
+            }
+          />
+          {' '}
+          Allow publish public
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            checked={publicVisibility.showUpcomingEvents}
+            disabled={!publicVisibility.allowPublicPublish}
+            onChange={(event) =>
+              setPublicVisibility((prev) => ({ ...prev, showUpcomingEvents: event.target.checked }))
+            }
+          />
+          {' '}
+          Publish Upcoming Events
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            checked={publicVisibility.showPastEvents}
+            disabled={!publicVisibility.allowPublicPublish}
+            onChange={(event) =>
+              setPublicVisibility((prev) => ({ ...prev, showPastEvents: event.target.checked }))
+            }
+          />
+          {' '}
+          Publish Past Events
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            checked={publicVisibility.showRolesCapabilities}
+            disabled={!publicVisibility.allowPublicPublish}
+            onChange={(event) =>
+              setPublicVisibility((prev) => ({ ...prev, showRolesCapabilities: event.target.checked }))
+            }
+          />
+          {' '}
+          Tampilkan Roles / Capabilities
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            checked={publicVisibility.showProgramsProducts}
+            disabled={!publicVisibility.allowPublicPublish}
+            onChange={(event) =>
+              setPublicVisibility((prev) => ({ ...prev, showProgramsProducts: event.target.checked }))
+            }
+          />
+          {' '}
+          Tampilkan Programs / Products
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            checked={publicVisibility.showAchievements}
+            disabled={!publicVisibility.allowPublicPublish}
+            onChange={(event) =>
+              setPublicVisibility((prev) => ({ ...prev, showAchievements: event.target.checked }))
+            }
+          />
+          {' '}
+          Publish Achievements
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            checked={publicVisibility.showCommunity}
+            disabled={!publicVisibility.allowPublicPublish}
+            onChange={(event) =>
+              setPublicVisibility((prev) => ({ ...prev, showCommunity: event.target.checked }))
+            }
+          />
+          {' '}
+          Publish Community / Followers
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            checked={publicVisibility.showActivityFeed}
+            disabled={!publicVisibility.allowPublicPublish}
+            onChange={(event) =>
+              setPublicVisibility((prev) => ({ ...prev, showActivityFeed: event.target.checked }))
+            }
+          />
+          {' '}
+          Publish Activity Feed
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            checked={publicVisibility.showHostLocations}
+            disabled={!publicVisibility.allowPublicPublish}
+            onChange={(event) =>
+              setPublicVisibility((prev) => ({ ...prev, showHostLocations: event.target.checked }))
+            }
+          />
+          {' '}
+          Publish Host Locations
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            checked={publicVisibility.showContactBooking}
+            disabled={!publicVisibility.allowPublicPublish}
+            onChange={(event) =>
+              setPublicVisibility((prev) => ({ ...prev, showContactBooking: event.target.checked }))
+            }
+          />
+          {' '}
+          Publish Contact / Booking
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            checked={publicVisibility.showPassportStats}
+            disabled={!publicVisibility.allowPublicPublish}
+            onChange={(event) =>
+              setPublicVisibility((prev) => ({ ...prev, showPassportStats: event.target.checked }))
+            }
+          />
+          {' '}
+          Publish Passport Stats
+        </label>
       </section>
 
       <section className="card">

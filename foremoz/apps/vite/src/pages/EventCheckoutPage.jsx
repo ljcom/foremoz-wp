@@ -28,6 +28,14 @@ function resolveEventGallery(eventItem) {
   return [...new Set(list)];
 }
 
+function resolvePrimaryImage(eventItem) {
+  const primary = String(eventItem?.image_url || '').trim();
+  if (primary) return primary;
+  const eventId = String(eventItem?.event_id || eventItem?.event_name || 'event');
+  const seed = encodeURIComponent(eventId);
+  return `https://picsum.photos/seed/register-${seed}/1200/700`;
+}
+
 export default function EventCheckoutPage() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -207,6 +215,14 @@ export default function EventCheckoutPage() {
                 <p>Durasi: {duration} menit</p>
                 <p>Harga: {formatIdr(price)}</p>
               </div>
+            </div>
+            <div className="card" style={{ borderStyle: 'dashed' }}>
+              <p className="eyebrow">Event Cover</p>
+              <img
+                className="passport-live-image"
+                src={resolvePrimaryImage(eventItem)}
+                alt={eventItem.event_name || 'Event'}
+              />
             </div>
             {eventItem.description ? (
               <div className="card" style={{ borderStyle: 'dashed' }}>

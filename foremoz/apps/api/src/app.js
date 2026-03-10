@@ -1369,7 +1369,38 @@ app.get('/v1/admin/events', async (req, res, next) => {
       .filter((row) => row.event_type !== 'event.deleted')
       .map((row) => row.data);
 
-    return ok(res, { rows: activeRows });
+    const eventIds = activeRows.map((row) => String(row?.event_id || '')).filter(Boolean);
+    let participantCountByEventId = {};
+    if (eventIds.length > 0) {
+      const participantParams = [namespaceId, eventIds];
+      let participantBranchFilter = '';
+      if (branchId) {
+        participantParams.push(branchId);
+        participantBranchFilter = ` and payload->'data'->>'branch_id' = $${participantParams.length}`;
+      }
+      const { rows: participantRows } = await query(
+        `select
+            payload->'data'->>'event_id' as event_id,
+            count(distinct nullif(coalesce(payload->'data'->>'passport_id', lower(payload->'data'->>'email'), payload->'data'->>'registration_id'), ''))::int as participant_count
+         from eventdb_event
+         where namespace_id = $1
+           and event_type = 'event.participant.registered'
+           and payload->'data'->>'event_id' = any($2::text[])
+           ${participantBranchFilter}
+         group by payload->'data'->>'event_id'`,
+        participantParams
+      );
+      participantCountByEventId = Object.fromEntries(
+        participantRows.map((row) => [String(row.event_id || ''), Number(row.participant_count || 0)])
+      );
+    }
+
+    return ok(res, {
+      rows: activeRows.map((row) => ({
+        ...row,
+        participant_count: participantCountByEventId[String(row?.event_id || '')] || 0
+      }))
+    });
   } catch (error) {
     return next(error);
   }
