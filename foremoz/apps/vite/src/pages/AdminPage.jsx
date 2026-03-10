@@ -29,14 +29,19 @@ const DEFAULT_EVENTS = [
     status: 'scheduled'
   }
 ];
-const EMPTY_EVENT_FORM = {
-  event_name: '',
-  location: '',
-  image_url: '',
-  start_at: '',
-  duration_minutes: '60',
-  registration_fields: []
-};
+function createEmptyEventForm() {
+  return {
+    event_name: '',
+    location: '',
+    image_url: '',
+    description: '',
+    gallery_images_text: '',
+    schedule_items_text: '',
+    start_at: '',
+    duration_minutes: '60',
+    registration_fields: []
+  };
+}
 const DEFAULT_TRAINERS = [
   { trainer_id: 'tr_001', trainer_name: 'Raka', phone: '081234555500', specialization: 'HIIT' }
 ];
@@ -155,6 +160,50 @@ function normalizeRegistrationFieldsForPayload(fields) {
     result.push(payload);
   }
   return result;
+}
+
+function normalizeGalleryImagesForPayload(value) {
+  return String(value || '')
+    .split('\n')
+    .map((row) => row.trim())
+    .filter(Boolean);
+}
+
+function scheduleItemsToText(items) {
+  if (!Array.isArray(items)) return '';
+  return items
+    .map((item) => {
+      const time = String(item?.time || '').trim();
+      const title = String(item?.title || '').trim();
+      const note = String(item?.note || '').trim();
+      return `${time} | ${title} | ${note}`;
+    })
+    .filter(Boolean)
+    .join('\n');
+}
+
+function normalizeScheduleItemsForPayload(text) {
+  const lines = String(text || '')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+  return lines.map((line) => {
+    const [time = '', title = '', note = ''] = line.split('|').map((part) => part.trim());
+    return { time, title, note };
+  });
+}
+
+function formatRegistrationAnswers(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return '-';
+  const entries = Object.entries(value)
+    .map(([key, answer]) => {
+      const label = String(key || '').trim();
+      const content = String(answer || '').trim();
+      if (!label || !content) return '';
+      return `${label}: ${content}`;
+    })
+    .filter(Boolean);
+  return entries.length > 0 ? entries.join(' | ') : '-';
 }
 
 function getStorageKey(entity, accountSlug) {
@@ -301,9 +350,11 @@ export default function AdminPage() {
   const [transactionQuery, setTransactionQuery] = useState('');
   const [eventPostQuote, setEventPostQuote] = useState(null);
   const [pendingPostedEventId, setPendingPostedEventId] = useState('');
+  const [eventParticipants, setEventParticipants] = useState([]);
+  const [eventParticipantsLoading, setEventParticipantsLoading] = useState(false);
 
   const [userForm, setUserForm] = useState({ full_name: '', email: '', role: 'staff' });
-  const [eventForm, setEventForm] = useState(EMPTY_EVENT_FORM);
+  const [eventForm, setEventForm] = useState(() => createEmptyEventForm());
   const [classForm, setClassForm] = useState({ class_name: '', trainer_name: '', capacity: '20', start_at: '' });
   const [trainerForm, setTrainerForm] = useState({ trainer_name: '', phone: '', specialization: '' });
   const [productForm, setProductForm] = useState({ product_name: '', category: 'retail', price: '', stock: '' });
@@ -404,6 +455,9 @@ export default function AdminPage() {
           event_name: item.event_name || '',
           location: item.location || '',
           image_url: item.image_url || '',
+          description: item.description || '',
+          gallery_images: Array.isArray(item.gallery_images) ? item.gallery_images : [],
+          schedule_items: Array.isArray(item.schedule_items) ? item.schedule_items : [],
           start_at: item.start_at || '',
           duration_minutes: String(item.duration_minutes || '60'),
           status: item.status || 'scheduled',
@@ -1105,6 +1159,9 @@ export default function AdminPage() {
           event_name: eventForm.event_name,
           location: eventForm.location || null,
           image_url: eventForm.image_url || null,
+          description: eventForm.description || null,
+          gallery_images: normalizeGalleryImagesForPayload(eventForm.gallery_images_text),
+          schedule_items: normalizeScheduleItemsForPayload(eventForm.schedule_items_text),
           start_at: startAtIso,
           duration_minutes: durationMinutes,
           registration_fields: normalizeRegistrationFieldsForPayload(eventForm.registration_fields),
@@ -1112,7 +1169,7 @@ export default function AdminPage() {
         })
       });
       setFeedback(editingEventId ? `event.updated: ${eventForm.event_name}` : `event.created: ${eventForm.event_name}`);
-      setEventForm(EMPTY_EVENT_FORM);
+      setEventForm(createEmptyEventForm());
       setEventPostQuote(null);
       setEditingEventId('');
       setEventMode('list');
@@ -1129,6 +1186,9 @@ export default function AdminPage() {
       event_name: item.event_name || '',
       location: item.location || '',
       image_url: item.image_url || '',
+      description: item.description || '',
+      gallery_images_text: Array.isArray(item.gallery_images) ? item.gallery_images.join('\n') : '',
+      schedule_items_text: scheduleItemsToText(item.schedule_items),
       start_at: toInputDatetime(item.start_at || ''),
       duration_minutes: String(item.duration_minutes || '60'),
       registration_fields: (Array.isArray(item.registration_fields) ? item.registration_fields : []).map(toRegistrationFieldForm)
@@ -1136,13 +1196,39 @@ export default function AdminPage() {
     setEventPostQuote(null);
     setEditingEventId(item.event_id || '');
     setEventMode('add');
+    if (item?.event_id) {
+      loadEventParticipants(item.event_id);
+    } else {
+      setEventParticipants([]);
+    }
   }
 
   function startAddEvent() {
-    setEventForm(EMPTY_EVENT_FORM);
+    setEventForm(createEmptyEventForm());
     setEventPostQuote(null);
     setEditingEventId('');
+    setEventParticipants([]);
     setEventMode('add');
+  }
+
+  async function loadEventParticipants(eventId) {
+    if (!eventId) {
+      setEventParticipants([]);
+      return;
+    }
+    try {
+      setEventParticipantsLoading(true);
+      const result = await apiJson(
+        `/v1/admin/events/${encodeURIComponent(eventId)}/participants?tenant_id=${encodeURIComponent(tenantId)}&branch_id=${encodeURIComponent(branchId)}&limit=200`
+      );
+      const rows = Array.isArray(result.rows) ? result.rows : [];
+      setEventParticipants(rows);
+    } catch (error) {
+      setEventParticipants([]);
+      setFeedback(error.message);
+    } finally {
+      setEventParticipantsLoading(false);
+    }
   }
 
   async function deleteEvent(eventId) {
@@ -1188,8 +1274,8 @@ export default function AdminPage() {
   }
 
   function openEventParticipants(item) {
-    setActiveTab('member');
-    setMemberMode('list');
+    setActiveTab('event');
+    viewEvent(item);
     setFeedback(`event.participants: ${item?.event_name || item?.event_id || '-'}`);
   }
 
@@ -1232,6 +1318,9 @@ export default function AdminPage() {
           event_name: eventForm.event_name,
           location: eventForm.location || null,
           image_url: eventForm.image_url || null,
+          description: eventForm.description || null,
+          gallery_images: normalizeGalleryImagesForPayload(eventForm.gallery_images_text),
+          schedule_items: normalizeScheduleItemsForPayload(eventForm.schedule_items_text),
           start_at: eventPostQuote.start_at,
           duration_minutes: eventPostQuote.duration_minutes,
           registration_fields: normalizeRegistrationFieldsForPayload(eventForm.registration_fields),
@@ -1379,8 +1468,9 @@ export default function AdminPage() {
                 }
                 if (tab.id === 'event') {
                   setEditingEventId('');
-                  setEventForm(EMPTY_EVENT_FORM);
+                  setEventForm(createEmptyEventForm());
                   setEventPostQuote(null);
+                  setEventParticipants([]);
                   setEventMode('list');
                 }
                 if (tab.id === 'user') {
@@ -1473,6 +1563,32 @@ export default function AdminPage() {
                     <label>event_name<input value={eventForm.event_name} onChange={(e) => setEventForm((p) => ({ ...p, event_name: e.target.value }))} /></label>
                     <label>location<input value={eventForm.location} onChange={(e) => setEventForm((p) => ({ ...p, location: e.target.value }))} /></label>
                     <label>image_url<input value={eventForm.image_url} onChange={(e) => setEventForm((p) => ({ ...p, image_url: e.target.value }))} /></label>
+                    <label>
+                      description
+                      <textarea
+                        rows={4}
+                        value={eventForm.description}
+                        onChange={(e) => setEventForm((p) => ({ ...p, description: e.target.value }))}
+                      />
+                    </label>
+                    <label>
+                      gallery_images (satu URL per baris)
+                      <textarea
+                        rows={4}
+                        placeholder={'https://...\nhttps://...'}
+                        value={eventForm.gallery_images_text}
+                        onChange={(e) => setEventForm((p) => ({ ...p, gallery_images_text: e.target.value }))}
+                      />
+                    </label>
+                    <label>
+                      schedule_items (format: waktu | judul | catatan)
+                      <textarea
+                        rows={5}
+                        placeholder={'09:00 | Registrasi | Check in peserta\n09:30 | Opening | Sambutan coach'}
+                        value={eventForm.schedule_items_text}
+                        onChange={(e) => setEventForm((p) => ({ ...p, schedule_items_text: e.target.value }))}
+                      />
+                    </label>
                     <label>start_at<input type="datetime-local" value={eventForm.start_at} onChange={(e) => setEventForm((p) => ({ ...p, start_at: e.target.value }))} /></label>
                     <label>duration_minutes<input type="number" min="1" value={eventForm.duration_minutes} onChange={(e) => setEventForm((p) => ({ ...p, duration_minutes: e.target.value }))} /></label>
                     <div className="card" style={{ borderStyle: 'dashed' }}>
@@ -1554,7 +1670,8 @@ export default function AdminPage() {
                                   <option value="lookup">lookup</option>
                                 </select>
                               </label>
-                              <label>
+                              <div className="row-actions" style={{ justifyContent: 'space-between' }}>
+                                <span className="feedback" style={{ margin: 0 }}>Required field</span>
                                 <input
                                   type="checkbox"
                                   checked={field.required !== false}
@@ -1567,9 +1684,7 @@ export default function AdminPage() {
                                     }))
                                   }
                                 />
-                                {' '}
-                                Required
-                              </label>
+                              </div>
                               {String(field.type || 'free_type') === 'lookup' ? (
                                 <label>
                                   Options (pisahkan dengan koma)
@@ -1603,6 +1718,39 @@ export default function AdminPage() {
                         </div>
                       )}
                     </div>
+                    {editingEventId ? (
+                      <div className="card" style={{ borderStyle: 'dashed' }}>
+                        <div className="panel-head" style={{ marginBottom: '0.5rem' }}>
+                          <h3 style={{ margin: 0 }}>Participants</h3>
+                          <button
+                            className="btn ghost small"
+                            type="button"
+                            onClick={() => loadEventParticipants(editingEventId)}
+                            disabled={eventParticipantsLoading}
+                          >
+                            {eventParticipantsLoading ? 'Refreshing...' : 'Refresh'}
+                          </button>
+                        </div>
+                        {eventParticipantsLoading ? <p className="feedback">Loading participants...</p> : null}
+                        {!eventParticipantsLoading && eventParticipants.length === 0 ? (
+                          <p className="feedback">Belum ada participant yang join event ini.</p>
+                        ) : null}
+                        {!eventParticipantsLoading && eventParticipants.length > 0 ? (
+                          <div className="entity-list">
+                            {eventParticipants.map((participant, index) => (
+                              <div className="entity-row" key={participant.registration_id || `${participant.email || participant.passport_id || 'participant'}-${index}`}>
+                                <div>
+                                  <strong>{participant.full_name || participant.email || participant.passport_id || 'Participant'}</strong>
+                                  <p>{participant.email || '-'}</p>
+                                  <p>Registered: {formatClassDatetime(participant.registered_at || '')}</p>
+                                  <p>Answers: {formatRegistrationAnswers(participant.registration_answers)}</p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : null}
                     <button className="btn" type="submit" disabled={eventSaving}>{eventSaving ? 'Saving...' : 'Save event'}</button>
                     {editingEventId && !isEditingEventPublished ? (
                       <button className="btn ghost" type="button" disabled={eventSaving} onClick={preparePostEventQuote}>
@@ -1620,7 +1768,8 @@ export default function AdminPage() {
                         onClick={async () => {
                           await deleteEvent(editingEventId);
                           setEditingEventId('');
-                          setEventForm(EMPTY_EVENT_FORM);
+                          setEventForm(createEmptyEventForm());
+                          setEventParticipants([]);
                           setEventMode('list');
                         }}
                       >

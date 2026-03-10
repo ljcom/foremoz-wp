@@ -131,7 +131,13 @@ export default function PassportSignInPage() {
             planCode: 'free'
           }
         });
-        navigate(nextPath || `${authBase}/dashboard`, { replace: true });
+        if (nextPath) {
+          navigate(nextPath, { replace: true });
+        } else if (authBase === '/events') {
+          navigate('/events', { replace: true });
+        } else {
+          navigate(`${authBase}/dashboard`, { replace: true });
+        }
         return;
       }
 
@@ -183,6 +189,8 @@ export default function PassportSignInPage() {
 
       if (nextPath) {
         navigate(nextPath, { replace: true });
+      } else if (authBase === '/events') {
+        navigate('/events', { replace: true });
       } else {
         navigate(isOnboarded ? `${authBase}/dashboard` : `${authBase}/onboarding`, { replace: true });
       }

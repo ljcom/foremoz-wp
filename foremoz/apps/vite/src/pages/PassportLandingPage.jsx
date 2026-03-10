@@ -41,8 +41,9 @@ const fallbackEvents = [
 export default function PassportLandingPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const isPassportSurface = location.pathname.startsWith('/passport');
+  const isPassportSurface = location.pathname.startsWith('/passport') || location.pathname.startsWith('/p/');
   const registerBase = isPassportSurface ? '/passport/register' : '/events/register';
+  const profileHref = '/passport/dashboard';
   const [events, setEvents] = useState(fallbackEvents);
   const [joinedEventIds, setJoinedEventIds] = useState([]);
   const [activeTab, setActiveTab] = useState('events');
@@ -125,13 +126,40 @@ export default function PassportLandingPage() {
       setJoinedEventIds([]);
       return;
     }
-    try {
-      const ids = JSON.parse(localStorage.getItem(JOINED_EVENTS_KEY) || '[]');
-      setJoinedEventIds(Array.isArray(ids) ? ids.map((v) => String(v)) : []);
-    } catch {
-      setJoinedEventIds([]);
+    let active = true;
+    async function loadJoinedEvents() {
+      let localIds = [];
+      try {
+        const ids = JSON.parse(localStorage.getItem(JOINED_EVENTS_KEY) || '[]');
+        localIds = Array.isArray(ids) ? ids.map((v) => String(v)) : [];
+      } catch {
+        localIds = [];
+      }
+      if (active) setJoinedEventIds(localIds);
+
+      try {
+        const params = new URLSearchParams();
+        const passportId = String(passportSession?.user?.userId || passportSession?.passport?.id || '').trim();
+        const email = String(passportSession?.user?.email || '').trim().toLowerCase();
+        if (passportId) params.set('passport_id', passportId);
+        if (email) params.set('email', email);
+        if (!passportId && !email) return;
+
+        const result = await apiJson(`/v1/read/event-registrations?${params.toString()}`);
+        const apiIds = Array.isArray(result.event_ids) ? result.event_ids.map((v) => String(v)) : [];
+        const merged = [...new Set([...localIds, ...apiIds])];
+        if (!active) return;
+        setJoinedEventIds(merged);
+        localStorage.setItem(JOINED_EVENTS_KEY, JSON.stringify(merged));
+      } catch {
+        // keep local cache as fallback
+      }
     }
-  }, [isAuthenticated]);
+    loadJoinedEvents();
+    return () => {
+      active = false;
+    };
+  }, [isAuthenticated, passportSession?.user?.userId, passportSession?.passport?.id, passportSession?.user?.email]);
 
   return (
     <main className="landing">
@@ -142,6 +170,7 @@ export default function PassportLandingPage() {
           {isAuthenticated ? (
             <>
               <span>Welcome {welcomeName}</span>
+              <Link to={profileHref}>Profile</Link>
               <button
                 className="btn ghost small"
                 type="button"

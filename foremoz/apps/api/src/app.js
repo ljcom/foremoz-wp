@@ -115,6 +115,41 @@ function normalizeEventRegistrationFields(value, fallback = []) {
   });
 }
 
+function normalizeEventGalleryImages(value, fallback = []) {
+  if (value === undefined || value === null) return fallback;
+  if (!Array.isArray(value)) {
+    throw fail(400, 'BAD_REQUEST', 'gallery_images must be an array');
+  }
+  if (value.length > 12) {
+    throw fail(400, 'BAD_REQUEST', 'gallery_images max length is 12');
+  }
+  return value
+    .map((item) => String(item || '').trim())
+    .filter(Boolean);
+}
+
+function normalizeEventScheduleItems(value, fallback = []) {
+  if (value === undefined || value === null) return fallback;
+  if (!Array.isArray(value)) {
+    throw fail(400, 'BAD_REQUEST', 'schedule_items must be an array');
+  }
+  if (value.length > 20) {
+    throw fail(400, 'BAD_REQUEST', 'schedule_items max length is 20');
+  }
+  return value.map((item, index) => {
+    if (!item || typeof item !== 'object') {
+      throw fail(400, 'BAD_REQUEST', `schedule_items[${index}] must be an object`);
+    }
+    const time = String(item.time || '').trim();
+    const title = String(item.title || '').trim();
+    const note = String(item.note || '').trim();
+    if (!time && !title && !note) {
+      throw fail(400, 'BAD_REQUEST', `schedule_items[${index}] cannot be empty`);
+    }
+    return { time, title, note };
+  });
+}
+
 async function getLatestClassScheduledData(tenantId, classId) {
   const namespaceId = resolveNamespaceId(tenantId);
   const { rows } = await query(
@@ -1352,6 +1387,8 @@ app.post('/v1/admin/events', async (req, res, next) => {
     }
     const durationMinutes = asPositiveInteger(data.duration_minutes, 'duration_minutes', 60);
     const registrationFields = normalizeEventRegistrationFields(data.registration_fields, []);
+    const galleryImages = normalizeEventGalleryImages(data.gallery_images, []);
+    const scheduleItems = normalizeEventScheduleItems(data.schedule_items, []);
 
     const event = await appendDomainEvent({
       tenantId,
@@ -1367,6 +1404,9 @@ app.post('/v1/admin/events', async (req, res, next) => {
         event_name: required(data.event_name, 'event_name'),
         location: data.location || null,
         image_url: data.image_url || null,
+        description: data.description || null,
+        gallery_images: galleryImages,
+        schedule_items: scheduleItems,
         start_at: startAt.toISOString(),
         duration_minutes: durationMinutes,
         registration_fields: registrationFields,
@@ -1412,6 +1452,14 @@ app.patch('/v1/admin/events/:eventId', async (req, res, next) => {
       data.registration_fields,
       Array.isArray(latest.registration_fields) ? latest.registration_fields : []
     );
+    const galleryImages = normalizeEventGalleryImages(
+      data.gallery_images,
+      Array.isArray(latest.gallery_images) ? latest.gallery_images : []
+    );
+    const scheduleItems = normalizeEventScheduleItems(
+      data.schedule_items,
+      Array.isArray(latest.schedule_items) ? latest.schedule_items : []
+    );
 
     const event = await appendDomainEvent({
       tenantId,
@@ -1427,6 +1475,9 @@ app.patch('/v1/admin/events/:eventId', async (req, res, next) => {
         event_name: data.event_name || latest.event_name,
         location: data.location ?? latest.location ?? null,
         image_url: data.image_url ?? latest.image_url ?? null,
+        description: data.description ?? latest.description ?? null,
+        gallery_images: galleryImages,
+        schedule_items: scheduleItems,
         start_at: startAt.toISOString(),
         duration_minutes: durationMinutes,
         registration_fields: registrationFields,
@@ -1475,6 +1526,104 @@ app.delete('/v1/admin/events/:eventId', async (req, res, next) => {
     });
 
     return ok(res, { event, event_id: eventId });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.get('/v1/admin/events/:eventId/participants', async (req, res, next) => {
+  try {
+    const tenantId = req.query.tenant_id || config.defaultTenantId;
+    const branchId = req.query.branch_id || null;
+    const eventId = required(req.params.eventId, 'eventId');
+    const limit = Math.min(Math.max(Number(req.query.limit || 200), 1), 500);
+    const namespaceId = resolveNamespaceId(tenantId);
+    const params = [namespaceId, eventId];
+    let branchFilter = '';
+    if (branchId) {
+      params.push(branchId);
+      branchFilter = ` and payload->'data'->>'branch_id' = $${params.length}`;
+    }
+
+    const { rows } = await query(
+      `select payload->'data' as data
+       from eventdb_event
+       where namespace_id = $1
+         and event_type = 'event.participant.registered'
+         and payload->'data'->>'event_id' = $2
+         ${branchFilter}
+       order by sequence desc`,
+      params
+    );
+
+    const deduped = [];
+    const seen = new Set();
+    for (const row of rows) {
+      const data = row?.data || {};
+      const key = String(data.passport_id || data.email || data.registration_id || '');
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      deduped.push(data);
+      if (deduped.length >= limit) break;
+    }
+
+    return ok(res, { rows: deduped, event_id: eventId, limit });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.post('/v1/events/:eventId/register', async (req, res, next) => {
+  try {
+    const data = req.body || {};
+    const eventId = required(req.params.eventId, 'eventId');
+    const tenantId = data.tenant_id || config.defaultTenantId;
+    const latest = await getLatestEntityDataByEventTypes(
+      tenantId,
+      'event_id',
+      eventId,
+      ['event.created', 'event.updated']
+    );
+    if (!latest) {
+      throw fail(404, 'EVENT_NOT_FOUND', `event ${eventId} not found`);
+    }
+
+    const branchId = data.branch_id || latest.branch_id || null;
+    const answers =
+      data.registration_answers && typeof data.registration_answers === 'object' && !Array.isArray(data.registration_answers)
+        ? data.registration_answers
+        : {};
+    const passportId = String(data.passport_id || '').trim();
+    const email = String(data.email || '').trim().toLowerCase();
+    const fullName = String(data.full_name || '').trim();
+    if (!passportId && !email) {
+      throw fail(400, 'BAD_REQUEST', 'passport_id or email is required');
+    }
+
+    const registrationId = data.registration_id || `evr_${Date.now()}_${randomUUID().slice(0, 8)}`;
+    const event = await appendDomainEvent({
+      tenantId,
+      branchId,
+      actorId: data.actor_id || passportId || email || config.defaultActorId,
+      actorKind: 'member',
+      eventType: 'event.participant.registered',
+      subjectKind: 'event_registration',
+      subjectId: registrationId,
+      data: {
+        tenant_id: tenantId,
+        branch_id: branchId,
+        event_id: eventId,
+        registration_id: registrationId,
+        passport_id: passportId || null,
+        full_name: fullName || null,
+        email: email || null,
+        registration_answers: answers,
+        registered_at: data.registered_at || new Date().toISOString()
+      },
+      refs: {}
+    });
+
+    return created(res, { event, registration_id: registrationId, event_id: eventId });
   } catch (error) {
     return next(error);
   }
@@ -1927,6 +2076,57 @@ app.get('/v1/read/events', async (req, res, next) => {
       .slice(0, limit);
 
     return ok(res, { rows: activeRows, limit, status, tenant_scope: scopedTenantId || 'all' });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.get('/v1/read/event-registrations', async (req, res, next) => {
+  try {
+    const tenantId = req.query.tenant_id || '';
+    const passportId = String(req.query.passport_id || '').trim();
+    const email = String(req.query.email || '').trim().toLowerCase();
+    const limit = Math.min(Math.max(Number(req.query.limit || 300), 1), 1000);
+    if (!passportId && !email) {
+      throw fail(400, 'BAD_REQUEST', 'passport_id or email is required');
+    }
+
+    const whereClauses = [`event_type = 'event.participant.registered'`];
+    const params = [];
+    if (tenantId && tenantId !== 'all') {
+      params.push(resolveNamespaceId(tenantId));
+      whereClauses.push(`namespace_id = $${params.length}`);
+    }
+    if (passportId && email) {
+      params.push(passportId, email);
+      whereClauses.push(`(payload->'data'->>'passport_id' = $${params.length - 1} or lower(payload->'data'->>'email') = $${params.length})`);
+    } else if (passportId) {
+      params.push(passportId);
+      whereClauses.push(`payload->'data'->>'passport_id' = $${params.length}`);
+    } else {
+      params.push(email);
+      whereClauses.push(`lower(payload->'data'->>'email') = $${params.length}`);
+    }
+
+    const { rows } = await query(
+      `select payload->'data' as data
+       from eventdb_event
+       where ${whereClauses.join(' and ')}
+       order by sequence desc`,
+      params
+    );
+
+    const dedupedEventIds = [];
+    const seenEventIds = new Set();
+    for (const row of rows) {
+      const eventId = String(row?.data?.event_id || '').trim();
+      if (!eventId || seenEventIds.has(eventId)) continue;
+      seenEventIds.add(eventId);
+      dedupedEventIds.push(eventId);
+      if (dedupedEventIds.length >= limit) break;
+    }
+
+    return ok(res, { event_ids: dedupedEventIds, limit });
   } catch (error) {
     return next(error);
   }
