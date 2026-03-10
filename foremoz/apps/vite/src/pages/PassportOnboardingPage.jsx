@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   getPassportSession,
   passportApiJson,
@@ -9,6 +9,8 @@ import {
 
 export default function PassportOnboardingPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const authBase = location.pathname.startsWith('/passport') ? '/passport' : '/events';
   const session = getPassportSession();
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -70,7 +72,7 @@ export default function PassportOnboardingPage() {
         }
       });
 
-      navigate('/passport/dashboard', { replace: true });
+      navigate(`${authBase}/dashboard`, { replace: true });
     } catch (err) {
       setError(err.message);
     } finally {
@@ -119,7 +121,7 @@ export default function PassportOnboardingPage() {
             <button className="btn" type="submit" disabled={loading}>
               {loading ? 'Saving...' : 'Save onboarding'}
             </button>
-            <Link className="btn ghost" to="/passport/dashboard">
+            <Link className="btn ghost" to={`${authBase}/dashboard`}>
               Skip to dashboard
             </Link>
           </div>

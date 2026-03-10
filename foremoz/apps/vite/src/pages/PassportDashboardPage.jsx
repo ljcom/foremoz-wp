@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { clearPassportSession, getPassportSession, passportApiJson } from '../passport-client.js';
 
 export default function PassportDashboardPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const authBase = location.pathname.startsWith('/passport') ? '/passport' : '/events';
   const session = getPassportSession();
   const tenantId = session?.tenant?.id || 'ps_001';
   const passportId = session?.passport?.id || session?.user?.userId || '';
@@ -55,7 +57,7 @@ export default function PassportDashboardPage() {
 
   function logout() {
     clearPassportSession();
-    navigate('/passport/signin', { replace: true });
+    navigate(`${authBase}/signin`, { replace: true });
   }
 
   return (
@@ -124,7 +126,7 @@ export default function PassportDashboardPage() {
       </section>
 
       <footer className="dash-foot">
-        <Link to="/passport">Back to passport landing</Link>
+        <Link to={authBase}>Back to landing</Link>
       </footer>
     </main>
   );

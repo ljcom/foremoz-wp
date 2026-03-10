@@ -1,11 +1,11 @@
 # PROJECT_MEMORY.md
-Foremoz General – Living Memory
+Foremoz Home – Living Memory
 
 ## Purpose
-Menjaga konsistensi scope, istilah, dan arah arsitektur untuk vertikal General.
+Menjaga konsistensi scope, istilah, dan arah arsitektur untuk vertikal Home.
 
 ## Product Positioning
-Foremoz General adalah vertical event operating model yang:
+Foremoz Home adalah vertical event operating model yang:
 - event-driven
 - projection-based
 - identity-linked via Passport
@@ -17,6 +17,6 @@ Foremoz General adalah vertical event operating model yang:
 - No silent schema drift
 
 ## Evolution Rule
-Jika cakupan vertikal General melebar melebihi domain inti:
+Jika cakupan vertikal Home melebar melebihi domain inti:
 - buat sub-vertical atau capability baru
 - jangan mencampur domain tanpa boundary yang jelas

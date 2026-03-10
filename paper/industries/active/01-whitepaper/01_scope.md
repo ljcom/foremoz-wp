@@ -45,7 +45,8 @@ Flow utama:
 
 ### A. Creator/Event Surfaces (Primary)
 
-- `passport.foremoz.com/<account>` sebagai universal identity.
+- `foremoz.com/events` sebagai event discovery/participation entry.
+- `passport.foremoz.com/<account>` sebagai universal identity + member showcase.
 - `foremoz.com/active/<account>` sebagai public creator profile surface.
 - `foremoz.com/e/<event_slug>` sebagai public event surface.
 - optional operating route: `tenant.foremoz.com/a/<account>/events/<event_id>`.
@@ -91,6 +92,7 @@ Urutan narasi operasional Active:
 ## Canonical Surface Model
 
 Identity:
+- `foremoz.com/events`
 - `passport.foremoz.com/<account>`
 
 Public creator/event:

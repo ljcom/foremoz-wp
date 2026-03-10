@@ -5,7 +5,8 @@ Repository ini mengimplementasikan vertical `fitness` berdasarkan whitepaper Act
 ## Domain
 
 - Runtime app: `fitness.foremoz.com`
-- Passport identity entry: `passport.foremoz.com` (lihat `passport`)
+- Events hub: `foremoz.com/events`
+- Passport member showcase: `passport.foremoz.com` (lihat `paper/passport`)
 
 ## Canonical RBAC
 

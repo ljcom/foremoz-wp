@@ -4,7 +4,8 @@ Foremoz memisahkan jelas identity layer, operating layer, dan public event layer
 
 ## Identity Layer
 
-- `passport.foremoz.com/<account>`
+- `passport.foremoz.com/<account>` (member showcase + identity profile)
+- `foremoz.com/events` (event hub; onboarding flow dapat membuat passport)
 
 Memuat:
 - profile

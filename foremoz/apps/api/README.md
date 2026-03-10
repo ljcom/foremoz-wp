@@ -1,10 +1,12 @@
 # Foremoz Fitness API (MVP start)
 
 API ini adalah lapisan domain untuk fitness operations di atas EventDB write layer.
+Mode terbaru memprioritaskan creator-led event flow (`creator -> event -> participant`) dan tetap mempertahankan institution operations sebagai layer lanjutan.
 
 ## Fitur awal
 
 - Append event domain:
+  - creator event lifecycle (create/publish/register/check-in/complete)
   - member
   - member auth (signup/signin via JWT)
   - subscription
@@ -54,6 +56,12 @@ JWT_EXPIRES_IN_SEC=86400
 - `GET /v1/owner/saas`
 - `POST /v1/owner/saas/extend`
 - `POST /v1/members/register`
+- `POST /v1/events/create`
+- `POST /v1/events/register`
+- `POST /v1/events/checkin`
+- `POST /v1/events/complete`
+- `GET /v1/public/events`
+- `GET /v1/public/events/:eventSlug`
 - `POST /v1/subscriptions/activate`
 - `POST /v1/payments/record`
 - `POST /v1/checkins/log`
@@ -61,6 +69,9 @@ JWT_EXPIRES_IN_SEC=86400
 - `POST /v1/pt/packages/assign`
 - `POST /v1/projections/run`
 - `GET /v1/read/members`
+- `GET /v1/read/events`
+- `GET /v1/read/event-registrations`
+- `GET /v1/read/creator-growth`
 - `GET /v1/read/subscriptions/active`
 - `GET /v1/read/class-availability`
 - `GET /v1/read/bookings`

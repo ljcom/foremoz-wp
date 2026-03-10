@@ -45,9 +45,9 @@ export default function WebLandingPage() {
       body: 'Creator-led entertainment events: lineup, production, fan engagement, and monetization loops.',
     },
     {
-      slug: 'passport',
-      title: 'Passport',
-      body: 'Cross-vertical identity layer untuk profile, consent, dan continuity antar program.',
+      slug: 'events',
+      title: 'Events',
+      body: 'Event discovery lintas vertical. Identity layer terbentuk otomatis saat participant ikut event.',
     },
   ];
 
@@ -57,12 +57,10 @@ export default function WebLandingPage() {
         <div className="brand">Foremoz</div>
         <nav>
           <Link to="/web">Home</Link>
-          <Link to="/passport">Passport</Link>
+          <Link to="/events">Events</Link>
           <Link to="/active">Active</Link>
           <Link to="/learning">Learning</Link>
           <Link to="/arts">Arts</Link>
-          <Link to="/signin">Sign in</Link>
-          <Link to="/web/owner">Owner</Link>
           {isMockupOpenAccess ? (
             <Link className="btn small" to="/signup">
               Admin signup

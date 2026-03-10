@@ -13,6 +13,7 @@ import {
 export default function PassportSignInPage() {
   const navigate = useNavigate();
   const location = useLocation();
+  const authBase = location.pathname.startsWith('/passport') ? '/passport' : '/events';
   const [form, setForm] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -120,7 +121,7 @@ export default function PassportSignInPage() {
             planCode: 'free'
           }
         });
-        navigate('/passport/dashboard', { replace: true });
+        navigate(`${authBase}/dashboard`, { replace: true });
         return;
       }
 
@@ -170,7 +171,7 @@ export default function PassportSignInPage() {
         }
       });
 
-      navigate(isOnboarded ? '/passport/dashboard' : '/passport/onboarding', { replace: true });
+      navigate(isOnboarded ? `${authBase}/dashboard` : `${authBase}/onboarding`, { replace: true });
     } catch (err) {
       setError(err.message);
     } finally {
@@ -207,7 +208,7 @@ export default function PassportSignInPage() {
             <button className="btn" type="submit" disabled={loading}>
               {loading ? 'Signing in...' : 'Sign in'}
             </button>
-            <Link className="btn ghost" to="/passport/signup">
+            <Link className="btn ghost" to={`${authBase}/signup`}>
               Create account
             </Link>
           </div>

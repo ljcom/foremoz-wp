@@ -1,9 +1,11 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { normalizeEmail, passportApiJson, requirePassportField, setPassportSession } from '../passport-client.js';
 
 export default function PassportSignUpPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const authBase = location.pathname.startsWith('/passport') ? '/passport' : '/events';
   const [form, setForm] = useState({ fullName: '', email: '', password: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -44,7 +46,7 @@ export default function PassportSignUpPage() {
         }
       });
 
-      navigate('/passport/onboarding', { replace: true });
+      navigate(`${authBase}/onboarding`, { replace: true });
     } catch (err) {
       setError(err.message);
     } finally {
@@ -89,7 +91,7 @@ export default function PassportSignUpPage() {
             <button className="btn" type="submit" disabled={loading}>
               {loading ? 'Creating...' : 'Create passport'}
             </button>
-            <Link className="btn ghost" to="/passport/signin">
+            <Link className="btn ghost" to={`${authBase}/signin`}>
               Already have account
             </Link>
           </div>

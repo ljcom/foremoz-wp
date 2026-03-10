@@ -9,6 +9,7 @@ serta menunjukkan bagaimana host/institution dapat mengaktifkan operational laye
 
 ```text
 [Identity + Public Surfaces]
+  foremoz.com/events
   passport.foremoz.com/<account>
   foremoz.com/active/<account>
   foremoz.com/e/<event_slug>
@@ -93,7 +94,8 @@ Kedua mode memakai EventDB dan projector pipeline yang sama; perbedaannya pada c
 
 ## Auth and Routing
 
-- identity entry universal: `passport.foremoz.com/<account>`.
+- event entry universal: `foremoz.com/events`.
+- identity/member showcase: `passport.foremoz.com/<account>`.
 - creator/public journey tidak wajib melalui institution onboarding.
 - tenant route (`tenant.foremoz.com/a/<account>`) dipakai saat creator/host mengaktifkan operating workspace.
 - institution routes (`/dashboard`, `/admin`, `/member`, `/sales`, `/web/owner`) bersifat advanced mode.

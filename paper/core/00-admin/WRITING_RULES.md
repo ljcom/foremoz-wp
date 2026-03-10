@@ -1,5 +1,5 @@
 # WRITING_RULES.md
-Foremoz General Whitepaper Rules
+Foremoz Home Whitepaper Rules
 
 ## Writing Tone
 - Ringkas, teknis, dan terstruktur
@@ -7,7 +7,7 @@ Foremoz General Whitepaper Rules
 - Fokus pada boundary, model, dan reasoning
 
 ## Scope Discipline
-- Tulis hanya domain yang termasuk vertikal General
+- Tulis hanya domain yang termasuk vertikal Home
 - Pisahkan hal platform-level ke whitepaper core
 - Sponsor saat ini dibahas di core whitepaper
 

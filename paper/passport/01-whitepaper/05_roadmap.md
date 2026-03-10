@@ -2,6 +2,7 @@
 
 ## Phase 1 - Passport Identity Foundation
 
+- `foremoz.com/events` sebagai acquisition + onboarding entry.
 - `passport.foremoz.com/<account>` auth + profile.
 - basic multi-role attachment (creator/participant/host).
 - basic network relation rendering antar passports.

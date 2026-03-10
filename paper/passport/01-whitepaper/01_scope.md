@@ -29,6 +29,7 @@ Foremoz Passport berfokus pada actor identity universal sebagai:
 
 ## Canonical URL Map
 
+- `foremoz.com/events` (event hub + identity creation entry)
 - `passport.foremoz.com/<account>`
 - `passport.foremoz.com/<account>/signin`
 - `passport.foremoz.com/<account>/profile`

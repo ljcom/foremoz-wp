@@ -33,7 +33,8 @@ Foremoz terdiri dari dua layer utama:
 Identity layer menggunakan Foremoz Passport.
 
 Passport adalah identitas universal lintas industri.
-Contoh: `passport.foremoz.com/<username>`
+Contoh showcase member: `passport.foremoz.com/<username>`
+Entry event discovery: `foremoz.com/events`
 
 Passport menyimpan:
 - identity

@@ -19,4 +19,5 @@
 - passport: identitas actor universal (creator/participant/host) yang portable lintas event.
 - interaction network: model relasi `creator <-> participant <-> host` berbasis event stream.
 - invitation network: mekanisme pertumbuhan actor melalui undangan antar actor.
-- passport identity domain: `passport.foremoz.com/<account>` sebagai surface identitas universal dan invitation flow semua actor.
+- passport identity domain: `passport.foremoz.com/<account>` sebagai surface identitas universal dan show off member.
+- events hub domain: `foremoz.com/events` sebagai discovery + participation entry lintas vertical.

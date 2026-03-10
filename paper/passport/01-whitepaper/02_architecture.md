@@ -7,8 +7,9 @@ Mendefinisikan runtime architecture untuk universal actor identity, personal tra
 ## High-Level Architecture
 
 ```text
-[Member Surface]
-  passport.foremoz.com
+[Member Surfaces]
+  foremoz.com/events
+  passport.foremoz.com/<account>
        |
        v
 [Passport Domain Layer]
@@ -45,7 +46,8 @@ Mendefinisikan runtime architecture untuk universal actor identity, personal tra
 
 ## Auth and Data Access Rules
 
-- signin identity di `passport.foremoz.com/<account>`.
+- event participation entry di `foremoz.com/events`.
+- signin/member showcase di `passport.foremoz.com/<account>`.
 - member adalah owner data performa pribadi.
 - creator/coach read access harus lewat `rm_coach_shared_view` yang difilter consent.
 - jika consent dicabut, shared view actor langsung menyesuaikan di projection berikutnya.

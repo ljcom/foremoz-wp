@@ -279,6 +279,117 @@ select:focus-visible {
   gap: 0.85rem;
 }
 
+.pricing-grid {
+  margin-top: 1rem;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
+.pricing-card {
+  border: 1px solid #ddccb2;
+  border-radius: 15px;
+  background: linear-gradient(180deg, #fffdf8, #fff7eb);
+  padding: 0.95rem;
+  box-shadow: 0 10px 20px #6e56390f;
+}
+
+.pricing-card h3 {
+  margin: 0;
+}
+
+.pricing-price {
+  margin: 0.45rem 0 0;
+  font-weight: 700;
+  color: var(--accent-dark);
+}
+
+.pricing-note {
+  margin: 0.2rem 0 0.5rem;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.pricing-card ul {
+  margin: 0;
+  padding-left: 1.1rem;
+  color: var(--muted);
+  line-height: 1.65;
+}
+
+.passport-live-grid {
+  margin-top: 1rem;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
+.passport-live-card {
+  border: 1px solid #ddccb2;
+  border-radius: 15px;
+  background: linear-gradient(180deg, #fffdf8, #fff7eb);
+  padding: 1rem;
+  box-shadow: 0 10px 20px #6e56390f;
+}
+
+.passport-live-image {
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+  border-radius: 11px;
+  margin-bottom: 0.7rem;
+}
+
+.passport-live-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.passport-live-badge {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid #98c7af;
+  border-radius: 999px;
+  background: #eaf8f0;
+  color: #0f6f49;
+  padding: 0.15rem 0.55rem;
+  font-size: 0.76rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.passport-live-vertical {
+  font-family: var(--font-mono);
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.passport-live-card h3 {
+  margin: 0.55rem 0 0;
+  font-size: 1.06rem;
+}
+
+.passport-live-category {
+  margin: 0.4rem 0 0;
+  font-family: var(--font-mono);
+  color: var(--accent-dark);
+  font-size: 0.8rem;
+}
+
+.passport-live-host,
+.passport-live-time,
+.passport-live-participant {
+  margin: 0.45rem 0 0;
+  color: var(--muted);
+}
+
+.passport-live-participant {
+  color: var(--accent-dark);
+  font-weight: 700;
+}
+
 .info-grid {
   margin-top: 1rem;
   display: grid;
@@ -973,6 +1084,8 @@ code {
   .feature-grid,
   .case-grid,
   .coach-grid,
+  .pricing-grid,
+  .passport-live-grid,
   .info-grid,
   .plan-grid,
   .stats-grid,

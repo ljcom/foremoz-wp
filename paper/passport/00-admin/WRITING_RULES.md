@@ -12,7 +12,7 @@ Foremoz - Passport Whitepaper
 
 Whitepaper ini bertujuan untuk:
 
-- Mendefinisikan coverage `passport.foremoz.com`.
+- Mendefinisikan hubungan surface `foremoz.com/events` (event entry) dan `passport.foremoz.com` (member showcase).
 - Menjelaskan bagaimana member dapat join banyak coach/studio.
 - Menetapkan model personal tracking (diet, weight, muscle, metric lain).
 - Menetapkan consent model untuk data sharing ke coach.

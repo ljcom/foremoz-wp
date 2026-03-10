@@ -13,6 +13,7 @@ Read layer:
 
 ## Product Surfaces
 
+- `foremoz.com/events`: event hub dan entry untuk ikut event/create passport.
 - `passport.foremoz.com/<account>`: universal actor identity, subscriptions, personal metrics, privacy control.
 - `tenant.foremoz.com/a/<account>`: operational surface untuk event/account operations.
 - `foremoz.com/e/<event_slug>`: public event identity surface.

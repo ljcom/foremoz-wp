@@ -105,16 +105,19 @@ function LegacyPtRedirect() {
 function PassportProtectedRoute({ children }) {
   const location = useLocation();
   const session = getPassportSession();
+  const authBase = location.pathname.startsWith('/passport') ? '/passport' : '/events';
   if (!session?.isAuthenticated) {
-    return <Navigate to="/passport/signin" replace state={{ from: location.pathname }} />;
+    return <Navigate to={`${authBase}/signin`} replace state={{ from: location.pathname }} />;
   }
   return children;
 }
 
 function PassportRequireOnboarding({ children }) {
+  const location = useLocation();
   const session = getPassportSession();
-  if (!session?.isAuthenticated) return <Navigate to="/passport/signin" replace />;
-  if (!session?.isOnboarded) return <Navigate to="/passport/onboarding" replace />;
+  const authBase = location.pathname.startsWith('/passport') ? '/passport' : '/events';
+  if (!session?.isAuthenticated) return <Navigate to={`${authBase}/signin`} replace />;
+  if (!session?.isOnboarded) return <Navigate to={`${authBase}/onboarding`} replace />;
   return children;
 }
 
@@ -123,14 +126,35 @@ export default function App() {
     <Routes>
       <Route path="/" element={<Navigate to="/web" replace />} />
       <Route path="/web" element={<WebLandingPage />} />
+      <Route path="/events" element={<PassportLandingPage />} />
       <Route path="/passport" element={<PassportLandingPage />} />
+      <Route path="/events/signup" element={<PassportSignUpPage />} />
       <Route path="/passport/signup" element={<PassportSignUpPage />} />
+      <Route path="/events/signin" element={<PassportSignInPage />} />
       <Route path="/passport/signin" element={<PassportSignInPage />} />
+      <Route
+        path="/events/onboarding"
+        element={
+          <PassportProtectedRoute>
+            <PassportOnboardingPage />
+          </PassportProtectedRoute>
+        }
+      />
       <Route
         path="/passport/onboarding"
         element={
           <PassportProtectedRoute>
             <PassportOnboardingPage />
+          </PassportProtectedRoute>
+        }
+      />
+      <Route
+        path="/events/dashboard"
+        element={
+          <PassportProtectedRoute>
+            <PassportRequireOnboarding>
+              <PassportDashboardPage />
+            </PassportRequireOnboarding>
           </PassportProtectedRoute>
         }
       />

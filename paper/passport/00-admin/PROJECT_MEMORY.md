@@ -28,13 +28,15 @@ Foremoz Passport bukan:
 3. Projection worker membentuk read model.
 4. Tenant isolation via namespace.
 5. Branch partition via chain.
-6. `passport.foremoz.com` adalah primary domain member.
-7. Data sharing ke coach harus berbasis explicit consent.
-8. Model pricing bersifat freemium dengan free tier permanen sebagai baseline.
+6. `foremoz.com/events` adalah primary event discovery dan participation entry.
+7. `passport.foremoz.com` adalah member showcase surface.
+8. Data sharing ke coach harus berbasis explicit consent.
+9. Model pricing bersifat freemium dengan free tier permanen sebagai baseline.
 
 ## 4. Identity and Consent Commitments
 
-- `passport.foremoz.com` untuk identity, tracking, privacy control.
+- `foremoz.com/events` untuk event entry dan passport creation flow.
+- `passport.foremoz.com` untuk identity, tracking, privacy control, dan show off member.
 - data performa member default private.
 - coach hanya melihat data yang diizinkan member.
 

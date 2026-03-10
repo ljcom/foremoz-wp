@@ -11,6 +11,32 @@ const VERTICALS = {
       'Class/PT booking + attendance + payment queue',
       'Team, match, tournament, dan leaderboard',
       'Sales pipeline + owner setup + gov controls'
+    ],
+    pricing: [
+      {
+        name: 'Free',
+        price: 'Rp0 / bulan',
+        note: 'Untuk creator yang baru mulai',
+        items: ['Publish event & halaman publik', 'Booking + check-in baseline']
+      },
+      {
+        name: 'Starter',
+        price: 'Rp149.000 - Rp499.000 / bulan',
+        note: 'Creator mode berbayar',
+        items: ['Payment recording', 'Passport linkage participant history']
+      },
+      {
+        name: 'Growth',
+        price: 'Rp990.000 - Rp1.990.000 / bulan',
+        note: 'Tim dan kolaborasi host',
+        items: ['Multiple event orchestration', 'Revenue split baseline']
+      },
+      {
+        name: 'Institution',
+        price: 'Mulai Rp3.490.000 / bulan',
+        note: 'Multi-branch operations',
+        items: ['Membership + CRM + staff controls', 'Owner setup + governance controls']
+      }
     ]
   },
   learning: {
@@ -23,6 +49,32 @@ const VERTICALS = {
       'Attendance, assignment/progress checkpoints',
       'Mentor workspace + participant workspace',
       'Program analytics dan retention loop'
+    ],
+    pricing: [
+      {
+        name: 'Free',
+        price: 'Rp0 / bulan',
+        note: 'Untuk educator/mentor tahap awal',
+        items: ['Cohort & session publishing', 'Enrollment + attendance baseline']
+      },
+      {
+        name: 'Starter',
+        price: 'Rp129.000 - Rp399.000 / bulan',
+        note: 'Operasi kelas berulang',
+        items: ['Progress checkpoint dasar', 'Participant workspace baseline']
+      },
+      {
+        name: 'Growth',
+        price: 'Rp790.000 - Rp1.690.000 / bulan',
+        note: 'Kolaborasi mentor dan batch multi program',
+        items: ['Multi-program orchestration', 'Analytics & conversion tracking']
+      },
+      {
+        name: 'Institution',
+        price: 'Mulai Rp2.990.000 / bulan',
+        note: 'Operasi lembaga multi tim',
+        items: ['Staff/admin control', 'Governance & operational policy']
+      }
     ]
   },
   arts: {
@@ -35,6 +87,32 @@ const VERTICALS = {
       'Creator collaboration + invitation network',
       'Ticketing baseline + participant check-in',
       'Post-event engagement dan recurring gig loops'
+    ],
+    pricing: [
+      {
+        name: 'Free',
+        price: 'Rp0 / bulan',
+        note: 'Untuk creator/performer individu',
+        items: ['Publish session/showcase', 'Booking + participant check-in']
+      },
+      {
+        name: 'Starter',
+        price: 'Rp149.000 - Rp499.000 / bulan',
+        note: 'Gig operation berulang',
+        items: ['Run-of-show baseline', 'Basic payment recording']
+      },
+      {
+        name: 'Growth',
+        price: 'Rp990.000 - Rp1.990.000 / bulan',
+        note: 'Kolaborasi komunitas kreatif',
+        items: ['Collaborator roles', 'Revenue split & sponsor baseline']
+      },
+      {
+        name: 'Institution',
+        price: 'Mulai Rp3.490.000 / bulan',
+        note: 'Organizer multi venue',
+        items: ['Staff/admin controls', 'Governance controls & reporting']
+      }
     ]
   },
   tourism: {
@@ -73,7 +151,7 @@ export default function VerticalLandingPage() {
       <header className="topbar">
         <div className="brand">{vertical.title}</div>
         <nav>
-          <Link to="/web">General</Link>
+          <Link to="/web">Home</Link>
           <Link to="/active">Active</Link>
           <Link to="/learning">Learning</Link>
           <Link to="/arts">Arts</Link>
@@ -105,6 +183,27 @@ export default function VerticalLandingPage() {
           </ul>
         </aside>
       </section>
+
+      {vertical.pricing ? (
+        <section className="landing-section">
+          <p className="eyebrow">Pricing</p>
+          <h2 className="landing-title">Pilih paket sesuai kematangan operasional</h2>
+          <div className="pricing-grid">
+            {vertical.pricing.map((plan) => (
+              <article key={plan.name} className="pricing-card">
+                <h3>{plan.name}</h3>
+                <p className="pricing-price">{plan.price}</p>
+                <p className="pricing-note">{plan.note}</p>
+                <ul>
+                  {plan.items.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+              </article>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       <section className="cta">
         <p className="eyebrow">Next Step</p>
