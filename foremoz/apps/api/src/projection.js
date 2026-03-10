@@ -48,15 +48,16 @@ export async function runFitnessProjection({ tenantId, branchId }) {
       if (event.event_type === 'member.registered') {
         await client.query(
           `insert into read.rm_member (
-             tenant_id, branch_id, member_id, full_name, phone, status, registered_at, updated_at
-           ) values ($1,$2,$3,$4,$5,$6,$7,$8)
+             tenant_id, branch_id, member_id, full_name, phone, email, status, registered_at, updated_at
+           ) values ($1,$2,$3,$4,$5,$6,$7,$8,$9)
            on conflict (tenant_id, member_id) do update set
              branch_id = excluded.branch_id,
              full_name = excluded.full_name,
              phone = excluded.phone,
+             email = excluded.email,
              status = excluded.status,
              updated_at = excluded.updated_at`,
-          [tenant, branch, data.member_id, data.full_name, data.phone || null, data.status || 'active', eventTs, eventTs]
+          [tenant, branch, data.member_id, data.full_name, data.phone || null, data.email || null, data.status || 'active', eventTs, eventTs]
         );
         applied += 1;
         continue;
@@ -441,6 +442,16 @@ export async function runFitnessProjection({ tenantId, branchId }) {
              available_slots = greatest(0, excluded.capacity - read.rm_class_availability.booked_count),
              updated_at = excluded.updated_at`,
           [tenant, branch, data.class_id, data.class_name, data.start_at, data.end_at, data.capacity, eventTs]
+        );
+        applied += 1;
+        continue;
+      }
+
+      if (event.event_type === 'class.deleted') {
+        await client.query(
+          `delete from read.rm_class_availability
+           where tenant_id = $1 and class_id = $2`,
+          [tenant, data.class_id]
         );
         applied += 1;
         continue;

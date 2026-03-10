@@ -29,8 +29,20 @@ export default function DashboardPage() {
   const [error, setError] = useState('');
   const [dashboardRow, setDashboardRow] = useState(null);
   const [members, setMembers] = useState([]);
+  const [memberMode, setMemberMode] = useState('list');
+  const [memberSaving, setMemberSaving] = useState(false);
+  const [memberForm, setMemberForm] = useState({
+    full_name: '',
+    phone: '',
+    email: '',
+    id_card: '',
+    member_id: ''
+  });
+  const [memberFeedback, setMemberFeedback] = useState('');
 
   const accountSlug = getAccountSlug(session);
+  const tenantId = session?.tenant?.id || 'tn_001';
+  const branchId = session?.branch?.id || 'core';
   const role = String(session?.role || 'admin').toLowerCase();
   const fullName = session?.user?.fullName || session?.user?.full_name || 'User';
   const [targetEnv, setTargetEnv] = useState('cs');
@@ -43,44 +55,52 @@ export default function DashboardPage() {
     return [];
   }, [role]);
 
-  useEffect(() => {
-    async function loadDashboard() {
-      const tenantId = session?.tenant?.id || 'tn_001';
-      const branchId = session?.branch?.id || 'core';
-      try {
-        setLoading(true);
-        setError('');
+  async function loadDashboard() {
+    try {
+      setLoading(true);
+      setError('');
+      await apiJson('/v1/projections/run', {
+        method: 'POST',
+        body: JSON.stringify({
+          tenant_id: tenantId,
+          branch_id: 'core'
+        })
+      });
+      if (branchId !== 'core') {
         await apiJson('/v1/projections/run', {
           method: 'POST',
           body: JSON.stringify({
             tenant_id: tenantId,
-            branch_id: 'core'
+            branch_id: branchId
           })
         });
+      }
 
-        const [dashboardRes, membersRes] = await Promise.all([
-          apiJson(`/v1/read/dashboard?tenant_id=${encodeURIComponent(tenantId)}&branch_id=${encodeURIComponent(branchId)}`),
-          apiJson(`/v1/read/members?tenant_id=${encodeURIComponent(tenantId)}&limit=200`)
+      const [dashboardRes, membersRes] = await Promise.all([
+        apiJson(`/v1/read/dashboard?tenant_id=${encodeURIComponent(tenantId)}&branch_id=${encodeURIComponent(branchId)}`),
+          apiJson(`/v1/read/members?tenant_id=${encodeURIComponent(tenantId)}&limit=1000`)
         ]);
 
-        if (!dashboardRes.row && branchId !== 'core') {
-          const coreDashboard = await apiJson(
-            `/v1/read/dashboard?tenant_id=${encodeURIComponent(tenantId)}&branch_id=core`
-          );
-          setDashboardRow(coreDashboard.row || null);
-        } else {
-          setDashboardRow(dashboardRes.row || null);
-        }
-        setMembers(membersRes.rows || []);
-      } catch (err) {
-        setError(err.message || 'failed to load dashboard');
-      } finally {
-        setLoading(false);
+      if (!dashboardRes.row && branchId !== 'core') {
+        const coreDashboard = await apiJson(
+          `/v1/read/dashboard?tenant_id=${encodeURIComponent(tenantId)}&branch_id=core`
+        );
+        setDashboardRow(coreDashboard.row || null);
+      } else {
+        setDashboardRow(dashboardRes.row || null);
       }
+      setMembers(membersRes.rows || []);
+    } catch (err) {
+      setError(err.message || 'failed to load dashboard');
+    } finally {
+      setLoading(false);
     }
+  }
 
+  useEffect(() => {
     loadDashboard();
-  }, [session?.tenant?.id, session?.branch?.id]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tenantId, branchId]);
 
   const stats = useMemo(
     () => [
@@ -119,7 +139,7 @@ export default function DashboardPage() {
   const searchSource = members.length > 0 ? members : MEMBER_FIXTURES;
   const searchResults = useMemo(() => {
     const q = String(query || '').trim().toLowerCase();
-    if (!q) return [];
+    if (!q) return searchSource;
 
     return searchSource.filter((member) => {
       const fields = {
@@ -168,6 +188,41 @@ export default function DashboardPage() {
     if (!scanned) return;
     setSearchBy('member_id');
     setQuery(scanned.trim());
+  }
+
+  async function addMember(e) {
+    e.preventDefault();
+    if (!memberForm.full_name.trim() || !memberForm.phone.trim() || !memberForm.email.trim() || !memberForm.id_card.trim()) return;
+
+    const generatedId = memberForm.member_id.trim() || `mem_${Date.now()}`;
+    try {
+      setMemberSaving(true);
+      setMemberFeedback('');
+      await apiJson('/v1/members/register', {
+        method: 'POST',
+        body: JSON.stringify({
+          tenant_id: tenantId,
+          branch_id: branchId,
+          member_id: generatedId,
+          full_name: memberForm.full_name.trim(),
+          phone: memberForm.phone.trim(),
+          email: memberForm.email.trim(),
+          id_card: memberForm.id_card.trim(),
+          status: 'active'
+        })
+      });
+
+      await loadDashboard();
+      setMemberMode('list');
+      setMemberForm({ full_name: '', phone: '', email: '', id_card: '', member_id: '' });
+      setMemberFeedback(`member.created: ${generatedId}`);
+      setSearchBy('member_id');
+      setQuery(generatedId);
+    } catch (err) {
+      setMemberFeedback(err.message || 'failed to create member');
+    } finally {
+      setMemberSaving(false);
+    }
   }
 
   return (
@@ -236,9 +291,21 @@ export default function DashboardPage() {
             <p className="eyebrow">Membership Search</p>
             <h2>Search member</h2>
           </div>
-          <button className="btn ghost" onClick={scanQrCode}>
-            Scan QR code
-          </button>
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <button className="btn ghost" onClick={scanQrCode}>
+              Scan QR code
+            </button>
+            <button
+              className="btn"
+              type="button"
+              onClick={() => {
+                setMemberMode((prev) => (prev === 'add' ? 'list' : 'add'));
+                setMemberFeedback('');
+              }}
+            >
+              {memberMode === 'add' ? 'Cancel add' : 'Add member'}
+            </button>
+          </div>
         </div>
 
         <div className="search-box">
@@ -262,28 +329,75 @@ export default function DashboardPage() {
           </label>
         </div>
 
-        {query.trim() ? (
-          <div className="search-result-list">
-            {searchResults.length > 0 ? (
-              searchResults.map((member) => (
-                <button
-                  key={member.member_id}
-                  className="member-row"
-                  onClick={() => navigate(accountPath(session, `/members/${member.member_id}`))}
-                >
-                  <strong>{member.full_name}</strong>
-                  <span>{member.member_id}</span>
-                  <span>{member.phone}</span>
-                  <span className={`status ${member.status}`}>{member.status}</span>
-                </button>
-              ))
-            ) : (
-              <p className="muted">No member found.</p>
-            )}
-          </div>
-        ) : (
-          <p className="muted">Input query to show member result.</p>
-        )}
+        {memberMode === 'add' ? (
+          <form className="form" onSubmit={addMember} style={{ marginTop: '0.75rem' }}>
+            <label>
+              full_name
+              <input
+                value={memberForm.full_name}
+                onChange={(e) => setMemberForm((prev) => ({ ...prev, full_name: e.target.value }))}
+                placeholder="Nama member"
+              />
+            </label>
+            <label>
+              phone
+              <input
+                value={memberForm.phone}
+                onChange={(e) => setMemberForm((prev) => ({ ...prev, phone: e.target.value }))}
+                placeholder="08xxxxxxxxxx"
+              />
+            </label>
+            <label>
+              email
+              <input
+                type="email"
+                value={memberForm.email}
+                onChange={(e) => setMemberForm((prev) => ({ ...prev, email: e.target.value }))}
+                placeholder="member@email.com"
+              />
+            </label>
+            <label>
+              id_card
+              <input
+                value={memberForm.id_card}
+                onChange={(e) => setMemberForm((prev) => ({ ...prev, id_card: e.target.value }))}
+                placeholder="KTP / ID Card"
+              />
+            </label>
+            <label>
+              member_id (optional)
+              <input
+                value={memberForm.member_id}
+                onChange={(e) => setMemberForm((prev) => ({ ...prev, member_id: e.target.value }))}
+                placeholder="auto-generate if empty"
+              />
+            </label>
+            <button className="btn" type="submit" disabled={memberSaving}>
+              {memberSaving ? 'Saving...' : 'Save member'}
+            </button>
+          </form>
+        ) : null}
+
+        {memberFeedback ? <p className="feedback">{memberFeedback}</p> : null}
+
+        <div className="search-result-list">
+          {searchResults.length > 0 ? (
+            searchResults.map((member) => (
+              <button
+                key={member.member_id}
+                className="member-row"
+                onClick={() => navigate(accountPath(session, `/members/${member.member_id}`))}
+              >
+                <strong>{member.full_name}</strong>
+                <span>{member.member_id}</span>
+                <span>{member.phone}</span>
+                <span className={`status ${member.status}`}>{member.status}</span>
+              </button>
+            ))
+          ) : (
+            <p className="muted">No member found.</p>
+          )}
+        </div>
       </section>
 
       <footer className="dash-foot">

@@ -1,6 +1,8 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { getSession as getForemozSession } from '../lib.js';
 import {
+  foremozApiJson,
   isPassportMockOpen,
   normalizeEmail,
   passportApiJson,
@@ -10,9 +12,90 @@ import {
 
 export default function PassportSignInPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [form, setForm] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  async function bridgeFromForemozMember({ email, password }) {
+    const params = new URLSearchParams(location.search || '');
+    const hintedTenantId = params.get('tenant') || params.get('account') || '';
+    const foremozSession = getForemozSession();
+    const candidateTenantIds = [...new Set([hintedTenantId, foremozSession?.tenant?.id, 'tn_001'].filter(Boolean))];
+
+    let foremozAuth = null;
+    for (const tenantId of candidateTenantIds) {
+      try {
+        foremozAuth = await foremozApiJson('/v1/auth/signin', {
+          method: 'POST',
+          body: JSON.stringify({
+            tenant_id: tenantId,
+            email,
+            password
+          })
+        });
+        if (foremozAuth?.member?.member_id) break;
+      } catch {
+        // keep trying next tenant candidate
+      }
+    }
+
+    if (!foremozAuth?.member?.member_id) {
+      throw new Error('Akun tidak ditemukan di Passport atau member tenant.');
+    }
+
+    const tenantId = foremozAuth.member.tenant_id || candidateTenantIds[0] || 'tn_001';
+    const fullName = foremozAuth.member.full_name || email.split('@')[0];
+
+    // Try provisioning Passport account from existing Foremoz member.
+    try {
+      await passportApiJson('/v1/tenant/auth/signup', {
+        method: 'POST',
+        body: JSON.stringify({
+          tenant_id: tenantId,
+          full_name: fullName,
+          email,
+          password
+        })
+      });
+    } catch {
+      // likely already exists, continue to signin attempts
+    }
+
+    let auth = null;
+    try {
+      auth = await passportApiJson('/v1/tenant/auth/signin', {
+        method: 'POST',
+        body: JSON.stringify({ tenant_id: tenantId, email, password })
+      });
+    } catch {
+      auth = await passportApiJson('/v1/tenant/auth/signin', {
+        method: 'POST',
+        body: JSON.stringify({ email, password })
+      });
+    }
+
+    // Ensure passport profile exists and linked to Foremoz member id.
+    const passportId = auth.user?.passport_id;
+    if (passportId) {
+      try {
+        await passportApiJson('/v1/passport/create', {
+          method: 'POST',
+          body: JSON.stringify({
+            tenant_id: auth.user?.tenant_id || tenantId,
+            passport_id: passportId,
+            member_id: foremozAuth.member.member_id,
+            full_name: fullName,
+            sport_interests: []
+          })
+        });
+      } catch {
+        // profile may already exist, ignore
+      }
+    }
+
+    return auth;
+  }
 
   async function onSubmit(event) {
     event.preventDefault();
@@ -41,10 +124,15 @@ export default function PassportSignInPage() {
         return;
       }
 
-      const auth = await passportApiJson('/v1/tenant/auth/signin', {
-        method: 'POST',
-        body: JSON.stringify({ email, password })
-      });
+      let auth;
+      try {
+        auth = await passportApiJson('/v1/tenant/auth/signin', {
+          method: 'POST',
+          body: JSON.stringify({ email, password })
+        });
+      } catch {
+        auth = await bridgeFromForemozMember({ email, password });
+      }
 
       const tenantId = auth.user?.tenant_id || 'ps_001';
       const passportId = auth.user?.passport_id;

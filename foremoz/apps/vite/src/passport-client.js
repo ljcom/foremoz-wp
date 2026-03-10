@@ -1,6 +1,7 @@
 import { IS_MOCK_MODE, IS_MOCKUP_OPEN_ACCESS } from './lib.js';
 
 export const PASSPORT_API_BASE_URL = import.meta.env.VITE_PASSPORT_API_BASE_URL || 'http://localhost:3600';
+export const FOREMOZ_API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3310';
 
 const PASSPORT_AUTH_KEY = 'fp.auth';
 
@@ -33,6 +34,22 @@ export function requirePassportField(value, name) {
 
 export async function passportApiJson(path, options = {}) {
   const response = await fetch(`${PASSPORT_API_BASE_URL}${path}`, {
+    ...options,
+    headers: {
+      'content-type': 'application/json',
+      ...(options.headers || {})
+    }
+  });
+
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || payload.status === 'FAIL') {
+    throw new Error(payload.message || `request failed: ${response.status}`);
+  }
+  return payload;
+}
+
+export async function foremozApiJson(path, options = {}) {
+  const response = await fetch(`${FOREMOZ_API_BASE_URL}${path}`, {
     ...options,
     headers: {
       'content-type': 'application/json',

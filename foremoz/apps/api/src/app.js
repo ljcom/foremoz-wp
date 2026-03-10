@@ -50,6 +50,121 @@ function created(res, data) {
   return res.status(201).json({ status: 'PASS', ...data });
 }
 
+function asPositiveInteger(value, fieldName, fallback = null) {
+  if (value === undefined || value === null || value === '') {
+    if (fallback !== null) return fallback;
+    throw fail(400, 'BAD_REQUEST', `${fieldName} is required`);
+  }
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    throw fail(400, 'BAD_REQUEST', `${fieldName} must be a positive number`);
+  }
+  return Math.floor(parsed);
+}
+
+function asNonNegativeInteger(value, fieldName, fallback = null) {
+  if (value === undefined || value === null || value === '') {
+    if (fallback !== null) return fallback;
+    throw fail(400, 'BAD_REQUEST', `${fieldName} is required`);
+  }
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    throw fail(400, 'BAD_REQUEST', `${fieldName} must be a non-negative number`);
+  }
+  return Math.floor(parsed);
+}
+
+async function getLatestClassScheduledData(tenantId, classId) {
+  const namespaceId = resolveNamespaceId(tenantId);
+  const { rows } = await query(
+    `select payload->'data' as data
+     from eventdb_event
+     where namespace_id = $1
+       and event_type = 'class.scheduled'
+       and payload->'data'->>'class_id' = $2
+     order by sequence desc
+     limit 1`,
+    [namespaceId, classId]
+  );
+  return rows[0]?.data || null;
+}
+
+async function getLatestEntityDataByEventTypes(tenantId, idField, idValue, eventTypes) {
+  const namespaceId = resolveNamespaceId(tenantId);
+  const { rows } = await query(
+    `select payload->'data' as data
+     from eventdb_event
+     where namespace_id = $1
+       and event_type = any($2::text[])
+       and payload->'data'->>$3 = $4
+     order by sequence desc
+     limit 1`,
+    [namespaceId, eventTypes, idField, idValue]
+  );
+  return rows[0]?.data || null;
+}
+
+async function ensureMemberIdentityUnique({ tenantId, email, phone, idCard }) {
+  const normalizedEmail = normalizeEmail(required(email, 'email'));
+  const normalizedPhone = String(required(phone, 'phone')).trim();
+  const normalizedIdCard = String(required(idCard, 'id_card')).trim();
+
+  const [memberEmailRes, authEmailRes, memberPhoneRes] = await Promise.all([
+    query(
+      `select member_id
+       from read.rm_member
+       where tenant_id = $1 and lower(email) = lower($2)
+       limit 1`,
+      [tenantId, normalizedEmail]
+    ),
+    query(
+      `select member_id
+       from read.rm_member_auth
+       where tenant_id = $1 and lower(email) = lower($2)
+       limit 1`,
+      [tenantId, normalizedEmail]
+    ),
+    query(
+      `select member_id
+       from read.rm_member
+       where tenant_id = $1 and phone = $2
+       limit 1`,
+      [tenantId, normalizedPhone]
+    )
+  ]);
+
+  if (memberEmailRes.rows[0] || authEmailRes.rows[0]) {
+    throw fail(409, 'MEMBER_EMAIL_EXISTS', 'email already registered');
+  }
+  if (memberPhoneRes.rows[0]) {
+    throw fail(409, 'MEMBER_PHONE_EXISTS', 'phone already registered');
+  }
+
+  const namespaceId = resolveNamespaceId(tenantId);
+  const { rows: idCardRows } = await query(
+    `select sequence
+     from eventdb_event
+     where namespace_id = $1
+       and event_type = 'member.registered'
+       and (
+         payload->'data'->>'id_card' = $2
+         or payload->'data'->>'ktp_number' = $2
+       )
+     limit 1`,
+    [namespaceId, normalizedIdCard]
+  );
+
+  if (idCardRows[0]) {
+    throw fail(409, 'MEMBER_ID_CARD_EXISTS', 'id_card already registered');
+  }
+
+  return {
+    email: normalizedEmail,
+    phone: normalizedPhone,
+    idCard: normalizedIdCard
+  };
+}
+
 function normalizeUserRole(input) {
   const role = String(input || '').trim().toLowerCase();
   const allowed = new Set(['admin', 'cs', 'sales', 'pt']);
@@ -845,6 +960,12 @@ app.post('/v1/members/register', async (req, res, next) => {
   try {
     const data = req.body || {};
     const tenantId = data.tenant_id || config.defaultTenantId;
+    const uniqueIdentity = await ensureMemberIdentityUnique({
+      tenantId,
+      email: data.email,
+      phone: data.phone,
+      idCard: data.id_card
+    });
     const event = await appendDomainEvent({
       tenantId,
       branchId: data.branch_id || null,
@@ -857,12 +978,15 @@ app.post('/v1/members/register', async (req, res, next) => {
         branch_id: data.branch_id || null,
         member_id: required(data.member_id, 'member_id'),
         full_name: required(data.full_name, 'full_name'),
-        phone: data.phone || null,
+        phone: uniqueIdentity.phone,
+        email: uniqueIdentity.email,
+        id_card: uniqueIdentity.idCard,
         status: data.status || 'active'
       },
       refs: {},
       uniqueIds: [{ scope: 'member.member_id', value: required(data.member_id, 'member_id') }]
     });
+    await runFitnessProjection({ tenantId, branchId: data.branch_id || 'core' });
     return created(res, { event });
   } catch (error) {
     return next(error);
@@ -954,6 +1078,506 @@ app.post('/v1/checkins/log', async (req, res, next) => {
       uniqueIds: [{ scope: 'checkin.checkin_id', value: required(data.checkin_id, 'checkin_id') }]
     });
     return created(res, { event });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.get('/v1/admin/classes', async (req, res, next) => {
+  try {
+    const tenantId = req.query.tenant_id || config.defaultTenantId;
+    const branchId = req.query.branch_id || null;
+    const params = [tenantId];
+    let sql = `select * from read.rm_class_availability where tenant_id = $1`;
+    if (branchId) {
+      params.push(branchId);
+      sql += ` and branch_id = $2`;
+    }
+    sql += ` order by start_at asc`;
+    const { rows } = await query(sql, params);
+
+    const classIds = rows.map((row) => row.class_id).filter(Boolean);
+    let trainerByClassId = {};
+    if (classIds.length > 0) {
+      const namespaceId = resolveNamespaceId(tenantId);
+      const { rows: trainerRows } = await query(
+        `select distinct on (payload->'data'->>'class_id')
+            payload->'data'->>'class_id' as class_id,
+            payload->'data'->>'trainer_name' as trainer_name
+         from eventdb_event
+         where namespace_id = $1
+           and event_type = 'class.scheduled'
+           and payload->'data'->>'class_id' = any($2::text[])
+         order by payload->'data'->>'class_id', sequence desc`,
+        [namespaceId, classIds]
+      );
+      trainerByClassId = Object.fromEntries(
+        trainerRows.map((row) => [row.class_id, row.trainer_name || ''])
+      );
+    }
+
+    return ok(res, {
+      rows: rows.map((row) => ({
+        ...row,
+        trainer_name: trainerByClassId[row.class_id] || ''
+      }))
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.post('/v1/admin/classes', async (req, res, next) => {
+  try {
+    const data = req.body || {};
+    const tenantId = data.tenant_id || config.defaultTenantId;
+    const branchId = required(data.branch_id, 'branch_id');
+    const classId = data.class_id || `class_${Date.now()}_${randomUUID().slice(0, 8)}`;
+    const startAt = new Date(required(data.start_at, 'start_at'));
+    if (Number.isNaN(startAt.getTime())) {
+      throw fail(400, 'BAD_REQUEST', 'start_at must be a valid datetime');
+    }
+    const endAt = data.end_at ? new Date(data.end_at) : new Date(startAt.getTime() + 60 * 60 * 1000);
+    if (Number.isNaN(endAt.getTime())) {
+      throw fail(400, 'BAD_REQUEST', 'end_at must be a valid datetime');
+    }
+
+    const event = await appendDomainEvent({
+      tenantId,
+      branchId,
+      actorId: data.actor_id || config.defaultActorId,
+      eventType: 'class.scheduled',
+      subjectKind: 'class',
+      subjectId: classId,
+      data: {
+        tenant_id: tenantId,
+        branch_id: branchId,
+        class_id: classId,
+        class_name: required(data.class_name, 'class_name'),
+        trainer_name: data.trainer_name || null,
+        capacity: asPositiveInteger(data.capacity, 'capacity', 20),
+        start_at: startAt.toISOString(),
+        end_at: endAt.toISOString()
+      },
+      refs: {},
+      uniqueIds: [{ scope: 'class.class_id', value: classId }]
+    });
+    await runFitnessProjection({ tenantId, branchId });
+    return created(res, { event, class_id: classId });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.patch('/v1/admin/classes/:classId', async (req, res, next) => {
+  try {
+    const data = req.body || {};
+    const tenantId = data.tenant_id || config.defaultTenantId;
+    const classId = required(req.params.classId, 'classId');
+    const existing = await query(
+      `select tenant_id, branch_id, class_id, class_name, start_at, end_at, capacity
+       from read.rm_class_availability
+       where tenant_id = $1 and class_id = $2
+       limit 1`,
+      [tenantId, classId]
+    );
+    const current = existing.rows[0];
+    if (!current) {
+      throw fail(404, 'CLASS_NOT_FOUND', `class ${classId} not found`);
+    }
+
+    const latestScheduledData = await getLatestClassScheduledData(tenantId, classId);
+    const branchId = data.branch_id || current.branch_id || latestScheduledData?.branch_id || 'core';
+
+    const startAtValue = data.start_at || current.start_at || latestScheduledData?.start_at;
+    const endAtValue = data.end_at || current.end_at || latestScheduledData?.end_at;
+    const startAt = new Date(startAtValue);
+    const endAt = new Date(endAtValue || new Date(startAt.getTime() + 60 * 60 * 1000).toISOString());
+    if (Number.isNaN(startAt.getTime()) || Number.isNaN(endAt.getTime())) {
+      throw fail(400, 'BAD_REQUEST', 'start_at/end_at must be valid datetime');
+    }
+
+    const event = await appendDomainEvent({
+      tenantId,
+      branchId,
+      actorId: data.actor_id || config.defaultActorId,
+      eventType: 'class.scheduled',
+      subjectKind: 'class',
+      subjectId: classId,
+      data: {
+        tenant_id: tenantId,
+        branch_id: branchId,
+        class_id: classId,
+        class_name: data.class_name || current.class_name || latestScheduledData?.class_name,
+        trainer_name: data.trainer_name ?? latestScheduledData?.trainer_name ?? null,
+        capacity: asPositiveInteger(data.capacity, 'capacity', current.capacity || latestScheduledData?.capacity || 20),
+        start_at: startAt.toISOString(),
+        end_at: endAt.toISOString()
+      },
+      refs: {}
+    });
+    await runFitnessProjection({ tenantId, branchId });
+    return ok(res, { event, class_id: classId });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.delete('/v1/admin/classes/:classId', async (req, res, next) => {
+  try {
+    const data = req.body || {};
+    const tenantId = data.tenant_id || req.query.tenant_id || config.defaultTenantId;
+    const classId = required(req.params.classId, 'classId');
+    const existing = await query(
+      `select branch_id
+       from read.rm_class_availability
+       where tenant_id = $1 and class_id = $2
+       limit 1`,
+      [tenantId, classId]
+    );
+    const current = existing.rows[0];
+    if (!current) {
+      throw fail(404, 'CLASS_NOT_FOUND', `class ${classId} not found`);
+    }
+    const branchId = data.branch_id || req.query.branch_id || current.branch_id || 'core';
+
+    const event = await appendDomainEvent({
+      tenantId,
+      branchId,
+      actorId: data.actor_id || config.defaultActorId,
+      eventType: 'class.deleted',
+      subjectKind: 'class',
+      subjectId: classId,
+      data: {
+        tenant_id: tenantId,
+        branch_id: branchId,
+        class_id: classId,
+        deleted_at: new Date().toISOString()
+      },
+      refs: {}
+    });
+    await runFitnessProjection({ tenantId, branchId });
+    return ok(res, { event, class_id: classId });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.get('/v1/admin/products', async (req, res, next) => {
+  try {
+    const tenantId = req.query.tenant_id || config.defaultTenantId;
+    const branchId = req.query.branch_id || null;
+    const namespaceId = resolveNamespaceId(tenantId);
+    const eventTypes = ['product.created', 'product.updated', 'product.deleted'];
+    const params = [namespaceId, eventTypes];
+    let branchFilter = '';
+    if (branchId) {
+      params.push(branchId);
+      branchFilter = ` and payload->'data'->>'branch_id' = $${params.length}`;
+    }
+
+    const { rows } = await query(
+      `select distinct on (payload->'data'->>'product_id')
+          event_type,
+          payload->'data' as data
+       from eventdb_event
+       where namespace_id = $1
+         and event_type = any($2::text[])
+         and payload->'data'->>'product_id' is not null
+         ${branchFilter}
+       order by payload->'data'->>'product_id', sequence desc`,
+      params
+    );
+
+    const activeRows = rows
+      .filter((row) => row.event_type !== 'product.deleted')
+      .map((row) => row.data);
+
+    return ok(res, { rows: activeRows });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.post('/v1/admin/products', async (req, res, next) => {
+  try {
+    const data = req.body || {};
+    const tenantId = data.tenant_id || config.defaultTenantId;
+    const branchId = required(data.branch_id, 'branch_id');
+    const productId = data.product_id || `prd_${Date.now()}_${randomUUID().slice(0, 8)}`;
+    const event = await appendDomainEvent({
+      tenantId,
+      branchId,
+      actorId: data.actor_id || config.defaultActorId,
+      eventType: 'product.created',
+      subjectKind: 'product',
+      subjectId: productId,
+      data: {
+        tenant_id: tenantId,
+        branch_id: branchId,
+        product_id: productId,
+        product_name: required(data.product_name, 'product_name'),
+        category: data.category || 'retail',
+        price: asNonNegativeInteger(data.price, 'price'),
+        stock: asNonNegativeInteger(data.stock, 'stock', 0),
+        updated_at: new Date().toISOString()
+      },
+      refs: {},
+      uniqueIds: [{ scope: 'product.product_id', value: productId }]
+    });
+    return created(res, { event, product_id: productId });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.patch('/v1/admin/products/:productId', async (req, res, next) => {
+  try {
+    const data = req.body || {};
+    const tenantId = data.tenant_id || config.defaultTenantId;
+    const productId = required(req.params.productId, 'productId');
+    const latest = await getLatestEntityDataByEventTypes(
+      tenantId,
+      'product_id',
+      productId,
+      ['product.created', 'product.updated']
+    );
+    if (!latest) {
+      throw fail(404, 'PRODUCT_NOT_FOUND', `product ${productId} not found`);
+    }
+    const branchId = data.branch_id || latest.branch_id || 'core';
+    const event = await appendDomainEvent({
+      tenantId,
+      branchId,
+      actorId: data.actor_id || config.defaultActorId,
+      eventType: 'product.updated',
+      subjectKind: 'product',
+      subjectId: productId,
+      data: {
+        tenant_id: tenantId,
+        branch_id: branchId,
+        product_id: productId,
+        product_name: data.product_name || latest.product_name,
+        category: data.category || latest.category || 'retail',
+        price: asNonNegativeInteger(data.price, 'price', Number(latest.price || 0)),
+        stock: asNonNegativeInteger(data.stock, 'stock', Number(latest.stock || 0)),
+        updated_at: new Date().toISOString()
+      },
+      refs: {}
+    });
+    return ok(res, { event, product_id: productId });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.delete('/v1/admin/products/:productId', async (req, res, next) => {
+  try {
+    const data = req.body || {};
+    const tenantId = data.tenant_id || req.query.tenant_id || config.defaultTenantId;
+    const productId = required(req.params.productId, 'productId');
+    const latest = await getLatestEntityDataByEventTypes(
+      tenantId,
+      'product_id',
+      productId,
+      ['product.created', 'product.updated']
+    );
+    if (!latest) {
+      throw fail(404, 'PRODUCT_NOT_FOUND', `product ${productId} not found`);
+    }
+    const branchId = data.branch_id || req.query.branch_id || latest.branch_id || 'core';
+    const event = await appendDomainEvent({
+      tenantId,
+      branchId,
+      actorId: data.actor_id || config.defaultActorId,
+      eventType: 'product.deleted',
+      subjectKind: 'product',
+      subjectId: productId,
+      data: {
+        tenant_id: tenantId,
+        branch_id: branchId,
+        product_id: productId,
+        deleted_at: new Date().toISOString()
+      },
+      refs: {}
+    });
+    return ok(res, { event, product_id: productId });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.get('/v1/admin/packages', async (req, res, next) => {
+  try {
+    const tenantId = req.query.tenant_id || config.defaultTenantId;
+    const branchId = req.query.branch_id || null;
+    const namespaceId = resolveNamespaceId(tenantId);
+    const eventTypes = ['package.created', 'package.updated', 'package.deleted'];
+    const params = [namespaceId, eventTypes];
+    let branchFilter = '';
+    if (branchId) {
+      params.push(branchId);
+      branchFilter = ` and payload->'data'->>'branch_id' = $${params.length}`;
+    }
+
+    const { rows } = await query(
+      `select distinct on (payload->'data'->>'package_id')
+          event_type,
+          payload->'data' as data
+       from eventdb_event
+       where namespace_id = $1
+         and event_type = any($2::text[])
+         and payload->'data'->>'package_id' is not null
+         ${branchFilter}
+       order by payload->'data'->>'package_id', sequence desc`,
+      params
+    );
+
+    const activeRows = rows
+      .filter((row) => row.event_type !== 'package.deleted')
+      .map((row) => row.data);
+
+    return ok(res, { rows: activeRows });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.post('/v1/admin/packages', async (req, res, next) => {
+  try {
+    const data = req.body || {};
+    const tenantId = data.tenant_id || config.defaultTenantId;
+    const branchId = required(data.branch_id, 'branch_id');
+    const packageId = data.package_id || `pkg_${Date.now()}_${randomUUID().slice(0, 8)}`;
+    const packageType = data.package_type || 'membership';
+    const withSessionLimit = packageType === 'pt' || packageType === 'class';
+    const maxMonths = withSessionLimit
+      ? asPositiveInteger(data.max_months, 'max_months', asPositiveInteger(data.duration_months, 'duration_months', 1))
+      : null;
+    const sessionCount = withSessionLimit
+      ? asPositiveInteger(data.session_count, 'session_count', 1)
+      : null;
+    const event = await appendDomainEvent({
+      tenantId,
+      branchId,
+      actorId: data.actor_id || config.defaultActorId,
+      eventType: 'package.created',
+      subjectKind: 'package',
+      subjectId: packageId,
+      data: {
+        tenant_id: tenantId,
+        branch_id: branchId,
+        package_id: packageId,
+        package_name: required(data.package_name, 'package_name'),
+        package_type: packageType,
+        trainer_user_id: packageType === 'pt' ? (data.trainer_user_id || null) : null,
+        trainer_name: packageType === 'pt' ? (data.trainer_name || null) : null,
+        class_id: packageType === 'class' ? (data.class_id || null) : null,
+        class_name: packageType === 'class' ? (data.class_name || null) : null,
+        max_months: maxMonths,
+        duration_months: maxMonths ?? asPositiveInteger(data.duration_months, 'duration_months', 1),
+        session_count: sessionCount,
+        price: asNonNegativeInteger(data.price, 'price'),
+        updated_at: new Date().toISOString()
+      },
+      refs: {},
+      uniqueIds: [{ scope: 'package.package_id', value: packageId }]
+    });
+    return created(res, { event, package_id: packageId });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.patch('/v1/admin/packages/:packageId', async (req, res, next) => {
+  try {
+    const data = req.body || {};
+    const tenantId = data.tenant_id || config.defaultTenantId;
+    const packageId = required(req.params.packageId, 'packageId');
+    const latest = await getLatestEntityDataByEventTypes(
+      tenantId,
+      'package_id',
+      packageId,
+      ['package.created', 'package.updated']
+    );
+    if (!latest) {
+      throw fail(404, 'PACKAGE_NOT_FOUND', `package ${packageId} not found`);
+    }
+    const branchId = data.branch_id || latest.branch_id || 'core';
+    const packageType = data.package_type || latest.package_type || 'membership';
+    const withSessionLimit = packageType === 'pt' || packageType === 'class';
+    const maxMonths = withSessionLimit
+      ? asPositiveInteger(
+        data.max_months,
+        'max_months',
+        asPositiveInteger(data.duration_months, 'duration_months', Number(latest.max_months || latest.duration_months || 1))
+      )
+      : null;
+    const sessionCount = withSessionLimit
+      ? asPositiveInteger(data.session_count, 'session_count', Number(latest.session_count || 1))
+      : null;
+    const event = await appendDomainEvent({
+      tenantId,
+      branchId,
+      actorId: data.actor_id || config.defaultActorId,
+      eventType: 'package.updated',
+      subjectKind: 'package',
+      subjectId: packageId,
+      data: {
+        tenant_id: tenantId,
+        branch_id: branchId,
+        package_id: packageId,
+        package_name: data.package_name || latest.package_name,
+        package_type: packageType,
+        trainer_user_id: packageType === 'pt' ? (data.trainer_user_id || latest.trainer_user_id || null) : null,
+        trainer_name: packageType === 'pt' ? (data.trainer_name || latest.trainer_name || null) : null,
+        class_id: packageType === 'class' ? (data.class_id || latest.class_id || null) : null,
+        class_name: packageType === 'class' ? (data.class_name || latest.class_name || null) : null,
+        max_months: maxMonths,
+        duration_months: maxMonths ?? asPositiveInteger(data.duration_months, 'duration_months', Number(latest.duration_months || 1)),
+        session_count: sessionCount,
+        price: asNonNegativeInteger(data.price, 'price', Number(latest.price || 0)),
+        updated_at: new Date().toISOString()
+      },
+      refs: {}
+    });
+    return ok(res, { event, package_id: packageId });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.delete('/v1/admin/packages/:packageId', async (req, res, next) => {
+  try {
+    const data = req.body || {};
+    const tenantId = data.tenant_id || req.query.tenant_id || config.defaultTenantId;
+    const packageId = required(req.params.packageId, 'packageId');
+    const latest = await getLatestEntityDataByEventTypes(
+      tenantId,
+      'package_id',
+      packageId,
+      ['package.created', 'package.updated']
+    );
+    if (!latest) {
+      throw fail(404, 'PACKAGE_NOT_FOUND', `package ${packageId} not found`);
+    }
+    const branchId = data.branch_id || req.query.branch_id || latest.branch_id || 'core';
+    const event = await appendDomainEvent({
+      tenantId,
+      branchId,
+      actorId: data.actor_id || config.defaultActorId,
+      eventType: 'package.deleted',
+      subjectKind: 'package',
+      subjectId: packageId,
+      data: {
+        tenant_id: tenantId,
+        branch_id: branchId,
+        package_id: packageId,
+        deleted_at: new Date().toISOString()
+      },
+      refs: {}
+    });
+    return ok(res, { event, package_id: packageId });
   } catch (error) {
     return next(error);
   }

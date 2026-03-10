@@ -25,6 +25,7 @@
     "checkin.logged": ["read.rm_attendance_daily", "read.rm_dashboard"],
 
     "class.scheduled": ["read.rm_class_availability", "read.rm_dashboard"],
+    "class.deleted": ["read.rm_class_availability", "read.rm_dashboard"],
     "class.booking.created": ["read.rm_booking_list", "read.rm_class_availability", "read.rm_member_self_booking", "read.rm_dashboard"],
     "class.booking.canceled": ["read.rm_booking_list", "read.rm_class_availability", "read.rm_member_self_booking", "read.rm_dashboard"],
     "class.attendance.confirmed": ["read.rm_booking_list", "read.rm_dashboard"],
