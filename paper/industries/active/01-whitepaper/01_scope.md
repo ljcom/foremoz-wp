@@ -1,76 +1,121 @@
-# Foremoz Active Whitepaper v0.3 - Scope
+# Foremoz Active Whitepaper v0.4 - Scope
 
 ## Objective
 
-Foremoz Active berfokus pada operasi active center end-to-end (fitness + sport):
-- membership
-- booking
-- PT session
-- tournament/league management
-- match management
-- team and ranking
-- attendance
-- payment recording/confirmation
-- owner setup
-- sales CRM pipeline operasional
-- member self-service
-- gov cross-tenant control
-- actor interaction network (`coach`, `studio`, `member/passport`)
+Foremoz Active memprioritaskan creator-led activity operations berbasis event (`creator -> event -> participant`) untuk fitness + sport.
+Institution/gym operations tetap didukung sebagai layer operasional lanjutan sesuai kematangan SaaS package.
+
+## Operating Modes in Active
+
+### Mode 1 - Creator-led Event Mode (Default Entry)
+
+Untuk:
+- solo coach
+- freelance trainer
+- independent organizer
+- early-stage creator
+
+Flow utama:
+- create event/class/session
+- share public link
+- collect registrations
+- check-in/check-out attendance
+- receive payment
+- build Passport history and repeat journey
+- optional collaboration dengan host/place
+
+### Mode 2 - Institution Operations Mode (Advanced SaaS Layer)
+
+Untuk:
+- gym
+- fitness studio
+- academy
+- club
+- multi-branch operator
+
+Flow utama:
+- member onboarding
+- membership/subscription operations
+- recurring class and PT operations
+- staff/admin role orchestration
+- CRM and internal control
+- branch and policy management
 
 ## In Scope
 
-- membership lifecycle.
-- class booking + capacity rules.
-- PT session package + PT activity logging.
-- tournament lifecycle: create tournament/league, format setup, scheduling.
-- match management: court/field assignment, score recording, result publishing.
-- team operations: create/join team, roster and captain management.
-- ranking systems: leaderboard, season standings, ELO-style scoring.
-- spectator flow: match attendance and spectator ticket baseline.
-- attendance logging (QR/manual).
-- payment queue + payment history.
-- interaction model antar actor: coach-studio, coach-member, member-studio.
-- invitation workflow: coach invite member/studio, studio invite coach, member invite friend.
-- passport sebagai identity layer olahraga yang portable lintas creator/host.
-- owner page operations (`/web/owner`): tenant setup namespace/chain, perpanjang SaaS, user access.
-- role workspaces: `admin`, `sales`, `pt`, `member`, `gov`.
-- public web/account surfaces (`/web`, `/a/<account>`).
-- member self-service (`/a/<account>/member/*`).
-- sales CRM pipeline (prospect create/update/follow-up/conversion).
-- gov policy operations (suspend/free/price/promotion).
-- packaging komersial bertingkat dengan free tier minimum untuk tenant kecil.
+### A. Creator/Event Surfaces (Primary)
+
+- `passport.foremoz.com/<account>` sebagai universal identity.
+- `foremoz.com/active/<account>` sebagai public creator profile surface.
+- `foremoz.com/e/<event_slug>` sebagai public event surface.
+- optional operating route: `tenant.foremoz.com/a/<account>/events/<event_id>`.
+
+### B. Creator-led Event Operations (Primary)
+
+- event/class/session creation and publication.
+- invitation and collaboration flow creator-participant-host.
+- public registration/booking.
+- attendance logging (QR/manual) untuk check-in/check-out.
+- payment recording/confirmation baseline.
+- Passport linkage untuk riwayat event, milestone, dan repeat conversion.
+
+### C. Institution Operations (Advanced)
+
+- membership lifecycle: activation, extension, freeze/unfreeze, expiry.
+- member portal under tenant.
+- admin/sales/pt/gov workspaces.
+- owner controls untuk setup namespace/chain dan SaaS extension.
+- sales CRM pipeline operasional.
+- multi-branch isolation dan branch performance controls.
+
+### D. Active Domain Extensions
+
+- PT package and activity logging.
+- tournament/league setup dan match operations.
+- team and ranking systems.
+- spectator/ticket baseline.
+
+## Narrative Order for Active
+
+Urutan narasi operasional Active:
+1. creator-led event flow.
+2. creator-participant-host interaction.
+3. event promotion and registration.
+4. attendance/check-in.
+5. monetization loop.
+6. optional host collaboration.
+7. optional institution operations.
+8. membership and CRM as advanced features.
+9. multi-branch and gov as later scale layers.
 
 ## Canonical Surface Model
 
 Identity:
 - `passport.foremoz.com/<account>`
 
-Operating:
-- `tenant.foremoz.com/a/<account>`
-- `tenant.foremoz.com/a/<account>/dashboard`
-- `tenant.foremoz.com/a/<account>/events/<event_id>`
-
-Public:
+Public creator/event:
 - `foremoz.com/active/<account>`
 - `foremoz.com/e/<event_slug>`
 - optional vanity alias: `<account>.foremoz.com/<event_slug>`
+
+Operating:
+- `tenant.foremoz.com/a/<account>`
+- `tenant.foremoz.com/a/<account>/events/<event_id>`
+- institution mode extensions: dashboard/admin/member/sales/owner routes
 
 ## Multi-tenant and Branch Model
 
 - namespace: `foremoz:active:<tenant_id>`
 - chain: `branch:<branch_id>` atau `core`
 
-Tenant terisolasi oleh namespace. Operasi branch terpisah by chain.
-Konfigurasi namespace/chain dilakukan di owner page (`/web/owner`), bukan onboarding terpisah.
+Namespace/chain tetap menjadi fondasi teknis untuk creator mode maupun institution mode.
+Perbedaannya bukan di mesin event, tetapi di kedalaman package dan operational surface.
 
 ## Out of Scope
 
 - heavy ERP modules.
 - payroll.
 - inventory/warehouse.
-- marketplace aggregation.
 - deep accounting.
-- complex marketing automation.
-- supporting staff sebagai node ekonomi utama jaringan.
-
-CRM pada scope ini bersifat operasional pipeline ringan, bukan automation suite enterprise.
+- complex marketing automation suite enterprise.
+- menjadikan supporting staff sebagai node ekonomi utama jaringan.

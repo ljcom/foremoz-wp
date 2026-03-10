@@ -1,64 +1,40 @@
-# Foremoz Active Whitepaper v0.3 - Roadmap
+# Foremoz Active Whitepaper v0.4 - Roadmap
 
-## Phase 1 - Surface Foundation
+## Phase 1 - Creator Event Foundation
 
-- `/web` global landing.
-- `/a/<account>` public account page.
-- `/signin` tenant signin.
-- `/a/<account>/member/signup` dan `/a/<account>/member/signin`.
-- API auth foundation: `signup/signin/me` dengan JWT untuk member flow.
+- creator profile/public surface (`foremoz.com/active/<account>`).
+- event creation and publication flow.
+- public event pages (`foremoz.com/e/<event_slug>`).
+- participant registration baseline.
+- check-in/attendance baseline.
+- Passport linkage baseline untuk event history.
 
-## Phase 2 - Owner and Admin Foundation
+## Phase 2 - Creator Growth + Collaboration
 
-- `/web/owner` tenant setup untuk namespace/chain.
-- owner controls: SaaS extension + add/delete user.
-- `/a/<account>/dashboard` admin dashboard.
-- `/a/<account>/admin` admin control panel.
+- creator-host invitation flow.
+- creator-participant-host interaction graph baseline.
+- public sharing attribution (WA/IG/TikTok/web).
+- event revenue split baseline.
+- recommendation baseline untuk repeat participation.
 
-## Phase 3 - Member and PT Operations
+## Phase 3 - Institution Operations
 
-- `/a/<account>/member/portal` self-service member.
-- member profile/password/photo settings.
-- membership purchase flow.
-- PT self booking flow.
-- PT workspace activity logging.
+- membership lifecycle.
+- PT package and recurring operations.
+- admin and owner dashboards.
+- staff/admin role controls.
+- sales CRM pipeline.
 
-## Phase 4 - Sales CRM Operations
+## Phase 4 - Scale Layer
 
-- `/a/<account>/sales` workspace CRM.
-- prospect pipeline + follow-up + conversion.
-- funneling service baseline.
-- komisi report baseline.
+- multi-branch controls dan branch performance.
+- advanced sponsorship operations.
+- gov/policy controls lintas tenant.
+- benchmarking dan comparative analytics.
 
-## Phase 5 - Gov Console
+## Sequencing Rationale
 
-- governance dashboard lintas tenant.
-- tenant suspend/unsuspend.
-- free grant control.
-- tenant price override.
-- promotion policy control.
-
-## Phase 6 - Multi-branch Maturity
-
-- branch-level access guard.
-- branch performance dashboard.
-- projection partition tuning per namespace/chain.
-
-## Phase 7 - Interaction Network Expansion
-
-- actor graph read model (`coach-member-studio`) untuk relasi aktif/pending.
-- invitation orchestration service dan acceptance flow lintas actor.
-- passport profile enrichment (sport interests, milestones, relationship summary).
-- network-aware recommendation baseline untuk class/PT discovery.
-
-## Phase 8 - Multi-sport Rollout
-
-- generalisasi model actor ke domain `coach-venue-player`.
-- enablement untuk vertical olahraga tambahan (yoga, crossfit, tennis, badminton, martial arts, swimming).
-- shared passport identity tanpa migrasi struktur akun.
-
-## Phase 9 - Pricing Maturity
-
-- free tier stabilization untuk tenant entry-level.
-- tier refinement: `free`, `starter`, `growth`, `multi-branch`, `enterprise`.
-- billing + upgrade self-serve dari owner workspace.
+Roadmap dimulai dari creator distribution dan event conversion karena adopsi awal paling rendah friksi.
+Institution stack diposisikan setelah creator loop stabil, sehingga growth dapat datang dari dua jalur:
+- creator-led scale,
+- institution-led operational depth.

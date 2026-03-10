@@ -1,33 +1,50 @@
 # Foremoz Active Whitepaper - Summary
 
-Active adalah vertical commercialization utama Foremoz, menggabungkan fitness dan sport dalam satu modul domain.
-
-Modul ini memakai Core Platform (Passport, Event Engine, Collaboration, Transaction, Sponsorship), lalu menambahkan kemampuan domain fisik dan kompetitif.
-
-## Domain Focus
-
-- memberships and class operations
-- personal training and coaching operations
-- club/community participation
-- tournament and league extensions
-- ranking, team, and match flows
-
-## Why Active First
-
-- demand pasar jelas dan berulang
-- creator-led use case kuat (coach/instructor/trainer)
-- loop monetisasi cepat (membership, session fee, competition event)
-- dapat berkembang dari fitness operation ke sport competition tanpa ganti arsitektur
-
-## Industry-Specific Capabilities
-
-- membership lifecycle: signup, subscription, extension, freeze/unfreeze
-- class and PT booking with attendance confirmation
-- tournament setup: bracket/round-robin and fixture scheduling
-- match operations: court assignment, referee, score recording
-- team and ranking: roster, standings, ELO-style leaderboard
+Active adalah vertical commercialization utama Foremoz yang menggabungkan fitness dan sport dalam satu modul domain.
+Posisi utamanya kini tegas: **creator-led Event OS** dengan alur dasar `creator -> event -> participant`.
 
 ## Strategic Position
 
-Active adalah entry point komersialisasi yang memvalidasi thesis Foremoz:
-Creator + Participant + Host dapat berkolaborasi dan bermonetisasi di atas Event OS yang sama.
+Foremoz Active adalah platform aktivitas berbasis event, tempat coach/trainer/organizer dapat:
+- membuat event,
+- mempromosikan event,
+- mengonversi participant,
+- menjalankan attendance/check-in,
+- membangun repeat journey berbasis Passport.
+
+Host (studio/gym/place) diposisikan sebagai infrastructure collaborator, bukan selalu pusat relasi.
+Institution operations (membership, admin, CRM, multi-branch) tetap didukung, tetapi sebagai **advanced SaaS mode** yang aktif saat kebutuhan operasional sudah matang.
+
+## Primary Operating Thesis
+
+Default mental model Active:
+- creator membuat event,
+- creator membagikan link publik,
+- participant mendaftar,
+- participant hadir/check-in,
+- event selesai,
+- Passport menyimpan histori,
+- konversi event berikutnya menjadi lebih mudah.
+
+## Why Active First
+
+- demand aktivitas fisik berulang dan mudah diuji lewat event flow.
+- creator-led distribution (WhatsApp/Instagram/TikTok/web) memberi bootstrap lebih cepat dibanding institution-first onboarding.
+- monetization loop bisa dimulai dari event tunggal, lalu berkembang ke subscription/membership saat skala naik.
+- fitness + sport tetap berada pada fondasi Event OS yang sama.
+
+## Capability Layers
+
+Layer 1 (default): Creator-led Event Mode
+- event creation and publication
+- registration/booking
+- attendance/check-in
+- payment recording baseline
+- Passport-linked history and repeat conversion
+
+Layer 2 (expanded): Institution Operations Mode
+- membership lifecycle
+- staff/admin roles
+- CRM pipeline
+- recurring class operations
+- branch/governance controls

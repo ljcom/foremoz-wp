@@ -1,107 +1,68 @@
-# Foremoz Active Whitepaper v0.3 - Pricing Model
+# Foremoz Active Whitepaper v0.4 - Pricing Model
 
 ## Purpose
 
-Menetapkan model pricing untuk tenant fitness/studio dengan entry barrier rendah dan jalur scale bertahap.
-Prinsip utama: selalu ada versi gratis untuk minimum fitur.
+Menetapkan pricing berdasarkan **operating maturity**, bukan hanya ukuran tenant.
+Creator-led mode menjadi entry default, sedangkan institution operations aktif di paket lanjutan.
 
 ## Pricing Principles
 
-- free tier wajib tersedia untuk adopsi awal tenant kecil.
-- upgrade berbasis kebutuhan operasional (member volume, branch, analytics, role depth).
-- batas tiap tier harus transparan.
-- upgrade/downgrade dapat dilakukan self-serve oleh owner.
+- free tier tetap wajib tersedia.
+- tier progression mengikuti kematangan operasi: creator -> collaboration -> institution scale.
+- institution stack bukan satu-satunya destinasi; creator mode tetap viable untuk jangka panjang.
+- batas dan aktivasi fitur per tier harus transparan.
 
-## Proposed Package Structure
+## Package by Operating Maturity
 
-### Free
-
-Target:
-- studio kecil/single location yang baru onboarding.
-
-Minimum features:
-- membership basic.
-- class booking basic.
-- check-in basic.
-- dashboard operasional ringkas.
-
-Limits:
-- 1 branch.
-- kuota active member terbatas.
-- role seats terbatas.
-
-### Starter
+### Free / Starter - Creator Mode
 
 Target:
-- studio yang sudah running stabil dengan volume member awal.
+- solo coach/trainer/creator tahap awal.
+
+Core features:
+- create and publish events.
+- public creator page and public event pages.
+- registration/booking baseline.
+- attendance/check-in baseline.
+- basic payment recording.
+- Passport linkage for participant history.
+
+### Growth - Team/Collaboration Mode
+
+Target:
+- creator yang mulai membentuk tim dan kolaborasi host.
 
 Features:
-- semua fitur Free.
-- limit member/booking lebih tinggi.
-- payment queue + history lebih lengkap.
-- role management basic.
+- multiple event orchestration.
+- collaborator roles.
+- host/place coordination.
+- revenue split baseline.
+- sponsor baseline.
+- improved analytics and conversion tracking.
 
-### Growth
-
-Target:
-- tenant dengan beban operasional dan tim lebih besar.
-
-Features:
-- semua fitur Starter.
-- advanced dashboard and cohort metrics.
-- sales pipeline operational depth.
-- access guard lebih granular.
-
-### Multi-branch
+### Institution / Multi-branch / Enterprise - Advanced Operations Mode
 
 Target:
-- operator fitness multi cabang.
+- gym/studio/club/operator multi lokasi.
 
 Features:
-- semua fitur Growth.
-- multi-branch controls.
-- branch performance dashboard.
-- branch-level policy and access templates.
+- membership lifecycle.
+- staff/admin roles and controls.
+- CRM pipeline.
+- recurring class/PT operations.
+- branch operations.
+- governance/policy controls.
 
-### Enterprise
-
-Target:
-- operator besar dengan governance dan compliance requirement tinggi.
-
-Features:
-- semua fitur Multi-branch.
-- advanced governance integration.
-- enhanced support and SLA.
-- custom reporting/export requirements.
-
-## Judgment Pricing (Indonesia Baseline)
-
-Pricing baseline yang direkomendasikan:
+## Suggested Baseline Pricing (Indonesia)
 
 - `Free`: `Rp0` / bulan
-- `Starter`: `Rp499.000` / bulan
-- `Growth`: `Rp1.490.000` / bulan
-- `Multi-branch`: `Rp3.490.000` / bulan
+- `Starter` (Creator): `Rp149.000` - `Rp499.000` / bulan
+- `Growth` (Collaboration): `Rp990.000` - `Rp1.990.000` / bulan
+- `Institution` / `Multi-branch`: mulai `Rp3.490.000` / bulan
 - `Enterprise`: custom (mulai sekitar `Rp7.500.000+` / bulan)
 
-Add-on baseline:
+## Packaging Guardrails
 
-- additional admin/cs seat: `Rp79.000` / seat / bulan
-- additional branch pack: `Rp299.000` / branch / bulan
-- advanced analytics add-on: `Rp249.000` / bulan
-
-## Pricing Judgment Rationale
-
-- `Free` menjaga adopsi awal operator kecil tanpa komitmen biaya.
-- `Starter` diposisikan untuk mayoritas gym kecil-menengah yang butuh core operations stabil.
-- `Growth` cocok untuk operator yang mulai menuntut analytics dan kontrol operasional lebih tajam.
-- `Multi-branch` memberi nilai utama di orkestrasi cabang dan reporting terpusat.
-- `Enterprise` untuk requirement compliance, governance, dan SLA tingkat tinggi.
-
-Angka ini adalah baseline go-to-market Indonesia dan harus divalidasi rutin terhadap activation, paid conversion, ARPA, dan churn.
-
-## Guardrails
-
-- Free tier tidak boleh dihapus.
-- minimum fitur free harus cukup untuk menjalankan operasional dasar studio.
-- perubahan harga harus melewati review dampak terhadap unit economics dan adoption rate.
+- event creation, public promotion, registration, check-in, dan basic payment harus tersedia sebagai minimum viable flow.
+- membership, CRM, staff/admin controls, owner setup, multi-branch, dan gov controls diposisikan sebagai advanced package capabilities.
+- perubahan pricing harus dievaluasi terhadap activation, creator retention, paid conversion, ARPA, dan churn.

@@ -1,35 +1,31 @@
-# Foremoz Active Whitepaper v0.3 - Architecture
+# Foremoz Active Whitepaper v0.4 - Architecture
 
 ## Purpose
 
-Menetapkan arsitektur runtime untuk identity surface, operating surface, dan public/event surface di atas EventDB.
-Arsitektur ini juga menjadi infrastructure layer untuk interaksi antar actor utama: `creator`, `participant`, dan `host`.
+Menetapkan arsitektur Active sebagai creator-led Event OS dengan default flow `creator -> event -> participant`,
+serta menunjukkan bagaimana host/institution dapat mengaktifkan operational layer lanjutan tanpa mengubah fondasi event engine.
 
 ## High-Level Architecture
 
 ```text
-[Web Surfaces]
+[Identity + Public Surfaces]
   passport.foremoz.com/<account>
-  tenant.foremoz.com/a/<account>
-  tenant.foremoz.com/a/<account>/events/<event_id>
   foremoz.com/active/<account>
   foremoz.com/e/<event_slug>
   <account>.foremoz.com/<event_slug> (optional)
        |
        v
-[Role Workspaces]
-  admin | sales | pt | member | gov
+[Creator-led Event Flow]
+  create event -> share link -> register -> check-in -> complete
        |
        v
 [Interaction Layer]
-  creator <-> participant <-> host
-  invitation + booking + checkin + PT session
+  creator <-> participant <-> host(optional)
+  invitation + registration + attendance + follow-up
        |
        v
-[Gym API]
-  - tenant/member auth split
-  - member auth via JWT (HS256, bearer token)
-  - role guard
+[Active API]
+  - auth (passport + tenant context)
   - command validation
   - append event
   - read model query
@@ -40,74 +36,77 @@ Arsitektur ini juga menjadi infrastructure layer untuk interaksi antar actor uta
   chain: branch:<branch_id> | core
        |
        v
-[Projector]
-  - consume in-order by namespace + chain
-  - update read model
-  - persist rm_checkpoint
-       |
-       v
-[Postgres Read Model]
-  rm_member
-  rm_member_auth
-  rm_subscription_active
-  rm_payment_queue
-  rm_payment_history
-  rm_sales_prospect
-  rm_pt_activity_log
-  rm_tenant_performance
-  rm_tenant_policy
-  rm_actor_network
-  rm_passport_profile
+[Projector + Read Model]
+  creator/event projections
+  participant attendance/payment projections
+  passport linkage projections
+  institution extensions (membership/CRM/admin) projections
 ```
 
-## Actor and Role Mapping
+## Primary vs Advanced Surfaces
 
-- `coach` direpresentasikan melalui workspace `pt` (dan dapat diperluas ke role actor khusus).
-- `studio` adalah host/place operator yang menyediakan slot ruang dan waktu.
-- `member` direpresentasikan oleh Passport yang portable lintas event dan tenant.
-- supporting roles (`admin`, `sales`, `cs`, `reception`) adalah operator proses, bukan node ekonomi utama jaringan.
+### Primary (always-on)
 
-## Auth and Routing Rules
+- Passport identity surface.
+- public creator surface.
+- public event surface.
+- event registration and attendance operations.
 
-- identity entry universal di `passport.foremoz.com/<account>`.
-- tenant signin di `tenant.foremoz.com/a/<account>/signin` untuk `admin`, `sales`, `pt`, `gov`.
-- member signin di `tenant.foremoz.com/a/<account>/member/signin` untuk `member`.
-- API `POST /v1/auth/signup` append `member.registered` + `member.auth.registered`, lalu projector update `rm_member` + `rm_member_auth`.
-- API `POST /v1/auth/signin` validasi credential dari `rm_member_auth`, lalu issue JWT bearer untuk member workspace.
-- API `GET /v1/auth/me` memvalidasi JWT dan state member aktif dari read model.
-- admin yang belum setup tenant diarahkan ke `tenant.foremoz.com/web/owner`.
-- owner setup menulis tenant config (`tenant_id`, `branch_id`, `account_slug`) lalu mengaktifkan namespace/chain session.
+### Advanced (package-dependent)
 
-## Namespace and Chain Convention
+- member portal under tenant.
+- admin dashboard dan owner controls.
+- sales CRM workspace.
+- branch/governance controls.
 
-- namespace format: `foremoz:active:<tenant_id>`
-- chain format: `branch:<branch_id>` atau `core`
+## Host/Place Positioning
 
-## Projection Checkpoint Strategy
+Host/place (studio/gym/venue) adalah optional infrastructure provider:
+- menyediakan ruang dan slot waktu,
+- dapat berkolaborasi dengan creator,
+- dapat menjadi operator membership saat institution mode aktif,
+- tidak selalu menjadi pemilik utama relasi creator-participant.
 
-Table: `rm_checkpoint`
+Prinsip penting:
+- creator dapat beroperasi tanpa memiliki infrastruktur,
+- host dapat menyediakan infrastruktur tanpa mengambil alih relasi creator-participant.
 
-Fields:
-- `projector_name`
-- `namespace`
-- `chain`
-- `last_event_id`
-- `last_event_ts`
-- `updated_at`
+## Operating Mode Activation
+
+### Creator-led Event Mode
+
+Fokus komponen runtime:
+- public creator and event routes,
+- registration/check-in flow,
+- payment baseline,
+- Passport history and repeat journey.
+
+### Institution Operations Mode
+
+Menambahkan komponen:
+- membership/subscription services,
+- role workspaces (`admin`, `sales`, `pt`, `gov`),
+- owner/admin controls,
+- CRM and branch operations.
+
+Kedua mode memakai EventDB dan projector pipeline yang sama; perbedaannya pada command set dan read model depth yang diaktifkan oleh package.
+
+## Auth and Routing
+
+- identity entry universal: `passport.foremoz.com/<account>`.
+- creator/public journey tidak wajib melalui institution onboarding.
+- tenant route (`tenant.foremoz.com/a/<account>`) dipakai saat creator/host mengaktifkan operating workspace.
+- institution routes (`/dashboard`, `/admin`, `/member`, `/sales`, `/web/owner`) bersifat advanced mode.
+
+## Projection Strategy
+
+Table checkpoint: `rm_checkpoint`.
 
 Rules:
-- process event berurutan per namespace+chain.
-- update read model dan checkpoint dalam satu transaksi.
-- restart projector lanjut dari checkpoint.
+- process in-order per namespace+chain.
+- write read model + checkpoint dalam satu transaksi.
+- restart projector dari `last_event_id`.
 
-## Booking Concurrency Rule
-
-- command `class.booking.created` hanya valid bila slot tersedia.
-- projection menghitung `rm_class_availability` dari stream booking.
-- race ditangani oleh deterministic rejection pada command path.
-
-## Interaction Growth Rule
-
-- actor dapat mengirim invitation (`coach`, `studio`, `member`) untuk ekspansi network.
-- jika target studio belum ada di platform, invitation tetap direkam sebagai pending relationship.
-- saat invitation diterima, projector membentuk relasi aktif pada read model network.
+Read model disusun berlapis:
+- layer creator-event-participant (mandatory).
+- layer institution operations (optional package extension).

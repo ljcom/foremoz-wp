@@ -1,156 +1,84 @@
-# Foremoz Active Whitepaper v0.3 - Interaction Network
+# Foremoz Active Whitepaper v0.4 - Interaction Network
 
 ## Purpose
 
-Menetapkan Foremoz Active sebagai interaction network, bukan hanya sistem operasi internal gym.
-Bab ini mendefinisikan actor utama, pola interaksi, dan implikasi arsitekturalnya.
+Menetapkan Active sebagai creator-first interaction network berbasis Event OS.
+Relasi inti jaringan adalah `creator <-> participant <-> host`, dengan host/place sebagai optional infrastructure collaborator.
 
 ## Actor Model
 
-### Primary Actors
+Primary actors:
+- `creator` (coach/trainer/organizer)
+- `participant` (member/passport holder)
+- `host` (studio/gym/venue/place)
 
-Primary actors adalah entitas yang menghasilkan nilai ekonomi utama dalam ekosistem:
+Supporting roles:
+- `admin`
+- `sales`
+- `cs`
+- `reception`
+- `gov`
 
-- `coach`
-- `studio` (place)
-- `member` (passport)
+Supporting roles menjalankan operasi internal dan aktif terutama saat institution mode diaktifkan.
 
-Model relasi inti:
+## Creator Growth Loop
 
-`creator <-> participant <-> host`
+Loop pertumbuhan utama Active:
+1. creator creates event.
+2. creator shares event link (WA/IG/TikTok/web).
+3. participant registers.
+4. participant attends/checks in.
+5. Passport records history and trust signals.
+6. creator gains repeat followership.
+7. next event converts faster.
 
-### Supporting Roles
+Loop ini adalah baseline pertumbuhan jaringan, bukan CRM-first pipeline.
 
-Supporting roles (`sales`, `customer service`, `receptionist`, `admin`) berfungsi sebagai operator operasional.
-Mereka bukan node utama jaringan ekonomi.
-Jika diperlukan, individu supporting role dapat mengaktifkan role actor utama melalui passport yang sama.
+## Host as Optional Infrastructure
 
-## Actor Responsibilities
+Host/place diposisikan sebagai:
+- venue/time provider,
+- collaboration partner untuk creator,
+- membership operator hanya saat institution mode aktif.
 
-### Coach
+Prinsip relasi:
+- creator dapat beroperasi independen tanpa host tetap.
+- host dapat menyediakan infrastruktur tanpa otomatis menjadi pusat relasi participant.
 
-Coach adalah creator aktivitas olahraga.
+## Interaction Patterns
 
-Kemampuan utama:
-- membuat kelas
-- membuka sesi personal training
-- membuat program latihan
-- mengelola komunitas klien
+Creator -> Participant:
+- publish event, invite, convert registration, follow-up post-event.
 
-Coach dapat bekerja dengan lebih dari satu studio.
+Creator -> Host:
+- request slot/venue, agreement, revenue split, recurring collaboration.
 
-### Studio (Place)
-
-Studio menyediakan infrastruktur fisik.
-
-Contoh:
-- gym
-- yoga studio
-- martial arts dojo
-- tennis court
-- sports facility
-
-Kemampuan utama:
-- menerima kelas dari coach
-- mengelola membership
-- menyediakan slot waktu dan ruang
-
-### Member (Passport)
-
-Member direpresentasikan oleh Foremoz Passport.
-Passport menyimpan identitas olahraga individu yang portable lintas coach dan studio.
-
-Conten minimum passport:
-- riwayat kelas
-- aktivitas latihan
-- hubungan dengan coach
-- hubungan dengan studio
-- performance milestones
-
-## Interaction Model
-
-### Coach -> Studio
-
-Coach memilih studio tempat kelas diselenggarakan.
-Jika studio belum terdaftar, coach dapat mengirim invitation.
-
-Flow minimum:
-
-`coach create class -> select studio -> studio approval -> class published`
-
-### Coach -> Member
-
-Coach dapat:
-- mengundang klien
-- membuka kelas terbuka
-- menjual paket personal training
-
-Member dapat mengikuti kelas melalui sistem booking.
-
-### Member -> Studio
-
-Member dapat:
-- bergabung membership
-- check-in ke studio
-- mengikuti kelas di studio
-
-## Invitation and Network Growth
-
-Pertumbuhan jaringan menggunakan invitation network.
-Actor dapat mengundang actor lain:
-
-- `coach invite member`
-- `coach invite studio`
-- `studio invite coach`
-- `member invite friend`
-
-Pendekatan ini menurunkan ketergantungan pertumbuhan pada tim sales terpusat.
-
-## Identity and Network Implication
-
-Interaction network berjalan antar Passport actor identities.
-Semua actor (coach, member, studio owner/operator) memakai identity universal:
-
-- `passport.foremoz.com/<account>`
-
-Implikasi operasional:
-- invitation link diarahkan ke passport identity target actor.
-- acceptance flow dan actor profile diselesaikan pada Passport.
-- relasi actor yang aktif tetap dicatat sebagai event dan diproyeksikan ke read model network.
+Participant -> Host:
+- attendance at hosted event; membership interaction hanya bila institution mode aktif.
 
 ## Event Representation
 
-Setiap interaksi actor direpresentasikan sebagai event dalam EventDB.
-
-Contoh event:
-- `class.scheduled`
-- `class.booking.created`
-- `class.attendance.confirmed`
-- `pt.session.booked`
+Core interaction events:
+- `event.created`
+- `event.published`
+- `registration.created`
 - `checkin.logged`
+- `event.completed`
 - `invitation.sent`
 - `invitation.accepted`
-- `coach.studio.linked`
+- `creator.host.linked`
 
-Event diproyeksikan ke read model untuk:
-- member portal
-- PT workspace
-- admin dashboard
-- tenant performance metrics
-- actor network graph
+Institution extension events:
+- `subscription.activated`
+- `sales.prospect.created`
+- `owner.tenant.setup.saved`
+- `gov.tenant.suspended`
 
-## Multi-sport Expansion
+## Why This Flow Matters
 
-Struktur actor ini dapat digeneralisasi lintas olahraga dengan pola:
-
-`coach -> venue -> player`
-
-Contoh vertical:
-- yoga
-- crossfit
-- tennis
-- badminton
-- martial arts
-- swimming
-
-Passport identity layer dipertahankan agar ekspansi multi-sport tidak memerlukan perubahan struktur identitas pengguna.
+- lebih natural untuk gig/creator economy.
+- barrier adopsi awal lebih rendah dibanding institution-first setup.
+- bootstrap pertumbuhan lebih cepat melalui distribusi creator.
+- coach/trainer bisa mulai independen tanpa infrastruktur berat.
+- host bisa ikut ekosistem tanpa harus menjadi system center.
+- institution tetap bisa scale di layer lanjutan pada Event OS yang sama.

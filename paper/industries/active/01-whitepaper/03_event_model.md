@@ -1,19 +1,19 @@
-# Foremoz Active Whitepaper v0.3 - Event Model
+# Foremoz Active Whitepaper v0.4 - Event Model
 
 ## Canonical Event Envelope
 
 ```json
 {
   "type": "event.type",
-  "actor": { "kind": "coach|studio|member|admin|sales|pt|gov|owner|system", "id": "..." },
+  "actor": { "kind": "creator|participant|host|admin|sales|pt|gov|owner|system", "id": "..." },
   "subject": { "kind": "entity", "id": "..." },
   "data": {},
   "refs": {},
-  "ts": "2026-03-03T10:00:00Z"
+  "ts": "2026-03-10T10:00:00Z"
 }
 ```
 
-Required envelope fields:
+Required fields:
 - `type`
 - `actor`
 - `subject`
@@ -21,84 +21,87 @@ Required envelope fields:
 - `refs`
 - `ts`
 
-## Minimum Event Types
+## Event Model Emphasis
 
-Membership and subscription:
-- `member.registered`
-- `member.updated`
-- `subscription.activated`
-- `subscription.extended`
-- `subscription.frozen`
-- `subscription.unfrozen`
-- `subscription.expired`
+### A. Core Creator-led Event Events (Primary Backbone)
 
-Payment and attendance:
-- `payment.recorded`
-- `payment.confirmed`
-- `payment.rejected`
-- `checkin.logged`
-
-Class booking:
-- `class.scheduled`
-- `class.booking.created`
-- `class.booking.canceled`
-- `class.attendance.confirmed`
-
-PT session:
-- `pt.package.assigned`
-- `pt.session.booked`
-- `pt.session.completed`
-- `pt.activity.logged`
-
-Member self-service:
-- `member.auth.registered`
-- `member.auth.password.changed`
-- `member.profile.updated`
-- `member.password.changed`
-- `member.photo.updated`
-- `member.self_booking.pt.created`
-
-Sales CRM:
-- `sales.prospect.created`
-- `sales.prospect.updated`
-- `sales.prospect.followup.logged`
-- `sales.prospect.converted`
-
-Owner and tenant setup:
-- `owner.tenant.setup.saved`
-- `owner.tenant.setup.deleted`
-- `owner.user.created`
-- `owner.user.updated`
-- `owner.user.deleted`
-- `owner.saas.extended`
-
-Gov controls:
-- `gov.tenant.suspended`
-- `gov.tenant.unsuspended`
-- `gov.tenant.free_granted`
-- `gov.tenant.price.updated`
-- `gov.tenant.promotion.updated`
-
-Interaction network and invitation:
-- `passport.created`
-- `passport.sport_interest.updated`
+Event backbone Active:
+- `event.created`
+- `event.updated`
+- `event.published`
 - `invitation.sent`
 - `invitation.accepted`
-- `invitation.rejected`
-- `coach.studio.linked`
-- `coach.member.linked`
-- `member.studio.joined`
-- `member.studio.left`
+- `registration.created`
+- `registration.canceled`
+- `checkin.logged`
+- `checkout.logged`
+- `payment.recorded`
+- `payment.confirmed`
+- `event.completed`
+- `feedback.submitted`
+- `followup.sent`
+- `creator.host.linked`
+
+Domain-specific mapping tetap tersedia:
+- class/PT/tournament/match dapat memetakan ke keluarga event di atas (`class.scheduled`, `pt.session.booked`, `match.result.recorded`, dll).
+
+### B. Institution Operations Events (Operational Expansion)
+
+Institutional extension events:
+- membership/subscription:
+  - `member.registered`
+  - `subscription.activated`
+  - `subscription.extended`
+  - `subscription.frozen`
+  - `subscription.unfrozen`
+  - `subscription.expired`
+- owner/admin/staff:
+  - `owner.tenant.setup.saved`
+  - `owner.user.created`
+  - `owner.user.updated`
+  - `owner.user.deleted`
+  - `owner.saas.extended`
+- CRM:
+  - `sales.prospect.created`
+  - `sales.prospect.updated`
+  - `sales.prospect.followup.logged`
+  - `sales.prospect.converted`
+- policy/governance:
+  - `gov.tenant.suspended`
+  - `gov.tenant.unsuspended`
+  - `gov.tenant.price.updated`
+  - `gov.tenant.promotion.updated`
+
+## Membership Positioning in Event Model
+
+Membership bukan syarat awal operasi Active.
+Membership adalah recurring operational model untuk:
+- institution mode,
+- atau creator yang sudah matang dan ingin mengaktifkan subscription loop.
+
+Creator dapat tetap menjalankan event one-off sepenuhnya tanpa membership.
 
 ## Required Field Highlights
 
-- `owner.tenant.setup.saved`: `tenant_id`, `branch_id`, `account_slug`, `gym_name`.
-- `member.auth.registered`: `member_id`, `email`, `password_hash`, `status`, `registered_at`.
-- `member.profile.updated`: `member_id`, `full_name`, `phone`, `email`.
-- `sales.prospect.created`: `prospect_id`, `full_name`, `phone`, `source`, `stage`.
-- `gov.tenant.price.updated`: `tenant_id`, `old_price`, `new_price`, `effective_at`.
-- `gov.tenant.suspended`: `tenant_id`, `reason`, `suspended_at`.
-- `invitation.sent`: `invitation_id`, `inviter_actor_kind`, `invitee_actor_kind`, `channel`, `target_contact`, `status`.
-- `passport.created`: `passport_id`, `member_id`, `created_at`, `sport_interests`.
+- `event.created`: `event_id`, `creator_id`, `title`, `starts_at`, `location_mode`, `price`.
+- `registration.created`: `registration_id`, `event_id`, `participant_id`, `channel`, `status`.
+- `checkin.logged`: `event_id`, `participant_id`, `method`, `checked_in_at`.
+- `event.completed`: `event_id`, `completed_at`, `attendance_count`, `gross_amount`.
+- `creator.host.linked`: `creator_id`, `host_id`, `relationship_type`, `effective_at`.
+- `subscription.activated`: `member_id`, `plan_id`, `started_at`, `expired_at`.
+- `owner.tenant.setup.saved`: `tenant_id`, `branch_id`, `account_slug`.
 
-Sample payload tersedia di `appendix/sample_event_payload.json`.
+## Read Model Layering
+
+Primary read model outputs:
+- creator profile and event catalog.
+- registration and attendance timeline.
+- payment and conversion baseline.
+- Passport event history.
+
+Advanced outputs:
+- membership states.
+- CRM funnel views.
+- branch/governance controls.
+
+Layering ini memastikan creator-first flow tetap minimum viable platform, sementara institution capability tetap lengkap saat package ditingkatkan.
