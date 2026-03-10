@@ -20,7 +20,7 @@ import SalesPage from './pages/SalesPage.jsx';
 import SalesProspectNewPage from './pages/SalesProspectNewPage.jsx';
 import SalesProspectEditPage from './pages/SalesProspectEditPage.jsx';
 import PtPage from './pages/PtPage.jsx';
-import { accountPath, getSession } from './lib.js';
+import { accountPath, getAllowedEnvironments, getSession } from './lib.js';
 import { getPassportSession } from './passport-client.js';
 
 function roleHome(session) {
@@ -55,6 +55,28 @@ function RoleRoute({ roles, children }) {
   const session = getSession();
   if (!roles.includes(session?.role || 'admin')) {
     return <Navigate to={roleHome(session)} replace />;
+  }
+  return children;
+}
+
+function envHomePath(session) {
+  const account = session?.tenant?.account_slug || session?.tenant?.id || 'tn_001';
+  const allowed = getAllowedEnvironments(session, session?.role || 'admin');
+  if (allowed.length === 0) return '';
+  const env = allowed[0] || 'admin';
+  if (env === 'sales') return `/a/${account}/sales/dashboard`;
+  if (env === 'pt') return `/a/${account}/pt/dashboard`;
+  if (env === 'cs') return `/a/${account}/cs/dashboard`;
+  return `/a/${account}/admin/dashboard`;
+}
+
+function EnvRoute({ env, children }) {
+  const session = getSession();
+  const account = session?.tenant?.account_slug || session?.tenant?.id || 'tn_001';
+  const allowed = getAllowedEnvironments(session, session?.role || 'admin');
+  if (!allowed.includes(env)) {
+    const home = envHomePath(session);
+    return <Navigate to={home || `/a/${account}/signin`} replace />;
   }
   return children;
 }
@@ -189,9 +211,11 @@ export default function App() {
         element={
           <ProtectedRoute>
             <RoleRoute roles={['admin', 'owner', 'cs']}>
-              <RequireAdminOnboarding>
-                <DashboardPage />
-              </RequireAdminOnboarding>
+              <EnvRoute env="cs">
+                <RequireAdminOnboarding>
+                  <DashboardPage />
+                </RequireAdminOnboarding>
+              </EnvRoute>
             </RoleRoute>
           </ProtectedRoute>
         }
@@ -234,7 +258,9 @@ export default function App() {
         element={
           <ProtectedRoute>
             <RoleRoute roles={['sales', 'admin', 'owner']}>
-              <SalesPage />
+              <EnvRoute env="sales">
+                <SalesPage />
+              </EnvRoute>
             </RoleRoute>
           </ProtectedRoute>
         }
@@ -244,7 +270,9 @@ export default function App() {
         element={
           <ProtectedRoute>
             <RoleRoute roles={['sales', 'admin', 'owner']}>
-              <SalesProspectNewPage />
+              <EnvRoute env="sales">
+                <SalesProspectNewPage />
+              </EnvRoute>
             </RoleRoute>
           </ProtectedRoute>
         }
@@ -254,7 +282,9 @@ export default function App() {
         element={
           <ProtectedRoute>
             <RoleRoute roles={['sales', 'admin', 'owner']}>
-              <SalesProspectEditPage />
+              <EnvRoute env="sales">
+                <SalesProspectEditPage />
+              </EnvRoute>
             </RoleRoute>
           </ProtectedRoute>
         }
@@ -266,7 +296,9 @@ export default function App() {
         element={
           <ProtectedRoute>
             <RoleRoute roles={['pt', 'admin', 'owner']}>
-              <PtPage />
+              <EnvRoute env="pt">
+                <PtPage />
+              </EnvRoute>
             </RoleRoute>
           </ProtectedRoute>
         }

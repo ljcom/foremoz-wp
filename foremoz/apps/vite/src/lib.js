@@ -34,6 +34,61 @@ export function setOwnerSetup(payload) {
   localStorage.setItem(OWNER_SETUP_KEY, JSON.stringify(payload));
 }
 
+export function normalizePackagePlan(value) {
+  const plan = String(value || '').trim().toLowerCase();
+  if (plan === 'basic') return 'starter';
+  if (plan === 'pro') return 'growth';
+  return plan;
+}
+
+export function getSessionPackagePlan(session) {
+  const setup = getOwnerSetup();
+  const sessionTenantId = session?.tenant?.id;
+  const setupPlan = setup?.tenant_id && sessionTenantId && setup.tenant_id === sessionTenantId
+    ? setup.package_plan
+    : '';
+  const plan = normalizePackagePlan(session?.tenant?.package_plan || session?.tenant?.packagePlan || setupPlan);
+  return plan || 'starter';
+}
+
+export function isFreeSinglePlan(session) {
+  return getSessionPackagePlan(session) === 'free';
+}
+
+export function getAllowedEnvironments(session, roleInput) {
+  const role = String(roleInput || session?.role || 'admin').toLowerCase();
+  const plan = getSessionPackagePlan(session);
+
+  const planAllowed = (() => {
+    if (plan === 'free') return ['admin'];
+    if (plan === 'starter') return ['admin', 'cs'];
+    if (plan === 'growth' || plan === 'multi_branch' || plan === 'enterprise') {
+      return ['admin', 'cs', 'pt', 'sales'];
+    }
+    return ['admin', 'cs', 'pt', 'sales'];
+  })();
+
+  const roleAllowed = (() => {
+    if (role === 'owner' || role === 'admin') return ['admin', 'cs', 'pt', 'sales'];
+    if (role === 'cs') return ['cs'];
+    if (role === 'pt') return ['pt'];
+    if (role === 'sales') return ['sales'];
+    return [];
+  })();
+
+  return roleAllowed.filter((env) => planAllowed.includes(env));
+}
+
+export function getAdminTabsByPlan(session) {
+  const plan = getSessionPackagePlan(session);
+  if (plan === 'free') return ['event', 'member'];
+  if (plan === 'starter') return ['event', 'class', 'product', 'member', 'transaction'];
+  if (plan === 'growth' || plan === 'multi_branch' || plan === 'enterprise') {
+    return ['event', 'class', 'product', 'package_creation', 'trainer', 'sales', 'member', 'transaction'];
+  }
+  return ['event', 'class', 'product', 'package_creation', 'trainer', 'sales', 'member', 'transaction'];
+}
+
 export function requireField(value, name) {
   if (!value || String(value).trim() === '') {
     throw new Error(`${name} is required`);

@@ -14,55 +14,65 @@ Creator-led mode menjadi entry default, sedangkan institution operations aktif d
 
 ## Package by Operating Maturity
 
-### Free / Starter - Creator Mode
+### Free (Single)
 
 Target:
 - solo coach/trainer/creator tahap awal.
 
 Core features:
-- create and publish events.
-- public creator page and public event pages.
-- registration/booking baseline.
-- attendance/check-in baseline.
-- basic payment recording.
-- Passport linkage for participant history.
+- one-time event.
+- attendance check-in/check-out.
 
-### Growth - Team/Collaboration Mode
+### Starter
 
 Target:
-- creator yang mulai membentuk tim dan kolaborasi host.
+- creator/studio yang mulai operasi harian basic.
 
 Features:
-- multiple event orchestration.
-- collaborator roles.
-- host/place coordination.
-- revenue split baseline.
-- sponsor baseline.
-- improved analytics and conversion tracking.
+- event + class operations.
+- CS workspace.
+- product management baseline.
+- check-in/check-out operations.
 
-### Institution / Multi-branch / Enterprise - Advanced Operations Mode
+### Growth
 
 Target:
-- gym/studio/club/operator multi lokasi.
+- operasi tim dengan lebih dari satu coach.
 
 Features:
-- membership lifecycle.
-- staff/admin roles and controls.
-- CRM pipeline.
-- recurring class/PT operations.
-- branch operations.
-- governance/policy controls.
+- team mode (multi coach).
+- sales workspace.
+
+### Multi-branch
+
+Target:
+- operator multi lokasi.
+
+Features:
+- growth capabilities + multi location operations.
+
+### Enterprise
+
+Target:
+- operator skala lanjut.
+
+Features:
+- governance/compliance controls, SLA custom, dan customization by request.
+- aktivasi melalui request form (bukan instant self-serve upgrade).
 
 ## Suggested Baseline Pricing (Indonesia)
 
-- `Free`: `Rp0` / bulan
-- `Starter` (Creator): `Rp149.000` - `Rp499.000` / bulan
-- `Growth` (Collaboration): `Rp990.000` - `Rp1.990.000` / bulan
-- `Institution` / `Multi-branch`: mulai `Rp3.490.000` / bulan
+- `Free` (Single): `Rp0` / bulan
+- `Starter`: `Rp149.000` - `Rp499.000` / bulan
+- `Growth`: `Rp990.000` - `Rp1.990.000` / bulan
+- `Multi-branch`: mulai `Rp3.490.000` / bulan
 - `Enterprise`: custom (mulai sekitar `Rp7.500.000+` / bulan)
 
 ## Packaging Guardrails
 
-- event creation, public promotion, registration, check-in, dan basic payment harus tersedia sebagai minimum viable flow.
-- membership, CRM, staff/admin controls, owner setup, multi-branch, dan gov controls diposisikan sebagai advanced package capabilities.
+- free wajib tetap simple: one-time event + check-in/check-out.
+- starter wajib membuka event + class + cs + product + check-in/out.
+- growth wajib membuka team mode (lebih dari satu coach) dan sales.
+- multi-branch wajib membuka multi location operations.
+- enterprise diposisikan untuk kebutuhan customization.
 - perubahan pricing harus dievaluasi terhadap activation, creator retention, paid conversion, ARPA, dan churn.

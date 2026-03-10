@@ -1263,6 +1263,175 @@ app.delete('/v1/admin/classes/:classId', async (req, res, next) => {
   }
 });
 
+app.get('/v1/admin/events', async (req, res, next) => {
+  try {
+    const tenantId = req.query.tenant_id || config.defaultTenantId;
+    const branchId = req.query.branch_id || null;
+    const namespaceId = resolveNamespaceId(tenantId);
+    const eventTypes = ['event.created', 'event.updated', 'event.deleted'];
+    const params = [namespaceId, eventTypes];
+    let branchFilter = '';
+    if (branchId) {
+      params.push(branchId);
+      branchFilter = ` and payload->'data'->>'branch_id' = $${params.length}`;
+    }
+
+    const { rows } = await query(
+      `select distinct on (payload->'data'->>'event_id')
+          event_type,
+          payload->'data' as data
+       from eventdb_event
+       where namespace_id = $1
+         and event_type = any($2::text[])
+         and payload->'data'->>'event_id' is not null
+         ${branchFilter}
+       order by payload->'data'->>'event_id', sequence desc`,
+      params
+    );
+
+    const activeRows = rows
+      .filter((row) => row.event_type !== 'event.deleted')
+      .map((row) => row.data);
+
+    return ok(res, { rows: activeRows });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.post('/v1/admin/events', async (req, res, next) => {
+  try {
+    const data = req.body || {};
+    const tenantId = data.tenant_id || config.defaultTenantId;
+    const branchId = required(data.branch_id, 'branch_id');
+    const eventId = data.event_id || `evt_${Date.now()}_${randomUUID().slice(0, 8)}`;
+    const startAt = new Date(required(data.start_at, 'start_at'));
+    if (Number.isNaN(startAt.getTime())) {
+      throw fail(400, 'BAD_REQUEST', 'start_at must be a valid datetime');
+    }
+    const durationMinutes = asPositiveInteger(data.duration_minutes, 'duration_minutes', 60);
+
+    const event = await appendDomainEvent({
+      tenantId,
+      branchId,
+      actorId: data.actor_id || config.defaultActorId,
+      eventType: 'event.created',
+      subjectKind: 'event',
+      subjectId: eventId,
+      data: {
+        tenant_id: tenantId,
+        branch_id: branchId,
+        event_id: eventId,
+        event_name: required(data.event_name, 'event_name'),
+        location: data.location || null,
+        image_url: data.image_url || null,
+        start_at: startAt.toISOString(),
+        duration_minutes: durationMinutes,
+        status: data.status || 'scheduled',
+        updated_at: new Date().toISOString()
+      },
+      refs: {},
+      uniqueIds: [{ scope: 'event.event_id', value: eventId }]
+    });
+
+    return created(res, { event, event_id: eventId });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.patch('/v1/admin/events/:eventId', async (req, res, next) => {
+  try {
+    const data = req.body || {};
+    const tenantId = data.tenant_id || config.defaultTenantId;
+    const eventId = required(req.params.eventId, 'eventId');
+    const latest = await getLatestEntityDataByEventTypes(
+      tenantId,
+      'event_id',
+      eventId,
+      ['event.created', 'event.updated']
+    );
+    if (!latest) {
+      throw fail(404, 'EVENT_NOT_FOUND', `event ${eventId} not found`);
+    }
+
+    const branchId = data.branch_id || latest.branch_id || 'core';
+    const startAt = new Date(data.start_at || latest.start_at);
+    if (Number.isNaN(startAt.getTime())) {
+      throw fail(400, 'BAD_REQUEST', 'start_at must be a valid datetime');
+    }
+    const durationMinutes = asPositiveInteger(
+      data.duration_minutes,
+      'duration_minutes',
+      Number(latest.duration_minutes || 60)
+    );
+
+    const event = await appendDomainEvent({
+      tenantId,
+      branchId,
+      actorId: data.actor_id || config.defaultActorId,
+      eventType: 'event.updated',
+      subjectKind: 'event',
+      subjectId: eventId,
+      data: {
+        tenant_id: tenantId,
+        branch_id: branchId,
+        event_id: eventId,
+        event_name: data.event_name || latest.event_name,
+        location: data.location ?? latest.location ?? null,
+        image_url: data.image_url ?? latest.image_url ?? null,
+        start_at: startAt.toISOString(),
+        duration_minutes: durationMinutes,
+        status: data.status || latest.status || 'scheduled',
+        updated_at: new Date().toISOString()
+      },
+      refs: {}
+    });
+
+    return ok(res, { event, event_id: eventId });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.delete('/v1/admin/events/:eventId', async (req, res, next) => {
+  try {
+    const data = req.body || {};
+    const tenantId = data.tenant_id || req.query.tenant_id || config.defaultTenantId;
+    const eventId = required(req.params.eventId, 'eventId');
+    const latest = await getLatestEntityDataByEventTypes(
+      tenantId,
+      'event_id',
+      eventId,
+      ['event.created', 'event.updated']
+    );
+    if (!latest) {
+      throw fail(404, 'EVENT_NOT_FOUND', `event ${eventId} not found`);
+    }
+
+    const branchId = data.branch_id || req.query.branch_id || latest.branch_id || 'core';
+    const event = await appendDomainEvent({
+      tenantId,
+      branchId,
+      actorId: data.actor_id || config.defaultActorId,
+      eventType: 'event.deleted',
+      subjectKind: 'event',
+      subjectId: eventId,
+      data: {
+        tenant_id: tenantId,
+        branch_id: branchId,
+        event_id: eventId,
+        deleted_at: new Date().toISOString()
+      },
+      refs: {}
+    });
+
+    return ok(res, { event, event_id: eventId });
+  } catch (error) {
+    return next(error);
+  }
+});
+
 app.get('/v1/admin/products', async (req, res, next) => {
   try {
     const tenantId = req.query.tenant_id || config.defaultTenantId;

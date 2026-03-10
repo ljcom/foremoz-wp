@@ -70,6 +70,7 @@ a {
 
 .btn:focus-visible,
 .side-item:focus-visible,
+.admin-tab-btn:focus-visible,
 input:focus-visible,
 select:focus-visible {
   outline: 2px solid #d07148;
@@ -786,6 +787,89 @@ code {
   cursor: not-allowed;
 }
 
+.admin-tabs-card {
+  margin-top: 1rem;
+}
+
+.admin-tabs-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.admin-tab-btn {
+  border: 1px solid #d8cab8;
+  border-radius: 10px;
+  padding: 0.55rem 0.9rem;
+  background: linear-gradient(180deg, #fff, #fff8ef);
+  color: var(--text);
+  cursor: pointer;
+  font-weight: 600;
+  transition: border-color 0.2s ease, transform 0.2s ease, background 0.2s ease;
+}
+
+.admin-tab-btn:hover {
+  transform: translateY(-1px);
+  border-color: #c9ac8e;
+}
+
+.admin-tab-btn.active {
+  border-color: #cb8b61;
+  background: linear-gradient(180deg, #fff2e8, #ffeadf);
+}
+
+.event-card-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 0.8rem;
+}
+
+.event-admin-card {
+  border: 1px solid #ddceb8;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #fff, #fff9f1);
+  overflow: hidden;
+  box-shadow: 0 8px 18px #6e56390d;
+}
+
+.event-admin-image {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  display: block;
+}
+
+.event-admin-body {
+  padding: 0.65rem;
+}
+
+.event-admin-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.event-admin-title-row h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.event-admin-status {
+  border: 1px solid #d9bea0;
+  border-radius: 999px;
+  padding: 0.15rem 0.5rem;
+  font-size: 0.75rem;
+  color: var(--accent-dark);
+  background: #fff;
+}
+
+.event-admin-body p {
+  margin: 0.35rem 0;
+  color: var(--muted);
+}
+
 .membership-panel h2 {
   margin-top: 0;
 }
@@ -1087,6 +1171,7 @@ code {
   .pricing-grid,
   .passport-live-grid,
   .info-grid,
+  .event-card-grid,
   .plan-grid,
   .stats-grid,
   .ops-grid,

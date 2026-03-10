@@ -17,25 +17,25 @@ const PLANS = [
     key: 'free',
     name: 'Free',
     price: 'IDR 0 / bulan',
-    note: 'Cocok untuk mulai uji operasional basic gym kecil.'
+    note: 'One-time event + check-in/check-out.'
   },
   {
     key: 'starter',
     name: 'Starter',
     price: 'IDR 499.000 / bulan',
-    note: 'Untuk studio yang sudah running stabil dengan volume member awal.'
+    note: 'Event + class + CS + product + check-in/check-out.'
   },
   {
     key: 'growth',
     name: 'Growth',
     price: 'IDR 1.490.000 / bulan',
-    note: 'Untuk tenant dengan beban operasional dan tim lebih besar.'
+    note: 'Starter + team mode (multi coach) + sales.'
   },
   {
     key: 'multi_branch',
     name: 'Multi-branch',
     price: 'IDR 3.490.000 / bulan',
-    note: 'Untuk operator fitness dengan banyak cabang aktif.'
+    note: 'Growth + multi location operations.'
   },
   {
     key: 'enterprise',
@@ -54,6 +54,7 @@ const PLAN_PRICE = {
   basic: 499000,
   pro: 1490000
 };
+const ENTERPRISE_REQUEST_EMAIL = 'hello@foremoz.com';
 
 function normalizePackagePlan(value) {
   const plan = String(value || 'free').trim().toLowerCase();
@@ -119,6 +120,14 @@ export default function WebOwnerPage() {
   const [editingUserId, setEditingUserId] = useState('');
   const [editingUser, setEditingUser] = useState({ full_name: '', role: 'staff' });
   const [dangerConfirm, setDangerConfirm] = useState('');
+  const [enterpriseRequest, setEnterpriseRequest] = useState({
+    requester_name: session?.user?.fullName || '',
+    requester_email: session?.user?.email || '',
+    phone: '',
+    company_name: '',
+    location_count: '1',
+    requirement: ''
+  });
 
   const selectedPlanMonthlyPrice = PLAN_PRICE[setupForm.package_plan] || 0;
   const selectedMonths = Number(saasForm.months || 1);
@@ -193,7 +202,7 @@ export default function WebOwnerPage() {
     const accountSlug = setup?.account_slug || current?.tenant?.account_slug || 'tn_mock';
     const tenantId = setup?.tenant_id || current?.tenant?.id || 'tn_mock';
     const branchId = setup?.branch_id || current?.branch?.id || 'br_mock_01';
-    const gymName = setup?.gym_name || current?.tenant?.gym_name || 'Foremoz Mock Gym';
+    const gymName = setup?.gym_name || current?.tenant?.gym_name || 'Foremoz Organization';
 
     if (!current?.isAuthenticated || (current?.role || 'owner') !== 'owner') {
       setSession({
@@ -209,7 +218,8 @@ export default function WebOwnerPage() {
           id: tenantId,
           account_slug: accountSlug,
           namespace: `foremoz:${tenantId}`,
-          gym_name: gymName
+          gym_name: gymName,
+          package_plan: normalizePackagePlan(setup?.package_plan || setupForm.package_plan || 'free')
         },
         branch: {
           id: branchId,
@@ -258,7 +268,8 @@ export default function WebOwnerPage() {
           id: payload.tenant_id,
           account_slug: payload.account_slug,
           namespace: `foremoz:${payload.tenant_id}`,
-          gym_name: payload.gym_name
+          gym_name: payload.gym_name,
+          package_plan: normalizePackagePlan(payload.package_plan)
         },
         branch: {
           id: payload.branch_id,
@@ -353,6 +364,10 @@ export default function WebOwnerPage() {
 
   async function changePackage(e) {
     e.preventDefault();
+    if (setupForm.package_plan === 'enterprise') {
+      setFeedback('Paket enterprise diajukan lewat request form.');
+      return;
+    }
     try {
       setLoading(true);
       const payload = {
@@ -375,12 +390,99 @@ export default function WebOwnerPage() {
     }
   }
 
+  function sendEnterpriseRequest() {
+    if (!enterpriseRequest.requester_name || !enterpriseRequest.requester_email || !enterpriseRequest.requirement) {
+      setFeedback('Lengkapi requester_name, requester_email, dan requirement.');
+      return;
+    }
+
+    const tenantId = setupForm.tenant_id || tenantSeed;
+    const subject = `[Enterprise Request] ${setupForm.gym_name || '-'} (${tenantId})`;
+    const body = [
+      `tenant_id: ${tenantId}`,
+      `account_slug: ${setupForm.account_slug || '-'}`,
+      `gym_name: ${setupForm.gym_name || '-'}`,
+      `requester_name: ${enterpriseRequest.requester_name}`,
+      `requester_email: ${enterpriseRequest.requester_email}`,
+      `phone: ${enterpriseRequest.phone || '-'}`,
+      `company_name: ${enterpriseRequest.company_name || '-'}`,
+      `location_count: ${enterpriseRequest.location_count || '-'}`,
+      '',
+      'requirement:',
+      enterpriseRequest.requirement
+    ].join('\n');
+
+    const mailto = `mailto:${ENTERPRISE_REQUEST_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    window.location.href = mailto;
+    setFeedback(`enterprise.request.sent to ${ENTERPRISE_REQUEST_EMAIL}`);
+  }
+
+  async function activateStarterTrialFromAddUser() {
+    const agreeTrial = window.confirm('Paket Free hanya 1 user admin. Kamu mau trial 1 bulan untuk upgrade ke Starter?');
+    if (!agreeTrial) {
+      setFeedback('Tambah user dibatalkan. Aktifkan trial Starter untuk menambah user.');
+      return false;
+    }
+
+    const upgradePayload = {
+      gym_name: setupForm.gym_name,
+      tenant_id: setupForm.tenant_id,
+      branch_id: setupForm.branch_id,
+      account_slug: setupForm.account_slug,
+      package_plan: 'starter',
+      address: setupForm.address,
+      city: setupForm.city,
+      photo_url: setupForm.photo_url
+    };
+
+    await persistSetup(upgradePayload);
+    try {
+      await apiJson('/v1/owner/saas/extend', {
+        method: 'POST',
+        body: JSON.stringify({
+          tenant_id: setupForm.tenant_id || tenantSeed,
+          months: 1,
+          note: 'starter trial from add user'
+        })
+      });
+    } catch {
+      // optional in case backend does not support trial extension yet
+    }
+    await refreshOwnerData(setupForm.tenant_id || tenantSeed);
+    setSetupForm((p) => ({ ...p, package_plan: 'starter' }));
+    setFeedback('Starter trial 1 bulan aktif. Lanjut tambah user.');
+    return true;
+  }
+
+  async function openAddUserForm() {
+    try {
+      setLoading(true);
+      if (setupForm.package_plan === 'free') {
+        const upgraded = await activateStarterTrialFromAddUser();
+        if (!upgraded) return;
+      }
+      setUserForm(createEmptyUserForm());
+      setUserMode('add');
+    } catch (error) {
+      setFeedback(error.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function submitUser(e) {
     e.preventDefault();
     if (!userForm.full_name || !userForm.email || !userForm.password || !userForm.role) return;
 
     try {
       setLoading(true);
+      if (setupForm.package_plan === 'free') {
+        const upgraded = await activateStarterTrialFromAddUser();
+        if (!upgraded) {
+          return;
+        }
+      }
+
       await apiJson('/v1/owner/users', {
         method: 'POST',
         body: JSON.stringify({
@@ -476,11 +578,11 @@ export default function WebOwnerPage() {
       <header className="dash-head card">
         <div>
           <p className="eyebrow">Web Owner</p>
-          <h1>{isSetupReady ? 'Owner control panel' : 'Owner setup wizard'}</h1>
+          <h1>{isSetupReady ? 'Owner control panel' : 'Owner setup'}</h1>
           <p>
             {isSetupReady
               ? 'Kelola tenant per topik: profile, package, dan user.'
-              : 'Lengkapi nama gym dan slug akun sebelum masuk control panel.'}
+              : 'Lengkapi nama bisnis/organisasi dan slug akun sebelum masuk control panel.'}
           </p>
         </div>
         <div className="meta">
@@ -506,7 +608,7 @@ export default function WebOwnerPage() {
           {step === 1 ? (
             <div>
               <p className="eyebrow">Step 1</p>
-              <h2>Penamaan tenant</h2>
+              <h2>Profil tenant</h2>
               <form
                 className="form"
                 onSubmit={(e) => {
@@ -515,7 +617,7 @@ export default function WebOwnerPage() {
                 }}
               >
                 <label>
-                  Nama gym
+                  Nama bisnis / organisasi
                   <input
                     placeholder="Contoh: Foremoz Fitness Cilandak"
                     value={setupForm.gym_name}
@@ -551,9 +653,66 @@ export default function WebOwnerPage() {
                   </button>
                 ))}
               </div>
+              {setupForm.package_plan === 'enterprise' ? (
+                <>
+                  <p className="eyebrow">Enterprise Request Form</p>
+                  <label>
+                    requester_name
+                    <input
+                      value={enterpriseRequest.requester_name}
+                      onChange={(e) => setEnterpriseRequest((p) => ({ ...p, requester_name: e.target.value }))}
+                    />
+                  </label>
+                  <label>
+                    requester_email
+                    <input
+                      type="email"
+                      value={enterpriseRequest.requester_email}
+                      onChange={(e) => setEnterpriseRequest((p) => ({ ...p, requester_email: e.target.value }))}
+                    />
+                  </label>
+                  <label>
+                    phone
+                    <input
+                      value={enterpriseRequest.phone}
+                      onChange={(e) => setEnterpriseRequest((p) => ({ ...p, phone: e.target.value }))}
+                    />
+                  </label>
+                  <label>
+                    company_name
+                    <input
+                      value={enterpriseRequest.company_name}
+                      onChange={(e) => setEnterpriseRequest((p) => ({ ...p, company_name: e.target.value }))}
+                    />
+                  </label>
+                  <label>
+                    location_count
+                    <input
+                      type="number"
+                      min="1"
+                      value={enterpriseRequest.location_count}
+                      onChange={(e) => setEnterpriseRequest((p) => ({ ...p, location_count: e.target.value }))}
+                    />
+                  </label>
+                  <label>
+                    requirement
+                    <textarea
+                      rows={4}
+                      value={enterpriseRequest.requirement}
+                      onChange={(e) => setEnterpriseRequest((p) => ({ ...p, requirement: e.target.value }))}
+                    />
+                  </label>
+                </>
+              ) : null}
               <div className="member-actions">
                 <button className="btn ghost" type="button" onClick={() => setStep(1)} disabled={loading}>Kembali</button>
-                <button className="btn" type="submit" disabled={loading}>Simpan setup</button>
+                {setupForm.package_plan === 'enterprise' ? (
+                  <button className="btn" type="button" onClick={sendEnterpriseRequest}>
+                    Kirim request enterprise
+                  </button>
+                ) : (
+                  <button className="btn" type="submit" disabled={loading}>Simpan setup</button>
+                )}
               </div>
             </form>
           )}
@@ -563,7 +722,7 @@ export default function WebOwnerPage() {
           <aside className="sidebar card">
             <p className="eyebrow">Owner Menu</p>
             <button className={`side-item ${menu === 'profile' ? 'active' : ''}`} onClick={() => setMenu('profile')}>
-              Gym profile
+              Business profile
             </button>
             <button className={`side-item ${menu === 'package' ? 'active' : ''}`} onClick={() => setMenu('package')}>
               Paket dan SaaS
@@ -585,11 +744,11 @@ export default function WebOwnerPage() {
           <article className="card admin-panel" style={{ flex: 1 }}>
             {menu === 'profile' ? (
               <>
-                <p className="eyebrow">Gym Profile</p>
-                <h2>Ganti nama gym</h2>
+                <p className="eyebrow">Business Profile</p>
+                <h2>Perbarui nama bisnis / organisasi</h2>
                 <form className="form" onSubmit={submitRenameGym}>
                   <label>
-                    gym_name
+                    display_name
                     <input value={setupForm.gym_name} onChange={(e) => setSetupForm((p) => ({ ...p, gym_name: e.target.value }))} />
                   </label>
                   <label>
@@ -613,7 +772,7 @@ export default function WebOwnerPage() {
                     <div className="photo-preview-box">
                       <img
                         src={setupForm.photo_url}
-                        alt="Gym preview"
+                        alt="Business preview"
                         className="photo-preview-image"
                         onError={(e) => {
                           e.currentTarget.style.display = 'none';
@@ -679,10 +838,67 @@ export default function WebOwnerPage() {
                       </button>
                     ))}
                   </div>
-                  <p className="feedback">
-                    Harga paket terpilih: {formatIdr(selectedPlanMonthlyPrice)} / bulan
-                  </p>
-                  <button className="btn" type="submit" disabled={loading}>Change paket</button>
+                  {setupForm.package_plan === 'enterprise' ? (
+                    <>
+                      <p className="eyebrow">Enterprise Request Form</p>
+                      <label>
+                        requester_name
+                        <input
+                          value={enterpriseRequest.requester_name}
+                          onChange={(e) => setEnterpriseRequest((p) => ({ ...p, requester_name: e.target.value }))}
+                        />
+                      </label>
+                      <label>
+                        requester_email
+                        <input
+                          type="email"
+                          value={enterpriseRequest.requester_email}
+                          onChange={(e) => setEnterpriseRequest((p) => ({ ...p, requester_email: e.target.value }))}
+                        />
+                      </label>
+                      <label>
+                        phone
+                        <input
+                          value={enterpriseRequest.phone}
+                          onChange={(e) => setEnterpriseRequest((p) => ({ ...p, phone: e.target.value }))}
+                        />
+                      </label>
+                      <label>
+                        company_name
+                        <input
+                          value={enterpriseRequest.company_name}
+                          onChange={(e) => setEnterpriseRequest((p) => ({ ...p, company_name: e.target.value }))}
+                        />
+                      </label>
+                      <label>
+                        location_count
+                        <input
+                          type="number"
+                          min="1"
+                          value={enterpriseRequest.location_count}
+                          onChange={(e) => setEnterpriseRequest((p) => ({ ...p, location_count: e.target.value }))}
+                        />
+                      </label>
+                      <label>
+                        requirement
+                        <textarea
+                          rows={4}
+                          value={enterpriseRequest.requirement}
+                          onChange={(e) => setEnterpriseRequest((p) => ({ ...p, requirement: e.target.value }))}
+                        />
+                      </label>
+                      <button className="btn" type="button" onClick={sendEnterpriseRequest}>
+                        Kirim request enterprise
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <p className="feedback">
+                        Harga paket terpilih: {formatIdr(selectedPlanMonthlyPrice)} / bulan
+                      </p>
+                      <button className="btn" type="submit" disabled={loading}>Change paket</button>
+                    </>
+                  )}
                 </form>
               </>
             ) : null}
@@ -698,10 +914,7 @@ export default function WebOwnerPage() {
                         <button
                           className="btn"
                           type="button"
-                          onClick={() => {
-                            setUserForm(createEmptyUserForm());
-                            setUserMode('add');
-                          }}
+                          onClick={openAddUserForm}
                           disabled={loading}
                         >
                           Add New User

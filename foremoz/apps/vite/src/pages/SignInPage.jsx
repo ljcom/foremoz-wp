@@ -1,7 +1,17 @@
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import AuthLayout from '../components/AuthLayout.jsx';
-import { apiJson, getOwnerSetup, getSession, IS_MOCK_MODE, IS_MOCKUP_OPEN_ACCESS, requireField, setOwnerSetup, setSession } from '../lib.js';
+import {
+  apiJson,
+  getOwnerSetup,
+  getSession,
+  IS_MOCK_MODE,
+  IS_MOCKUP_OPEN_ACCESS,
+  normalizePackagePlan,
+  requireField,
+  setOwnerSetup,
+  setSession
+} from '../lib.js';
 
 export default function SignInPage() {
   const navigate = useNavigate();
@@ -37,7 +47,8 @@ export default function SignInPage() {
             id: tenantId,
             account_slug: tenantId,
             namespace: `foremoz:${tenantId}`,
-            gym_name: 'Foremoz Mock Gym'
+            gym_name: 'Foremoz Mock Gym',
+            package_plan: 'free'
           },
           branch: {
             id: 'br_mock_01',
@@ -118,7 +129,8 @@ export default function SignInPage() {
           id: signedTenantId,
           account_slug: activeSetup?.account_slug || accountSetup?.account_slug || account || signedTenantId,
           namespace: `foremoz:${signedTenantId}`,
-          gym_name: activeSetup?.gym_name || accountSetup?.gym_name || 'Foremoz Demo Gym'
+          gym_name: activeSetup?.gym_name || accountSetup?.gym_name || 'Foremoz Demo Gym',
+          package_plan: normalizePackagePlan(activeSetup?.package_plan || setupForTenant?.package_plan || 'starter')
         },
         branch: {
           id: activeSetup?.branch_id || accountSetup?.branch_id || 'br_jkt_01',

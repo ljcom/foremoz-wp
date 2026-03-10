@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { clearSession, getAccountSlug, getSession } from '../lib.js';
+import { clearSession, getAccountSlug, getSession, getAllowedEnvironments } from '../lib.js';
 
 function Stat({ label, value, iconClass, tone, hint }) {
   return (
@@ -86,12 +86,15 @@ export default function SalesPage() {
 
   const allFilteredSelected = filteredItems.length > 0 && filteredItems.every((item) => selected.includes(item.prospect_id));
   const allowedEnv = useMemo(() => {
-    if (role === 'owner' || role === 'admin') return ['admin', 'cs', 'pt', 'sales'];
-    if (role === 'cs') return ['cs'];
-    if (role === 'pt') return ['pt'];
-    if (role === 'sales') return ['sales'];
-    return [];
-  }, [role]);
+    return getAllowedEnvironments(session, role);
+  }, [session, role]);
+
+  useEffect(() => {
+    if (allowedEnv.length === 0) return;
+    if (!allowedEnv.includes(targetEnv)) {
+      setTargetEnv(allowedEnv[0]);
+    }
+  }, [allowedEnv, targetEnv]);
 
   function goToEnv(env) {
     if (!allowedEnv.includes(env)) return;

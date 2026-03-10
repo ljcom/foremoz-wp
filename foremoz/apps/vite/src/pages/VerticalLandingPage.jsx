@@ -16,26 +16,26 @@ const VERTICALS = {
       {
         name: 'Free',
         price: 'Rp0 / bulan',
-        note: 'Untuk creator yang baru mulai',
-        items: ['Publish event & halaman publik', 'Booking + check-in baseline']
+        note: 'Single operator',
+        items: ['One-time event', 'Check-in + check-out']
       },
       {
         name: 'Starter',
         price: 'Rp149.000 - Rp499.000 / bulan',
-        note: 'Creator mode berbayar',
-        items: ['Payment recording', 'Passport linkage participant history']
+        note: 'Operational starter',
+        items: ['Event + class + CS + product', 'Check-in + check-out']
       },
       {
         name: 'Growth',
         price: 'Rp990.000 - Rp1.990.000 / bulan',
-        note: 'Tim dan kolaborasi host',
-        items: ['Multiple event orchestration', 'Revenue split baseline']
+        note: 'Team mode',
+        items: ['Multi coach/team operation', 'Sales workspace enabled']
       },
       {
         name: 'Institution',
         price: 'Mulai Rp3.490.000 / bulan',
-        note: 'Multi-branch operations',
-        items: ['Membership + CRM + staff controls', 'Owner setup + governance controls']
+        note: 'Scale operations',
+        items: ['Multi location (multi branch)', 'Enterprise: customization']
       }
     ]
   },

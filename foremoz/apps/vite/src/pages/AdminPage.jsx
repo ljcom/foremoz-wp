@@ -1,20 +1,33 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { accountPath, apiJson, getAccountSlug, getSession } from '../lib.js';
+import { accountPath, apiJson, getAccountSlug, getSession, getAdminTabsByPlan, getAllowedEnvironments } from '../lib.js';
 
 const ADMIN_TABS = [
   // { id: 'user', label: 'User' },
+  { id: 'event', label: 'Event' },
   { id: 'class', label: 'Class' },
   { id: 'product', label: 'Product' },
   { id: 'package_creation', label: 'Package creation' },
   { id: 'trainer', label: 'Trainer' },
   { id: 'sales', label: 'Sales' },
+  { id: 'member', label: 'Member' },
   { id: 'transaction', label: 'Transaction' },
   // { id: 'saas', label: 'SaaS' }
 ];
 
 const DEFAULT_CLASSES = [
   { class_id: 'class_001', class_name: 'HIIT Morning', trainer_name: 'Raka', capacity: '20', start_at: '2026-03-03 07:00' }
+];
+const DEFAULT_EVENTS = [
+  {
+    event_id: 'evt_001',
+    event_name: 'One-time Bootcamp',
+    location: 'Main Hall',
+    image_url: 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?auto=format&fit=crop&w=1200&q=80',
+    start_at: '2026-03-10 07:00',
+    duration_minutes: '60',
+    status: 'scheduled'
+  }
 ];
 const DEFAULT_TRAINERS = [
   { trainer_id: 'tr_001', trainer_name: 'Raka', phone: '081234555500', specialization: 'HIIT' }
@@ -54,6 +67,22 @@ function formatClassDatetime(value) {
   if (!raw) return '-';
   if (raw.includes('T')) return raw.replace('T', ' ').slice(0, 16);
   return raw.slice(0, 16);
+}
+
+function resolveEventImage(item) {
+  const direct = String(item?.image_url || '').trim();
+  if (direct) return direct;
+  const seed = encodeURIComponent(String(item?.event_id || item?.event_name || 'event'));
+  return `https://picsum.photos/seed/${seed}/960/540`;
+}
+
+function formatIdr(value) {
+  return `IDR ${Number(value || 0).toLocaleString('id-ID')}`;
+}
+
+function estimateEventPostingPrice(durationMinutes) {
+  const blocks = Math.max(1, Math.ceil(Number(durationMinutes || 60) / 60));
+  return blocks * 99000;
 }
 
 function getStorageKey(entity, accountSlug) {
@@ -118,6 +147,42 @@ function ViewButton({ onClick }) {
   );
 }
 
+function ShareButton({ onClick }) {
+  return (
+    <span
+      role="button"
+      tabIndex={0}
+      style={{ cursor: 'pointer', background: '#fff', color: '#8f3f1e', border:'1px solid #d9bea0', margin: '2px', padding: '0.2rem 0.45rem', borderRadius: '10px' }}
+      onClick={onClick}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          onClick();
+        }
+      }}
+    >
+      share
+    </span>
+  );
+}
+
+function ParticipantsButton({ onClick }) {
+  return (
+    <span
+      role="button"
+      tabIndex={0}
+      style={{ cursor: 'pointer', background: '#fff', color: '#8f3f1e', border:'1px solid #d9bea0', margin: '2px', padding: '0.2rem 0.45rem', borderRadius: '10px' }}
+      onClick={onClick}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          onClick();
+        }
+      }}
+    >
+      participants
+    </span>
+  );
+}
+
 export default function AdminPage() {
   const navigate = useNavigate();
   const session = getSession();
@@ -127,6 +192,7 @@ export default function AdminPage() {
   const branchId = session?.branch?.id || 'core';
   const [targetEnv, setTargetEnv] = useState('admin');
   const [activeTab, setActiveTab] = useState('class');
+  const [eventMode, setEventMode] = useState('list');
   const [userMode, setUserMode] = useState('list');
   const [classMode, setClassMode] = useState('list');
   const [productMode, setProductMode] = useState('list');
@@ -137,9 +203,12 @@ export default function AdminPage() {
   const [transactionMode, setTransactionMode] = useState('list');
   const [feedback, setFeedback] = useState('');
   const [userLoading, setUserLoading] = useState(false);
+  const [eventLoading, setEventLoading] = useState(false);
+  const [eventSaving, setEventSaving] = useState(false);
   const [classLoading, setClassLoading] = useState(false);
   const [classSaving, setClassSaving] = useState(false);
   const [editingClassId, setEditingClassId] = useState('');
+  const [editingEventId, setEditingEventId] = useState('');
   const [productLoading, setProductLoading] = useState(false);
   const [productSaving, setProductSaving] = useState(false);
   const [editingProductId, setEditingProductId] = useState('');
@@ -147,6 +216,7 @@ export default function AdminPage() {
   const [packageSaving, setPackageSaving] = useState(false);
   const [editingPackageId, setEditingPackageId] = useState('');
   const [classQuery, setClassQuery] = useState('');
+  const [eventQuery, setEventQuery] = useState('');
   const [trainerQuery, setTrainerQuery] = useState('');
   const [productQuery, setProductQuery] = useState('');
   const [packageQuery, setPackageQuery] = useState('');
@@ -157,8 +227,10 @@ export default function AdminPage() {
   const [salesMemberQuery, setSalesMemberQuery] = useState('');
   const [memberQuery, setMemberQuery] = useState('');
   const [transactionQuery, setTransactionQuery] = useState('');
+  const [eventPostQuote, setEventPostQuote] = useState(null);
 
   const [userForm, setUserForm] = useState({ full_name: '', email: '', role: 'staff' });
+  const [eventForm, setEventForm] = useState({ event_name: '', location: '', image_url: '', start_at: '', duration_minutes: '60' });
   const [classForm, setClassForm] = useState({ class_name: '', trainer_name: '', capacity: '20', start_at: '' });
   const [trainerForm, setTrainerForm] = useState({ trainer_name: '', phone: '', specialization: '' });
   const [productForm, setProductForm] = useState({ product_name: '', category: 'retail', price: '', stock: '' });
@@ -171,6 +243,7 @@ export default function AdminPage() {
   const [users, setUsers] = useState([
     { user_id: 'usr_001', full_name: 'Aulia Admin', email: 'aulia@foremoz.com', role: 'admin' }
   ]);
+  const [events, setEvents] = useState([]);
   const [classes, setClasses] = useState([]);
   const [trainers, setTrainers] = useState(() => loadList('trainers', accountSlug, DEFAULT_TRAINERS));
   const [products, setProducts] = useState([]);
@@ -244,6 +317,37 @@ export default function AdminPage() {
     loadUsers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tenantId]);
+
+  async function loadEvents() {
+    try {
+      setEventLoading(true);
+      const result = await apiJson(
+        `/v1/admin/events?tenant_id=${encodeURIComponent(tenantId)}&branch_id=${encodeURIComponent(branchId)}`
+      );
+      const rows = Array.isArray(result.rows) ? result.rows : [];
+      setEvents(
+        rows.map((item) => ({
+          event_id: item.event_id,
+          event_name: item.event_name || '',
+          location: item.location || '',
+          image_url: item.image_url || '',
+          start_at: item.start_at || '',
+          duration_minutes: String(item.duration_minutes || '60'),
+          status: item.status || 'scheduled'
+        }))
+      );
+    } catch (error) {
+      setEvents(DEFAULT_EVENTS);
+      setFeedback(error.message);
+    } finally {
+      setEventLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadEvents();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tenantId, branchId]);
 
   async function loadClasses() {
     try {
@@ -347,12 +451,27 @@ export default function AdminPage() {
   }, [accountSlug]);
 
   const allowedEnv = useMemo(() => {
-    if (role === 'owner' || role === 'admin') return ['admin', 'cs', 'pt', 'sales'];
-    if (role === 'cs') return ['cs'];
-    if (role === 'pt') return ['pt'];
-    if (role === 'sales') return ['sales'];
-    return [];
-  }, [role]);
+    return getAllowedEnvironments(session, role);
+  }, [session, role]);
+  const enabledAdminTabIds = useMemo(() => getAdminTabsByPlan(session), [session]);
+  const visibleAdminTabs = useMemo(
+    () => ADMIN_TABS.filter((tab) => enabledAdminTabIds.includes(tab.id)),
+    [enabledAdminTabIds]
+  );
+
+  useEffect(() => {
+    if (allowedEnv.length === 0) return;
+    if (!allowedEnv.includes(targetEnv)) {
+      setTargetEnv(allowedEnv[0]);
+    }
+  }, [allowedEnv, targetEnv]);
+
+  useEffect(() => {
+    if (visibleAdminTabs.length === 0) return;
+    if (!visibleAdminTabs.some((tab) => tab.id === activeTab)) {
+      setActiveTab(visibleAdminTabs[0].id);
+    }
+  }, [visibleAdminTabs, activeTab]);
 
   function goToEnv(env) {
     if (!allowedEnv.includes(env)) return;
@@ -373,6 +492,13 @@ export default function AdminPage() {
 
   const filteredMembers = members.filter((item) =>
     item.member_name.toLowerCase().includes(memberQuery.toLowerCase())
+  );
+  const filteredEvents = events.filter((item) =>
+    String(item.event_name || '').toLowerCase().includes(eventQuery.toLowerCase()) ||
+    String(item.location || '').toLowerCase().includes(eventQuery.toLowerCase()) ||
+    String(item.start_at || '').toLowerCase().includes(eventQuery.toLowerCase()) ||
+    String(item.duration_minutes || '').toLowerCase().includes(eventQuery.toLowerCase()) ||
+    String(item.status || '').toLowerCase().includes(eventQuery.toLowerCase())
   );
   const filteredClasses = classes.filter((item) =>
     String(item.class_name || '').toLowerCase().includes(classQuery.toLowerCase()) ||
@@ -864,12 +990,194 @@ export default function AdminPage() {
   }
 
   function viewMember(item) {
+    if (item?.member_id) {
+      navigate(accountPath(session, `/members/${item.member_id}`));
+      return;
+    }
     setMemberForm({
       member_name: item.member_name || '',
       phone: item.phone || '',
       email: item.email || ''
     });
     setMemberMode('add');
+  }
+
+  async function addEvent(e) {
+    e.preventDefault();
+    if (!eventForm.event_name || !eventForm.start_at || !eventForm.duration_minutes) return;
+    const startAtIso = toApiDatetime(eventForm.start_at);
+    if (!startAtIso) {
+      setFeedback('start_at tidak valid');
+      return;
+    }
+    const durationMinutes = Number(eventForm.duration_minutes);
+    if (!Number.isFinite(durationMinutes) || durationMinutes <= 0) {
+      setFeedback('duration_minutes harus lebih dari 0');
+      return;
+    }
+    try {
+      setEventSaving(true);
+      const method = editingEventId ? 'PATCH' : 'POST';
+      const endpoint = editingEventId
+        ? `/v1/admin/events/${encodeURIComponent(editingEventId)}`
+        : '/v1/admin/events';
+      await apiJson(endpoint, {
+        method,
+        body: JSON.stringify({
+          tenant_id: tenantId,
+          branch_id: branchId,
+          event_name: eventForm.event_name,
+          location: eventForm.location || null,
+          image_url: eventForm.image_url || null,
+          start_at: startAtIso,
+          duration_minutes: durationMinutes,
+          status: 'scheduled'
+        })
+      });
+      setFeedback(editingEventId ? `event.updated: ${eventForm.event_name}` : `event.created: ${eventForm.event_name}`);
+      setEventForm({ event_name: '', location: '', image_url: '', start_at: '', duration_minutes: '60' });
+      setEventPostQuote(null);
+      setEditingEventId('');
+      setEventMode('list');
+      await loadEvents();
+    } catch (error) {
+      setFeedback(error.message);
+    } finally {
+      setEventSaving(false);
+    }
+  }
+
+  function viewEvent(item) {
+    setEventForm({
+      event_name: item.event_name || '',
+      location: item.location || '',
+      image_url: item.image_url || '',
+      start_at: toInputDatetime(item.start_at || ''),
+      duration_minutes: String(item.duration_minutes || '60')
+    });
+    setEventPostQuote(null);
+    setEditingEventId(item.event_id || '');
+    setEventMode('add');
+  }
+
+  function startAddEvent() {
+    setEventForm({ event_name: '', location: '', image_url: '', start_at: '', duration_minutes: '60' });
+    setEventPostQuote(null);
+    setEditingEventId('');
+    setEventMode('add');
+  }
+
+  async function deleteEvent(eventId) {
+    if (!eventId) return;
+    try {
+      setEventSaving(true);
+      await apiJson(`/v1/admin/events/${encodeURIComponent(eventId)}`, {
+        method: 'DELETE',
+        body: JSON.stringify({
+          tenant_id: tenantId,
+          branch_id: branchId
+        })
+      });
+      setFeedback(`event.deleted: ${eventId}`);
+      await loadEvents();
+    } catch (error) {
+      setFeedback(error.message);
+    } finally {
+      setEventSaving(false);
+    }
+  }
+
+  async function shareEvent(item) {
+    const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+    const eventId = encodeURIComponent(String(item?.event_id || ''));
+    const eventName = String(item?.event_name || 'Event');
+    const shareUrl = `${baseUrl}/events${eventId ? `?event=${eventId}` : ''}`;
+    const shareText = `${eventName}\n${shareUrl}`;
+
+    try {
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(shareText);
+        setFeedback(`event.shared: link copied for ${eventName}`);
+        return;
+      }
+      throw new Error('clipboard not available');
+    } catch {
+      if (typeof window !== 'undefined') {
+        window.open(shareUrl, '_blank', 'noopener,noreferrer');
+      }
+      setFeedback(`event.shared: opened ${shareUrl}`);
+    }
+  }
+
+  function openEventParticipants(item) {
+    setActiveTab('member');
+    setMemberMode('list');
+    setFeedback(`event.participants: ${item?.event_name || item?.event_id || '-'}`);
+  }
+
+  function preparePostEventQuote() {
+    if (!editingEventId) {
+      setFeedback('Simpan event dulu sebelum post ke Foremoz Event.');
+      return;
+    }
+    const startAtIso = toApiDatetime(eventForm.start_at);
+    const durationMinutes = Number(eventForm.duration_minutes);
+    if (!startAtIso) {
+      setFeedback('start_at tidak valid');
+      return;
+    }
+    if (!Number.isFinite(durationMinutes) || durationMinutes <= 0) {
+      setFeedback('duration_minutes harus lebih dari 0');
+      return;
+    }
+    const price = estimateEventPostingPrice(durationMinutes);
+    setEventPostQuote({
+      start_at: startAtIso,
+      duration_minutes: durationMinutes,
+      price
+    });
+  }
+
+  async function proceedPostEventPayment() {
+    if (!editingEventId || !eventPostQuote) return;
+    try {
+      setEventSaving(true);
+      await apiJson(`/v1/admin/events/${encodeURIComponent(editingEventId)}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          tenant_id: tenantId,
+          branch_id: branchId,
+          event_name: eventForm.event_name,
+          location: eventForm.location || null,
+          image_url: eventForm.image_url || null,
+          start_at: eventPostQuote.start_at,
+          duration_minutes: eventPostQuote.duration_minutes,
+          status: 'posted'
+        })
+      });
+      await loadEvents();
+      if (typeof window !== 'undefined') {
+        const postedUrl = `${window.location.origin}/events?event=${encodeURIComponent(editingEventId)}`;
+        window.open(postedUrl, '_blank', 'noopener,noreferrer');
+      }
+      if (enabledAdminTabIds.includes('transaction')) {
+        setTransactionForm({
+          no_transaction: `TRX-EVT-${Date.now()}`,
+          product: `Post Event - ${eventForm.event_name || editingEventId}`,
+          qty: '1',
+          price: String(eventPostQuote.price)
+        });
+        setTransactionMode('add');
+        setActiveTab('transaction');
+        setFeedback(`event.posted: ${eventForm.event_name}. Foremoz Events ditampilkan, lanjut pembayaran.`);
+      } else {
+        setFeedback(`event.posted: ${eventForm.event_name}. Foremoz Events ditampilkan. harga ${formatIdr(eventPostQuote.price)}.`);
+      }
+    } catch (error) {
+      setFeedback(error.message);
+    } finally {
+      setEventSaving(false);
+    }
   }
 
   function addTransaction(e) {
@@ -942,25 +1250,33 @@ export default function AdminPage() {
               </div>
             </div>
           ) : null}
-          <button className="btn ghost" onClick={() => navigate(accountPath(session, '/cs/dashboard'))}>
-            Back to CS dashboard
-          </button>
+          {allowedEnv.includes('cs') ? (
+            <button className="btn ghost" onClick={() => navigate(accountPath(session, '/cs/dashboard'))}>
+              Back to CS dashboard
+            </button>
+          ) : null}
         </div>
       </header>
 
-      <section className="workspace">
-        <aside className="sidebar card">
-          <p className="eyebrow">Admin Menu</p>
-          {ADMIN_TABS.map((tab) => (
+      <section className="card admin-tabs-card">
+        <p className="eyebrow">Admin Menu</p>
+        <div className="admin-tabs-wrap">
+          {visibleAdminTabs.map((tab) => (
             <button
               key={tab.id}
-              className={`side-item ${activeTab === tab.id ? 'active' : ''}`}
+              className={`admin-tab-btn ${activeTab === tab.id ? 'active' : ''}`}
               onClick={() => {
                 setActiveTab(tab.id);
                 if (tab.id === 'class') {
                   setEditingClassId('');
                   setClassForm({ class_name: '', trainer_name: '', capacity: '20', start_at: '' });
                   setClassMode('list');
+                }
+                if (tab.id === 'event') {
+                  setEditingEventId('');
+                  setEventForm({ event_name: '', location: '', image_url: '', start_at: '', duration_minutes: '60' });
+                  setEventPostQuote(null);
+                  setEventMode('list');
                 }
                 if (tab.id === 'user') {
                   setUserMode('list');
@@ -989,9 +1305,109 @@ export default function AdminPage() {
               {tab.label}
             </button>
           ))}
-        </aside>
+        </div>
+      </section>
 
+      <section style={{ marginTop: '0.8rem' }}>
         <article className="card admin-main">
+          {activeTab === 'event' ? (
+            <>
+              <p className="eyebrow">Event</p>
+              {eventMode === 'list' ? (
+                <>
+                  <div className="panel-head">
+                    <h2>Event list, delete</h2>
+                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginLeft: 'auto' }}>
+                      <input
+                        type="text"
+                        placeholder="Cari event..."
+                        value={eventQuery}
+                        onChange={(e) => setEventQuery(e.target.value)}
+                      />
+                      <button className="btn" type="button" onClick={startAddEvent}>
+                        Add New
+                      </button>
+                    </div>
+                  </div>
+                  {eventLoading ? <p className="feedback">Loading event list...</p> : null}
+                  <div className="event-card-grid">
+                    {filteredEvents.map((item) => (
+                      <article key={item.event_id} className="event-admin-card">
+                        <img
+                          className="event-admin-image"
+                          src={resolveEventImage(item)}
+                          alt={item.event_name || 'Event'}
+                        />
+                        <div className="event-admin-body">
+                          <div className="event-admin-title-row">
+                            <h3>{item.event_name}</h3>
+                            <span className="event-admin-status">{item.status || 'scheduled'}</span>
+                          </div>
+                          <p>{item.location || '-'}</p>
+                          <p>Start: {formatClassDatetime(item.start_at)}</p>
+                          <p>Duration: {item.duration_minutes || '60'} minutes</p>
+                          <div className="row-actions">
+                            <ParticipantsButton onClick={() => openEventParticipants(item)} />
+                            <ShareButton onClick={() => shareEvent(item)} />
+                            <ViewButton onClick={() => viewEvent(item)} />
+                          </div>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="panel-head">
+                    <h2>{editingEventId ? 'Edit event' : 'Add event'}</h2>
+                    <button className="btn ghost" type="button" onClick={() => setEventMode('list')}>
+                      Back to list
+                    </button>
+                  </div>
+                  <form className="form" onSubmit={addEvent}>
+                    <label>event_name<input value={eventForm.event_name} onChange={(e) => setEventForm((p) => ({ ...p, event_name: e.target.value }))} /></label>
+                    <label>location<input value={eventForm.location} onChange={(e) => setEventForm((p) => ({ ...p, location: e.target.value }))} /></label>
+                    <label>image_url<input value={eventForm.image_url} onChange={(e) => setEventForm((p) => ({ ...p, image_url: e.target.value }))} /></label>
+                    <label>start_at<input type="datetime-local" value={eventForm.start_at} onChange={(e) => setEventForm((p) => ({ ...p, start_at: e.target.value }))} /></label>
+                    <label>duration_minutes<input type="number" min="1" value={eventForm.duration_minutes} onChange={(e) => setEventForm((p) => ({ ...p, duration_minutes: e.target.value }))} /></label>
+                    <button className="btn" type="submit" disabled={eventSaving}>{eventSaving ? 'Saving...' : 'Save event'}</button>
+                    {editingEventId ? (
+                      <button className="btn ghost" type="button" disabled={eventSaving} onClick={preparePostEventQuote}>
+                        Post to Foremoz Event
+                      </button>
+                    ) : null}
+                    {editingEventId ? (
+                      <button
+                        className="btn ghost"
+                        type="button"
+                        disabled={eventSaving}
+                        onClick={async () => {
+                          await deleteEvent(editingEventId);
+                          setEditingEventId('');
+                          setEventForm({ event_name: '', location: '', image_url: '', start_at: '', duration_minutes: '60' });
+                          setEventMode('list');
+                        }}
+                      >
+                        Delete event
+                      </button>
+                    ) : null}
+                  </form>
+                  {editingEventId && eventPostQuote ? (
+                    <div className="card" style={{ marginTop: '0.8rem', borderStyle: 'dashed' }}>
+                      <p className="eyebrow">Post Preview</p>
+                      <p>Mulai: {formatClassDatetime(eventPostQuote.start_at)}</p>
+                      <p>Durasi: {eventPostQuote.duration_minutes} menit</p>
+                      <p>Harga publish: <strong>{formatIdr(eventPostQuote.price)}</strong></p>
+                      <button className="btn" type="button" disabled={eventSaving} onClick={proceedPostEventPayment}>
+                        Lanjut ke pembayaran
+                      </button>
+                    </div>
+                  ) : null}
+                </>
+              )}
+            </>
+          ) : null}
+
           {activeTab === 'user' ? (
             <>
               <p className="eyebrow">User</p>

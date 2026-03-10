@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { apiJson, clearSession, getAccountSlug, getSession } from '../lib.js';
+import { apiJson, clearSession, getAccountSlug, getSession, getAllowedEnvironments } from '../lib.js';
 
 function Stat({ label, value, iconClass, tone, hint }) {
   return (
@@ -35,12 +35,15 @@ export default function PtPage() {
     { activity_id: 'pta_003', member_id: 'mem_4471', note: 'Recovery session', session_at: '2026-03-06T08:00' }
   ]);
   const allowedEnv = useMemo(() => {
-    if (role === 'owner' || role === 'admin') return ['admin', 'cs', 'pt', 'sales'];
-    if (role === 'cs') return ['cs'];
-    if (role === 'pt') return ['pt'];
-    if (role === 'sales') return ['sales'];
-    return [];
-  }, [role]);
+    return getAllowedEnvironments(session, role);
+  }, [session, role]);
+
+  useEffect(() => {
+    if (allowedEnv.length === 0) return;
+    if (!allowedEnv.includes(targetEnv)) {
+      setTargetEnv(allowedEnv[0]);
+    }
+  }, [allowedEnv, targetEnv]);
   const insightStats = useMemo(
     () => {
       const today = new Date().toISOString().slice(0, 10);

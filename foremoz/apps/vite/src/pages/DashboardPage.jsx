@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { accountPath, apiJson, clearSession, getAccountSlug, getSession } from '../lib.js';
+import { accountPath, apiJson, clearSession, getAccountSlug, getSession, getAllowedEnvironments } from '../lib.js';
 import { MEMBER_FIXTURES } from '../member-data.js';
 
 function Stat({ label, value, iconClass, tone, hint }) {
@@ -45,15 +45,20 @@ export default function DashboardPage() {
   const branchId = session?.branch?.id || 'core';
   const role = String(session?.role || 'admin').toLowerCase();
   const fullName = session?.user?.fullName || session?.user?.full_name || 'User';
-  const [targetEnv, setTargetEnv] = useState('cs');
+  const [targetEnv, setTargetEnv] = useState(
+    role === 'owner' || role === 'admin' ? 'admin' : role === 'sales' ? 'sales' : role === 'pt' ? 'pt' : 'cs'
+  );
 
   const allowedEnv = useMemo(() => {
-    if (role === 'owner' || role === 'admin') return ['admin', 'cs', 'pt', 'sales'];
-    if (role === 'cs') return ['cs'];
-    if (role === 'pt') return ['pt'];
-    if (role === 'sales') return ['sales'];
-    return [];
-  }, [role]);
+    return getAllowedEnvironments(session, role);
+  }, [session, role]);
+
+  useEffect(() => {
+    if (allowedEnv.length === 0) return;
+    if (!allowedEnv.includes(targetEnv)) {
+      setTargetEnv(allowedEnv[0]);
+    }
+  }, [allowedEnv, targetEnv]);
 
   async function loadDashboard() {
     try {
