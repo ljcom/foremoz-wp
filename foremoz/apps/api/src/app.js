@@ -74,6 +74,47 @@ function asNonNegativeInteger(value, fieldName, fallback = null) {
   return Math.floor(parsed);
 }
 
+function normalizeEventRegistrationFields(value, fallback = []) {
+  if (value === undefined || value === null) return fallback;
+  if (!Array.isArray(value)) {
+    throw fail(400, 'BAD_REQUEST', 'registration_fields must be an array');
+  }
+  if (value.length > 30) {
+    throw fail(400, 'BAD_REQUEST', 'registration_fields max length is 30');
+  }
+  const allowedTypes = new Set(['free_type', 'date', 'lookup']);
+  return value.map((item, index) => {
+    if (!item || typeof item !== 'object') {
+      throw fail(400, 'BAD_REQUEST', `registration_fields[${index}] must be an object`);
+    }
+    const label = String(item.label || '').trim();
+    if (!label) {
+      throw fail(400, 'BAD_REQUEST', `registration_fields[${index}].label is required`);
+    }
+    const type = String(item.type || 'free_type').trim().toLowerCase();
+    if (!allowedTypes.has(type)) {
+      throw fail(400, 'BAD_REQUEST', `registration_fields[${index}].type is invalid`);
+    }
+    const fieldId = String(item.field_id || `rf_${index + 1}_${randomUUID().slice(0, 8)}`).trim();
+    const requiredValue = item.required === undefined ? true : Boolean(item.required);
+    let options = [];
+    if (type === 'lookup') {
+      const rawOptions = Array.isArray(item.options) ? item.options : [];
+      options = rawOptions.map((opt) => String(opt || '').trim()).filter(Boolean);
+      if (options.length === 0) {
+        throw fail(400, 'BAD_REQUEST', `registration_fields[${index}].options is required for lookup type`);
+      }
+    }
+    return {
+      field_id: fieldId,
+      label,
+      type,
+      required: requiredValue,
+      options
+    };
+  });
+}
+
 async function getLatestClassScheduledData(tenantId, classId) {
   const namespaceId = resolveNamespaceId(tenantId);
   const { rows } = await query(
@@ -1310,6 +1351,7 @@ app.post('/v1/admin/events', async (req, res, next) => {
       throw fail(400, 'BAD_REQUEST', 'start_at must be a valid datetime');
     }
     const durationMinutes = asPositiveInteger(data.duration_minutes, 'duration_minutes', 60);
+    const registrationFields = normalizeEventRegistrationFields(data.registration_fields, []);
 
     const event = await appendDomainEvent({
       tenantId,
@@ -1327,6 +1369,7 @@ app.post('/v1/admin/events', async (req, res, next) => {
         image_url: data.image_url || null,
         start_at: startAt.toISOString(),
         duration_minutes: durationMinutes,
+        registration_fields: registrationFields,
         status: data.status || 'scheduled',
         updated_at: new Date().toISOString()
       },
@@ -1365,6 +1408,10 @@ app.patch('/v1/admin/events/:eventId', async (req, res, next) => {
       'duration_minutes',
       Number(latest.duration_minutes || 60)
     );
+    const registrationFields = normalizeEventRegistrationFields(
+      data.registration_fields,
+      Array.isArray(latest.registration_fields) ? latest.registration_fields : []
+    );
 
     const event = await appendDomainEvent({
       tenantId,
@@ -1382,6 +1429,7 @@ app.patch('/v1/admin/events/:eventId', async (req, res, next) => {
         image_url: data.image_url ?? latest.image_url ?? null,
         start_at: startAt.toISOString(),
         duration_minutes: durationMinutes,
+        registration_fields: registrationFields,
         status: data.status || latest.status || 'scheduled',
         updated_at: new Date().toISOString()
       },
@@ -1827,28 +1875,33 @@ app.post('/v1/projections/run', async (req, res, next) => {
 
 app.get('/v1/read/events', async (req, res, next) => {
   try {
-    const tenantId = req.query.tenant_id || config.defaultTenantId;
+    const tenantIdInput = String(req.query.tenant_id || '').trim();
+    const scopedTenantId = tenantIdInput && tenantIdInput.toLowerCase() !== 'all' ? tenantIdInput : null;
     const branchId = req.query.branch_id || null;
     const status = String(req.query.status || 'published').trim().toLowerCase();
     const limit = Math.min(Math.max(Number(req.query.limit || 50), 1), 200);
-    const namespaceId = resolveNamespaceId(tenantId);
     const eventTypes = ['event.created', 'event.updated', 'event.deleted'];
-    const params = [namespaceId, eventTypes];
-    let branchFilter = '';
+    const params = [eventTypes];
+    const whereClauses = [
+      `event_type = any($1::text[])`,
+      `payload->'data'->>'event_id' is not null`
+    ];
+    if (scopedTenantId) {
+      params.push(resolveNamespaceId(scopedTenantId));
+      whereClauses.push(`namespace_id = $${params.length}`);
+    }
     if (branchId) {
       params.push(branchId);
-      branchFilter = ` and payload->'data'->>'branch_id' = $${params.length}`;
+      whereClauses.push(`payload->'data'->>'branch_id' = $${params.length}`);
     }
 
     const { rows } = await query(
       `select distinct on (payload->'data'->>'event_id')
+          namespace_id,
           event_type,
           payload->'data' as data
        from eventdb_event
-       where namespace_id = $1
-         and event_type = any($2::text[])
-         and payload->'data'->>'event_id' is not null
-         ${branchFilter}
+       where ${whereClauses.join(' and ')}
        order by payload->'data'->>'event_id', sequence desc`,
       params
     );
@@ -1873,7 +1926,7 @@ app.get('/v1/read/events', async (req, res, next) => {
       })
       .slice(0, limit);
 
-    return ok(res, { rows: activeRows, limit, status });
+    return ok(res, { rows: activeRows, limit, status, tenant_scope: scopedTenantId || 'all' });
   } catch (error) {
     return next(error);
   }

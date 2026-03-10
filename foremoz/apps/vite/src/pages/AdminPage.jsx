@@ -29,6 +29,14 @@ const DEFAULT_EVENTS = [
     status: 'scheduled'
   }
 ];
+const EMPTY_EVENT_FORM = {
+  event_name: '',
+  location: '',
+  image_url: '',
+  start_at: '',
+  duration_minutes: '60',
+  registration_fields: []
+};
 const DEFAULT_TRAINERS = [
   { trainer_id: 'tr_001', trainer_name: 'Raka', phone: '081234555500', specialization: 'HIIT' }
 ];
@@ -92,6 +100,61 @@ function isPublishedStatus(status) {
 
 function displayEventStatus(status) {
   return isPublishedStatus(status) ? 'PUBLISHED' : String(status || 'scheduled').toUpperCase();
+}
+
+function toRegistrationFieldForm(item, index) {
+  const type = String(item?.type || 'free_type').toLowerCase();
+  return {
+    field_id: String(item?.field_id || `rf_${Date.now()}_${index}`),
+    label: String(item?.label || ''),
+    type: type === 'date' || type === 'lookup' ? type : 'free_type',
+    required: item?.required === undefined ? true : Boolean(item.required),
+    options_text: Array.isArray(item?.options) ? item.options.join(', ') : ''
+  };
+}
+
+function createRegistrationField(type = 'free_type') {
+  return {
+    field_id: `rf_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+    label: '',
+    type: type === 'date' || type === 'lookup' ? type : 'free_type',
+    required: true,
+    options_text: ''
+  };
+}
+
+function normalizeRegistrationFieldsForPayload(fields) {
+  const normalized = Array.isArray(fields) ? fields : [];
+  const result = [];
+  for (let i = 0; i < normalized.length; i += 1) {
+    const item = normalized[i];
+    const label = String(item?.label || '').trim();
+    if (!label) {
+      throw new Error(`Label registration field #${i + 1} wajib diisi`);
+    }
+    const typeRaw = String(item?.type || 'free_type').toLowerCase();
+    const type = typeRaw === 'date' || typeRaw === 'lookup' ? typeRaw : 'free_type';
+    const payload = {
+      field_id: String(item?.field_id || `rf_${Date.now()}_${i}`),
+      label,
+      type,
+      required: item?.required === undefined ? true : Boolean(item.required)
+    };
+    if (type === 'lookup') {
+      const options = String(item?.options_text || '')
+        .split(',')
+        .map((v) => v.trim())
+        .filter(Boolean);
+      if (options.length === 0) {
+        throw new Error(`Lookup options untuk field "${label}" wajib diisi`);
+      }
+      payload.options = options;
+    } else {
+      payload.options = [];
+    }
+    result.push(payload);
+  }
+  return result;
 }
 
 function getStorageKey(entity, accountSlug) {
@@ -240,7 +303,7 @@ export default function AdminPage() {
   const [pendingPostedEventId, setPendingPostedEventId] = useState('');
 
   const [userForm, setUserForm] = useState({ full_name: '', email: '', role: 'staff' });
-  const [eventForm, setEventForm] = useState({ event_name: '', location: '', image_url: '', start_at: '', duration_minutes: '60' });
+  const [eventForm, setEventForm] = useState(EMPTY_EVENT_FORM);
   const [classForm, setClassForm] = useState({ class_name: '', trainer_name: '', capacity: '20', start_at: '' });
   const [trainerForm, setTrainerForm] = useState({ trainer_name: '', phone: '', specialization: '' });
   const [productForm, setProductForm] = useState({ product_name: '', category: 'retail', price: '', stock: '' });
@@ -343,7 +406,8 @@ export default function AdminPage() {
           image_url: item.image_url || '',
           start_at: item.start_at || '',
           duration_minutes: String(item.duration_minutes || '60'),
-          status: item.status || 'scheduled'
+          status: item.status || 'scheduled',
+          registration_fields: Array.isArray(item.registration_fields) ? item.registration_fields : []
         }))
       );
     } catch (error) {
@@ -1043,11 +1107,12 @@ export default function AdminPage() {
           image_url: eventForm.image_url || null,
           start_at: startAtIso,
           duration_minutes: durationMinutes,
+          registration_fields: normalizeRegistrationFieldsForPayload(eventForm.registration_fields),
           status: 'scheduled'
         })
       });
       setFeedback(editingEventId ? `event.updated: ${eventForm.event_name}` : `event.created: ${eventForm.event_name}`);
-      setEventForm({ event_name: '', location: '', image_url: '', start_at: '', duration_minutes: '60' });
+      setEventForm(EMPTY_EVENT_FORM);
       setEventPostQuote(null);
       setEditingEventId('');
       setEventMode('list');
@@ -1065,7 +1130,8 @@ export default function AdminPage() {
       location: item.location || '',
       image_url: item.image_url || '',
       start_at: toInputDatetime(item.start_at || ''),
-      duration_minutes: String(item.duration_minutes || '60')
+      duration_minutes: String(item.duration_minutes || '60'),
+      registration_fields: (Array.isArray(item.registration_fields) ? item.registration_fields : []).map(toRegistrationFieldForm)
     });
     setEventPostQuote(null);
     setEditingEventId(item.event_id || '');
@@ -1073,7 +1139,7 @@ export default function AdminPage() {
   }
 
   function startAddEvent() {
-    setEventForm({ event_name: '', location: '', image_url: '', start_at: '', duration_minutes: '60' });
+    setEventForm(EMPTY_EVENT_FORM);
     setEventPostQuote(null);
     setEditingEventId('');
     setEventMode('add');
@@ -1168,6 +1234,7 @@ export default function AdminPage() {
           image_url: eventForm.image_url || null,
           start_at: eventPostQuote.start_at,
           duration_minutes: eventPostQuote.duration_minutes,
+          registration_fields: normalizeRegistrationFieldsForPayload(eventForm.registration_fields),
           status: 'published'
         })
       });
@@ -1312,7 +1379,7 @@ export default function AdminPage() {
                 }
                 if (tab.id === 'event') {
                   setEditingEventId('');
-                  setEventForm({ event_name: '', location: '', image_url: '', start_at: '', duration_minutes: '60' });
+                  setEventForm(EMPTY_EVENT_FORM);
                   setEventPostQuote(null);
                   setEventMode('list');
                 }
@@ -1408,6 +1475,134 @@ export default function AdminPage() {
                     <label>image_url<input value={eventForm.image_url} onChange={(e) => setEventForm((p) => ({ ...p, image_url: e.target.value }))} /></label>
                     <label>start_at<input type="datetime-local" value={eventForm.start_at} onChange={(e) => setEventForm((p) => ({ ...p, start_at: e.target.value }))} /></label>
                     <label>duration_minutes<input type="number" min="1" value={eventForm.duration_minutes} onChange={(e) => setEventForm((p) => ({ ...p, duration_minutes: e.target.value }))} /></label>
+                    <div className="card" style={{ borderStyle: 'dashed' }}>
+                      <p className="eyebrow">Registration fields</p>
+                      <p className="feedback">Informasi yang dikumpulkan saat member register event.</p>
+                      <div className="row-actions" style={{ marginBottom: '0.5rem' }}>
+                        <button
+                          className="btn ghost small"
+                          type="button"
+                          onClick={() =>
+                            setEventForm((prev) => ({
+                              ...prev,
+                              registration_fields: [...(prev.registration_fields || []), createRegistrationField('free_type')]
+                            }))
+                          }
+                        >
+                          + free type
+                        </button>
+                        <button
+                          className="btn ghost small"
+                          type="button"
+                          onClick={() =>
+                            setEventForm((prev) => ({
+                              ...prev,
+                              registration_fields: [...(prev.registration_fields || []), createRegistrationField('date')]
+                            }))
+                          }
+                        >
+                          + date
+                        </button>
+                        <button
+                          className="btn ghost small"
+                          type="button"
+                          onClick={() =>
+                            setEventForm((prev) => ({
+                              ...prev,
+                              registration_fields: [...(prev.registration_fields || []), createRegistrationField('lookup')]
+                            }))
+                          }
+                        >
+                          + lookup
+                        </button>
+                      </div>
+                      {(eventForm.registration_fields || []).length === 0 ? (
+                        <p className="feedback">Belum ada custom field. Contoh: Kota, Tahu dari mana?, Sekolah, Jenis kelamin.</p>
+                      ) : (
+                        <div className="entity-list">
+                          {(eventForm.registration_fields || []).map((field, index) => (
+                            <div key={field.field_id || index} className="card" style={{ marginBottom: '0.5rem' }}>
+                              <label>
+                                Label
+                                <input
+                                  value={field.label || ''}
+                                  onChange={(e) =>
+                                    setEventForm((prev) => ({
+                                      ...prev,
+                                      registration_fields: (prev.registration_fields || []).map((item, idx) =>
+                                        idx === index ? { ...item, label: e.target.value } : item
+                                      )
+                                    }))
+                                  }
+                                />
+                              </label>
+                              <label>
+                                Type
+                                <select
+                                  value={field.type || 'free_type'}
+                                  onChange={(e) =>
+                                    setEventForm((prev) => ({
+                                      ...prev,
+                                      registration_fields: (prev.registration_fields || []).map((item, idx) =>
+                                        idx === index ? { ...item, type: e.target.value } : item
+                                      )
+                                    }))
+                                  }
+                                >
+                                  <option value="free_type">free type</option>
+                                  <option value="date">date</option>
+                                  <option value="lookup">lookup</option>
+                                </select>
+                              </label>
+                              <label>
+                                <input
+                                  type="checkbox"
+                                  checked={field.required !== false}
+                                  onChange={(e) =>
+                                    setEventForm((prev) => ({
+                                      ...prev,
+                                      registration_fields: (prev.registration_fields || []).map((item, idx) =>
+                                        idx === index ? { ...item, required: e.target.checked } : item
+                                      )
+                                    }))
+                                  }
+                                />
+                                {' '}
+                                Required
+                              </label>
+                              {String(field.type || 'free_type') === 'lookup' ? (
+                                <label>
+                                  Options (pisahkan dengan koma)
+                                  <input
+                                    value={field.options_text || ''}
+                                    onChange={(e) =>
+                                      setEventForm((prev) => ({
+                                        ...prev,
+                                        registration_fields: (prev.registration_fields || []).map((item, idx) =>
+                                          idx === index ? { ...item, options_text: e.target.value } : item
+                                        )
+                                      }))
+                                    }
+                                  />
+                                </label>
+                              ) : null}
+                              <button
+                                className="btn ghost small"
+                                type="button"
+                                onClick={() =>
+                                  setEventForm((prev) => ({
+                                    ...prev,
+                                    registration_fields: (prev.registration_fields || []).filter((_, idx) => idx !== index)
+                                  }))
+                                }
+                              >
+                                Hapus field
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                     <button className="btn" type="submit" disabled={eventSaving}>{eventSaving ? 'Saving...' : 'Save event'}</button>
                     {editingEventId && !isEditingEventPublished ? (
                       <button className="btn ghost" type="button" disabled={eventSaving} onClick={preparePostEventQuote}>
@@ -1425,7 +1620,7 @@ export default function AdminPage() {
                         onClick={async () => {
                           await deleteEvent(editingEventId);
                           setEditingEventId('');
-                          setEventForm({ event_name: '', location: '', image_url: '', start_at: '', duration_minutes: '60' });
+                          setEventForm(EMPTY_EVENT_FORM);
                           setEventMode('list');
                         }}
                       >

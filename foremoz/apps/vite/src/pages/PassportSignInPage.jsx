@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { getSession as getForemozSession } from '../lib.js';
 import {
@@ -14,6 +14,16 @@ export default function PassportSignInPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const authBase = location.pathname.startsWith('/passport') ? '/passport' : '/events';
+  const params = new URLSearchParams(location.search || '');
+  const nextPath = params.get('next') || '';
+  const eventId = params.get('event') || '';
+  const signupHref = useMemo(() => {
+    const nextParams = new URLSearchParams();
+    if (eventId) nextParams.set('event', eventId);
+    if (nextPath) nextParams.set('next', nextPath);
+    const query = nextParams.toString();
+    return `${authBase}/signup${query ? `?${query}` : ''}`;
+  }, [authBase, eventId, nextPath]);
   const [form, setForm] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -121,7 +131,7 @@ export default function PassportSignInPage() {
             planCode: 'free'
           }
         });
-        navigate(`${authBase}/dashboard`, { replace: true });
+        navigate(nextPath || `${authBase}/dashboard`, { replace: true });
         return;
       }
 
@@ -171,7 +181,11 @@ export default function PassportSignInPage() {
         }
       });
 
-      navigate(isOnboarded ? `${authBase}/dashboard` : `${authBase}/onboarding`, { replace: true });
+      if (nextPath) {
+        navigate(nextPath, { replace: true });
+      } else {
+        navigate(isOnboarded ? `${authBase}/dashboard` : `${authBase}/onboarding`, { replace: true });
+      }
     } catch (err) {
       setError(err.message);
     } finally {
@@ -208,7 +222,7 @@ export default function PassportSignInPage() {
             <button className="btn" type="submit" disabled={loading}>
               {loading ? 'Signing in...' : 'Sign in'}
             </button>
-            <Link className="btn ghost" to={`${authBase}/signup`}>
+            <Link className="btn ghost" to={signupHref}>
               Create account
             </Link>
           </div>

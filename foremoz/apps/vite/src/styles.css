@@ -277,6 +277,32 @@ select:focus-visible {
   font-size: clamp(1.4rem, 2.6vw, 2rem);
 }
 
+.landing-tabs {
+  display: inline-flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  padding: 0.3rem;
+  border: 1px solid #ddccb2;
+  border-radius: 999px;
+  background: #fff8ef;
+}
+
+.landing-tab {
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 700;
+  padding: 0.45rem 0.9rem;
+  cursor: pointer;
+}
+
+.landing-tab.active {
+  background: linear-gradient(180deg, #ffe8d1, #ffdcb8);
+  color: var(--accent-dark);
+  box-shadow: 0 6px 12px #8d684114;
+}
+
 .feature-grid {
   margin-top: 1rem;
   display: grid;
@@ -363,6 +389,13 @@ select:focus-visible {
   font-size: 0.76rem;
   font-weight: 700;
   text-transform: uppercase;
+}
+
+.passport-live-badge.joined {
+  border-color: #b9c8de;
+  background: #ecf3ff;
+  color: #2b4f86;
+  text-transform: none;
 }
 
 .passport-live-vertical {

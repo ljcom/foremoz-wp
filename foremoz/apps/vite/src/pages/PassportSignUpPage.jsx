@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { normalizeEmail, passportApiJson, requirePassportField, setPassportSession } from '../passport-client.js';
 
@@ -6,6 +6,16 @@ export default function PassportSignUpPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const authBase = location.pathname.startsWith('/passport') ? '/passport' : '/events';
+  const params = new URLSearchParams(location.search || '');
+  const nextPath = params.get('next') || '';
+  const eventId = params.get('event') || '';
+  const signinHref = useMemo(() => {
+    const nextParams = new URLSearchParams();
+    if (eventId) nextParams.set('event', eventId);
+    if (nextPath) nextParams.set('next', nextPath);
+    const query = nextParams.toString();
+    return `${authBase}/signin${query ? `?${query}` : ''}`;
+  }, [authBase, eventId, nextPath]);
   const [form, setForm] = useState({ fullName: '', email: '', password: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -46,7 +56,7 @@ export default function PassportSignUpPage() {
         }
       });
 
-      navigate(`${authBase}/onboarding`, { replace: true });
+      navigate(nextPath || `${authBase}/onboarding`, { replace: true });
     } catch (err) {
       setError(err.message);
     } finally {
@@ -91,7 +101,7 @@ export default function PassportSignUpPage() {
             <button className="btn" type="submit" disabled={loading}>
               {loading ? 'Creating...' : 'Create passport'}
             </button>
-            <Link className="btn ghost" to={`${authBase}/signin`}>
+            <Link className="btn ghost" to={signinHref}>
               Already have account
             </Link>
           </div>

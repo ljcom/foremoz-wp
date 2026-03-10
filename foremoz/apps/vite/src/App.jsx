@@ -6,6 +6,7 @@ import PassportSignUpPage from './pages/PassportSignUpPage.jsx';
 import PassportSignInPage from './pages/PassportSignInPage.jsx';
 import PassportOnboardingPage from './pages/PassportOnboardingPage.jsx';
 import PassportDashboardPage from './pages/PassportDashboardPage.jsx';
+import EventCheckoutPage from './pages/EventCheckoutPage.jsx';
 import WebOwnerPage from './pages/WebOwnerPage.jsx';
 import AccountPublicPage from './pages/AccountPublicPage.jsx';
 import SignUpPage from './pages/SignUpPage.jsx';
@@ -154,6 +155,8 @@ export default function App() {
       <Route path="/passport/signup" element={<PassportSignUpPage />} />
       <Route path="/events/signin" element={<PassportSignInPage />} />
       <Route path="/passport/signin" element={<PassportSignInPage />} />
+      <Route path="/events/register" element={<EventCheckoutPage />} />
+      <Route path="/passport/register" element={<EventCheckoutPage />} />
       <Route
         path="/events/onboarding"
         element={

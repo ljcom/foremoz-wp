@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { apiJson } from '../lib.js';
+import { clearPassportSession, getPassportSession } from '../passport-client.js';
+
+const JOINED_EVENTS_KEY = 'ff.events.joined';
 
 const fallbackEvents = [
   {
@@ -9,7 +12,6 @@ const fallbackEvents = [
     category: 'Strength Training',
     host: 'Coach Rafi - Foremoz Active Center',
     time: 'Sedang berlangsung (06:00 - 07:30 WIB)',
-    participant: '24 peserta aktif',
     status: 'Live',
     image:
       'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?auto=format&fit=crop&w=1200&q=80'
@@ -20,7 +22,6 @@ const fallbackEvents = [
     category: 'Language Practice',
     host: 'Mentor Dita - Learning Hub Bandung',
     time: 'Sedang berlangsung (09:00 - 10:30 WIB)',
-    participant: '18 peserta aktif',
     status: 'Live',
     image:
       'https://images.unsplash.com/photo-1523240795612-9a054b0db644?auto=format&fit=crop&w=1200&q=80'
@@ -31,7 +32,6 @@ const fallbackEvents = [
     category: 'Dance Rehearsal',
     host: 'Studio Kroma - Creative Stage',
     time: 'Sedang berlangsung (19:00 - 21:00 WIB)',
-    participant: '32 peserta aktif',
     status: 'Live',
     image:
       'https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?auto=format&fit=crop&w=1200&q=80'
@@ -39,9 +39,13 @@ const fallbackEvents = [
 ];
 
 export default function PassportLandingPage() {
+  const navigate = useNavigate();
   const location = useLocation();
   const isPassportSurface = location.pathname.startsWith('/passport');
+  const registerBase = isPassportSurface ? '/passport/register' : '/events/register';
   const [events, setEvents] = useState(fallbackEvents);
+  const [joinedEventIds, setJoinedEventIds] = useState([]);
+  const [activeTab, setActiveTab] = useState('events');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const entryLabel = isPassportSurface ? 'passport.foremoz.com' : 'foremoz.com/events';
@@ -55,6 +59,13 @@ export default function PassportLandingPage() {
     const params = new URLSearchParams(location.search);
     return params.get('event') || '';
   }, [location.search]);
+  const passportSession = getPassportSession();
+  const isAuthenticated = Boolean(passportSession?.isAuthenticated);
+  const welcomeName =
+    passportSession?.user?.fullName ||
+    passportSession?.passport?.fullName ||
+    passportSession?.user?.email ||
+    'Member';
 
   useEffect(() => {
     let isMounted = true;
@@ -77,7 +88,6 @@ export default function PassportLandingPage() {
             time: validStart
               ? `Mulai ${startAt.toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' })}`
               : 'Jadwal belum ditentukan',
-            participant: 'Participants akan tampil setelah registrasi dibuka',
             status: String(row.status || 'published').toUpperCase(),
             image: row.image_url || fallbackEvents[0].image
           };
@@ -109,13 +119,47 @@ export default function PassportLandingPage() {
     return list;
   }, [events, highlightedEventId]);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (!isAuthenticated) {
+      setJoinedEventIds([]);
+      return;
+    }
+    try {
+      const ids = JSON.parse(localStorage.getItem(JOINED_EVENTS_KEY) || '[]');
+      setJoinedEventIds(Array.isArray(ids) ? ids.map((v) => String(v)) : []);
+    } catch {
+      setJoinedEventIds([]);
+    }
+  }, [isAuthenticated]);
+
   return (
     <main className="landing">
       <header className="topbar">
         <div className="brand">{isPassportSurface ? 'Foremoz Passport' : 'Foremoz Events'}</div>
         <nav>
           <Link to="/web">Home</Link>
-          <Link to={isPassportSurface ? '/passport/signin' : '/events/signin'}>Sign in</Link>
+          {isAuthenticated ? (
+            <>
+              <span>Welcome {welcomeName}</span>
+              <button
+                className="btn ghost small"
+                type="button"
+                onClick={() => {
+                  clearPassportSession();
+                  if (typeof window !== 'undefined') {
+                    localStorage.removeItem(JOINED_EVENTS_KEY);
+                  }
+                  setJoinedEventIds([]);
+                  navigate(isPassportSurface ? '/passport' : '/events', { replace: true });
+                }}
+              >
+                Sign out
+              </button>
+            </>
+          ) : (
+            <Link to={isPassportSurface ? '/passport/signin' : '/events/signin'}>Sign in</Link>
+          )}
         </nav>
       </header>
 
@@ -133,51 +177,80 @@ export default function PassportLandingPage() {
       </section>
 
       <section className="landing-section">
-        <p className="eyebrow">Live Events</p>
-        <h2 className="landing-title">Upcoming events</h2>
-        {loading ? <p className="feedback">Loading events...</p> : null}
-        {error ? <p className="feedback">{error}</p> : null}
-        <div className="passport-live-grid">
-          {orderedEvents.map((event, idx) => (
-            <article className="passport-live-card" key={event.event_id || `${event.title}-${idx}`}>
-              <img className="passport-live-image" src={event.image} alt={event.title} />
-              <div className="passport-live-head">
-                <span className="passport-live-badge">{event.status}</span>
-                <span className="passport-live-vertical">{event.vertical}</span>
-              </div>
-              <h3>{event.title}</h3>
-              <p className="passport-live-category">Category: {event.category}</p>
-              <p className="passport-live-host">{event.host}</p>
-              <p className="passport-live-time">{event.time}</p>
-              <p className="passport-live-participant">{event.participant}</p>
-            </article>
-          ))}
-          {!loading && orderedEvents.length === 0 ? (
-            <article className="passport-live-card">
-              <h3>Belum ada event published</h3>
-              <p className="passport-live-time">Silakan post event dari dashboard admin.</p>
-            </article>
-          ) : null}
+        <div className="landing-tabs">
+          <button
+            type="button"
+            className={`landing-tab ${activeTab === 'events' ? 'active' : ''}`}
+            onClick={() => setActiveTab('events')}
+          >
+            Events
+          </button>
+          <button
+            type="button"
+            className={`landing-tab ${activeTab === 'faq' ? 'active' : ''}`}
+            onClick={() => setActiveTab('faq')}
+          >
+            FAQ
+          </button>
         </div>
-      </section>
 
-      <section className="landing-section">
-        <p className="eyebrow">How It Works</p>
-        <h2 className="landing-title">Alur event-first</h2>
-        <div className="feature-grid">
-          <article className="feature-card">
-            <p>1) Pilih event yang sedang aktif.</p>
-          </article>
-          <article className="feature-card">
-            <p>2) Join dan hadir di event.</p>
-          </article>
-          <article className="feature-card">
-            <p>3) Passport terbentuk sebagai identitas lintas event.</p>
-          </article>
-          <article className="feature-card">
-            <p>4) Data progress dan riwayat kamu otomatis terbawa ke event berikutnya.</p>
-          </article>
-        </div>
+        {activeTab === 'events' ? (
+          <>
+            <p className="eyebrow">Live Events</p>
+            <h2 className="landing-title">Upcoming events</h2>
+            {loading ? <p className="feedback">Loading events...</p> : null}
+            {error ? <p className="feedback">{error}</p> : null}
+            <div className="passport-live-grid">
+              {orderedEvents.map((event, idx) => (
+                <article className="passport-live-card" key={event.event_id || `${event.title}-${idx}`}>
+                  <img className="passport-live-image" src={event.image} alt={event.title} />
+                  <div className="passport-live-head">
+                    <span className="passport-live-badge">{event.status}</span>
+                    <span className="passport-live-vertical">{event.vertical}</span>
+                  </div>
+                  <h3>{event.title}</h3>
+                  <p className="passport-live-category">Category: {event.category}</p>
+                  <p className="passport-live-host">{event.host}</p>
+                  <p className="passport-live-time">{event.time}</p>
+                  {joinedEventIds.includes(String(event.event_id || '')) ? (
+                    <span className="passport-live-badge joined">Sudah joined</span>
+                  ) : (
+                    <Link
+                      className="btn ghost small"
+                      to={`${registerBase}${event.event_id ? `?event=${encodeURIComponent(event.event_id)}` : ''}`}
+                    >
+                      Register
+                    </Link>
+                  )}
+                </article>
+              ))}
+              {!loading && orderedEvents.length === 0 ? (
+                <article className="passport-live-card">
+                  <h3>Belum ada event published</h3>
+                  <p className="passport-live-time">Silakan post event dari dashboard admin.</p>
+                </article>
+              ) : null}
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="eyebrow">FAQ</p>
+            <h2 className="landing-title">Alur event-first</h2>
+            <div className="feature-grid">
+              <article className="feature-card">
+                <h3>Bagaimana alur join event di Foremoz?</h3>
+                <p>1) Pilih event yang sedang aktif.</p>
+                <p>2) Join dan hadir di event.</p>
+                <p>3) Passport terbentuk sebagai identitas lintas event.</p>
+                <p>4) Data progress dan riwayat otomatis terbawa ke event berikutnya.</p>
+              </article>
+              <article className="feature-card">
+                <h3>Apakah harus buat passport dulu?</h3>
+                <p>Tidak. Fokus utama adalah join event terlebih dulu, passport terbentuk sebagai konsekuensi partisipasi.</p>
+              </article>
+            </div>
+          </>
+        )}
       </section>
     </main>
   );
