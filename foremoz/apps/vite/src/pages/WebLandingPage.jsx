@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { APP_ORIGIN } from '../lib.js';
+import { describeVerticalByJargon, listVerticalConfigs } from '../industry-jargon.js';
 
 export default function WebLandingPage() {
   const isMockupOpenAccess = (import.meta.env.VITE_MOCKUP_OPEN_ACCESS ?? 'false') === 'true';
@@ -19,37 +20,18 @@ export default function WebLandingPage() {
   ];
 
   const caseStudies = [
-    {
-      slug: 'active',
-      title: 'Active',
-      body: 'Fitness dan sport operations: membership, booking, PT, team, match, ranking.',
-    },
-    {
-      slug: 'learning',
-      title: 'Learning',
-      body: 'Course dan cohort operations: enrollment, schedule, attendance, mentor workflow, progress.',
-    },
-    {
-      slug: 'arts',
-      title: 'Arts',
-      body: 'Creative gig operations: showcase, session booking, rehearsal flow, ticketing, creator collaboration.',
-    },
-    {
-      slug: 'tourism',
-      title: 'Tourism',
-      body: 'Experience-led trips: itinerary event ops, participant handling, guide workflow, service checkpoints.',
-    },
-    {
-      slug: 'performance',
-      title: 'Performance',
-      body: 'Creator-led entertainment events: lineup, production, fan engagement, and monetization loops.',
-    },
+    ...listVerticalConfigs().map((item) => ({
+      slug: item.slug,
+      title: item.label,
+      body: `${describeVerticalByJargon(item.slug)} Monetization: ${item.monetization_pattern}.`,
+    })),
     {
       slug: 'events',
       title: 'Events',
       body: 'Event discovery lintas vertical. Identity layer terbentuk otomatis saat participant ikut event.',
     },
   ];
+  const topNavVerticals = listVerticalConfigs().slice(0, 5);
 
   return (
     <main className="landing">
@@ -58,11 +40,11 @@ export default function WebLandingPage() {
         <nav>
           <Link to="/web">Home</Link>
           <Link to="/events">Events</Link>
-          <Link to="/active">Active</Link>
-          <Link to="/learning">Learning</Link>
-          <Link to="/arts">Arts</Link>
-          <Link to="/performance">Performance</Link>
-          <Link to="/tourism">Tourism</Link>
+          {topNavVerticals.map((item) => (
+            <Link key={item.slug} to={`/${item.slug}`}>
+              {item.label}
+            </Link>
+          ))}
           {isMockupOpenAccess ? (
             <Link className="btn small" to="/signup">
               Admin signup

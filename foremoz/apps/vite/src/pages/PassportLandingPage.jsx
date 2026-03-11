@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { apiJson } from '../lib.js';
 import { clearPassportSession, getPassportSession } from '../passport-client.js';
+import { getVerticalConfig, getVerticalLabel, guessVerticalSlugByEventText, listVerticalConfigs } from '../industry-jargon.js';
 
 const JOINED_EVENTS_KEY = 'ff.events.joined';
 
@@ -38,6 +39,28 @@ const fallbackEvents = [
     status: 'Live',
     image:
       'https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?auto=format&fit=crop&w=1200&q=80'
+  },
+  {
+    title: 'City Night Run Performance',
+    vertical: 'Performance',
+    category: 'Show',
+    host: 'Performer Nara - Central Venue',
+    organizer: 'Foremoz Performance Team',
+    time: 'Mulai 20:00 WIB',
+    status: 'Live',
+    image:
+      'https://images.unsplash.com/photo-1518609878373-06d740f60d8b?auto=format&fit=crop&w=1200&q=80'
+  },
+  {
+    title: 'Sunrise Heritage Tour',
+    vertical: 'Tourism',
+    category: 'Tour',
+    host: 'Guide Akbar - Old Town Route',
+    organizer: 'Foremoz Tourism Team',
+    time: 'Mulai 06:30 WIB',
+    status: 'Live',
+    image:
+      'https://images.unsplash.com/photo-1503220317375-aaad61436b1b?auto=format&fit=crop&w=1200&q=80'
   }
 ];
 
@@ -52,10 +75,12 @@ export default function PassportLandingPage() {
   const [activeTab, setActiveTab] = useState('events');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const verticalLabels = listVerticalConfigs().map((item) => item.label);
+  const verticalListText = verticalLabels.join(', ');
   const entryLabel = isPassportSurface ? 'passport.foremoz.com' : 'foremoz.com/events';
   const title = isPassportSurface
     ? 'Passport Showcase untuk Member'
-    : 'Ikut Event Lintas Active, Learning, dan Arts';
+    : `Ikut Event Lintas ${verticalListText}`;
   const description = isPassportSurface
     ? 'Passport dipakai member untuk menunjukkan identity, history, dan trust signal lintas event yang sudah diikuti.'
     : 'Fokus utama di Foremoz adalah event. Pilih event yang sedang berlangsung, join, dan lanjutkan pengalamanmu di vertical yang kamu minati.';
@@ -83,12 +108,14 @@ export default function PassportLandingPage() {
           const startAt = new Date(row.start_at || '');
           const validStart = !Number.isNaN(startAt.getTime());
           const vertical = guessVertical(row);
+          const verticalSlug = guessVerticalSlugByEventText(row, 'active');
+          const vocabularyCreator = getVerticalConfig(verticalSlug)?.vocabulary?.creator || 'Creator';
           return {
             event_id: row.event_id || '',
             title: row.event_name || 'Untitled Event',
             vertical,
             category: guessCategory(row),
-            host: `${row.location || 'Foremoz Venue'} - ${vertical}`,
+            host: `${vocabularyCreator} - ${row.location || 'Foremoz Venue'}`,
             organizer:
               row.organizer_name ||
               row.host_name ||
@@ -296,10 +323,8 @@ export default function PassportLandingPage() {
 }
 
 function guessVertical(row) {
-  const text = `${row.event_name || ''} ${row.location || ''}`.toLowerCase();
-  if (text.includes('learn') || text.includes('english') || text.includes('class')) return 'Learning';
-  if (text.includes('dance') || text.includes('art') || text.includes('music')) return 'Arts';
-  return 'Active';
+  const slug = guessVerticalSlugByEventText(row, 'active');
+  return getVerticalLabel(slug, 'Active');
 }
 
 function guessCategory(row) {
@@ -310,5 +335,7 @@ function guessCategory(row) {
   if (text.includes('bootcamp') || text.includes('strength')) return 'Strength Training';
   if (text.includes('english') || text.includes('language')) return 'Language Practice';
   if (text.includes('dance') || text.includes('art')) return 'Creative Session';
-  return 'General Event';
+  const verticalSlug = guessVerticalSlugByEventText(row, 'active');
+  const firstType = (getVerticalConfig(verticalSlug)?.experience_types || [])[0];
+  return firstType ? String(firstType) : 'General Event';
 }

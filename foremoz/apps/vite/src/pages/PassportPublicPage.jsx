@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { apiJson } from '../lib.js';
+import { getVerticalConfig, getVerticalLabel, guessVerticalSlugByEventText, listVerticalConfigs } from '../industry-jargon.js';
 
 function hashInt(value) {
   let hash = 0;
@@ -23,7 +24,7 @@ function formatDateTime(value) {
   return date.toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
 }
 
-const verticalTabs = ['Active', 'Learning', 'Performance', 'Tourism'];
+const verticalTabs = listVerticalConfigs().map((item) => item.label);
 
 function normalizePublicVisibility(raw) {
   return {
@@ -42,24 +43,19 @@ function normalizePublicVisibility(raw) {
 }
 
 function guessVertical(eventItem) {
-  const text = `${eventItem?.event_name || ''} ${eventItem?.location || ''}`.toLowerCase();
-  if (text.includes('learn') || text.includes('english') || text.includes('class') || text.includes('workshop')) return 'Learning';
-  if (text.includes('tour') || text.includes('trip') || text.includes('travel')) return 'Tourism';
-  if (text.includes('run') || text.includes('performance') || text.includes('marathon')) return 'Performance';
-  return 'Active';
+  const slug = guessVerticalSlugByEventText(eventItem, 'active');
+  return getVerticalLabel(slug, 'Active');
 }
 
 function deriveCapabilities(events) {
   const set = new Set();
   events.forEach((item) => {
-    const vertical = guessVertical(item);
-    if (vertical === 'Active') set.add('Fitness Coaching');
-    if (vertical === 'Learning') set.add('Workshop Instructor');
-    if (vertical === 'Performance') set.add('Performance Coach');
-    if (vertical === 'Tourism') set.add('Experience Host');
+    const verticalSlug = guessVerticalSlugByEventText(item, 'active');
+    const creator = getVerticalConfig(verticalSlug)?.vocabulary?.creator;
+    if (creator) set.add(creator);
   });
   if (set.size === 0) {
-    set.add('Coach');
+    set.add('Creator');
     set.add('Organizer');
   }
   return [...set].slice(0, 6);
@@ -130,6 +126,14 @@ export default function PassportPublicPage() {
   const capabilities = deriveCapabilities(mergedEvents);
   const programs = derivePrograms(mergedEvents);
   const locations = [...new Set(mergedEvents.map((item) => String(item.location || '').trim()).filter(Boolean))];
+  const filteredUpcoming = useMemo(
+    () => upcoming.filter((item) => guessVertical(item) === activeVertical),
+    [upcoming, activeVertical]
+  );
+  const filteredHistory = useMemo(
+    () => history.filter((item) => guessVertical(item) === activeVertical),
+    [history, activeVertical]
+  );
 
   return (
     <main className="landing">
@@ -217,18 +221,19 @@ export default function PassportPublicPage() {
           <h2>Upcoming Events</h2>
           {loading ? <p className="sub">Loading events...</p> : null}
           <div className="entity-list">
-            {upcoming.map((item) => (
+            {filteredUpcoming.map((item) => (
               <div key={item.event_id} className="entity-row">
                 <div>
                   <strong>{item.event_name || '-'}</strong>
                   <p>{formatDateTime(item.start_at)}</p>
+                  <p>{guessVertical(item)}</p>
                 </div>
                 <Link className="btn ghost small" to={`/events/register?event=${encodeURIComponent(item.event_id)}`}>
                   Join Event
                 </Link>
               </div>
             ))}
-            {upcoming.length === 0 ? <p className="sub">Belum ada upcoming events.</p> : null}
+            {filteredUpcoming.length === 0 ? <p className="sub">Belum ada upcoming events untuk vertical ini.</p> : null}
           </div>
         </section>
       ) : null}
@@ -237,15 +242,16 @@ export default function PassportPublicPage() {
         <section className="card">
           <h2>Past Events</h2>
           <div className="entity-list">
-            {history.map((item) => (
+            {filteredHistory.map((item) => (
               <div key={item.event_id} className="entity-row">
                 <div>
                   <strong>{item.event_name || '-'}</strong>
                   <p>{formatDateTime(item.start_at)}</p>
+                  <p>{guessVertical(item)}</p>
                 </div>
               </div>
             ))}
-            {history.length === 0 ? <p className="sub">Belum ada history events.</p> : null}
+            {filteredHistory.length === 0 ? <p className="sub">Belum ada history events untuk vertical ini.</p> : null}
           </div>
         </section>
       ) : null}
