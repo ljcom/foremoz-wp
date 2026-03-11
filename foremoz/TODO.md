@@ -1,20 +1,22 @@
 # TODO Foremoz
 
 ## High Priority
-- [ ] Passport public page `/p/:account` belum full real data passport.
-  - Masih pakai placeholder untuk identity (verified, followers, city, stats seed-based).
-  - Perlu resolve `account -> tenant/passport` lalu ambil profile dari API Passport.
-- [ ] Simpan konfigurasi public visibility ke backend.
-  - Saat ini `allow publish public` dan checklist section masih di `localStorage`.
-  - Perlu endpoint read/write visibility per passport/account.
+- [~] Passport public page `/p/:account` sudah pakai real data inti.
+  - Resolve `account -> tenant/passport` sudah ada via endpoint public passport.
+  - Identity/stat utama sudah diambil dari API (profile, events, stats, relations).
+  - Sisa: follower/community masih belum data relasi real.
+- [x] Simpan konfigurasi public visibility ke backend.
+  - Endpoint read: `GET /v1/passport/public-visibility`
+  - Endpoint write: `POST /v1/passport/public-visibility`
+  - Dashboard passport dan public page sudah pakai data backend (bukan localStorage).
 - [x] Check-in event sudah persist ke backend.
   - Endpoint: `POST /v1/admin/events/:eventId/participants/checkin`
   - Read status check-in sudah masuk di `GET /v1/admin/events/:eventId/participants` (`checked_in_at`).
 
 ## Event & Participant
-- [ ] Unique number participant belum jadi field resmi di backend.
-  - Saat ini fallback code digenerate di frontend jika `registration_id` kosong.
-  - Perlu standar nomor unik server-side saat registrasi participant.
+- [x] Unique number participant sudah jadi field resmi di backend.
+  - Field `participant_no` dibuat server-side saat `event.participant.registered`.
+  - Frontend admin scan/check-in menggunakan `participant_no` sebagai prioritas.
 - [ ] Barcode scanner masih berbasis text input (keyboard wedge).
   - Belum ada integrasi kamera (WebRTC / QR scanner) untuk scan langsung.
 - [ ] Tambah export participant/check-in (CSV/XLSX) dari tab Participants/Check in.

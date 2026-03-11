@@ -207,6 +207,67 @@ function participantIdentityKey(data) {
   return '';
 }
 
+function buildParticipantNumber(eventId) {
+  const compactEventId = String(eventId || 'EVT')
+    .replace(/[^a-zA-Z0-9]/g, '')
+    .toUpperCase()
+    .slice(-8) || 'EVENT';
+  const token = randomUUID().replace(/-/g, '').slice(0, 6).toUpperCase();
+  return `EVR-${compactEventId}-${token}`;
+}
+
+function normalizePassportPublicVisibility(raw) {
+  const source = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
+  return {
+    allowPublicPublish: source.allowPublicPublish !== false,
+    showRolesCapabilities: source.showRolesCapabilities !== false,
+    showProgramsProducts: source.showProgramsProducts !== false,
+    showUpcomingEvents: source.showUpcomingEvents !== false,
+    showPastEvents: source.showPastEvents !== false,
+    showAchievements: source.showAchievements !== false,
+    showCommunity: source.showCommunity !== false,
+    showActivityFeed: source.showActivityFeed !== false,
+    showHostLocations: source.showHostLocations !== false,
+    showPassportStats: source.showPassportStats !== false,
+    showContactBooking: source.showContactBooking !== false
+  };
+}
+
+async function getLatestPassportVisibility({ tenantId, passportId, account }) {
+  const normalizedTenantId = String(tenantId || '').trim();
+  if (!normalizedTenantId) {
+    return normalizePassportPublicVisibility({});
+  }
+  const namespaceId = resolveNamespaceId(normalizedTenantId);
+  const params = [namespaceId];
+  const filters = [`event_type = 'passport.public.visibility.updated'`];
+  const orFilters = [];
+  const normalizedPassportId = String(passportId || '').trim();
+  const normalizedAccount = String(account || '').trim().toLowerCase();
+  if (normalizedPassportId) {
+    params.push(normalizedPassportId);
+    orFilters.push(`payload->'data'->>'passport_id' = $${params.length}`);
+  }
+  if (normalizedAccount) {
+    params.push(normalizedAccount);
+    orFilters.push(`lower(payload->'data'->>'account') = $${params.length}`);
+  }
+  if (orFilters.length > 0) {
+    filters.push(`(${orFilters.join(' or ')})`);
+  }
+  const { rows } = await query(
+    `select payload->'data' as data
+     from eventdb_event
+     where namespace_id = $1
+       and ${filters.join(' and ')}
+     order by sequence desc
+     limit 1`,
+    params
+  );
+  const visibilityRaw = rows[0]?.data?.visibility || null;
+  return normalizePassportPublicVisibility(visibilityRaw);
+}
+
 async function getLatestClassScheduledData(tenantId, classId) {
   const namespaceId = resolveNamespaceId(tenantId);
   const { rows } = await query(
@@ -531,6 +592,232 @@ app.get('/v1/public/account/resolve', async (req, res, next) => {
       [accountSlug]
     );
     return ok(res, { row: rows[0] || null });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.get('/v1/public/passport', async (req, res, next) => {
+  try {
+    const account = String(req.query.account || '').trim().toLowerCase();
+    if (!account) {
+      throw fail(400, 'ACCOUNT_REQUIRED', 'account is required');
+    }
+
+    let ownerRow = null;
+    {
+      const { rows } = await query(
+        `select tenant_id, gym_name, branch_id, account_slug, address, city, photo_url, package_plan, status, updated_at
+         from read.rm_owner_setup
+         where lower(account_slug) = $1 and status = 'active'
+         order by updated_at desc
+         limit 1`,
+        [account]
+      );
+      ownerRow = rows[0] || null;
+    }
+
+    let profileRow = null;
+    if (ownerRow?.tenant_id) {
+      const { rows } = await query(
+        `select *
+         from read.rm_passport_profile
+         where tenant_id = $1
+         order by updated_at desc
+         limit 1`,
+        [ownerRow.tenant_id]
+      );
+      profileRow = rows[0] || null;
+    }
+    if (!profileRow) {
+      const { rows } = await query(
+        `select *
+         from read.rm_passport_profile
+         where passport_id = $1
+         order by updated_at desc
+         limit 1`,
+        [account]
+      );
+      profileRow = rows[0] || null;
+    }
+
+    const tenantId = profileRow?.tenant_id || ownerRow?.tenant_id || null;
+    const passportId = String(profileRow?.passport_id || '').trim() || null;
+    let memberRow = null;
+    if (tenantId && profileRow?.member_id) {
+      const { rows } = await query(
+        `select member_id, full_name, phone, email, branch_id
+         from read.rm_member
+         where tenant_id = $1 and member_id = $2
+         limit 1`,
+        [tenantId, profileRow.member_id]
+      );
+      memberRow = rows[0] || null;
+    }
+
+    const visibility = await getLatestPassportVisibility({
+      tenantId,
+      passportId,
+      account: ownerRow?.account_slug || account
+    });
+
+    let publishedEvents = [];
+    if (tenantId) {
+      const namespaceId = resolveNamespaceId(tenantId);
+      const { rows } = await query(
+        `select distinct on (payload->'data'->>'event_id')
+            event_type,
+            payload->'data' as data
+         from eventdb_event
+         where namespace_id = $1
+           and event_type = any($2::text[])
+           and payload->'data'->>'event_id' is not null
+         order by payload->'data'->>'event_id', sequence desc`,
+        [namespaceId, ['event.created', 'event.updated', 'event.deleted']]
+      );
+      publishedEvents = rows
+        .filter((row) => row.event_type !== 'event.deleted')
+        .map((row) => row.data || {})
+        .filter((row) => {
+          const status = String(row.status || '').toLowerCase();
+          return status === 'published' || status === 'posted';
+        });
+    }
+
+    const eventById = new Map(
+      publishedEvents.map((item) => [String(item?.event_id || ''), item]).filter(([id]) => Boolean(id))
+    );
+    let joinedEventIds = [];
+    if (tenantId && passportId) {
+      const namespaceId = resolveNamespaceId(tenantId);
+      const { rows } = await query(
+        `select payload->'data' as data
+         from eventdb_event
+         where namespace_id = $1
+           and event_type = 'event.participant.registered'
+           and payload->'data'->>'passport_id' = $2
+         order by sequence desc`,
+        [namespaceId, passportId]
+      );
+      const seen = new Set();
+      for (const row of rows) {
+        const eventId = String(row?.data?.event_id || '').trim();
+        if (!eventId || seen.has(eventId)) continue;
+        seen.add(eventId);
+        joinedEventIds.push(eventId);
+      }
+    }
+
+    const joinedEvents = joinedEventIds
+      .map((eventId) => eventById.get(eventId))
+      .filter(Boolean);
+    const baseEvents = joinedEvents.length > 0 ? joinedEvents : publishedEvents;
+    const nowTs = Date.now();
+    const upcomingEvents = [...baseEvents]
+      .filter((item) => new Date(item.start_at || '').getTime() >= nowTs)
+      .sort((a, b) => new Date(a.start_at || 0).getTime() - new Date(b.start_at || 0).getTime())
+      .slice(0, 8);
+    const pastEvents = [...baseEvents]
+      .filter((item) => new Date(item.start_at || '').getTime() < nowTs)
+      .sort((a, b) => new Date(b.start_at || 0).getTime() - new Date(a.start_at || 0).getTime())
+      .slice(0, 8);
+
+    const cityCandidates = [
+      String(ownerRow?.city || '').trim(),
+      String(ownerRow?.address || '').trim(),
+      String(memberRow?.branch_id || '').trim()
+    ].filter(Boolean);
+    const locationSet = new Set(
+      baseEvents
+        .map((item) => String(item?.location || '').trim())
+        .filter(Boolean)
+    );
+    const profile = profileRow
+      ? {
+          tenant_id: tenantId,
+          passport_id: profileRow.passport_id || null,
+          member_id: profileRow.member_id || null,
+          full_name: memberRow?.full_name || null,
+          email: memberRow?.email || null,
+          phone: memberRow?.phone || null,
+          city: cityCandidates[0] || null,
+          account_slug: ownerRow?.account_slug || account,
+          sport_interests: Array.isArray(profileRow.sport_interests) ? profileRow.sport_interests : [],
+          coach_relation_count: Number(profileRow.coach_relation_count || 0),
+          studio_relation_count: Number(profileRow.studio_relation_count || 0),
+          performance_milestone_count: Number(profileRow.performance_milestone_count || 0),
+          updated_at: profileRow.updated_at || null
+        }
+      : null;
+
+    return ok(res, {
+      account,
+      tenant_id: tenantId,
+      owner_setup: ownerRow,
+      profile,
+      visibility,
+      events: {
+        upcoming: upcomingEvents,
+        past: pastEvents
+      },
+      stats: {
+        events_created: publishedEvents.length,
+        events_attended: joinedEventIds.length,
+        cities_active: Math.max(1, locationSet.size || (cityCandidates.length > 0 ? 1 : 0)),
+        collaborations: Number((profileRow?.coach_relation_count || 0)) + Number((profileRow?.studio_relation_count || 0))
+      }
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.get('/v1/passport/public-visibility', async (req, res, next) => {
+  try {
+    const tenantId = String(req.query.tenant_id || '').trim();
+    const passportId = String(req.query.passport_id || '').trim();
+    const account = String(req.query.account || '').trim().toLowerCase();
+    if (!tenantId) {
+      throw fail(400, 'TENANT_REQUIRED', 'tenant_id is required');
+    }
+    const visibility = await getLatestPassportVisibility({ tenantId, passportId, account });
+    return ok(res, { tenant_id: tenantId, passport_id: passportId || null, account: account || null, visibility });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.post('/v1/passport/public-visibility', async (req, res, next) => {
+  try {
+    const data = req.body || {};
+    const tenantId = String(data.tenant_id || '').trim();
+    if (!tenantId) {
+      throw fail(400, 'TENANT_REQUIRED', 'tenant_id is required');
+    }
+    const passportId = String(data.passport_id || '').trim() || null;
+    const account = String(data.account || '').trim().toLowerCase() || null;
+    if (!passportId && !account) {
+      throw fail(400, 'TARGET_REQUIRED', 'passport_id or account is required');
+    }
+    const visibility = normalizePassportPublicVisibility(data.visibility);
+    const event = await appendDomainEvent({
+      tenantId,
+      branchId: null,
+      actorId: data.actor_id || passportId || account || config.defaultActorId,
+      actorKind: 'member',
+      eventType: 'passport.public.visibility.updated',
+      subjectKind: 'passport_public_visibility',
+      subjectId: passportId || account,
+      data: {
+        tenant_id: tenantId,
+        passport_id: passportId,
+        account,
+        visibility,
+        updated_at: new Date().toISOString()
+      },
+      refs: {}
+    });
+    return ok(res, { event, tenant_id: tenantId, passport_id: passportId, account, visibility });
   } catch (error) {
     return next(error);
   }
@@ -1803,6 +2090,32 @@ app.post('/v1/admin/events/:eventId/participants/checkout', async (req, res, nex
       throw fail(400, 'BAD_REQUEST', 'participant identity is required');
     }
 
+    const namespaceId = resolveNamespaceId(tenantId);
+    const checkinParams = [namespaceId, eventId];
+    let checkinBranchFilter = '';
+    if (branchId) {
+      checkinParams.push(branchId);
+      checkinBranchFilter = ` and payload->'data'->>'branch_id' = $${checkinParams.length}`;
+    }
+    const { rows: checkedInRows } = await query(
+      `select payload->'data' as data
+       from eventdb_event
+       where namespace_id = $1
+         and event_type = 'event.participant.checked_in'
+         and payload->'data'->>'event_id' = $2
+         ${checkinBranchFilter}
+       order by sequence desc`,
+      checkinParams
+    );
+    const checkedInParticipantKeys = new Set();
+    for (const row of checkedInRows) {
+      const rowKey = participantIdentityKey(row?.data || {});
+      if (rowKey) checkedInParticipantKeys.add(rowKey);
+    }
+    if (!checkedInParticipantKeys.has(identityKey)) {
+      throw fail(400, 'PARTICIPANT_NOT_CHECKED_IN', 'participant must be checked in before checkout');
+    }
+
     const awardTopN = asPositiveInteger(latestEvent.award_top_n, 'award_top_n', 1);
     const rank = data.rank === undefined || data.rank === null || data.rank === ''
       ? null
@@ -1812,7 +2125,6 @@ app.post('/v1/admin/events/:eventId/participants/checkout', async (req, res, nex
     }
 
     if (rank !== null) {
-      const namespaceId = resolveNamespaceId(tenantId);
       const rankParams = [namespaceId, eventId];
       let rankBranchFilter = '';
       if (branchId) {
@@ -1910,6 +2222,7 @@ app.post('/v1/events/:eventId/register', async (req, res, next) => {
     }
 
     const registrationId = data.registration_id || `evr_${Date.now()}_${randomUUID().slice(0, 8)}`;
+    const participantNo = String(data.participant_no || '').trim() || buildParticipantNumber(eventId);
     const event = await appendDomainEvent({
       tenantId,
       branchId,
@@ -1923,6 +2236,7 @@ app.post('/v1/events/:eventId/register', async (req, res, next) => {
         branch_id: branchId,
         event_id: eventId,
         registration_id: registrationId,
+        participant_no: participantNo,
         passport_id: passportId || null,
         full_name: fullName || null,
         email: email || null,

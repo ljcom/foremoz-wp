@@ -155,6 +155,8 @@ export default function VerticalLandingPage() {
           <Link to="/active">Active</Link>
           <Link to="/learning">Learning</Link>
           <Link to="/arts">Arts</Link>
+          <Link to="/performance">Performance</Link>
+          <Link to="/tourism">Tourism</Link>
           <Link to="/signin">Sign in</Link>
         </nav>
       </header>

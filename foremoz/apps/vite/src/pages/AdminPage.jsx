@@ -1492,7 +1492,7 @@ export default function AdminPage() {
   }
 
   function getParticipantScanCode(participant, index = 0) {
-    const direct = String(participant?.registration_id || '').trim();
+    const direct = String(participant?.participant_no || participant?.registration_id || '').trim();
     if (direct) return direct;
     const eventKey = compactCode(editingEventId || 'EVT');
     const identityKey = compactCode(
@@ -1506,6 +1506,7 @@ export default function AdminPage() {
     if (!code) return [];
     return eventParticipants.filter((participant, index) => {
       const candidates = [
+        participant?.participant_no,
         participant?.registration_id,
         participant?.passport_id,
         participant?.email,

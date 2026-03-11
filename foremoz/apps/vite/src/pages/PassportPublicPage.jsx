@@ -25,10 +25,6 @@ function formatDateTime(value) {
 
 const verticalTabs = ['Active', 'Learning', 'Performance', 'Tourism'];
 
-function publicVisibilityKey(account) {
-  return `ff.passport.public-visibility.${account || 'member'}`;
-}
-
 function normalizePublicVisibility(raw) {
   return {
     allowPublicPublish: raw?.allowPublicPublish !== false,
@@ -76,69 +72,64 @@ function derivePrograms(events) {
 
 export default function PassportPublicPage() {
   const { account = 'member' } = useParams();
-  const [events, setEvents] = useState([]);
+  const [events, setEvents] = useState({ upcoming: [], past: [] });
+  const [profile, setProfile] = useState(null);
+  const [stats, setStats] = useState({
+    events_created: 0,
+    events_attended: 0,
+    cities_active: 1,
+    collaborations: 0
+  });
   const [loading, setLoading] = useState(false);
   const [activeVertical, setActiveVertical] = useState('Active');
   const [publicVisibility, setPublicVisibility] = useState(() => normalizePublicVisibility({}));
+  const [tenantScope, setTenantScope] = useState(null);
 
   useEffect(() => {
     let mounted = true;
-    async function loadEvents() {
+    async function loadPassport() {
       try {
         setLoading(true);
-        const result = await apiJson('/v1/read/events?status=published&limit=80');
-        const rows = Array.isArray(result.rows) ? result.rows : [];
+        const result = await apiJson(`/v1/public/passport?account=${encodeURIComponent(account)}`);
         if (!mounted) return;
-        setEvents(rows);
+        setProfile(result.profile || null);
+        setPublicVisibility(normalizePublicVisibility(result.visibility || {}));
+        setTenantScope(result.tenant_id || null);
+        setEvents({
+          upcoming: Array.isArray(result?.events?.upcoming) ? result.events.upcoming : [],
+          past: Array.isArray(result?.events?.past) ? result.events.past : []
+        });
+        setStats({
+          events_created: Number(result?.stats?.events_created || 0),
+          events_attended: Number(result?.stats?.events_attended || 0),
+          cities_active: Number(result?.stats?.cities_active || 1),
+          collaborations: Number(result?.stats?.collaborations || 0)
+        });
       } catch {
         if (!mounted) return;
-        setEvents([]);
+        setProfile(null);
+        setPublicVisibility(normalizePublicVisibility({}));
+        setTenantScope(null);
+        setEvents({ upcoming: [], past: [] });
       } finally {
         if (mounted) setLoading(false);
       }
     }
-    loadEvents();
+    loadPassport();
     return () => {
       mounted = false;
     };
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    try {
-      const raw = JSON.parse(localStorage.getItem(publicVisibilityKey(account)) || '{}');
-      setPublicVisibility(normalizePublicVisibility(raw));
-    } catch {
-      setPublicVisibility(normalizePublicVisibility({}));
-    }
   }, [account]);
 
-  const now = Date.now();
-  const upcoming = useMemo(
-    () =>
-      [...events]
-        .filter((item) => new Date(item.start_at || '').getTime() >= now)
-        .sort((a, b) => new Date(a.start_at || 0).getTime() - new Date(b.start_at || 0).getTime())
-        .slice(0, 6),
-    [events, now]
-  );
-  const history = useMemo(
-    () =>
-      [...events]
-        .filter((item) => new Date(item.start_at || '').getTime() < now)
-        .sort((a, b) => new Date(b.start_at || 0).getTime() - new Date(a.start_at || 0).getTime())
-        .slice(0, 6),
-    [events, now]
-  );
+  const upcoming = useMemo(() => (Array.isArray(events?.upcoming) ? events.upcoming : []), [events]);
+  const history = useMemo(() => (Array.isArray(events?.past) ? events.past : []), [events]);
 
-  const name = titleFromAccount(account);
+  const name = String(profile?.full_name || '').trim() || titleFromAccount(account);
   const seed = hashInt(account);
-  const capabilities = deriveCapabilities(events);
-  const programs = derivePrograms(events);
-  const followers = 1000 + (seed % 9000);
-  const eventsCreated = 20 + (seed % 60);
-  const eventsAttended = 50 + (seed % 250);
-  const locations = [...new Set(events.map((item) => String(item.location || '').trim()).filter(Boolean))];
+  const mergedEvents = [...upcoming, ...history];
+  const capabilities = deriveCapabilities(mergedEvents);
+  const programs = derivePrograms(mergedEvents);
+  const locations = [...new Set(mergedEvents.map((item) => String(item.location || '').trim()).filter(Boolean))];
 
   return (
     <main className="landing">
@@ -158,16 +149,16 @@ export default function PassportPublicPage() {
         />
         <div>
           <h1>{name}</h1>
-          <p className="sub">Creator | Learning | Active</p>
-          <p className="sub">Jakarta</p>
+          <p className="sub">{capabilities.slice(0, 3).join(' | ') || 'Member'}</p>
+          <p className="sub">{profile?.city || '-'}</p>
           <div className="row-actions">
-            <span className="passport-verified">Verified</span>
+            {profile?.passport_id ? <span className="passport-verified">Verified</span> : null}
             <button className="btn" type="button">Follow</button>
           </div>
           <div className="passport-public-stats">
-            <span>Events created: {eventsCreated}</span>
-            <span>Events attended: {eventsAttended}</span>
-            <span>Followers: {(followers / 1000).toFixed(1)}K</span>
+            <span>Events created: {stats.events_created}</span>
+            <span>Events attended: {stats.events_attended}</span>
+            <span>Tenant: {tenantScope || '-'}</span>
           </div>
         </div>
       </section>
@@ -246,11 +237,11 @@ export default function PassportPublicPage() {
         <section className="card">
           <h2>Past Events</h2>
           <div className="entity-list">
-            {history.map((item, idx) => (
+            {history.map((item) => (
               <div key={item.event_id} className="entity-row">
                 <div>
                   <strong>{item.event_name || '-'}</strong>
-                  <p>{80 + ((seed + idx * 13) % 150)} participants</p>
+                  <p>{formatDateTime(item.start_at)}</p>
                 </div>
               </div>
             ))}
@@ -265,10 +256,9 @@ export default function PassportPublicPage() {
             <article className="card">
               <h2>Reputation / Achievements</h2>
               <div className="passport-badge-list">
-                <span className="passport-chip">100 Events Completed</span>
-                <span className="passport-chip">Trusted Host</span>
-                <span className="passport-chip">Community Favorite</span>
-                <span className="passport-chip">Top Coach in Jakarta</span>
+                <span className="passport-chip">Milestones: {Number(profile?.performance_milestone_count || 0)}</span>
+                <span className="passport-chip">Coach relations: {Number(profile?.coach_relation_count || 0)}</span>
+                <span className="passport-chip">Studio relations: {Number(profile?.studio_relation_count || 0)}</span>
               </div>
             </article>
           ) : null}
@@ -331,19 +321,19 @@ export default function PassportPublicPage() {
         <section className="stats-grid">
           <article className="stat">
             <p>Events created</p>
-            <h3>{eventsCreated}</h3>
+            <h3>{stats.events_created}</h3>
           </article>
           <article className="stat">
             <p>Events attended</p>
-            <h3>{eventsAttended}</h3>
+            <h3>{stats.events_attended}</h3>
           </article>
           <article className="stat">
             <p>Cities active</p>
-            <h3>{Math.max(1, Math.min(4, locations.length || 1))}</h3>
+            <h3>{Math.max(1, Number(stats.cities_active || locations.length || 1))}</h3>
           </article>
           <article className="stat">
             <p>Collaborations</p>
-            <h3>{12 + (seed % 20)}</h3>
+            <h3>{Number(stats.collaborations || 0)}</h3>
           </article>
         </section>
       ) : null}

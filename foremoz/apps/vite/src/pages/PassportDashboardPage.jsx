@@ -17,10 +17,6 @@ function profilePrefsKey(passportId) {
   return `ff.passport.profile-prefs.${passportId || 'unknown'}`;
 }
 
-function publicVisibilityKey(account) {
-  return `ff.passport.public-visibility.${account || 'member'}`;
-}
-
 function normalizePublicVisibility(raw) {
   return {
     allowPublicPublish: raw?.allowPublicPublish !== false,
@@ -59,6 +55,7 @@ export default function PassportDashboardPage() {
   const [memberStatus, setMemberStatus] = useState('');
   const [avatarDataUrl, setAvatarDataUrl] = useState('');
   const [publicVisibility, setPublicVisibility] = useState(() => normalizePublicVisibility({}));
+  const [publicVisibilityHydrated, setPublicVisibilityHydrated] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -69,7 +66,8 @@ export default function PassportDashboardPage() {
           method: 'POST',
           body: JSON.stringify({ tenant_id: tenantId })
         });
-        const [profileRes, subsRes, perfRes, consentRes, planRes, registrationRes, eventRes, scoreRes] = await Promise.all([
+        const publicAccount = session?.tenant?.account_slug || session?.tenant?.id || passportId || 'member';
+        const [profileRes, subsRes, perfRes, consentRes, planRes, registrationRes, eventRes, scoreRes, visibilityRes] = await Promise.all([
           passportApiJson(`/v1/passport/profile?tenant_id=${encodeURIComponent(tenantId)}&passport_id=${encodeURIComponent(passportId)}`),
           passportApiJson(`/v1/read/subscriptions?tenant_id=${encodeURIComponent(tenantId)}`),
           passportApiJson(`/v1/read/performance?tenant_id=${encodeURIComponent(tenantId)}`),
@@ -85,7 +83,12 @@ export default function PassportDashboardPage() {
             `/v1/read/passport-event-scores?passport_id=${encodeURIComponent(passportId)}&email=${encodeURIComponent(
               String(session?.user?.email || '')
             )}&limit=400`
-          ).catch(() => ({ rows: [] }))
+          ).catch(() => ({ rows: [] })),
+          apiJson(
+            `/v1/passport/public-visibility?tenant_id=${encodeURIComponent(tenantId)}&passport_id=${encodeURIComponent(
+              passportId
+            )}&account=${encodeURIComponent(publicAccount)}`
+          ).catch(() => ({ visibility: normalizePublicVisibility({}) }))
         ]);
         const profileItem = profileRes.item || null;
         setProfile(profileItem);
@@ -110,6 +113,8 @@ export default function PassportDashboardPage() {
           ])
         );
         setEventScoresByEventId(scoreMap);
+        setPublicVisibility(normalizePublicVisibility(visibilityRes?.visibility || {}));
+        setPublicVisibilityHydrated(true);
         setApiStatus('ok');
       } catch (error) {
         setApiStatus('error');
@@ -244,19 +249,17 @@ export default function PassportDashboardPage() {
   const publicAccount = session?.tenant?.account_slug || session?.tenant?.id || passportId || 'member';
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    try {
-      const raw = JSON.parse(localStorage.getItem(publicVisibilityKey(publicAccount)) || '{}');
-      setPublicVisibility(normalizePublicVisibility(raw));
-    } catch {
-      setPublicVisibility(normalizePublicVisibility({}));
-    }
-  }, [publicAccount]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    localStorage.setItem(publicVisibilityKey(publicAccount), JSON.stringify(publicVisibility));
-  }, [publicAccount, publicVisibility]);
+    if (!publicVisibilityHydrated || !tenantId || (!passportId && !publicAccount)) return;
+    apiJson('/v1/passport/public-visibility', {
+      method: 'POST',
+      body: JSON.stringify({
+        tenant_id: tenantId,
+        passport_id: passportId || null,
+        account: publicAccount,
+        visibility: publicVisibility
+      })
+    }).catch(() => {});
+  }, [publicVisibilityHydrated, tenantId, passportId, publicAccount, publicVisibility]);
 
   return (
     <main className="dashboard">

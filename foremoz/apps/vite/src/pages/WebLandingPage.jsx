@@ -61,6 +61,8 @@ export default function WebLandingPage() {
           <Link to="/active">Active</Link>
           <Link to="/learning">Learning</Link>
           <Link to="/arts">Arts</Link>
+          <Link to="/performance">Performance</Link>
+          <Link to="/tourism">Tourism</Link>
           {isMockupOpenAccess ? (
             <Link className="btn small" to="/signup">
               Admin signup

@@ -1,0 +1,105 @@
+{
+  "version": "1.0.0",
+  "platform_model": {
+    "core_objects": ["event", "class", "product"],
+    "universal_primitives": ["creator", "experience", "participant", "offering", "transaction"],
+    "universal_structure": ["creator", "experience", "participant", "transaction"],
+    "experience_aliases": ["event", "class", "session", "tour", "performance", "workshop"],
+    "offering_aliases": ["ticket", "membership", "package", "merchandise", "program"]
+  },
+  "vertical_differentiators": [
+    "vocabulary",
+    "duration_model",
+    "participation_pattern",
+    "monetization_pattern"
+  ],
+  "verticals": {
+    "active": {
+      "label": "Active",
+      "vocabulary": {
+        "creator": "Coach",
+        "participant": "Member",
+        "experience": "Session",
+        "place": "Studio"
+      },
+      "duration_model": "30-90 min",
+      "participation_pattern": "small group / recurring",
+      "monetization_pattern": "class fee / membership",
+      "experience_types": ["class", "session", "training", "bootcamp"],
+      "offering_examples": ["10 class pass", "monthly membership"]
+    },
+    "learning": {
+      "label": "Learning",
+      "vocabulary": {
+        "creator": "Instructor",
+        "participant": "Student",
+        "experience": "Workshop",
+        "place": "Classroom"
+      },
+      "duration_model": "hours / days",
+      "participation_pattern": "cohort / batch",
+      "monetization_pattern": "course fee",
+      "experience_types": ["workshop", "course", "seminar", "cohort"],
+      "offering_examples": ["course bundle", "certificate program"]
+    },
+    "performance": {
+      "label": "Performance",
+      "vocabulary": {
+        "creator": "Performer",
+        "participant": "Audience",
+        "experience": "Show",
+        "place": "Venue"
+      },
+      "duration_model": "fixed show time",
+      "participation_pattern": "large audience",
+      "monetization_pattern": "ticket",
+      "experience_types": ["concert", "show", "festival", "gig"],
+      "offering_examples": ["VIP ticket", "backstage pass"]
+    },
+    "arts": {
+      "label": "Arts",
+      "vocabulary": {
+        "creator": "Artist",
+        "participant": "Audience",
+        "experience": "Exhibition",
+        "place": "Gallery"
+      },
+      "duration_model": "exhibition period",
+      "participation_pattern": "walk-in",
+      "monetization_pattern": "ticket / artwork sale",
+      "experience_types": ["exhibition", "opening", "gallery event"],
+      "offering_examples": ["ticket", "artwork sale"]
+    },
+    "tourism": {
+      "label": "Tourism",
+      "vocabulary": {
+        "creator": "Guide",
+        "participant": "Traveler",
+        "experience": "Tour",
+        "place": "Location"
+      },
+      "duration_model": "half day / multi-day",
+      "participation_pattern": "group itinerary",
+      "monetization_pattern": "package",
+      "experience_types": ["tour", "trip", "experience", "itinerary"],
+      "offering_examples": ["tour package", "multi-day package"]
+    }
+  },
+  "engines": [
+    "identity_engine",
+    "event_engine",
+    "participation_engine",
+    "transaction_engine",
+    "reputation_engine"
+  ],
+  "implementation_notes": {
+    "vertical_is": "configuration + vocabulary",
+    "core_engine_is_shared": true,
+    "recommended_dimension": {
+      "experience_type_examples": ["class", "workshop", "show", "tour", "exhibition"],
+      "vertical_examples": ["ACTIVE", "LEARNING", "PERFORMANCE", "ARTS", "TOURISM"]
+    }
+  },
+  "creator_growth_pattern": ["creator", "event", "participant", "repeat", "community"],
+  "whitepaper_line": "Although the vocabulary differs across industries, the underlying structure of experience creation remains consistent. All verticals operate on the same core primitives: creators, experiences, participants, and offerings."
+}
