@@ -1675,12 +1675,30 @@ app.get('/v1/admin/events/:eventId/participants', async (req, res, next) => {
       params
     );
 
+    const { rows: checkinRows } = await query(
+      `select payload->'data' as data
+       from eventdb_event
+       where namespace_id = $1
+         and event_type = 'event.participant.checked_in'
+         and payload->'data'->>'event_id' = $2
+         ${branchFilter}
+       order by sequence desc`,
+      params
+    );
+
     const checkoutByParticipantKey = new Map();
     for (const row of checkoutRows) {
       const data = row?.data || {};
       const key = participantIdentityKey(data);
       if (!key || checkoutByParticipantKey.has(key)) continue;
       checkoutByParticipantKey.set(key, data);
+    }
+    const checkinByParticipantKey = new Map();
+    for (const row of checkinRows) {
+      const data = row?.data || {};
+      const key = participantIdentityKey(data);
+      if (!key || checkinByParticipantKey.has(key)) continue;
+      checkinByParticipantKey.set(key, data);
     }
 
     const deduped = [];
@@ -1690,9 +1708,11 @@ app.get('/v1/admin/events/:eventId/participants', async (req, res, next) => {
       const key = participantIdentityKey(data);
       if (!key || seen.has(key)) continue;
       seen.add(key);
+      const checkinData = checkinByParticipantKey.get(key);
       const checkoutData = checkoutByParticipantKey.get(key);
       deduped.push({
         ...data,
+        checked_in_at: checkinData?.checked_in_at || null,
         checked_out_at: checkoutData?.checked_out_at || null,
         rank: checkoutData?.rank ?? null,
         score_points: Number(checkoutData?.score_points || 0)
@@ -1701,6 +1721,56 @@ app.get('/v1/admin/events/:eventId/participants', async (req, res, next) => {
     }
 
     return ok(res, { rows: deduped, event_id: eventId, limit });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.post('/v1/admin/events/:eventId/participants/checkin', async (req, res, next) => {
+  try {
+    const data = req.body || {};
+    const eventId = required(req.params.eventId, 'eventId');
+    const tenantId = data.tenant_id || config.defaultTenantId;
+    const latestEvent = await getLatestEntityDataByEventTypes(
+      tenantId,
+      'event_id',
+      eventId,
+      ['event.created', 'event.updated']
+    );
+    if (!latestEvent) {
+      throw fail(404, 'EVENT_NOT_FOUND', `event ${eventId} not found`);
+    }
+
+    const branchId = data.branch_id || latestEvent.branch_id || null;
+    const passportId = String(data.passport_id || '').trim();
+    const email = String(data.email || '').trim().toLowerCase();
+    const registrationId = String(data.registration_id || '').trim();
+    if (!passportId && !email && !registrationId) {
+      throw fail(400, 'BAD_REQUEST', 'registration_id or passport_id or email is required');
+    }
+    const checkinId = data.checkin_id || `evci_${Date.now()}_${randomUUID().slice(0, 8)}`;
+    const event = await appendDomainEvent({
+      tenantId,
+      branchId,
+      actorId: data.actor_id || config.defaultActorId,
+      eventType: 'event.participant.checked_in',
+      subjectKind: 'event_checkin',
+      subjectId: checkinId,
+      data: {
+        tenant_id: tenantId,
+        branch_id: branchId,
+        event_id: eventId,
+        checkin_id: checkinId,
+        registration_id: registrationId || null,
+        passport_id: passportId || null,
+        email: email || null,
+        full_name: data.full_name || null,
+        checked_in_at: data.checked_in_at || new Date().toISOString()
+      },
+      refs: {}
+    });
+
+    return created(res, { event, event_id: eventId, checkin_id: checkinId });
   } catch (error) {
     return next(error);
   }

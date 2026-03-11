@@ -420,7 +420,8 @@ export default function AdminPage() {
   const [eventParticipants, setEventParticipants] = useState([]);
   const [eventParticipantsLoading, setEventParticipantsLoading] = useState(false);
   const [eventEditTab, setEventEditTab] = useState('general');
-  const [eventCheckinMap, setEventCheckinMap] = useState(() => loadMap('event-checkins', accountSlug, {}));
+  const [eventCheckinMap, setEventCheckinMap] = useState({});
+  const [eventCheckinSavingMap, setEventCheckinSavingMap] = useState({});
   const [eventCheckoutMap, setEventCheckoutMap] = useState({});
   const [eventCheckoutRankMap, setEventCheckoutRankMap] = useState({});
   const [eventCheckoutSavingMap, setEventCheckoutSavingMap] = useState({});
@@ -488,11 +489,6 @@ export default function AdminPage() {
     if (typeof window === 'undefined') return;
     localStorage.setItem(getStorageKey('sales-enabled', accountSlug), JSON.stringify(salesEnabledMap));
   }, [accountSlug, salesEnabledMap]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    localStorage.setItem(getStorageKey('event-checkins', accountSlug), JSON.stringify(eventCheckinMap));
-  }, [accountSlug, eventCheckinMap]);
 
   async function loadUsers() {
     try {
@@ -1353,6 +1349,8 @@ export default function AdminPage() {
     setEventEditTab('general');
     setEventCheckinSearch('');
     setEventCheckinBarcode('');
+    setEventCheckinMap({});
+    setEventCheckinSavingMap({});
     setEventCheckoutMap({});
     setEventCheckoutRankMap({});
     setEventCheckoutSavingMap({});
@@ -1361,6 +1359,7 @@ export default function AdminPage() {
       loadEventParticipants(item.event_id);
     } else {
       setEventParticipants([]);
+      setEventCheckinMap({});
       setEventCheckoutMap({});
       setEventCheckoutRankMap({});
     }
@@ -1374,6 +1373,8 @@ export default function AdminPage() {
     setEventEditTab('general');
     setEventCheckinSearch('');
     setEventCheckinBarcode('');
+    setEventCheckinMap({});
+    setEventCheckinSavingMap({});
     setEventCheckoutMap({});
     setEventCheckoutRankMap({});
     setEventCheckoutSavingMap({});
@@ -1383,6 +1384,7 @@ export default function AdminPage() {
   async function loadEventParticipants(eventId) {
     if (!eventId) {
       setEventParticipants([]);
+      setEventCheckinMap({});
       setEventCheckoutMap({});
       setEventCheckoutRankMap({});
       return;
@@ -1394,6 +1396,14 @@ export default function AdminPage() {
       );
       const rows = Array.isArray(result.rows) ? result.rows : [];
       setEventParticipants(rows);
+      setEventCheckinMap(() => {
+        const next = {};
+        rows.forEach((participant, index) => {
+          const key = getParticipantCheckinKey(participant, index, eventId);
+          if (participant?.checked_in_at) next[key] = true;
+        });
+        return next;
+      });
       setEventCheckoutMap(() => {
         const next = {};
         rows.forEach((participant, index) => {
@@ -1414,6 +1424,7 @@ export default function AdminPage() {
       });
     } catch (error) {
       setEventParticipants([]);
+      setEventCheckinMap({});
       setEventCheckoutMap({});
       setEventCheckoutRankMap({});
       setFeedback(error.message);
@@ -1516,10 +1527,38 @@ export default function AdminPage() {
       return;
     }
     const participant = matches[0];
-    const key = getParticipantCheckinKey(participant);
-    setEventCheckinMap((prev) => ({ ...prev, [key]: true }));
-    setFeedback(`checkin.success: ${participant.full_name || participant.email || participant.passport_id || '-'}`);
-    setEventCheckinBarcode('');
+    checkinParticipant(participant, getParticipantCheckinKey(participant));
+  }
+
+  async function checkinParticipant(participant, keyOverride = '') {
+    if (!editingEventId) return;
+    const key = keyOverride || getParticipantCheckinKey(participant);
+    try {
+      setEventCheckinSavingMap((prev) => ({ ...prev, [key]: true }));
+      await apiJson(`/v1/admin/events/${encodeURIComponent(editingEventId)}/participants/checkin`, {
+        method: 'POST',
+        body: JSON.stringify({
+          tenant_id: tenantId,
+          branch_id: branchId,
+          registration_id: participant?.registration_id || null,
+          passport_id: participant?.passport_id || null,
+          email: participant?.email || null,
+          full_name: participant?.full_name || null
+        })
+      });
+      setEventCheckinMap((prev) => ({ ...prev, [key]: true }));
+      setFeedback(`checkin.success: ${participant?.full_name || participant?.email || participant?.passport_id || '-'}`);
+      setEventCheckinBarcode('');
+      await loadEventParticipants(editingEventId);
+    } catch (error) {
+      setFeedback(error.message);
+    } finally {
+      setEventCheckinSavingMap((prev) => {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
+    }
   }
 
   async function checkoutParticipant(row) {
@@ -2238,6 +2277,7 @@ export default function AdminPage() {
                               {filteredEventCheckinParticipants.map((participant, index) => {
                                 const checkinKey = getParticipantCheckinKey(participant, index);
                                 const isCheckedIn = Boolean(eventCheckinMap[checkinKey]);
+                                const checkinSaving = Boolean(eventCheckinSavingMap[checkinKey]);
                                 return (
                                   <div className="entity-row" key={checkinKey}>
                                     <div>
@@ -2248,26 +2288,10 @@ export default function AdminPage() {
                                     <button
                                       className="btn ghost small"
                                       type="button"
-                                      onClick={() => {
-                                        setEventCheckinMap((prev) => ({
-                                          ...prev,
-                                          [checkinKey]: !isCheckedIn
-                                        }));
-                                        if (isCheckedIn) {
-                                          setEventCheckoutMap((prev) => {
-                                            const next = { ...prev };
-                                            delete next[checkinKey];
-                                            return next;
-                                          });
-                                          setEventCheckoutRankMap((prev) => {
-                                            const next = { ...prev };
-                                            delete next[checkinKey];
-                                            return next;
-                                          });
-                                        }
-                                      }}
+                                      disabled={checkinSaving}
+                                      onClick={() => checkinParticipant(participant, checkinKey)}
                                     >
-                                      {isCheckedIn ? 'Undo check in' : 'Check in'}
+                                      {checkinSaving ? 'Saving...' : isCheckedIn ? 'Update check in' : 'Check in'}
                                     </button>
                                   </div>
                                 );
