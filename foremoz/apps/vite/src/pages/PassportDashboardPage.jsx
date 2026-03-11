@@ -52,6 +52,7 @@ export default function PassportDashboardPage() {
   const [profile, setProfile] = useState(null);
   const [planCode, setPlanCode] = useState('free');
   const [joinedEvents, setJoinedEvents] = useState([]);
+  const [eventScoresByEventId, setEventScoresByEventId] = useState({});
   const [eventTab, setEventTab] = useState('upcoming');
   const [statusInput, setStatusInput] = useState('');
   const [socialPosts, setSocialPosts] = useState([]);
@@ -68,7 +69,7 @@ export default function PassportDashboardPage() {
           method: 'POST',
           body: JSON.stringify({ tenant_id: tenantId })
         });
-        const [profileRes, subsRes, perfRes, consentRes, planRes, registrationRes, eventRes] = await Promise.all([
+        const [profileRes, subsRes, perfRes, consentRes, planRes, registrationRes, eventRes, scoreRes] = await Promise.all([
           passportApiJson(`/v1/passport/profile?tenant_id=${encodeURIComponent(tenantId)}&passport_id=${encodeURIComponent(passportId)}`),
           passportApiJson(`/v1/read/subscriptions?tenant_id=${encodeURIComponent(tenantId)}`),
           passportApiJson(`/v1/read/performance?tenant_id=${encodeURIComponent(tenantId)}`),
@@ -79,7 +80,12 @@ export default function PassportDashboardPage() {
               String(session?.user?.email || '')
             )}&limit=400`
           ).catch(() => ({ event_ids: [] })),
-          apiJson('/v1/read/events?status=all&limit=400').catch(() => ({ rows: [] }))
+          apiJson('/v1/read/events?status=all&limit=400').catch(() => ({ rows: [] })),
+          apiJson(
+            `/v1/read/passport-event-scores?passport_id=${encodeURIComponent(passportId)}&email=${encodeURIComponent(
+              String(session?.user?.email || '')
+            )}&limit=400`
+          ).catch(() => ({ rows: [] }))
         ]);
         const profileItem = profileRes.item || null;
         setProfile(profileItem);
@@ -92,6 +98,18 @@ export default function PassportDashboardPage() {
         const rows = Array.isArray(eventRes.rows) ? eventRes.rows : [];
         const joinedRows = rows.filter((item) => joinedEventIds.includes(String(item.event_id || '')));
         setJoinedEvents(joinedRows);
+        const scoreRows = Array.isArray(scoreRes.rows) ? scoreRes.rows : [];
+        const scoreMap = Object.fromEntries(
+          scoreRows.map((item) => [
+            String(item?.event_id || ''),
+            {
+              rank: item?.rank ?? null,
+              score_points: Number(item?.score_points || 0),
+              checked_out_at: item?.checked_out_at || null
+            }
+          ])
+        );
+        setEventScoresByEventId(scoreMap);
         setApiStatus('ok');
       } catch (error) {
         setApiStatus('error');
@@ -517,6 +535,10 @@ export default function PassportDashboardPage() {
                   <strong>{row.event_name || '-'}</strong>
                   <p>Selesai/berlalu: {row.start_at ? new Date(row.start_at).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' }) : '-'}</p>
                   <p>Durasi: {Number(row.duration_minutes || 60)} menit</p>
+                  {eventScoresByEventId[String(row.event_id || '')]?.rank !== null && eventScoresByEventId[String(row.event_id || '')]?.rank !== undefined ? (
+                    <p>Rank: #{eventScoresByEventId[String(row.event_id || '')].rank}</p>
+                  ) : null}
+                  <p>Score: {Number(eventScoresByEventId[String(row.event_id || '')]?.score_points || 0)}</p>
                 </div>
               </div>
             ))}

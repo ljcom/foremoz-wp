@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { accountPath, apiJson, getAccountSlug, getSession, getAdminTabsByPlan, getAllowedEnvironments } from '../lib.js';
+import { accountPath, apiJson, getAccountSlug, getSession, getAdminTabsByPlan, getAllowedEnvironments, getSessionPackagePlan } from '../lib.js';
 
 const ADMIN_TABS = [
   // { id: 'user', label: 'User' },
@@ -35,6 +35,9 @@ function createEmptyEventForm() {
     location: '',
     image_url: '',
     description: '',
+    categories_text: '',
+    award_scopes: ['overall'],
+    award_top_n: '1',
     gallery_images_text: '',
     schedule_items_text: '',
     start_at: '',
@@ -191,6 +194,50 @@ function normalizeScheduleItemsForPayload(text) {
     const [time = '', title = '', note = ''] = line.split('|').map((part) => part.trim());
     return { time, title, note };
   });
+}
+
+function normalizeEventCategoriesForPayload(text) {
+  return [...new Set(
+    String(text || '')
+      .split(/\n|,/)
+      .map((item) => item.trim())
+      .filter(Boolean)
+  )];
+}
+
+function normalizeEventAwardScopes(value, fallback = ['overall']) {
+  const allowed = new Set(['overall', 'category']);
+  const source = Array.isArray(value)
+    ? value
+    : value === undefined || value === null || value === ''
+      ? fallback
+      : [value];
+  const normalized = [...new Set(
+    source
+      .map((item) => String(item || '').trim().toLowerCase())
+      .filter((item) => allowed.has(item))
+  )];
+  if (normalized.length > 0) return normalized;
+  const fallbackNormalized = [...new Set(
+    (Array.isArray(fallback) ? fallback : [fallback])
+      .map((item) => String(item || '').trim().toLowerCase())
+      .filter((item) => allowed.has(item))
+  )];
+  return fallbackNormalized.length > 0 ? fallbackNormalized : ['overall'];
+}
+
+function formatEventAwardScopes(value) {
+  const scopes = normalizeEventAwardScopes(value, ['overall']);
+  const labels = [];
+  if (scopes.includes('overall')) labels.push('Overall');
+  if (scopes.includes('category')) labels.push('Per kategori');
+  return labels.join(', ') || 'Overall';
+}
+
+function normalizeAwardTopN(value, fallback = 1) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) return Math.max(1, Number(fallback) || 1);
+  return Math.max(1, Math.floor(parsed));
 }
 
 function parseTrainerTokens(value) {
@@ -374,6 +421,9 @@ export default function AdminPage() {
   const [eventParticipantsLoading, setEventParticipantsLoading] = useState(false);
   const [eventEditTab, setEventEditTab] = useState('general');
   const [eventCheckinMap, setEventCheckinMap] = useState(() => loadMap('event-checkins', accountSlug, {}));
+  const [eventCheckoutMap, setEventCheckoutMap] = useState({});
+  const [eventCheckoutRankMap, setEventCheckoutRankMap] = useState({});
+  const [eventCheckoutSavingMap, setEventCheckoutSavingMap] = useState({});
   const [eventCheckinSearch, setEventCheckinSearch] = useState('');
   const [eventCheckinBarcode, setEventCheckinBarcode] = useState('');
 
@@ -486,6 +536,9 @@ export default function AdminPage() {
           location: item.location || '',
           image_url: item.image_url || '',
           description: item.description || '',
+          event_categories: Array.isArray(item.event_categories) ? item.event_categories : [],
+          award_scopes: normalizeEventAwardScopes(item.award_scopes ?? item.award_scope, ['overall']),
+          award_top_n: String(normalizeAwardTopN(item.award_top_n, 1)),
           gallery_images: Array.isArray(item.gallery_images) ? item.gallery_images : [],
           schedule_items: Array.isArray(item.schedule_items) ? item.schedule_items : [],
           start_at: item.start_at || '',
@@ -612,6 +665,12 @@ export default function AdminPage() {
   const allowedEnv = useMemo(() => {
     return getAllowedEnvironments(session, role);
   }, [session, role]);
+  const packagePlan = getSessionPackagePlan(session);
+  const isFreePlan = packagePlan === 'free';
+  const isCsView = role === 'cs';
+  const dashboardTitle = isCsView ? 'Setup' : 'Admin';
+  const dashboardSubtitle = isCsView ? 'Tenant setup panel' : 'Tenant administration panel';
+  const dashboardMenuLabel = isCsView ? 'Setup Menu' : 'Admin Menu';
   const enabledAdminTabIds = useMemo(() => getAdminTabsByPlan(session), [session]);
   const visibleAdminTabs = useMemo(
     () => ADMIN_TABS.filter((tab) => enabledAdminTabIds.includes(tab.id)),
@@ -763,6 +822,17 @@ export default function AdminPage() {
       return haystack.includes(q);
     });
   }, [eventParticipants, eventCheckinSearch]);
+  const checkoutReadyParticipants = useMemo(
+    () => {
+      return eventParticipants
+        .map((participant, index) => {
+          const key = getParticipantCheckinKey(participant, index);
+          return { participant, index, key };
+        })
+        .filter((row) => Boolean(eventCheckinMap[row.key] || eventCheckoutMap[row.key]));
+    },
+    [eventParticipants, eventCheckinMap, eventCheckoutMap]
+  );
   const editingEvent = events.find((item) => String(item.event_id || '') === String(editingEventId || ''));
   const isEditingEventPublished = isPublishedStatus(editingEvent?.status);
 
@@ -1221,6 +1291,10 @@ export default function AdminPage() {
     }
     try {
       setEventSaving(true);
+      const awardScopes = isFreePlan
+        ? ['overall']
+        : normalizeEventAwardScopes(eventForm.award_scopes, ['overall']);
+      const awardTopN = isFreePlan ? 1 : normalizeAwardTopN(eventForm.award_top_n, 1);
       const method = editingEventId ? 'PATCH' : 'POST';
       const endpoint = editingEventId
         ? `/v1/admin/events/${encodeURIComponent(editingEventId)}`
@@ -1234,6 +1308,10 @@ export default function AdminPage() {
           location: eventForm.location || null,
           image_url: eventForm.image_url || null,
           description: eventForm.description || null,
+          event_categories: normalizeEventCategoriesForPayload(eventForm.categories_text),
+          award_scopes: awardScopes,
+          award_scope: awardScopes[0] || 'overall',
+          award_top_n: awardTopN,
           gallery_images: normalizeGalleryImagesForPayload(eventForm.gallery_images_text),
           schedule_items: normalizeScheduleItemsForPayload(eventForm.schedule_items_text),
           start_at: startAtIso,
@@ -1261,6 +1339,9 @@ export default function AdminPage() {
       location: item.location || '',
       image_url: item.image_url || '',
       description: item.description || '',
+      categories_text: Array.isArray(item.event_categories) ? item.event_categories.join(', ') : '',
+      award_scopes: normalizeEventAwardScopes(item.award_scopes ?? item.award_scope, ['overall']),
+      award_top_n: String(normalizeAwardTopN(item.award_top_n, 1)),
       gallery_images_text: Array.isArray(item.gallery_images) ? item.gallery_images.join('\n') : '',
       schedule_items_text: scheduleItemsToText(item.schedule_items),
       start_at: toInputDatetime(item.start_at || ''),
@@ -1272,11 +1353,16 @@ export default function AdminPage() {
     setEventEditTab('general');
     setEventCheckinSearch('');
     setEventCheckinBarcode('');
+    setEventCheckoutMap({});
+    setEventCheckoutRankMap({});
+    setEventCheckoutSavingMap({});
     setEventMode('add');
     if (item?.event_id) {
       loadEventParticipants(item.event_id);
     } else {
       setEventParticipants([]);
+      setEventCheckoutMap({});
+      setEventCheckoutRankMap({});
     }
   }
 
@@ -1288,12 +1374,17 @@ export default function AdminPage() {
     setEventEditTab('general');
     setEventCheckinSearch('');
     setEventCheckinBarcode('');
+    setEventCheckoutMap({});
+    setEventCheckoutRankMap({});
+    setEventCheckoutSavingMap({});
     setEventMode('add');
   }
 
   async function loadEventParticipants(eventId) {
     if (!eventId) {
       setEventParticipants([]);
+      setEventCheckoutMap({});
+      setEventCheckoutRankMap({});
       return;
     }
     try {
@@ -1303,8 +1394,28 @@ export default function AdminPage() {
       );
       const rows = Array.isArray(result.rows) ? result.rows : [];
       setEventParticipants(rows);
+      setEventCheckoutMap(() => {
+        const next = {};
+        rows.forEach((participant, index) => {
+          const key = getParticipantCheckinKey(participant, index, eventId);
+          if (participant?.checked_out_at) next[key] = true;
+        });
+        return next;
+      });
+      setEventCheckoutRankMap(() => {
+        const next = {};
+        rows.forEach((participant, index) => {
+          const key = getParticipantCheckinKey(participant, index, eventId);
+          if (participant?.rank !== undefined && participant?.rank !== null && participant?.rank !== '') {
+            next[key] = String(participant.rank);
+          }
+        });
+        return next;
+      });
     } catch (error) {
       setEventParticipants([]);
+      setEventCheckoutMap({});
+      setEventCheckoutRankMap({});
       setFeedback(error.message);
     } finally {
       setEventParticipantsLoading(false);
@@ -1360,13 +1471,13 @@ export default function AdminPage() {
     setFeedback(`event.participants: ${item?.event_name || item?.event_id || '-'}`);
   }
 
-  function getParticipantCheckinKey(participant, index = 0) {
+  function getParticipantCheckinKey(participant, index = 0, eventIdOverride = '') {
     const participantKey =
       String(participant?.registration_id || '').trim() ||
       String(participant?.passport_id || '').trim() ||
       String(participant?.email || '').trim().toLowerCase() ||
       `idx_${index}`;
-    return `${editingEventId || 'event'}::${participantKey}`;
+    return `${eventIdOverride || editingEventId || 'event'}::${participantKey}`;
   }
 
   function getParticipantScanCode(participant, index = 0) {
@@ -1379,10 +1490,10 @@ export default function AdminPage() {
     return `EVR-${eventKey}-${identityKey || `IDX${index + 1}`}`;
   }
 
-  function findParticipantByScanCode(rawCode) {
+  function findParticipantsByScanCode(rawCode) {
     const code = normalizeToken(rawCode);
-    if (!code) return null;
-    return eventParticipants.find((participant, index) => {
+    if (!code) return [];
+    return eventParticipants.filter((participant, index) => {
       const candidates = [
         participant?.registration_id,
         participant?.passport_id,
@@ -1391,19 +1502,71 @@ export default function AdminPage() {
         getParticipantScanCode(participant, index)
       ].map((item) => normalizeToken(item));
       return candidates.some((item) => item && (code === item || code.includes(item) || item.includes(code)));
-    }) || null;
+    });
   }
 
   function scanCheckinByBarcode() {
-    const participant = findParticipantByScanCode(eventCheckinBarcode);
-    if (!participant) {
+    const matches = findParticipantsByScanCode(eventCheckinBarcode);
+    if (matches.length === 0) {
       setFeedback('Barcode/tiket tidak ditemukan di daftar participant.');
       return;
     }
+    if (matches.length > 1) {
+      setFeedback('Barcode cocok ke lebih dari satu participant. Check-in dibatalkan, gunakan kode yang lebih spesifik.');
+      return;
+    }
+    const participant = matches[0];
     const key = getParticipantCheckinKey(participant);
     setEventCheckinMap((prev) => ({ ...prev, [key]: true }));
     setFeedback(`checkin.success: ${participant.full_name || participant.email || participant.passport_id || '-'}`);
     setEventCheckinBarcode('');
+  }
+
+  async function checkoutParticipant(row) {
+    if (!editingEventId) return;
+    if (isFreePlan) {
+      setFeedback('Upgrade to starter untuk menikmati fasilitas ini.');
+      return;
+    }
+    const key = row?.key;
+    const participant = row?.participant || {};
+    if (!key) return;
+    const topN = normalizeAwardTopN(eventForm.award_top_n, 1);
+    const rankRaw = String(eventCheckoutRankMap[key] || '').trim();
+    const rank = rankRaw ? normalizeAwardTopN(rankRaw, 1) : null;
+    if (rank !== null && rank > topN) {
+      setFeedback(`Rank maksimal untuk event ini adalah ${topN}.`);
+      return;
+    }
+    try {
+      setEventCheckoutSavingMap((prev) => ({ ...prev, [key]: true }));
+      const result = await apiJson(`/v1/admin/events/${encodeURIComponent(editingEventId)}/participants/checkout`, {
+        method: 'POST',
+        body: JSON.stringify({
+          tenant_id: tenantId,
+          branch_id: branchId,
+          registration_id: participant.registration_id || null,
+          passport_id: participant.passport_id || null,
+          email: participant.email || null,
+          full_name: participant.full_name || null,
+          rank
+        })
+      });
+      const scorePoints = Number(result?.score_points || 0);
+      setEventCheckoutMap((prev) => ({ ...prev, [key]: true }));
+      setFeedback(
+        `checkout.success: ${participant.full_name || participant.email || participant.passport_id || '-'}${rank ? ` (rank ${rank}, score ${scorePoints})` : ''}`
+      );
+      await loadEventParticipants(editingEventId);
+    } catch (error) {
+      setFeedback(error.message);
+    } finally {
+      setEventCheckoutSavingMap((prev) => {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
+    }
   }
 
   function preparePostEventQuote() {
@@ -1437,6 +1600,10 @@ export default function AdminPage() {
     if (!editingEventId || !eventPostQuote) return;
     try {
       setEventSaving(true);
+      const awardScopes = isFreePlan
+        ? ['overall']
+        : normalizeEventAwardScopes(eventForm.award_scopes, ['overall']);
+      const awardTopN = isFreePlan ? 1 : normalizeAwardTopN(eventForm.award_top_n, 1);
       await apiJson(`/v1/admin/events/${encodeURIComponent(editingEventId)}`, {
         method: 'PATCH',
         body: JSON.stringify({
@@ -1446,6 +1613,10 @@ export default function AdminPage() {
           location: eventForm.location || null,
           image_url: eventForm.image_url || null,
           description: eventForm.description || null,
+          event_categories: normalizeEventCategoriesForPayload(eventForm.categories_text),
+          award_scopes: awardScopes,
+          award_scope: awardScopes[0] || 'overall',
+          award_top_n: awardTopN,
           gallery_images: normalizeGalleryImagesForPayload(eventForm.gallery_images_text),
           schedule_items: normalizeScheduleItemsForPayload(eventForm.schedule_items_text),
           start_at: eventPostQuote.start_at,
@@ -1530,9 +1701,9 @@ export default function AdminPage() {
     <main className="dashboard">
       <header className="dash-head card">
         <div>
-          <p className="eyebrow">Admin</p>
+          <p className="eyebrow">{dashboardTitle}</p>
           <h1>{session?.tenant?.gym_name || 'Foremoz Fitness Tenant'}</h1>
-          <p>Tenant administration panel</p>
+          <p>{dashboardSubtitle}</p>
         </div>
         <div className="meta">
           {allowedEnv.length > 0 ? (
@@ -1580,7 +1751,7 @@ export default function AdminPage() {
       </header>
 
       <section className="card admin-tabs-card">
-        <p className="eyebrow">Admin Menu</p>
+        <p className="eyebrow">{dashboardMenuLabel}</p>
         <div className="admin-tabs-wrap">
           {visibleAdminTabs.map((tab) => (
             <button
@@ -1668,6 +1839,11 @@ export default function AdminPage() {
                             <span className="event-admin-status">{displayEventStatus(item.status)}</span>
                           </div>
                           <p>{item.location || '-'}</p>
+                          <p>Category: {Array.isArray(item.event_categories) && item.event_categories.length > 0 ? item.event_categories.join(', ') : '-'}</p>
+                          {!isFreePlan ? (
+                            <p>Award: {formatEventAwardScopes(item.award_scopes ?? item.award_scope)}</p>
+                          ) : null}
+                          {!isFreePlan ? <p>Top N: {normalizeAwardTopN(item.award_top_n, 1)}</p> : null}
                           <p>Start: {formatClassDatetime(item.start_at)}</p>
                           <p>Duration: {item.duration_minutes || '60'} minutes</p>
                           <p>Participants: {Number(item.participant_count || 0)}</p>
@@ -1699,6 +1875,13 @@ export default function AdminPage() {
                     </button>
                     <button
                       type="button"
+                      className={`landing-tab ${eventEditTab === 'category' ? 'active' : ''}`}
+                      onClick={() => setEventEditTab('category')}
+                    >
+                      Category
+                    </button>
+                    <button
+                      type="button"
                       className={`landing-tab ${eventEditTab === 'custom_fields' ? 'active' : ''}`}
                       onClick={() => setEventEditTab('custom_fields')}
                     >
@@ -1717,6 +1900,13 @@ export default function AdminPage() {
                       onClick={() => setEventEditTab('checkin')}
                     >
                       Check in
+                    </button>
+                    <button
+                      type="button"
+                      className={`landing-tab ${eventEditTab === 'checkout' ? 'active' : ''}`}
+                      onClick={() => setEventEditTab('checkout')}
+                    >
+                      Checkout
                     </button>
                   </div>
                   <form className="form" onSubmit={addEvent}>
@@ -1754,6 +1944,79 @@ export default function AdminPage() {
                         <label>start_at<input type="datetime-local" value={eventForm.start_at} onChange={(e) => setEventForm((p) => ({ ...p, start_at: e.target.value }))} /></label>
                         <label>duration_minutes<input type="number" min="1" value={eventForm.duration_minutes} onChange={(e) => setEventForm((p) => ({ ...p, duration_minutes: e.target.value }))} /></label>
                       </>
+                    ) : null}
+                    {eventEditTab === 'category' ? (
+                      <div className="card" style={{ borderStyle: 'dashed' }}>
+                        <p className="eyebrow">Event category</p>
+                        <p className="feedback">Pisahkan dengan koma atau baris baru. Contoh: Running 5K, Running 10K.</p>
+                        <textarea
+                          rows={4}
+                          placeholder={'Running 5K, Running 10K\nBeginner Friendly'}
+                          value={eventForm.categories_text}
+                          onChange={(e) => setEventForm((p) => ({ ...p, categories_text: e.target.value }))}
+                        />
+                        <p className="feedback">
+                          Preview: {normalizeEventCategoriesForPayload(eventForm.categories_text).join(' | ') || '-'}
+                        </p>
+                        <div>
+                          <p style={{ margin: 0, fontWeight: 600 }}>Award scope</p>
+                          <div style={{ display: 'grid', gap: '0.35rem', marginTop: '0.35rem' }}>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', margin: 0 }}>
+                              <input
+                                type="checkbox"
+                                checked={normalizeEventAwardScopes(eventForm.award_scopes, ['overall']).includes('overall')}
+                                disabled={isFreePlan}
+                                onChange={(e) =>
+                                  setEventForm((p) => {
+                                    const current = normalizeEventAwardScopes(p.award_scopes, ['overall']);
+                                    const next = e.target.checked
+                                      ? [...new Set([...current, 'overall'])]
+                                      : current.filter((scope) => scope !== 'overall');
+                                    return { ...p, award_scopes: normalizeEventAwardScopes(next, ['overall']) };
+                                  })
+                                }
+                              />
+                              <span>Overall</span>
+                            </label>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', margin: 0 }}>
+                              <input
+                                type="checkbox"
+                                checked={normalizeEventAwardScopes(eventForm.award_scopes, ['overall']).includes('category')}
+                                disabled={isFreePlan}
+                                onChange={(e) =>
+                                  setEventForm((p) => {
+                                    const current = normalizeEventAwardScopes(p.award_scopes, ['overall']);
+                                    const next = e.target.checked
+                                      ? [...new Set([...current, 'category'])]
+                                      : current.filter((scope) => scope !== 'category');
+                                    return { ...p, award_scopes: normalizeEventAwardScopes(next, ['overall']) };
+                                  })
+                                }
+                              />
+                              <span>Per kategori</span>
+                            </label>
+                          </div>
+                        </div>
+                        {isFreePlan ? (
+                          <p className="feedback">Award scope tersedia untuk paket Starter ke atas.</p>
+                        ) : (
+                          <p className="feedback">
+                            Setting saat ini: {formatEventAwardScopes(eventForm.award_scopes)}
+                          </p>
+                        )}
+                        <label>
+                          Top N
+                          <input
+                            type="number"
+                            min="1"
+                            step="1"
+                            value={isFreePlan ? '1' : eventForm.award_top_n || '1'}
+                            disabled={isFreePlan}
+                            onChange={(e) => setEventForm((p) => ({ ...p, award_top_n: e.target.value }))}
+                          />
+                        </label>
+                        {isFreePlan ? <p className="feedback">Top N award tersedia untuk paket Starter ke atas.</p> : null}
+                      </div>
                     ) : null}
                     {eventEditTab === 'custom_fields' ? (
                       <div className="card" style={{ borderStyle: 'dashed' }}>
@@ -1912,6 +2175,12 @@ export default function AdminPage() {
                                     <p>Unique No: {getParticipantScanCode(participant, index)}</p>
                                     <p>Registered: {formatClassDatetime(participant.registered_at || '')}</p>
                                     <p>Answers: {formatRegistrationAnswers(participant.registration_answers)}</p>
+                                    <p>Checkout: {participant.checked_out_at ? 'Sudah checkout' : 'Belum checkout'}</p>
+                                    {participant.rank !== undefined && participant.rank !== null ? (
+                                      <p>Rank: #{participant.rank} | Score: {Number(participant.score_points || 0)}</p>
+                                    ) : (
+                                      <p>Score: {Number(participant.score_points || 0)}</p>
+                                    )}
                                   </div>
                                 </div>
                               ))}
@@ -1979,12 +2248,24 @@ export default function AdminPage() {
                                     <button
                                       className="btn ghost small"
                                       type="button"
-                                      onClick={() =>
+                                      onClick={() => {
                                         setEventCheckinMap((prev) => ({
                                           ...prev,
                                           [checkinKey]: !isCheckedIn
-                                        }))
-                                      }
+                                        }));
+                                        if (isCheckedIn) {
+                                          setEventCheckoutMap((prev) => {
+                                            const next = { ...prev };
+                                            delete next[checkinKey];
+                                            return next;
+                                          });
+                                          setEventCheckoutRankMap((prev) => {
+                                            const next = { ...prev };
+                                            delete next[checkinKey];
+                                            return next;
+                                          });
+                                        }
+                                      }}
                                     >
                                       {isCheckedIn ? 'Undo check in' : 'Check in'}
                                     </button>
@@ -1999,6 +2280,76 @@ export default function AdminPage() {
                         </div>
                       ) : (
                         <p className="feedback">Simpan event dulu untuk menggunakan check in.</p>
+                      )
+                    ) : null}
+                    {eventEditTab === 'checkout' ? (
+                      editingEventId ? (
+                        <div className="card" style={{ borderStyle: 'dashed' }}>
+                          <div className="panel-head" style={{ marginBottom: '0.5rem' }}>
+                            <h3 style={{ margin: 0 }}>Checkout</h3>
+                            <button
+                              className="btn ghost small"
+                              type="button"
+                              onClick={() => loadEventParticipants(editingEventId)}
+                              disabled={eventParticipantsLoading}
+                            >
+                              {eventParticipantsLoading ? 'Refreshing...' : 'Refresh participants'}
+                            </button>
+                          </div>
+                          {isFreePlan ? (
+                            <p className="feedback">Upgrade to starter untuk menikmati fasilitas ini.</p>
+                          ) : checkoutReadyParticipants.length === 0 ? (
+                            <p className="feedback">Belum ada peserta check in. Hanya peserta check in yang tampil di tab checkout.</p>
+                          ) : (
+                            <div className="entity-list">
+                              {checkoutReadyParticipants.map((row) => {
+                                const participant = row.participant;
+                                const checkoutKey = row.key;
+                                const isCheckedOut = Boolean(eventCheckoutMap[checkoutKey]);
+                                const topN = normalizeAwardTopN(eventForm.award_top_n, 1);
+                                const rankValue = String(eventCheckoutRankMap[checkoutKey] || '');
+                                const checkoutSaving = Boolean(eventCheckoutSavingMap[checkoutKey]);
+                                return (
+                                  <div className="entity-row" key={`checkout-${checkoutKey}`}>
+                                    <div>
+                                      <strong>{participant.full_name || participant.email || participant.passport_id || 'Participant'}</strong>
+                                      <p>Unique No: {getParticipantScanCode(participant, row.index)}</p>
+                                      <p>Status: {isCheckedOut ? 'Checked out' : 'Belum checkout'}</p>
+                                      <p>Score: {Number(participant.score_points || 0)}</p>
+                                      {participant?.rank !== undefined && participant?.rank !== null ? (
+                                        <p>Rank tersimpan: #{participant.rank}</p>
+                                      ) : null}
+                                      <label style={{ display: 'block', marginTop: '0.35rem' }}>
+                                        Rank (1 - {topN}, opsional)
+                                        <input
+                                          type="number"
+                                          min="1"
+                                          max={topN}
+                                          step="1"
+                                          placeholder={`1 - ${topN}`}
+                                          value={rankValue}
+                                          onChange={(e) =>
+                                            setEventCheckoutRankMap((prev) => ({ ...prev, [checkoutKey]: e.target.value }))
+                                          }
+                                        />
+                                      </label>
+                                    </div>
+                                    <button
+                                      className="btn ghost small"
+                                      type="button"
+                                      disabled={checkoutSaving}
+                                      onClick={() => checkoutParticipant(row)}
+                                    >
+                                      {checkoutSaving ? 'Saving...' : isCheckedOut ? 'Update checkout' : 'Checkout'}
+                                    </button>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <p className="feedback">Simpan event dulu untuk menggunakan checkout.</p>
                       )
                     ) : null}
                     {eventEditTab === 'general' ? (

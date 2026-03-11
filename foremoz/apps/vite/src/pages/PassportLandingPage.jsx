@@ -303,6 +303,9 @@ function guessVertical(row) {
 }
 
 function guessCategory(row) {
+  if (Array.isArray(row?.event_categories) && row.event_categories.length > 0) {
+    return row.event_categories.map((item) => String(item || '').trim()).filter(Boolean).join(', ');
+  }
   const text = `${row.event_name || ''}`.toLowerCase();
   if (text.includes('bootcamp') || text.includes('strength')) return 'Strength Training';
   if (text.includes('english') || text.includes('language')) return 'Language Practice';

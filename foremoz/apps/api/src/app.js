@@ -150,6 +150,63 @@ function normalizeEventScheduleItems(value, fallback = []) {
   });
 }
 
+function normalizeEventCategories(value, fallback = []) {
+  if (value === undefined || value === null) return fallback;
+  if (!Array.isArray(value)) {
+    throw fail(400, 'BAD_REQUEST', 'event_categories must be an array');
+  }
+  if (value.length > 20) {
+    throw fail(400, 'BAD_REQUEST', 'event_categories max length is 20');
+  }
+  return [...new Set(value.map((item) => String(item || '').trim()).filter(Boolean))];
+}
+
+function normalizeEventAwardScopes(value, fallback = ['overall']) {
+  const allowed = new Set(['overall', 'category']);
+  const fallbackScopes = Array.isArray(fallback) ? fallback : [fallback];
+  const normalizeFallback = () => {
+    const parsed = [...new Set(
+      fallbackScopes
+        .map((item) => String(item || '').trim().toLowerCase())
+        .filter((item) => allowed.has(item))
+    )];
+    return parsed.length > 0 ? parsed : ['overall'];
+  };
+  if (value === undefined || value === null || value === '') {
+    return normalizeFallback();
+  }
+  if (Array.isArray(value)) {
+    const normalizedRaw = value.map((item) => String(item || '').trim().toLowerCase()).filter(Boolean);
+    const invalid = normalizedRaw.filter((item) => !allowed.has(item));
+    if (invalid.length > 0) {
+      throw fail(400, 'BAD_REQUEST', 'award_scopes must only contain: overall, category');
+    }
+    const normalized = [...new Set(normalizedRaw)];
+    return normalized.length > 0 ? normalized : normalizeFallback();
+  }
+  const scope = String(value).trim().toLowerCase();
+  if (!allowed.has(scope)) {
+    throw fail(400, 'BAD_REQUEST', 'award_scope must be one of: overall, category');
+  }
+  return [scope];
+}
+
+function toPrimaryAwardScope(value, fallback = ['overall']) {
+  const normalized = normalizeEventAwardScopes(value, fallback);
+  if (normalized.includes('overall')) return 'overall';
+  return normalized[0] || 'overall';
+}
+
+function participantIdentityKey(data) {
+  const passportId = String(data?.passport_id || '').trim();
+  if (passportId) return `passport:${passportId}`;
+  const email = String(data?.email || '').trim().toLowerCase();
+  if (email) return `email:${email}`;
+  const registrationId = String(data?.registration_id || '').trim();
+  if (registrationId) return `registration:${registrationId}`;
+  return '';
+}
+
 async function getLatestClassScheduledData(tenantId, classId) {
   const namespaceId = resolveNamespaceId(tenantId);
   const { rows } = await query(
@@ -1420,6 +1477,10 @@ app.post('/v1/admin/events', async (req, res, next) => {
     const registrationFields = normalizeEventRegistrationFields(data.registration_fields, []);
     const galleryImages = normalizeEventGalleryImages(data.gallery_images, []);
     const scheduleItems = normalizeEventScheduleItems(data.schedule_items, []);
+    const eventCategories = normalizeEventCategories(data.event_categories, []);
+    const awardScopes = normalizeEventAwardScopes(data.award_scopes ?? data.award_scope, ['overall']);
+    const awardScope = toPrimaryAwardScope(awardScopes, ['overall']);
+    const awardTopN = asPositiveInteger(data.award_top_n, 'award_top_n', 1);
 
     const event = await appendDomainEvent({
       tenantId,
@@ -1438,6 +1499,10 @@ app.post('/v1/admin/events', async (req, res, next) => {
         description: data.description || null,
         gallery_images: galleryImages,
         schedule_items: scheduleItems,
+        event_categories: eventCategories,
+        award_scopes: awardScopes,
+        award_scope: awardScope,
+        award_top_n: awardTopN,
         start_at: startAt.toISOString(),
         duration_minutes: durationMinutes,
         registration_fields: registrationFields,
@@ -1491,6 +1556,14 @@ app.patch('/v1/admin/events/:eventId', async (req, res, next) => {
       data.schedule_items,
       Array.isArray(latest.schedule_items) ? latest.schedule_items : []
     );
+    const eventCategories = normalizeEventCategories(
+      data.event_categories,
+      Array.isArray(latest.event_categories) ? latest.event_categories : []
+    );
+    const existingAwardScopes = normalizeEventAwardScopes(latest.award_scopes ?? latest.award_scope, ['overall']);
+    const awardScopes = normalizeEventAwardScopes(data.award_scopes ?? data.award_scope, existingAwardScopes);
+    const awardScope = toPrimaryAwardScope(awardScopes, existingAwardScopes);
+    const awardTopN = asPositiveInteger(data.award_top_n, 'award_top_n', Number(latest.award_top_n || 1));
 
     const event = await appendDomainEvent({
       tenantId,
@@ -1509,6 +1582,10 @@ app.patch('/v1/admin/events/:eventId', async (req, res, next) => {
         description: data.description ?? latest.description ?? null,
         gallery_images: galleryImages,
         schedule_items: scheduleItems,
+        event_categories: eventCategories,
+        award_scopes: awardScopes,
+        award_scope: awardScope,
+        award_top_n: awardTopN,
         start_at: startAt.toISOString(),
         duration_minutes: durationMinutes,
         registration_fields: registrationFields,
@@ -1587,18 +1664,149 @@ app.get('/v1/admin/events/:eventId/participants', async (req, res, next) => {
       params
     );
 
+    const { rows: checkoutRows } = await query(
+      `select payload->'data' as data
+       from eventdb_event
+       where namespace_id = $1
+         and event_type = 'event.participant.checked_out'
+         and payload->'data'->>'event_id' = $2
+         ${branchFilter}
+       order by sequence desc`,
+      params
+    );
+
+    const checkoutByParticipantKey = new Map();
+    for (const row of checkoutRows) {
+      const data = row?.data || {};
+      const key = participantIdentityKey(data);
+      if (!key || checkoutByParticipantKey.has(key)) continue;
+      checkoutByParticipantKey.set(key, data);
+    }
+
     const deduped = [];
     const seen = new Set();
     for (const row of rows) {
       const data = row?.data || {};
-      const key = String(data.passport_id || data.email || data.registration_id || '');
+      const key = participantIdentityKey(data);
       if (!key || seen.has(key)) continue;
       seen.add(key);
-      deduped.push(data);
+      const checkoutData = checkoutByParticipantKey.get(key);
+      deduped.push({
+        ...data,
+        checked_out_at: checkoutData?.checked_out_at || null,
+        rank: checkoutData?.rank ?? null,
+        score_points: Number(checkoutData?.score_points || 0)
+      });
       if (deduped.length >= limit) break;
     }
 
     return ok(res, { rows: deduped, event_id: eventId, limit });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.post('/v1/admin/events/:eventId/participants/checkout', async (req, res, next) => {
+  try {
+    const data = req.body || {};
+    const eventId = required(req.params.eventId, 'eventId');
+    const tenantId = data.tenant_id || config.defaultTenantId;
+    const latestEvent = await getLatestEntityDataByEventTypes(
+      tenantId,
+      'event_id',
+      eventId,
+      ['event.created', 'event.updated']
+    );
+    if (!latestEvent) {
+      throw fail(404, 'EVENT_NOT_FOUND', `event ${eventId} not found`);
+    }
+
+    const branchId = data.branch_id || latestEvent.branch_id || null;
+    const passportId = String(data.passport_id || '').trim();
+    const email = String(data.email || '').trim().toLowerCase();
+    const registrationId = String(data.registration_id || '').trim();
+    if (!passportId && !email && !registrationId) {
+      throw fail(400, 'BAD_REQUEST', 'registration_id or passport_id or email is required');
+    }
+    const identityKey = participantIdentityKey({ passport_id: passportId, email, registration_id: registrationId });
+    if (!identityKey) {
+      throw fail(400, 'BAD_REQUEST', 'participant identity is required');
+    }
+
+    const awardTopN = asPositiveInteger(latestEvent.award_top_n, 'award_top_n', 1);
+    const rank = data.rank === undefined || data.rank === null || data.rank === ''
+      ? null
+      : asPositiveInteger(data.rank, 'rank', null);
+    if (rank !== null && rank > awardTopN) {
+      throw fail(400, 'BAD_REQUEST', `rank must be between 1 and ${awardTopN}`);
+    }
+
+    if (rank !== null) {
+      const namespaceId = resolveNamespaceId(tenantId);
+      const rankParams = [namespaceId, eventId];
+      let rankBranchFilter = '';
+      if (branchId) {
+        rankParams.push(branchId);
+        rankBranchFilter = ` and payload->'data'->>'branch_id' = $${rankParams.length}`;
+      }
+      const { rows: rankRows } = await query(
+        `select payload->'data' as data
+         from eventdb_event
+         where namespace_id = $1
+           and event_type = 'event.participant.checked_out'
+           and payload->'data'->>'event_id' = $2
+           ${rankBranchFilter}
+         order by sequence desc`,
+        rankParams
+      );
+      const latestByParticipant = new Map();
+      for (const row of rankRows) {
+        const rowData = row?.data || {};
+        const rowKey = participantIdentityKey(rowData);
+        if (!rowKey || latestByParticipant.has(rowKey)) continue;
+        latestByParticipant.set(rowKey, rowData);
+      }
+      for (const [rowKey, rowData] of latestByParticipant.entries()) {
+        if (rowKey === identityKey) continue;
+        if (Number(rowData?.rank || 0) === rank) {
+          throw fail(409, 'RANK_ALREADY_TAKEN', `rank ${rank} sudah dipakai participant lain`);
+        }
+      }
+    }
+
+    const scorePoints = rank === null ? 0 : Math.max(awardTopN - rank + 1, 1);
+    const checkoutId = data.checkout_id || `evco_${Date.now()}_${randomUUID().slice(0, 8)}`;
+    const event = await appendDomainEvent({
+      tenantId,
+      branchId,
+      actorId: data.actor_id || config.defaultActorId,
+      eventType: 'event.participant.checked_out',
+      subjectKind: 'event_checkout',
+      subjectId: checkoutId,
+      data: {
+        tenant_id: tenantId,
+        branch_id: branchId,
+        event_id: eventId,
+        checkout_id: checkoutId,
+        registration_id: registrationId || null,
+        passport_id: passportId || null,
+        email: email || null,
+        full_name: data.full_name || null,
+        checked_out_at: data.checked_out_at || new Date().toISOString(),
+        rank,
+        score_points: scorePoints,
+        award_top_n: awardTopN
+      },
+      refs: {}
+    });
+
+    return created(res, {
+      event,
+      event_id: eventId,
+      checkout_id: checkoutId,
+      rank,
+      score_points: scorePoints
+    });
   } catch (error) {
     return next(error);
   }
@@ -2158,6 +2366,63 @@ app.get('/v1/read/event-registrations', async (req, res, next) => {
     }
 
     return ok(res, { event_ids: dedupedEventIds, limit });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.get('/v1/read/passport-event-scores', async (req, res, next) => {
+  try {
+    const tenantId = req.query.tenant_id || '';
+    const passportId = String(req.query.passport_id || '').trim();
+    const email = String(req.query.email || '').trim().toLowerCase();
+    const limit = Math.min(Math.max(Number(req.query.limit || 300), 1), 1000);
+    if (!passportId && !email) {
+      throw fail(400, 'BAD_REQUEST', 'passport_id or email is required');
+    }
+
+    const whereClauses = [`event_type = 'event.participant.checked_out'`];
+    const params = [];
+    if (tenantId && tenantId !== 'all') {
+      params.push(resolveNamespaceId(tenantId));
+      whereClauses.push(`namespace_id = $${params.length}`);
+    }
+    if (passportId && email) {
+      params.push(passportId, email);
+      whereClauses.push(`(payload->'data'->>'passport_id' = $${params.length - 1} or lower(payload->'data'->>'email') = $${params.length})`);
+    } else if (passportId) {
+      params.push(passportId);
+      whereClauses.push(`payload->'data'->>'passport_id' = $${params.length}`);
+    } else {
+      params.push(email);
+      whereClauses.push(`lower(payload->'data'->>'email') = $${params.length}`);
+    }
+
+    const { rows } = await query(
+      `select payload->'data' as data
+       from eventdb_event
+       where ${whereClauses.join(' and ')}
+       order by sequence desc`,
+      params
+    );
+
+    const deduped = [];
+    const seenEventIds = new Set();
+    for (const row of rows) {
+      const data = row?.data || {};
+      const eventId = String(data.event_id || '').trim();
+      if (!eventId || seenEventIds.has(eventId)) continue;
+      seenEventIds.add(eventId);
+      deduped.push({
+        event_id: eventId,
+        rank: data.rank ?? null,
+        score_points: Number(data.score_points || 0),
+        checked_out_at: data.checked_out_at || null
+      });
+      if (deduped.length >= limit) break;
+    }
+
+    return ok(res, { rows: deduped, limit });
   } catch (error) {
     return next(error);
   }
