@@ -1,7 +1,14 @@
 import { Link, useParams } from 'react-router-dom';
+import { getVerticalConfig, getVerticalLabel, guessVerticalSlugByText } from '../industry-jargon.js';
 
 export default function AccountPublicPage() {
   const { account } = useParams();
+  const verticalSlug = guessVerticalSlugByText(account, 'active');
+  const verticalLabel = getVerticalLabel(verticalSlug, 'Active');
+  const vocabulary = getVerticalConfig(verticalSlug)?.vocabulary || {};
+  const creatorLabel = vocabulary.creator || 'Creator';
+  const participantLabel = vocabulary.participant || 'Participant';
+  const placeLabel = vocabulary.place || 'Location';
   const promoPrograms = [
     {
       title: 'Starter Transformation 30 Hari',
@@ -50,7 +57,7 @@ export default function AccountPublicPage() {
   return (
     <main className="landing">
       <header className="topbar">
-        <div className="brand">{account}.fitness.foremoz.com</div>
+        <div className="brand">{account}.foremoz.com/{verticalSlug}</div>
         <nav>
           <Link to={`/a/${account}/member/signup`}>Member signup</Link>
           <Link className="btn small" to={`/a/${account}/member/signin`}>
@@ -61,11 +68,11 @@ export default function AccountPublicPage() {
 
       <section className="hero">
         <div>
-          <p className="eyebrow">Public Fitness Landing</p>
-          <h1>Level Up Your Fitness Journey at {account}.</h1>
+          <p className="eyebrow">{`Public ${verticalLabel} Landing`}</p>
+          <h1>{`Grow Your ${verticalLabel} Journey at ${account}.`}</h1>
           <p>
-            Tempat latihan dengan program terstruktur, komunitas suportif, dan coach berpengalaman
-            untuk bantu kamu capai goal lebih cepat dan lebih konsisten.
+            Tempat ${verticalLabel.toLowerCase()} dengan program terstruktur, komunitas suportif, dan ${creatorLabel.toLowerCase()} berpengalaman
+            untuk bantu ${participantLabel.toLowerCase()} capai goal lebih cepat dan lebih konsisten.
           </p>
           <div className="hero-actions">
             <Link className="btn" to={`/a/${account}/member/signup`}>
@@ -75,14 +82,14 @@ export default function AccountPublicPage() {
               Member Sign In
             </Link>
           </div>
-          <p className="local-note">Mulai dari paket trial, lanjut ke program sesuai goal kamu.</p>
+          <p className="local-note">{`Mulai dari paket trial, lanjut ke program sesuai goal ${participantLabel.toLowerCase()}.`}</p>
         </div>
 
         <aside className="public-hero-image">
           <div className="public-hero-overlay">
             <p className="eyebrow">Member Favorite</p>
             <h2>Train Smart, Feel Strong.</h2>
-            <p>Class energy tinggi, progress terukur, dan schedule fleksibel untuk lifestyle aktif.</p>
+            <p>{`${placeLabel} dengan energy tinggi, progress terukur, dan schedule fleksibel untuk lifestyle aktif.`}</p>
           </div>
         </aside>
       </section>
@@ -104,7 +111,7 @@ export default function AccountPublicPage() {
         <p className="eyebrow">CTA</p>
         <h2>Undang Teman dan Join Bareng Sekarang</h2>
         <p>
-          Ajak rekan latihan kamu untuk daftar, pilih program promo, lalu mulai progres bersama di {account} Fitness Studio.
+          {`Ajak rekan kamu untuk daftar, pilih program promo, lalu mulai progres bersama di ${account} ${verticalLabel} Studio.`}
         </p>
         <div className="hero-actions">
           <Link className="btn" to={`/a/${account}/member/signup`}>

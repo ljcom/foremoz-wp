@@ -619,7 +619,7 @@ export default function WebOwnerPage() {
                 <label>
                   Nama bisnis / organisasi
                   <input
-                    placeholder="Contoh: Foremoz Fitness Cilandak"
+                    placeholder="Contoh: Foremoz Active Cilandak"
                     value={setupForm.gym_name}
                     onChange={(e) => setSetupForm((p) => ({ ...p, gym_name: e.target.value }))}
                   />

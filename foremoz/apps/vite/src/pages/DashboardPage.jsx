@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { accountPath, apiJson, clearSession, getAccountSlug, getSession, getAllowedEnvironments } from '../lib.js';
-import { MEMBER_FIXTURES } from '../member-data.js';
+import { getVerticalLabel, guessVerticalSlugByText } from '../industry-jargon.js';
 
 function Stat({ label, value, iconClass, tone, hint }) {
   return (
@@ -18,6 +18,51 @@ function Stat({ label, value, iconClass, tone, hint }) {
       </div>
     </article>
   );
+}
+
+function toLowerText(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function formatDateTime(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '-';
+  const date = new Date(raw);
+  if (Number.isNaN(date.getTime())) return raw;
+  return date.toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
+}
+
+function formatIdr(value) {
+  return `IDR ${Number(value || 0).toLocaleString('id-ID')}`;
+}
+
+function csvEscape(value) {
+  const raw = String(value ?? '');
+  if (!/[",\n]/.test(raw)) return raw;
+  return `"${raw.replace(/"/g, '""')}"`;
+}
+
+function downloadCsvFile(filename, rows) {
+  const csv = rows.map((row) => row.map(csvEscape).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.setAttribute('download', filename);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
+function isSameParticipant(member, participant) {
+  const memberEmail = toLowerText(member?.email);
+  const participantEmail = toLowerText(participant?.email);
+  if (memberEmail && participantEmail) return memberEmail === participantEmail;
+  const memberName = toLowerText(member?.full_name);
+  const participantName = toLowerText(participant?.full_name);
+  if (memberName && participantName) return memberName === participantName;
+  return false;
 }
 
 export default function DashboardPage() {
@@ -39,12 +84,29 @@ export default function DashboardPage() {
     member_id: ''
   });
   const [memberFeedback, setMemberFeedback] = useState('');
+  const [workspaceTab, setWorkspaceTab] = useState('member');
+  const [classPanelQuery, setClassPanelQuery] = useState('');
+  const [eventPanelQuery, setEventPanelQuery] = useState('');
+  const [events, setEvents] = useState([]);
+  const [classes, setClasses] = useState([]);
+  const [selectedMemberId, setSelectedMemberId] = useState('');
+  const [selectedExperienceType, setSelectedExperienceType] = useState('event');
+  const [selectedExperienceId, setSelectedExperienceId] = useState('');
+  const [eventParticipants, setEventParticipants] = useState([]);
+  const [eventParticipantsLoading, setEventParticipantsLoading] = useState(false);
+  const [eventParticipantQuery, setEventParticipantQuery] = useState('');
+  const [participantSearchRows, setParticipantSearchRows] = useState([]);
+  const [participantSearchLoading, setParticipantSearchLoading] = useState(false);
+  const [actionFeedback, setActionFeedback] = useState('');
+  const [actionSaving, setActionSaving] = useState(false);
 
   const accountSlug = getAccountSlug(session);
   const tenantId = session?.tenant?.id || 'tn_001';
   const branchId = session?.branch?.id || 'core';
   const role = String(session?.role || 'admin').toLowerCase();
   const fullName = session?.user?.fullName || session?.user?.full_name || 'User';
+  const inferredVerticalSlug = guessVerticalSlugByText(`${session?.tenant?.gym_name || ''} ${accountSlug}`, 'active');
+  const inferredVerticalLabel = getVerticalLabel(inferredVerticalSlug, 'Active');
   const [targetEnv, setTargetEnv] = useState(
     role === 'owner' || role === 'admin' ? 'admin' : role === 'sales' ? 'sales' : role === 'pt' ? 'pt' : 'cs'
   );
@@ -81,10 +143,12 @@ export default function DashboardPage() {
         });
       }
 
-      const [dashboardRes, membersRes] = await Promise.all([
+      const [dashboardRes, membersRes, eventsRes, classesRes] = await Promise.all([
         apiJson(`/v1/read/dashboard?tenant_id=${encodeURIComponent(tenantId)}&branch_id=${encodeURIComponent(branchId)}`),
-          apiJson(`/v1/read/members?tenant_id=${encodeURIComponent(tenantId)}&limit=1000`)
-        ]);
+        apiJson(`/v1/read/members?tenant_id=${encodeURIComponent(tenantId)}&limit=1000`),
+        apiJson(`/v1/read/events?tenant_id=${encodeURIComponent(tenantId)}&branch_id=${encodeURIComponent(branchId)}&status=all&limit=200`),
+        apiJson(`/v1/admin/classes?tenant_id=${encodeURIComponent(tenantId)}&branch_id=${encodeURIComponent(branchId)}`)
+      ]);
 
       if (!dashboardRes.row && branchId !== 'core') {
         const coreDashboard = await apiJson(
@@ -95,6 +159,8 @@ export default function DashboardPage() {
         setDashboardRow(dashboardRes.row || null);
       }
       setMembers(membersRes.rows || []);
+      setEvents(eventsRes.rows || []);
+      setClasses(classesRes.rows || []);
     } catch (err) {
       setError(err.message || 'failed to load dashboard');
     } finally {
@@ -102,10 +168,145 @@ export default function DashboardPage() {
     }
   }
 
+  async function loadEventParticipants(eventId) {
+    if (!eventId) {
+      setEventParticipants([]);
+      return;
+    }
+    try {
+      setEventParticipantsLoading(true);
+      const response = await apiJson(
+        `/v1/admin/events/${encodeURIComponent(eventId)}/participants?tenant_id=${encodeURIComponent(tenantId)}&branch_id=${encodeURIComponent(branchId)}&limit=500`
+      );
+      setEventParticipants(response.rows || []);
+    } catch (err) {
+      setActionFeedback(err.message || 'failed to load participants');
+    } finally {
+      setEventParticipantsLoading(false);
+    }
+  }
+
   useEffect(() => {
     loadDashboard();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tenantId, branchId]);
+
+  useEffect(() => {
+    if (selectedExperienceType !== 'event' || !selectedExperienceId) {
+      setEventParticipants([]);
+      return;
+    }
+    loadEventParticipants(selectedExperienceId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedExperienceId, selectedExperienceType]);
+
+  const activeEvents = useMemo(() => {
+    const activeStatuses = new Set(['scheduled', 'published', 'posted', 'active', 'open']);
+    return events.filter((row) => activeStatuses.has(toLowerText(row?.status)));
+  }, [events]);
+
+  const activeClasses = useMemo(() => {
+    const now = Date.now();
+    const lookbackMs = 24 * 60 * 60 * 1000;
+    return classes.filter((row) => {
+      const startAt = new Date(row?.start_at || '').getTime();
+      if (!Number.isFinite(startAt)) return true;
+      return startAt >= now - lookbackMs;
+    });
+  }, [classes]);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadParticipantSearchRows() {
+      try {
+        setParticipantSearchLoading(true);
+        const memberById = new Map();
+        const memberByEmail = new Map();
+        members.forEach((member) => {
+          const memberId = String(member?.member_id || '').trim();
+          const email = toLowerText(member?.email);
+          if (memberId) memberById.set(memberId, member);
+          if (email) memberByEmail.set(email, member);
+        });
+
+        const eventParticipantResponses = await Promise.all(
+          activeEvents.map((eventItem) =>
+            apiJson(
+              `/v1/admin/events/${encodeURIComponent(eventItem.event_id)}/participants?tenant_id=${encodeURIComponent(tenantId)}&branch_id=${encodeURIComponent(branchId)}&limit=500`
+            ).catch(() => ({ rows: [] }))
+          )
+        );
+        const eventRows = [];
+        eventParticipantResponses.forEach((response, index) => {
+          const eventItem = activeEvents[index];
+          (response.rows || []).forEach((participant, participantIndex) => {
+            const linkedMember = memberByEmail.get(toLowerText(participant?.email)) || null;
+            eventRows.push({
+              key: `event:${eventItem?.event_id || 'unknown'}:${participant?.registration_id || participant?.email || participant?.passport_id || participantIndex}`,
+              source_kind: 'event',
+              source_id: eventItem?.event_id || '',
+              source_name: eventItem?.event_name || 'Event',
+              member_id: linkedMember?.member_id || '',
+              full_name: participant?.full_name || linkedMember?.full_name || '',
+              phone: linkedMember?.phone || '',
+              email: participant?.email || linkedMember?.email || '',
+              status: participant?.checked_out_at ? 'checked_out' : participant?.checked_in_at ? 'checked_in' : 'registered',
+              participant_no: participant?.participant_no || '',
+              registration_id: participant?.registration_id || '',
+              passport_id: participant?.passport_id || ''
+            });
+          });
+        });
+
+        const classBookingResponses = await Promise.all(
+          activeClasses.map((classItem) =>
+            apiJson(
+              `/v1/read/bookings?tenant_id=${encodeURIComponent(tenantId)}&class_id=${encodeURIComponent(classItem.class_id)}`
+            ).catch(() => ({ rows: [] }))
+          )
+        );
+        const classRows = [];
+        classBookingResponses.forEach((response, index) => {
+          const classItem = activeClasses[index];
+          (response.rows || []).forEach((booking, bookingIndex) => {
+            const linkedMember = memberById.get(String(booking?.member_id || '').trim()) || null;
+            classRows.push({
+              key: `class:${classItem?.class_id || 'unknown'}:${booking?.booking_id || booking?.member_id || booking?.guest_name || bookingIndex}`,
+              source_kind: 'class',
+              source_id: classItem?.class_id || '',
+              source_name: classItem?.class_name || 'Class',
+              member_id: booking?.member_id || linkedMember?.member_id || '',
+              full_name: linkedMember?.full_name || booking?.guest_name || '',
+              phone: linkedMember?.phone || '',
+              email: linkedMember?.email || '',
+              status: booking?.status || 'booked',
+              participant_no: '',
+              registration_id: booking?.booking_id || '',
+              passport_id: ''
+            });
+          });
+        });
+
+        if (cancelled) return;
+        const merged = [...eventRows, ...classRows];
+        const deduped = [];
+        const seen = new Set();
+        merged.forEach((row) => {
+          const rowKey = String(row?.key || '').trim();
+          if (!rowKey || seen.has(rowKey)) return;
+          seen.add(rowKey);
+          deduped.push(row);
+        });
+        setParticipantSearchRows(deduped);
+      } finally {
+        if (!cancelled) setParticipantSearchLoading(false);
+      }
+    }
+    loadParticipantSearchRows();
+    return () => {
+      cancelled = true;
+    };
+  }, [tenantId, branchId, activeEvents, activeClasses, members]);
 
   const stats = useMemo(
     () => [
@@ -141,26 +342,129 @@ export default function DashboardPage() {
     [dashboardRow]
   );
 
-  const searchSource = members.length > 0 ? members : MEMBER_FIXTURES;
+  const searchSource = members;
+  const selectedMember = useMemo(
+    () => searchSource.find((member) => String(member.member_id || '') === String(selectedMemberId || '')) || null,
+    [searchSource, selectedMemberId]
+  );
+
+  const memberAttachmentMap = useMemo(() => {
+    const memberById = new Map();
+    const memberByEmail = new Map();
+    searchSource.forEach((member) => {
+      const memberId = String(member?.member_id || '').trim();
+      const email = toLowerText(member?.email);
+      if (memberId) memberById.set(memberId, member);
+      if (email) memberByEmail.set(email, member);
+    });
+    const attachmentMap = new Map();
+    participantSearchRows.forEach((row) => {
+      let memberId = String(row?.member_id || '').trim();
+      if (!memberId) {
+        const linked = memberByEmail.get(toLowerText(row?.email));
+        memberId = String(linked?.member_id || '').trim();
+      }
+      if (!memberId) return;
+      const item = {
+        kind: row.source_kind,
+        source_id: row.source_id || '',
+        source_name: row.source_name || (row.source_kind === 'class' ? 'Class' : 'Event')
+      };
+      const list = attachmentMap.get(memberId) || [];
+      if (!list.some((attached) => attached.kind === item.kind && attached.source_id === item.source_id)) {
+        list.push(item);
+      }
+      attachmentMap.set(memberId, list);
+    });
+    return attachmentMap;
+  }, [searchSource, participantSearchRows]);
+
   const searchResults = useMemo(() => {
     const q = String(query || '').trim().toLowerCase();
-    if (!q) return searchSource;
+    const memberRows = searchSource.map((member, index) => ({
+      key: `member:${member.member_id || member.email || index}`,
+      source_kind: 'member',
+      source_id: '',
+      source_name: '',
+      member_id: member.member_id || '',
+      full_name: member.full_name || '',
+      phone: member.phone || '',
+      email: member.email || '',
+      id_card: member.id_card || member.ktp_number || '',
+      status: member.status || '',
+      participant_no: '',
+      registration_id: '',
+      passport_id: ''
+    }));
+    if (!q) return memberRows;
 
-    return searchSource.filter((member) => {
+    return memberRows.filter((member) => {
       const fields = {
         full_name: String(member.full_name || '').toLowerCase(),
         phone: String(member.phone || '').toLowerCase(),
-        ktp_number: String(member.ktp_number || '').toLowerCase(),
-        member_id: String(member.member_id || '').toLowerCase()
+        ktp_number: String(member.id_card || '').toLowerCase(),
+        member_id: String(member.member_id || '').toLowerCase(),
+        email: String(member.email || '').toLowerCase()
       };
+      const memberDirectHit = searchBy === 'all'
+        ? Object.values(fields).some((value) => value.includes(q))
+        : Boolean(fields[searchBy]?.includes(q));
+      if (memberDirectHit) return true;
 
-      if (searchBy === 'all') {
-        return Object.values(fields).some((value) => value.includes(q));
-      }
-
-      return fields[searchBy]?.includes(q);
+      const attachments = memberAttachmentMap.get(String(member.member_id || '').trim()) || [];
+      return attachments.some((attached) => {
+        const haystack = `${attached.kind} ${attached.source_name} ${attached.source_id}`.toLowerCase();
+        return haystack.includes(q);
+      });
     });
-  }, [searchBy, query, searchSource]);
+  }, [searchBy, query, searchSource, memberAttachmentMap]);
+
+  const filteredEvents = useMemo(() => {
+    const q = toLowerText(eventPanelQuery);
+    if (!q) return events;
+    return events.filter((row) => {
+      return [row.event_name, row.location, row.event_id, row.status, row.organizer_name]
+        .map((v) => toLowerText(v))
+        .some((v) => v.includes(q));
+    });
+  }, [events, eventPanelQuery]);
+
+  const filteredClassPanel = useMemo(() => {
+    const q = toLowerText(classPanelQuery);
+    if (!q) return classes;
+    return classes.filter((row) => {
+      return [row.class_name, row.class_id, row.trainer_name, row.branch_id]
+        .map((v) => toLowerText(v))
+        .some((v) => v.includes(q));
+    });
+  }, [classes, classPanelQuery]);
+
+  const selectedEvent = useMemo(() => {
+    if (selectedExperienceType !== 'event') return null;
+    return events.find((row) => String(row.event_id || '') === String(selectedExperienceId || '')) || null;
+  }, [events, selectedExperienceId, selectedExperienceType]);
+
+  const selectedClass = useMemo(() => {
+    if (selectedExperienceType !== 'class') return null;
+    return classes.find((row) => String(row.class_id || '') === String(selectedExperienceId || '')) || null;
+  }, [classes, selectedExperienceId, selectedExperienceType]);
+
+  const filteredEventParticipants = useMemo(() => {
+    const q = toLowerText(eventParticipantQuery);
+    if (!q) return eventParticipants;
+    return eventParticipants.filter((participant) => {
+      const bucket = [
+        participant.full_name,
+        participant.email,
+        participant.participant_no,
+        participant.registration_id,
+        participant.passport_id
+      ]
+        .map((v) => toLowerText(v))
+        .filter(Boolean);
+      return bucket.some((value) => value.includes(q));
+    });
+  }, [eventParticipants, eventParticipantQuery]);
 
   function signOut() {
     clearSession();
@@ -189,10 +493,98 @@ export default function DashboardPage() {
   }
 
   function scanQrCode() {
-    const scanned = window.prompt('Scan QR code result (member_id):', '');
+    const scanned = window.prompt('Scan QR/barcode result (member_id / email):', '');
     if (!scanned) return;
+    const token = scanned.trim();
+    if (!token) return;
+    if (token.includes('@')) {
+      setSearchBy('all');
+      setQuery(token);
+      return;
+    }
     setSearchBy('member_id');
-    setQuery(scanned.trim());
+    setQuery(token);
+  }
+
+  function scanParticipantBarcode() {
+    if (selectedExperienceType !== 'event' || !selectedExperienceId) {
+      setActionFeedback('Pilih event dulu sebelum scan participant barcode.');
+      return;
+    }
+
+    const scanned = window.prompt('Scan participant barcode / participant_no:', '');
+    if (!scanned) return;
+    const token = toLowerText(scanned);
+    if (!token) return;
+
+    const matches = eventParticipants.filter((participant) => {
+      const bucket = [
+        participant.participant_no,
+        participant.registration_id,
+        participant.email,
+        participant.passport_id,
+        participant.full_name
+      ]
+        .map((v) => toLowerText(v))
+        .filter(Boolean);
+      return bucket.some((value) => value.includes(token));
+    });
+
+    if (matches.length === 0) {
+      setActionFeedback('Participant tidak ditemukan dari barcode ini.');
+      return;
+    }
+    if (matches.length > 1) {
+      setActionFeedback('Barcode match lebih dari satu participant. Check-in tidak dijalankan.');
+      return;
+    }
+
+    const matched = matches[0];
+    const mappedMember = searchSource.find((member) => isSameParticipant(member, matched));
+    if (!mappedMember) {
+      setActionFeedback('Participant ditemukan, tapi member tidak ditemukan di tenant.');
+      return;
+    }
+
+    setSelectedMemberId(mappedMember.member_id);
+    setActionFeedback(`Participant terdeteksi: ${mappedMember.full_name}.`);
+  }
+
+  function exportBrowseCsv(type = 'event') {
+    if (type === 'event') {
+      const rows = [
+        ['type', 'event_id', 'event_name', 'location', 'start_at', 'duration_minutes', 'status', 'publish_price', 'participant_count']
+      ];
+      filteredEvents.forEach((row) => {
+        rows.push([
+          'event',
+          row.event_id || '',
+          row.event_name || '',
+          row.location || '',
+          row.start_at || '',
+          row.duration_minutes || '',
+          row.status || '',
+          row.publish_price || '',
+          row.participant_count || 0
+        ]);
+      });
+      downloadCsvFile(`cs-events-${Date.now()}.csv`, rows);
+      return;
+    }
+
+    const rows = [['type', 'class_id', 'class_name', 'trainer_name', 'start_at', 'end_at', 'capacity']];
+    filteredClassPanel.forEach((row) => {
+      rows.push([
+        'class',
+        row.class_id || '',
+        row.class_name || '',
+        row.trainer_name || '',
+        row.start_at || '',
+        row.end_at || '',
+        row.capacity || ''
+      ]);
+    });
+    downloadCsvFile(`cs-classes-${Date.now()}.csv`, rows);
   }
 
   async function addMember(e) {
@@ -221,6 +613,7 @@ export default function DashboardPage() {
       setMemberMode('list');
       setMemberForm({ full_name: '', phone: '', email: '', id_card: '', member_id: '' });
       setMemberFeedback(`member.created: ${generatedId}`);
+      setSelectedMemberId(generatedId);
       setSearchBy('member_id');
       setQuery(generatedId);
     } catch (err) {
@@ -230,12 +623,123 @@ export default function DashboardPage() {
     }
   }
 
+  async function checkinByIdentity({ member = null, participant = null }) {
+    if (!selectedEvent) {
+      setActionFeedback('Pilih event dulu sebelum check in.');
+      return;
+    }
+    const email = String(member?.email || participant?.email || '').trim();
+    const fullName = member?.full_name || participant?.full_name || null;
+    const registrationId = participant?.registration_id || null;
+    const passportId = participant?.passport_id || null;
+    if (!email && !passportId && !registrationId) {
+      setActionFeedback('Identitas participant/member tidak ditemukan.');
+      return;
+    }
+
+    try {
+      setActionSaving(true);
+      setActionFeedback('');
+      await apiJson(`/v1/admin/events/${encodeURIComponent(selectedEvent.event_id)}/participants/checkin`, {
+        method: 'POST',
+        body: JSON.stringify({
+          tenant_id: tenantId,
+          branch_id: branchId,
+          email: email || null,
+          full_name: fullName,
+          registration_id: registrationId,
+          passport_id: passportId
+        })
+      });
+      await loadEventParticipants(selectedEvent.event_id);
+      await loadDashboard();
+      setActionFeedback(`checkin.success: ${fullName || email || passportId || registrationId || '-'}`);
+    } catch (err) {
+      setActionFeedback(err.message || 'failed to check in participant');
+    } finally {
+      setActionSaving(false);
+    }
+  }
+
+  async function checkoutByIdentity({ member = null, participant = null }) {
+    if (!selectedEvent) {
+      setActionFeedback('Pilih event dulu sebelum check out.');
+      return;
+    }
+    if (!participant?.checked_in_at) {
+      setActionFeedback('Tidak bisa checkout: participant belum check in.');
+      return;
+    }
+    const email = String(member?.email || participant?.email || '').trim();
+    const fullName = member?.full_name || participant?.full_name || null;
+    const registrationId = participant?.registration_id || null;
+    const passportId = participant?.passport_id || null;
+    if (!email && !passportId && !registrationId) {
+      setActionFeedback('Identitas participant/member tidak ditemukan.');
+      return;
+    }
+
+    try {
+      setActionSaving(true);
+      setActionFeedback('');
+      await apiJson(`/v1/admin/events/${encodeURIComponent(selectedEvent.event_id)}/participants/checkout`, {
+        method: 'POST',
+        body: JSON.stringify({
+          tenant_id: tenantId,
+          branch_id: branchId,
+          email: email || null,
+          full_name: fullName,
+          registration_id: registrationId,
+          passport_id: passportId
+        })
+      });
+      await loadEventParticipants(selectedEvent.event_id);
+      await loadDashboard();
+      setActionFeedback(`checkout.success: ${fullName || email || passportId || registrationId || '-'}`);
+    } catch (err) {
+      setActionFeedback(err.message || 'failed to check out participant');
+    } finally {
+      setActionSaving(false);
+    }
+  }
+
+  async function bookClassForMember() {
+    if (!selectedMember || !selectedClass) {
+      setActionFeedback('Pilih member dan class dulu sebelum booking.');
+      return;
+    }
+
+    try {
+      setActionSaving(true);
+      setActionFeedback('');
+      await apiJson('/v1/bookings/classes/create', {
+        method: 'POST',
+        body: JSON.stringify({
+          tenant_id: tenantId,
+          branch_id: branchId,
+          booking_id: `book_${Date.now()}`,
+          class_id: selectedClass.class_id,
+          booking_kind: 'member',
+          member_id: selectedMember.member_id,
+          guest_name: selectedMember.full_name,
+          status: 'booked'
+        })
+      });
+      await loadDashboard();
+      setActionFeedback(`booking.success: ${selectedMember.full_name} -> ${selectedClass.class_name}`);
+    } catch (err) {
+      setActionFeedback(err.message || 'failed to create booking');
+    } finally {
+      setActionSaving(false);
+    }
+  }
+
   return (
     <main className="dashboard">
       <header className="dash-head card">
         <div>
           <p className="eyebrow">Dashboard</p>
-          <h1>{session?.tenant?.gym_name || 'Foremoz Fitness Tenant'}</h1>
+          <h1>{session?.tenant?.gym_name || `Foremoz ${inferredVerticalLabel} Tenant`}</h1>
           <p>Welcome {fullName}</p>
         </div>
         <div className="meta">
@@ -293,117 +797,369 @@ export default function DashboardPage() {
       <section className="card search-panel">
         <div className="panel-head">
           <div>
-            <p className="eyebrow">Membership Search</p>
-            <h2>Search member</h2>
-          </div>
-          <div style={{ display: 'flex', gap: '0.5rem' }}>
-            <button className="btn ghost" onClick={scanQrCode}>
-              Scan QR code
-            </button>
-            <button
-              className="btn"
-              type="button"
-              onClick={() => {
-                setMemberMode((prev) => (prev === 'add' ? 'list' : 'add'));
-                setMemberFeedback('');
-              }}
-            >
-              {memberMode === 'add' ? 'Cancel add' : 'Add member'}
-            </button>
+            <p className="eyebrow">Workspace</p>
+            <h2>CS panel</h2>
           </div>
         </div>
-
-        <div className="search-box">
-          <label>
-            search_by
-            <select value={searchBy} onChange={(e) => setSearchBy(e.target.value)}>
-              <option value="all">all</option>
-              <option value="full_name">full_name</option>
-              <option value="phone">phone</option>
-              <option value="ktp_number">ktp_number</option>
-              <option value="member_id">member_id</option>
-            </select>
-          </label>
-          <label>
-            query
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="name, phone, ktp_number, member_id"
-            />
-          </label>
-        </div>
-
-        {memberMode === 'add' ? (
-          <form className="form" onSubmit={addMember} style={{ marginTop: '0.75rem' }}>
-            <label>
-              full_name
-              <input
-                value={memberForm.full_name}
-                onChange={(e) => setMemberForm((prev) => ({ ...prev, full_name: e.target.value }))}
-                placeholder="Nama member"
-              />
-            </label>
-            <label>
-              phone
-              <input
-                value={memberForm.phone}
-                onChange={(e) => setMemberForm((prev) => ({ ...prev, phone: e.target.value }))}
-                placeholder="08xxxxxxxxxx"
-              />
-            </label>
-            <label>
-              email
-              <input
-                type="email"
-                value={memberForm.email}
-                onChange={(e) => setMemberForm((prev) => ({ ...prev, email: e.target.value }))}
-                placeholder="member@email.com"
-              />
-            </label>
-            <label>
-              id_card
-              <input
-                value={memberForm.id_card}
-                onChange={(e) => setMemberForm((prev) => ({ ...prev, id_card: e.target.value }))}
-                placeholder="KTP / ID Card"
-              />
-            </label>
-            <label>
-              member_id (optional)
-              <input
-                value={memberForm.member_id}
-                onChange={(e) => setMemberForm((prev) => ({ ...prev, member_id: e.target.value }))}
-                placeholder="auto-generate if empty"
-              />
-            </label>
-            <button className="btn" type="submit" disabled={memberSaving}>
-              {memberSaving ? 'Saving...' : 'Save member'}
-            </button>
-          </form>
-        ) : null}
-
-        {memberFeedback ? <p className="feedback">{memberFeedback}</p> : null}
-
-        <div className="search-result-list">
-          {searchResults.length > 0 ? (
-            searchResults.map((member) => (
-              <button
-                key={member.member_id}
-                className="member-row"
-                onClick={() => navigate(accountPath(session, `/members/${member.member_id}`))}
-              >
-                <strong>{member.full_name}</strong>
-                <span>{member.member_id}</span>
-                <span>{member.phone}</span>
-                <span className={`status ${member.status}`}>{member.status}</span>
-              </button>
-            ))
-          ) : (
-            <p className="muted">No member found.</p>
-          )}
+        <div className="landing-tabs" role="tablist" aria-label="Workspace panel">
+          <button type="button" className={`landing-tab ${workspaceTab === 'member' ? 'active' : ''}`} onClick={() => setWorkspaceTab('member')}>
+            Member
+          </button>
+          <button
+            type="button"
+            className={`landing-tab ${workspaceTab === 'event' ? 'active' : ''}`}
+            onClick={() => {
+              setWorkspaceTab('event');
+              setSelectedExperienceType('event');
+            }}
+          >
+            Event
+          </button>
+          <button
+            type="button"
+            className={`landing-tab ${workspaceTab === 'class' ? 'active' : ''}`}
+            onClick={() => {
+              setWorkspaceTab('class');
+              setSelectedExperienceType('class');
+            }}
+          >
+            Class
+          </button>
         </div>
       </section>
+
+      {workspaceTab === 'member' ? (
+        <section className="card search-panel">
+          <div className="panel-head">
+            <div>
+              <p className="eyebrow">Membership Search</p>
+              <h2>Search member</h2>
+            </div>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <button className="btn ghost" onClick={scanQrCode}>
+                Scan QR code
+              </button>
+              <button
+                className="btn"
+                type="button"
+                onClick={() => {
+                  setMemberMode((prev) => (prev === 'add' ? 'list' : 'add'));
+                  setMemberFeedback('');
+                }}
+              >
+                {memberMode === 'add' ? 'Cancel add' : 'Add member'}
+              </button>
+            </div>
+          </div>
+
+          <div className="search-box">
+            <label>
+              search_by
+              <select value={searchBy} onChange={(e) => setSearchBy(e.target.value)}>
+                <option value="all">all</option>
+                <option value="full_name">full_name</option>
+                <option value="phone">phone</option>
+                <option value="ktp_number">ktp_number</option>
+                <option value="member_id">member_id</option>
+              </select>
+            </label>
+            <label>
+              query
+              <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="name, phone, ktp_number, member_id" />
+            </label>
+          </div>
+
+          {memberMode === 'add' ? (
+            <form className="form" onSubmit={addMember} style={{ marginTop: '0.75rem' }}>
+              <label>
+                full_name
+                <input value={memberForm.full_name} onChange={(e) => setMemberForm((prev) => ({ ...prev, full_name: e.target.value }))} placeholder="Nama member" />
+              </label>
+              <label>
+                phone
+                <input value={memberForm.phone} onChange={(e) => setMemberForm((prev) => ({ ...prev, phone: e.target.value }))} placeholder="08xxxxxxxxxx" />
+              </label>
+              <label>
+                email
+                <input type="email" value={memberForm.email} onChange={(e) => setMemberForm((prev) => ({ ...prev, email: e.target.value }))} placeholder="member@email.com" />
+              </label>
+              <label>
+                id_card
+                <input value={memberForm.id_card} onChange={(e) => setMemberForm((prev) => ({ ...prev, id_card: e.target.value }))} placeholder="KTP / ID Card" />
+              </label>
+              <label>
+                member_id (optional)
+                <input value={memberForm.member_id} onChange={(e) => setMemberForm((prev) => ({ ...prev, member_id: e.target.value }))} placeholder="auto-generate if empty" />
+              </label>
+              <button className="btn" type="submit" disabled={memberSaving}>
+                {memberSaving ? 'Saving...' : 'Save member'}
+              </button>
+            </form>
+          ) : null}
+
+          {memberFeedback ? <p className="feedback">{memberFeedback}</p> : null}
+          {participantSearchLoading ? <p className="feedback">Indexing active event/class participants...</p> : null}
+
+          <div className="search-result-list">
+            {searchResults.length > 0 ? (
+              searchResults.map((row) => {
+                const isSelected = String(row.member_id || '') === String(selectedMemberId || '');
+                const attachments = memberAttachmentMap.get(String(row.member_id || '').trim()) || [];
+                return (
+                  <div key={row.key} className={`member-row ${isSelected ? 'selected' : ''}`}>
+                    <strong>{row.full_name || '-'}</strong>
+                    <span>{row.member_id || '-'}</span>
+                    <span>{row.phone || '-'}</span>
+                    <span>{row.email || '-'}</span>
+                    <span className={`status ${row.status}`}>{row.status || '-'}</span>
+                    {attachments.length > 0 ? (
+                      <div className="member-row-actions">
+                        {attachments.map((item) => (
+                          <button
+                            key={`${row.member_id}-${item.kind}-${item.source_id}`}
+                            className="btn ghost small"
+                            type="button"
+                            onClick={() => {
+                              if (item.kind === 'event') {
+                                setWorkspaceTab('event');
+                                setSelectedExperienceType('event');
+                                setSelectedExperienceId(item.source_id);
+                              } else {
+                                setWorkspaceTab('class');
+                                setSelectedExperienceType('class');
+                                setSelectedExperienceId(item.source_id);
+                              }
+                            }}
+                          >
+                            {item.kind}: {item.source_name}
+                          </button>
+                        ))}
+                      </div>
+                    ) : null}
+                    <div className="member-row-actions">
+                      <button className="btn ghost small" type="button" onClick={() => setSelectedMemberId(row.member_id)}>
+                        {isSelected ? 'Selected' : 'Select'}
+                      </button>
+                      <button className="btn ghost small" type="button" onClick={() => navigate(accountPath(session, `/members/${row.member_id}`))}>
+                        View member
+                      </button>
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              <p className="muted">No member found.</p>
+            )}
+          </div>
+        </section>
+      ) : null}
+
+      {workspaceTab === 'event' ? (
+        <section className="card search-panel">
+          <div className="panel-head">
+            <div>
+              <p className="eyebrow">Event Panel</p>
+              <h2>Browse events cards</h2>
+            </div>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <button className="btn ghost" type="button" onClick={() => exportBrowseCsv('event')}>
+                Export CSV
+              </button>
+              <button className="btn ghost" type="button" onClick={scanParticipantBarcode}>
+                Scan barcode
+              </button>
+            </div>
+          </div>
+
+          <label>
+            search event
+            <input value={eventPanelQuery} onChange={(e) => setEventPanelQuery(e.target.value)} placeholder="event name, location, status" />
+          </label>
+
+          <div className="entity-list" style={{ marginTop: '0.8rem' }}>
+            {filteredEvents.length > 0 ? (
+              filteredEvents.map((eventItem) => {
+                const selected = selectedExperienceType === 'event' && selectedExperienceId === eventItem.event_id;
+                return (
+                  <button
+                    key={eventItem.event_id}
+                    type="button"
+                    className={`member-row ${selected ? 'selected' : ''}`}
+                    onClick={() => {
+                      setSelectedExperienceType('event');
+                      setSelectedExperienceId(eventItem.event_id);
+                      setActionFeedback('');
+                    }}
+                  >
+                    <strong>{eventItem.event_name || '-'}</strong>
+                    <span>{eventItem.event_id || '-'}</span>
+                    <span>{eventItem.location || '-'}</span>
+                    <span>Mulai: {formatDateTime(eventItem.start_at)}</span>
+                    <span>Durasi: {Number(eventItem.duration_minutes || 0)} menit</span>
+                    <span>Participants: {Number(eventItem.participant_count || 0)} | Harga: {formatIdr(eventItem.publish_price || 0)}</span>
+                  </button>
+                );
+              })
+            ) : (
+              <p className="muted">No event found.</p>
+            )}
+          </div>
+
+          <div className="member-layout">
+            <article className="member-detail">
+              <h3>Selected member</h3>
+              {selectedMember ? (
+                <>
+                  <p><strong>{selectedMember.full_name || '-'}</strong></p>
+                  <p>ID: {selectedMember.member_id}</p>
+                  <p>Email: {selectedMember.email || '-'}</p>
+                </>
+              ) : null}
+            </article>
+            <article className="member-detail">
+              <h3>Selected event</h3>
+              {selectedEvent ? (
+                <>
+                  <p><strong>{selectedEvent.event_name || '-'}</strong></p>
+                  <p>ID: {selectedEvent.event_id}</p>
+                  <p>Mulai: {formatDateTime(selectedEvent.start_at)}</p>
+                </>
+              ) : (
+                <p className="muted">Pilih event dari card di atas.</p>
+              )}
+            </article>
+          </div>
+
+          {selectedExperienceType === 'event' && selectedEvent ? (
+            <div className="payment-history">
+              <h3>Event participants</h3>
+              <label>
+                search participant
+                <input
+                  value={eventParticipantQuery}
+                  onChange={(e) => setEventParticipantQuery(e.target.value)}
+                  placeholder="name, email, participant_no, registration_id"
+                />
+              </label>
+              {eventParticipantsLoading ? (
+                <p className="feedback">Loading participants...</p>
+              ) : filteredEventParticipants.length > 0 ? (
+                <div className="entity-list">
+                  {filteredEventParticipants.slice(0, 20).map((participant, index) => (
+                    <div className="entity-row" key={`${participant.registration_id || participant.email || participant.passport_id || 'p'}-${index}`}>
+                      <div>
+                        <strong>{participant.full_name || participant.email || participant.passport_id || '-'}</strong>
+                        <p>{participant.participant_no || '-'} | {participant.email || '-'} | checkin: {participant.checked_in_at ? 'yes' : 'no'} | checkout: {participant.checked_out_at ? 'yes' : 'no'}</p>
+                      </div>
+                      <div className="row-actions">
+                        <button className="btn ghost small" type="button" disabled={actionSaving} onClick={() => checkinByIdentity({ participant })}>
+                          {participant.checked_in_at ? 'Update check in' : 'Check in'}
+                        </button>
+                        <button
+                          className="btn ghost small"
+                          type="button"
+                          disabled={actionSaving || !participant.checked_in_at}
+                          onClick={() => checkoutByIdentity({ participant })}
+                        >
+                          {participant.checked_out_at ? 'Update checkout' : 'Check out'}
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="muted">Belum ada participant terdaftar.</p>
+              )}
+            </div>
+          ) : null}
+
+          {actionFeedback ? <p className="feedback">{actionFeedback}</p> : null}
+        </section>
+      ) : null}
+
+      {workspaceTab === 'class' ? (
+        <section className="card search-panel">
+          <div className="panel-head">
+            <div>
+              <p className="eyebrow">Class Panel</p>
+              <h2>Browse class cards</h2>
+            </div>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <button className="btn ghost" type="button" onClick={() => exportBrowseCsv('class')}>
+                Export CSV
+              </button>
+            </div>
+          </div>
+
+          <label>
+            search class
+            <input value={classPanelQuery} onChange={(e) => setClassPanelQuery(e.target.value)} placeholder="class, trainer, class_id" />
+          </label>
+
+          <div className="entity-list" style={{ marginTop: '0.8rem' }}>
+            {filteredClassPanel.length > 0 ? (
+              filteredClassPanel.map((classItem) => {
+                const selected = selectedExperienceType === 'class' && selectedExperienceId === classItem.class_id;
+                return (
+                  <button
+                    key={classItem.class_id}
+                    type="button"
+                    className={`member-row ${selected ? 'selected' : ''}`}
+                    onClick={() => {
+                      setSelectedExperienceType('class');
+                      setSelectedExperienceId(classItem.class_id);
+                      setActionFeedback('');
+                    }}
+                  >
+                    <strong>{classItem.class_name || '-'}</strong>
+                    <span>{classItem.class_id || '-'}</span>
+                    <span>Trainer: {classItem.trainer_name || '-'}</span>
+                    <span>Mulai: {formatDateTime(classItem.start_at)}</span>
+                    <span>Selesai: {formatDateTime(classItem.end_at)}</span>
+                    <span>Capacity: {Number(classItem.capacity || 0)}</span>
+                  </button>
+                );
+              })
+            ) : (
+              <p className="muted">No class found.</p>
+            )}
+          </div>
+
+          <div className="member-layout">
+            <article className="member-detail">
+              <h3>Selected member</h3>
+              {selectedMember ? (
+                <>
+                  <p><strong>{selectedMember.full_name || '-'}</strong></p>
+                  <p>ID: {selectedMember.member_id}</p>
+                  <p>Email: {selectedMember.email || '-'}</p>
+                </>
+              ) : null}
+            </article>
+            <article className="member-detail">
+              <h3>Selected class</h3>
+              {selectedClass ? (
+                <>
+                  <p><strong>{selectedClass.class_name || '-'}</strong></p>
+                  <p>ID: {selectedClass.class_id}</p>
+                  <p>Trainer: {selectedClass.trainer_name || '-'}</p>
+                  <p>Mulai: {formatDateTime(selectedClass.start_at)}</p>
+                </>
+              ) : (
+                <p className="muted">Pilih class dari card di atas.</p>
+              )}
+            </article>
+          </div>
+
+          <div className="member-actions">
+            <button className="btn ghost" type="button" disabled={actionSaving || !selectedMember || !selectedClass} onClick={bookClassForMember}>
+              {actionSaving ? 'Saving...' : 'Create class booking'}
+            </button>
+          </div>
+
+          {actionFeedback ? <p className="feedback">{actionFeedback}</p> : null}
+        </section>
+      ) : null}
 
       <footer className="dash-foot">
         <Link to="/">Back to landing</Link>

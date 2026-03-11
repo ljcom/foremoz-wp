@@ -4,7 +4,7 @@ export default function AuthLayout({ title, subtitle, alternateHref, alternateTe
   return (
     <main className="auth-shell">
       <section className="auth-left">
-        <p className="eyebrow">Foremoz Fitness</p>
+        <p className="eyebrow">Foremoz Industries</p>
         <h1>{title}</h1>
         <p>{subtitle}</p>
         {alternateHref && alternateText ? (

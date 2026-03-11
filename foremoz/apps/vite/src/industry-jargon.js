@@ -50,6 +50,18 @@ export function guessVerticalSlugByEventText(eventItem, fallbackSlug = 'active')
   return fallbackSlug;
 }
 
+export function guessVerticalSlugByText(value, fallbackSlug = 'active') {
+  const text = String(value || '').toLowerCase();
+  if (!text) return fallbackSlug;
+  for (const item of listVerticalConfigs()) {
+    const labelToken = String(item.label || '').toLowerCase();
+    const experienceTypes = Array.isArray(item.experience_types) ? item.experience_types : [];
+    if (labelToken && text.includes(labelToken)) return item.slug;
+    if (experienceTypes.some((type) => text.includes(String(type).toLowerCase()))) return item.slug;
+  }
+  return fallbackSlug;
+}
+
 export function describeVerticalByJargon(slug) {
   const config = getVerticalConfig(slug);
   if (!config) return '';

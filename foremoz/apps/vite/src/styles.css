@@ -1046,6 +1046,13 @@ code {
   font-family: var(--font-mono);
 }
 
+.member-row-actions {
+  margin-top: 0.35rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
 .member-detail {
   border: 1px solid #dccbb4;
   border-radius: 12px;

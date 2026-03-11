@@ -132,4 +132,10 @@
     - [~] components
       - Remark: komponen ada di struktur dasar, belum lengkap untuk skenario kompleks.
 - [~] CS
-  - Remark: dashboard CS sudah ada; scope fitur CS spesifik masih perlu difinalkan.
+  - [~] dashboard
+    - [x] browse events/class card (ecommerce like)
+      - [x] export csv
+      - [~] search member -> get class/events -> checkin -> check out
+        - Remark: event flow sudah checkin/checkout penuh; class saat ini pakai booking cepat (belum checkout khusus class).
+      - [x] scan barcode
+    - [x] order -> payment

@@ -1,4 +1,4 @@
-export const APP_ORIGIN = import.meta.env.VITE_APP_ORIGIN || 'https://fitness.foremoz.com';
+export const APP_ORIGIN = import.meta.env.VITE_APP_ORIGIN || 'https://foremoz.com';
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3300';
 export const IS_MOCK_MODE = (import.meta.env.VITE_APP_MODE || '').toLowerCase() === 'mock';
 export const IS_MOCKUP_OPEN_ACCESS = String(import.meta.env.VITE_MOCKUP_OPEN_ACCESS || 'false').toLowerCase() === 'true';

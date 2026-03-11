@@ -389,7 +389,8 @@ app.get('/health', async (_req, res) => {
     await query('select 1');
     return res.json({ status: 'ok' });
   } catch (error) {
-    return res.status(500).json({ status: 'FAIL', error_code: 'DB_UNAVAILABLE', message: error.message });
+    const message = String(error?.message || '').trim() || 'database is unavailable';
+    return res.status(500).json({ status: 'FAIL', error_code: 'DB_UNAVAILABLE', message });
   }
 });
 
@@ -3082,10 +3083,20 @@ app.get('/v1/read/dashboard', async (req, res, next) => {
 });
 
 app.use((error, _req, res, _next) => {
-  return res.status(error.statusCode || 400).json({
+  const statusCode =
+    Number.isInteger(error?.statusCode) && Number(error.statusCode) >= 400 && Number(error.statusCode) <= 599
+      ? Number(error.statusCode)
+      : 500;
+  const errorCode = error?.errorCode || (statusCode >= 500 ? 'INTERNAL_ERROR' : 'BAD_REQUEST');
+  const message = String(error?.message || '').trim() || (statusCode >= 500 ? 'internal server error' : 'bad request');
+  if (statusCode >= 500) {
+    // eslint-disable-next-line no-console
+    console.error('Unhandled API error:', error);
+  }
+  return res.status(statusCode).json({
     status: 'FAIL',
-    error_code: error.errorCode || 'BAD_REQUEST',
-    message: error.message
+    error_code: errorCode,
+    message
   });
 });
 

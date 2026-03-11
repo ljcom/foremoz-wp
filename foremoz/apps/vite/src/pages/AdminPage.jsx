@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { accountPath, apiJson, getAccountSlug, getSession, getAdminTabsByPlan, getAllowedEnvironments, getSessionPackagePlan } from '../lib.js';
+import { getVerticalLabel, guessVerticalSlugByText } from '../industry-jargon.js';
 
 const ADMIN_TABS = [
   // { id: 'user', label: 'User' },
@@ -663,6 +664,8 @@ export default function AdminPage() {
   }, [session, role]);
   const packagePlan = getSessionPackagePlan(session);
   const isFreePlan = packagePlan === 'free';
+  const inferredVerticalSlug = guessVerticalSlugByText(`${session?.tenant?.gym_name || ''} ${accountSlug}`, 'active');
+  const inferredVerticalLabel = getVerticalLabel(inferredVerticalSlug, 'Active');
   const isCsView = role === 'cs';
   const dashboardTitle = isCsView ? 'Setup' : 'Admin';
   const dashboardSubtitle = isCsView ? 'Tenant setup panel' : 'Tenant administration panel';
@@ -1742,7 +1745,7 @@ export default function AdminPage() {
       <header className="dash-head card">
         <div>
           <p className="eyebrow">{dashboardTitle}</p>
-          <h1>{session?.tenant?.gym_name || 'Foremoz Fitness Tenant'}</h1>
+          <h1>{session?.tenant?.gym_name || `Foremoz ${inferredVerticalLabel} Tenant`}</h1>
           <p>{dashboardSubtitle}</p>
         </div>
         <div className="meta">

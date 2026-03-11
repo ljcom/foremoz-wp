@@ -8,7 +8,7 @@ export default function LandingPage() {
   return (
     <main className="landing">
       <header className="topbar">
-        <div className="brand">Foremoz Fitness</div>
+        <div className="brand">Foremoz Industries</div>
         <nav>
           <Link to="/signin">Sign in</Link>
           <Link className="btn small" to="/signup">
@@ -19,10 +19,10 @@ export default function LandingPage() {
 
       <section className="hero">
         <div>
-          <p className="eyebrow">Fitness Ops Platform</p>
-          <h1>Run membership, booking, PT session, attendance, and payment in one workflow.</h1>
+          <p className="eyebrow">Industry Ops Platform</p>
+          <h1>Run creator, experience, participation, and transaction in one workflow.</h1>
           <p>
-            Event-driven operations for gyms and fitness studios. Write layer on EventDB, read model via projection.
+            Event-driven operations for multi-industry operators. Write layer on EventDB, read model via projection.
           </p>
           <div className="hero-actions">
             <Link className="btn" to="/signup">
@@ -33,17 +33,17 @@ export default function LandingPage() {
             </Link>
           </div>
           <p className="domain">Target origin: {APP_ORIGIN}</p>
-          {isLocal && <p className="local-note">Preview mode on localhost. Production host should be fitness.foremoz.com.</p>}
+          {isLocal && <p className="local-note">Preview mode on localhost. Production host should be your-industry.foremoz.com.</p>}
         </div>
 
         <aside className="hero-card">
           <h2>Scope</h2>
           <ul>
-            <li>membership and subscription lifecycle</li>
-            <li>class booking and capacity</li>
-            <li>PT session balance</li>
-            <li>attendance checkin</li>
-            <li>payment recording and confirmation</li>
+            <li>identity and profile lifecycle</li>
+            <li>experience creation and scheduling</li>
+            <li>participation and check-in/check-out</li>
+            <li>offering and package management</li>
+            <li>transaction recording and confirmation</li>
           </ul>
         </aside>
       </section>

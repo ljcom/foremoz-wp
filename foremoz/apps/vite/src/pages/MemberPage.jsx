@@ -1,49 +1,65 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
-import { accountPath, getSession } from '../lib.js';
-import { getMemberById } from '../member-data.js';
-
-const PAYMENT_HISTORY = {
-  mem_4471: [
-    { payment_id: 'pay_90011', recorded_at: '2026-03-01', method: 'transfer', amount: 650000, status: 'confirmed', ref: 'sub_90021' },
-    { payment_id: 'pay_88910', recorded_at: '2026-02-01', method: 'cash', amount: 650000, status: 'confirmed', ref: 'sub_88999' }
-  ],
-  mem_4472: [
-    { payment_id: 'pay_88001', recorded_at: '2026-01-20', method: 'transfer', amount: 650000, status: 'confirmed', ref: 'sub_88001' }
-  ],
-  mem_4473: [
-    { payment_id: 'pay_91010', recorded_at: '2026-02-27', method: 'qris', amount: 1200000, status: 'pending', ref: 'pt_pkg_3003' }
-  ]
-};
+import { accountPath, apiJson, getSession } from '../lib.js';
 
 export default function MemberPage() {
   const navigate = useNavigate();
   const session = getSession();
   const { memberId } = useParams();
-  const member = useMemo(() => getMemberById(memberId), [memberId]);
+  const tenantId = session?.tenant?.id || 'tn_001';
+  const [memberRow, setMemberRow] = useState(null);
+  const [paymentHistory, setPaymentHistory] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState('');
   const [activeMenu, setActiveMenu] = useState('checkin');
   const [feedback, setFeedback] = useState('');
 
-  if (!member) {
+  useEffect(() => {
+    let cancelled = false;
+    async function loadMemberData() {
+      try {
+        setLoading(true);
+        setLoadError('');
+        const [membersRes, paymentsRes] = await Promise.all([
+          apiJson(`/v1/read/members?tenant_id=${encodeURIComponent(tenantId)}&limit=1000`),
+          apiJson(`/v1/read/payments/history?tenant_id=${encodeURIComponent(tenantId)}&member_id=${encodeURIComponent(memberId || '')}`)
+        ]);
+        if (cancelled) return;
+        const memberFound = (membersRes.rows || []).find((row) => String(row.member_id || '') === String(memberId || '')) || null;
+        setMemberRow(memberFound);
+        setPaymentHistory(paymentsRes.rows || []);
+      } catch (err) {
+        if (cancelled) return;
+        setLoadError(err.message || 'failed to load member');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    loadMemberData();
+    return () => {
+      cancelled = true;
+    };
+  }, [tenantId, memberId]);
+
+  if (!memberRow && !loading && !loadError) {
     return <Navigate to={accountPath(session, '/cs/dashboard')} replace />;
   }
-
-  const paymentHistory = PAYMENT_HISTORY[member.member_id] || [];
+  const memberData = memberRow;
 
   function actionMessage(action) {
     if (action === 'checkin') {
-      return `checkin.logged queued for ${member.member_id}`;
+      return `checkin.logged queued for ${memberData?.member_id || memberId}`;
     }
     if (action === 'checkout') {
-      return `checkout event queued for ${member.member_id}`;
+      return `checkout event queued for ${memberData?.member_id || memberId}`;
     }
     if (action === 'membership') {
-      return `subscription.activated draft created for ${member.member_id}`;
+      return `subscription.activated draft created for ${memberData?.member_id || memberId}`;
     }
     if (action === 'pt') {
-      return `pt.package.assigned draft created for ${member.member_id}`;
+      return `pt.package.assigned draft created for ${memberData?.member_id || memberId}`;
     }
-    return `class.booking.created draft opened for ${member.member_id}`;
+    return `class.booking.created draft opened for ${memberData?.member_id || memberId}`;
   }
 
   function runAction(action) {
@@ -55,8 +71,8 @@ export default function MemberPage() {
       <header className="dash-head card">
         <div>
           <p className="eyebrow">Member</p>
-          <h1>{member.full_name}</h1>
-          <p>{member.member_id}</p>
+          <h1>{memberData?.full_name || memberId}</h1>
+          <p>{memberData?.member_id || memberId}</p>
         </div>
         <div className="meta">
           <button className="btn ghost" onClick={() => navigate(accountPath(session, '/cs/dashboard'))}>
@@ -101,18 +117,21 @@ export default function MemberPage() {
           <p className="eyebrow">Status</p>
           <h2>Member operational status</h2>
 
+          {loading ? <p className="feedback">Loading member...</p> : null}
+          {loadError ? <p className="error">{loadError}</p> : null}
           <div className="member-detail">
             <p>
-              <strong>{member.full_name}</strong>
+              <strong>{memberData?.full_name || '-'}</strong>
             </p>
-            <p>member_id: {member.member_id}</p>
-            <p>phone: {member.phone}</p>
-            <p>ktp_number: {member.ktp_number}</p>
+            <p>member_id: {memberData?.member_id || '-'}</p>
+            <p>phone: {memberData?.phone || '-'}</p>
+            <p>email: {memberData?.email || '-'}</p>
+            <p>id_card: {memberData?.id_card || memberData?.ktp_number || '-'}</p>
             <p>
-              status: <span className={`status ${member.status}`}>{member.status}</span>
+              status: <span className={`status ${memberData?.status}`}>{memberData?.status || '-'}</span>
             </p>
-            <p>subscription_end: {member.subscription_end}</p>
-            <p>remaining PT session: {member.pt_remaining_sessions}</p>
+            <p>subscription_end: -</p>
+            <p>remaining PT session: -</p>
           </div>
 
           <div className="member-actions">
