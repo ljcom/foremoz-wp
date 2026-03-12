@@ -16,12 +16,12 @@ server {
     server_name dev.foremoz.com;
 
     client_max_body_size 20m;
-    root /opt/foremoz/apps/vite/dist;
+    root /opt/apps/foremoz-wp/foremoz/apps/vite/dist;
     index index.html;
 
     # API passthrough
     location /v1/ {
-        proxy_pass http://passport_api;
+        proxy_pass http://foremoz_api;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -48,11 +48,11 @@ server {
     server_name passport.foremoz.com;
 
     client_max_body_size 20m;
-    root /opt/foremoz/apps/vite/dist;
+    root /opt/apps/foremoz-wp/foremoz/apps/vite/dist;
     index index.html;
 
     location /v1/ {
-        proxy_pass http://foremoz_api;
+        proxy_pass http://passport_api;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
