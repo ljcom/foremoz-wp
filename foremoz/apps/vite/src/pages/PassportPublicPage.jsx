@@ -81,6 +81,7 @@ export default function PassportPublicPage() {
     collaborations: 0
   });
   const [loading, setLoading] = useState(false);
+  const [notFound, setNotFound] = useState(false);
   const [activeVertical, setActiveVertical] = useState('Active');
   const [publicVisibility, setPublicVisibility] = useState(() => normalizePublicVisibility({}));
 
@@ -89,9 +90,11 @@ export default function PassportPublicPage() {
     async function loadPassport() {
       try {
         setLoading(true);
+        setNotFound(false);
         const result = await apiJson(`/v1/public/passport?account=${encodeURIComponent(account)}`);
         if (!mounted) return;
-        setProfile(result.profile || null);
+        const profileItem = result.profile || null;
+        setProfile(profileItem);
         setPublicVisibility(normalizePublicVisibility(result.visibility || {}));
         setEvents({
           upcoming: Array.isArray(result?.events?.upcoming) ? result.events.upcoming : [],
@@ -103,9 +106,11 @@ export default function PassportPublicPage() {
           cities_active: Number(result?.stats?.cities_active || 1),
           collaborations: Number(result?.stats?.collaborations || 0)
         });
+        setNotFound(!profileItem);
       } catch {
         if (!mounted) return;
         setProfile(null);
+        setNotFound(true);
         setPublicVisibility(normalizePublicVisibility({}));
         setEvents({ upcoming: [], past: [] });
       } finally {
@@ -135,6 +140,29 @@ export default function PassportPublicPage() {
     () => history.filter((item) => guessVertical(item) === activeVertical),
     [history, activeVertical]
   );
+
+  if (!loading && notFound) {
+    return (
+      <main className="landing passport-fancy-public">
+        <div className="passport-bg-orbs" aria-hidden="true" />
+        <header className="topbar">
+          <div className="brand"><i className="fa-solid fa-id-card" /> Passport</div>
+          <nav>
+            <Link to="/events">Events</Link>
+            <Link to="/passport/signin">Sign in</Link>
+          </nav>
+        </header>
+        <section className="card">
+          <p className="eyebrow">404</p>
+          <h1>Passport not found</h1>
+          <p className="sub">Data passport untuk slug ini belum tersedia atau belum dipublish.</p>
+          <div className="hero-actions">
+            <Link className="btn" to="/events">Back to events</Link>
+          </div>
+        </section>
+      </main>
+    );
+  }
 
   return (
     <main className="landing passport-fancy-public">

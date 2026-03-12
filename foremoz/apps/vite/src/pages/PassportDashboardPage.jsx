@@ -48,6 +48,12 @@ export default function PassportDashboardPage() {
   const location = useLocation();
   const dashboardQuery = useMemo(() => new URLSearchParams(location.search || ''), [location.search]);
   const accountFilter = String(dashboardQuery.get('account') || '').trim().toLowerCase();
+  const showAllContextsHref = useMemo(() => {
+    const next = new URLSearchParams(location.search || '');
+    next.delete('account');
+    const qs = next.toString();
+    return `${location.pathname}${qs ? `?${qs}` : ''}`;
+  }, [location.pathname, location.search]);
   const authBase = location.pathname.startsWith('/passport') ? '/passport' : '/events';
   const session = getPassportSession();
   const tenantId = session?.tenant?.id || 'ps_001';
@@ -60,7 +66,7 @@ export default function PassportDashboardPage() {
   const [planCode, setPlanCode] = useState('free');
   const [joinedEvents, setJoinedEvents] = useState([]);
   const [eventScoresByEventId, setEventScoresByEventId] = useState({});
-  const [eventTab, setEventTab] = useState('upcoming');
+  const [dashboardTab, setDashboardTab] = useState('profile');
   const [statusInput, setStatusInput] = useState('');
   const [socialPosts, setSocialPosts] = useState([]);
   const [memberStatus, setMemberStatus] = useState('');
@@ -155,6 +161,26 @@ export default function PassportDashboardPage() {
     return [...filteredJoinedEvents]
       .filter((event) => new Date(event.start_at || '').getTime() < now)
       .sort((a, b) => new Date(b.start_at || 0).getTime() - new Date(a.start_at || 0).getTime());
+  }, [filteredJoinedEvents]);
+
+  const followingItems = useMemo(() => {
+    const seen = new Set();
+    return filteredJoinedEvents
+      .map((event) => {
+        const account = String(event?.account_slug || '').trim();
+        if (!account || seen.has(account)) return null;
+        seen.add(account);
+        return {
+          account,
+          organizer:
+            String(event?.organizer_name || '').trim() ||
+            String(event?.host_name || '').trim() ||
+            String(event?.created_by_name || '').trim() ||
+            'Organizer',
+          location: String(event?.location || '').trim() || '-'
+        };
+      })
+      .filter(Boolean);
   }, [filteredJoinedEvents]);
 
   useEffect(() => {
@@ -259,7 +285,10 @@ export default function PassportDashboardPage() {
     .slice(0, 2)
     .map((part) => part[0]?.toUpperCase())
     .join('') || 'M';
-  const publicAccount = session?.tenant?.account_slug || session?.tenant?.id || passportId || 'member';
+  const sessionAccountSlug = String(session?.tenant?.account_slug || '').trim().toLowerCase();
+  const isGenericPassportTenant = sessionAccountSlug === 'tn_001' || sessionAccountSlug === 'ps_001';
+  const publicAccount = accountFilter || (!isGenericPassportTenant ? sessionAccountSlug : '') || passportId || 'member';
+  const publicPageSlug = String(profile?.passport_id || passportId || '').trim() || publicAccount;
 
   useEffect(() => {
     if (!publicVisibilityHydrated || !tenantId || (!passportId && !publicAccount)) return;
@@ -294,7 +323,12 @@ export default function PassportDashboardPage() {
         <div>
           <h1>{displayName}</h1>
           <p>{memberStatus || 'Belum ada status profile.'}</p>
-          {accountFilter ? <p className="sub">Context account: {accountFilter}</p> : null}
+          {accountFilter ? (
+            <p className="sub">
+              Context: <Link to={`/a/${encodeURIComponent(accountFilter)}`}>@{accountFilter}</Link>{' '}
+              <Link to={showAllContextsHref}>Show all contexts</Link>
+            </p>
+          ) : null}
         </div>
         <div className="meta">
           <button
@@ -302,7 +336,7 @@ export default function PassportDashboardPage() {
             type="button"
             onClick={() => {
               if (typeof window !== 'undefined') {
-                window.open(`/p/${encodeURIComponent(publicAccount)}`, '_blank', 'noopener,noreferrer');
+                window.open(`/p/${encodeURIComponent(publicPageSlug)}`, '_blank', 'noopener,noreferrer');
               }
             }}
           >
@@ -312,133 +346,110 @@ export default function PassportDashboardPage() {
         </div>
       </header>
 
-      <section className="card passport-profile-card">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.9rem', flexWrap: 'wrap' }}>
-          <div
-            style={{
-              width: '56px',
-              height: '56px',
-              borderRadius: '999px',
-              background: 'linear-gradient(180deg,#ffdcb8,#ffbe87)',
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#7b3f1a',
-              fontWeight: 800,
-              overflow: 'hidden'
-            }}
-          >
-            {avatarDataUrl ? (
-              <img
-                src={avatarDataUrl}
-                alt={displayName}
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-              />
-            ) : (
-              initials
-            )}
-          </div>
-          <div>
-            <h2 style={{ margin: 0 }}>{displayName}</h2>
-            <p className="sub">Passport ID: {passportId || '-'}</p>
-            <p className="sub">Interests: {(profile?.sport_interests || []).join(', ') || '-'}</p>
-            <label className="sub" style={{ display: 'block', marginTop: '0.5rem' }}>
-              Upload foto diri
-              <input type="file" accept="image/*" onChange={onAvatarUpload} />
-            </label>
-            <label className="sub" style={{ display: 'block', marginTop: '0.5rem' }}>
-              Status member
-              <input
-                value={memberStatus}
-                onChange={(event) => setMemberStatus(event.target.value)}
-                placeholder="Contoh: Lagi fokus marathon prep"
-              />
-            </label>
-          </div>
-        </div>
-      </section>
-
-      <section className="stats-grid passport-stat-grid-fancy">
-        <article className="stat">
-          <p><i className="fa-solid fa-crown" /> Plan</p>
-          <h3>{planCode}</h3>
-        </article>
-        <article className="stat">
-          <p><i className="fa-solid fa-ticket" /> Joined</p>
-          <h3>{filteredJoinedEvents.length}</h3>
-        </article>
-        <article className="stat">
-          <p><i className="fa-solid fa-camera-retro" /> Posts</p>
-          <h3>{socialPosts.length}</h3>
-        </article>
-        <article className="stat">
-          <p><i className="fa-solid fa-trophy" /> Wins</p>
-          <h3>{performance.length}</h3>
-        </article>
-      </section>
-
       <section className="card passport-panel-fancy">
-        <p className="eyebrow"><i className="fa-solid fa-globe" /> Public Page</p>
-        <label className="passport-toggle">
-          <input
-            type="checkbox"
-            checked={publicVisibility.allowPublicPublish}
-            onChange={(event) =>
-              setPublicVisibility((prev) => ({ ...prev, allowPublicPublish: event.target.checked }))
-            }
-          />
-          <span><i className="fa-solid fa-earth-asia" /> Tampilkan ke publik</span>
-        </label>
-        <div className="passport-toggle-grid">
-          {visibilityOptions.map((item) => (
-            <label className="passport-toggle" key={item.key}>
-              <input
-                type="checkbox"
-                checked={Boolean(publicVisibility[item.key])}
-                disabled={!publicVisibility.allowPublicPublish}
-                onChange={(event) =>
-                  setPublicVisibility((prev) => ({ ...prev, [item.key]: event.target.checked }))
-                }
-              />
-              <span><i className={item.icon} /> {item.label}</span>
-            </label>
-          ))}
-        </div>
-      </section>
-
-      <section className="card passport-panel-fancy">
-        <p className="eyebrow"><i className="fa-solid fa-pen-nib" /> New Post</p>
-        <textarea
-          rows={3}
-          placeholder="Lagi latihan apa hari ini? Share status kamu..."
-          value={statusInput}
-          onChange={(event) => setStatusInput(event.target.value)}
-        />
-        <div className="hero-actions">
-          <button className="btn" type="button" onClick={postStatus}>
-            Post Status
-          </button>
-        </div>
-      </section>
-
-      <section className="card passport-panel-fancy">
-        <div className="landing-tabs" style={{ marginBottom: '0.8rem' }}>
-          <button
-            type="button"
-            className={`landing-tab ${eventTab === 'upcoming' ? 'active' : ''}`}
-            onClick={() => setEventTab('upcoming')}
-          >
+        <div className="landing-tabs" style={{ marginBottom: 0 }}>
+          <button type="button" className={`landing-tab ${dashboardTab === 'upcoming' ? 'active' : ''}`} onClick={() => setDashboardTab('upcoming')}>
             Upcoming Events
           </button>
-          <button
-            type="button"
-            className={`landing-tab ${eventTab === 'history' ? 'active' : ''}`}
-            onClick={() => setEventTab('history')}
-          >
+          <button type="button" className={`landing-tab ${dashboardTab === 'history' ? 'active' : ''}`} onClick={() => setDashboardTab('history')}>
             Event History
           </button>
+          <button type="button" className={`landing-tab ${dashboardTab === 'following' ? 'active' : ''}`} onClick={() => setDashboardTab('following')}>
+            Following
+          </button>
+          <button type="button" className={`landing-tab ${dashboardTab === 'profile' ? 'active' : ''}`} onClick={() => setDashboardTab('profile')}>
+            Profile
+          </button>
+          <button type="button" className={`landing-tab ${dashboardTab === 'settings' ? 'active' : ''}`} onClick={() => setDashboardTab('settings')}>
+            Settings
+          </button>
         </div>
-        {eventTab === 'upcoming' ? (
+      </section>
+
+      {dashboardTab === 'profile' ? (
+        <>
+          <section className="card passport-profile-card">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.9rem', flexWrap: 'wrap' }}>
+              <div
+                style={{
+                  width: '56px',
+                  height: '56px',
+                  borderRadius: '999px',
+                  background: 'linear-gradient(180deg,#ffdcb8,#ffbe87)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#7b3f1a',
+                  fontWeight: 800,
+                  overflow: 'hidden'
+                }}
+              >
+                {avatarDataUrl ? (
+                  <img src={avatarDataUrl} alt={displayName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                ) : (
+                  initials
+                )}
+              </div>
+              <div>
+                <h2 style={{ margin: 0 }}>{displayName}</h2>
+                <p className="sub">Passport ID: {passportId || '-'}</p>
+                <p className="sub">Interests: {(profile?.sport_interests || []).join(', ') || '-'}</p>
+                <label className="sub" style={{ display: 'block', marginTop: '0.5rem' }}>
+                  Upload foto diri
+                  <input type="file" accept="image/*" onChange={onAvatarUpload} />
+                </label>
+                <label className="sub" style={{ display: 'block', marginTop: '0.5rem' }}>
+                  Status member
+                  <input
+                    value={memberStatus}
+                    onChange={(event) => setMemberStatus(event.target.value)}
+                    placeholder="Contoh: Lagi fokus marathon prep"
+                  />
+                </label>
+              </div>
+            </div>
+          </section>
+
+          <section className="stats-grid passport-stat-grid-fancy">
+            <article className="stat">
+              <p><i className="fa-solid fa-crown" /> Plan</p>
+              <h3>{planCode}</h3>
+            </article>
+            <article className="stat">
+              <p><i className="fa-solid fa-ticket" /> Joined</p>
+              <h3>{filteredJoinedEvents.length}</h3>
+            </article>
+            <article className="stat">
+              <p><i className="fa-solid fa-camera-retro" /> Posts</p>
+              <h3>{socialPosts.length}</h3>
+            </article>
+            <article className="stat">
+              <p><i className="fa-solid fa-trophy" /> Wins</p>
+              <h3>{performance.length}</h3>
+            </article>
+          </section>
+
+          <section className="card passport-panel-fancy">
+            <p className="eyebrow"><i className="fa-solid fa-medal" /> My Achievements</p>
+            <div className="entity-list">
+              {(performance || []).slice(0, 12).map((row) => (
+                <div key={row.log_id || row.recorded_at} className="entity-row">
+                  <div>
+                    <strong><i className="fa-solid fa-award" /> {row.metric_name || 'Achievement'}</strong>
+                    <p>{row.metric_value || '-'}</p>
+                    <p>{row.note || 'Performance update'}</p>
+                  </div>
+                </div>
+              ))}
+              {performance.length === 0 ? <p className="sub">Belum ada pencapaian untuk dipamerkan.</p> : null}
+            </div>
+          </section>
+        </>
+      ) : null}
+
+      {dashboardTab === 'upcoming' ? (
+        <section className="card passport-panel-fancy">
+          <p className="eyebrow"><i className="fa-solid fa-calendar-days" /> Upcoming Events</p>
           <div className="passport-live-grid">
             {upcomingEvents.map((row) => (
               <article key={row.event_id} className="passport-live-card">
@@ -453,7 +464,12 @@ export default function PassportDashboardPage() {
             ))}
             {upcomingEvents.length === 0 ? <p className="sub">Belum ada event terjadwal.</p> : null}
           </div>
-        ) : (
+        </section>
+      ) : null}
+
+      {dashboardTab === 'history' ? (
+        <section className="card passport-panel-fancy">
+          <p className="eyebrow"><i className="fa-solid fa-clock-rotate-left" /> Event History</p>
           <div className="passport-live-grid">
             {pastEvents.map((row) => (
               <article key={row.event_id} className="passport-live-card">
@@ -471,41 +487,60 @@ export default function PassportDashboardPage() {
             ))}
             {pastEvents.length === 0 ? <p className="sub">Belum ada history event.</p> : null}
           </div>
-        )}
-      </section>
+        </section>
+      ) : null}
 
-      <section className="ops-grid passport-ops-fancy">
-        <article className="card">
-          <h2><i className="fa-solid fa-bolt" /> Activity</h2>
+      {dashboardTab === 'settings' ? (
+        <section className="card passport-panel-fancy">
+          <p className="eyebrow"><i className="fa-solid fa-globe" /> Settings (Public Visibility)</p>
+          <label className="passport-toggle">
+            <input
+              type="checkbox"
+              checked={publicVisibility.allowPublicPublish}
+              onChange={(event) =>
+                setPublicVisibility((prev) => ({ ...prev, allowPublicPublish: event.target.checked }))
+              }
+            />
+            <span><i className="fa-solid fa-earth-asia" /> Tampilkan ke publik</span>
+          </label>
+          <div className="passport-toggle-grid">
+            {visibilityOptions.map((item) => (
+              <label className="passport-toggle" key={item.key}>
+                <input
+                  type="checkbox"
+                  checked={Boolean(publicVisibility[item.key])}
+                  disabled={!publicVisibility.allowPublicPublish}
+                  onChange={(event) =>
+                    setPublicVisibility((prev) => ({ ...prev, [item.key]: event.target.checked }))
+                  }
+                />
+                <span><i className={item.icon} /> {item.label}</span>
+              </label>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      {dashboardTab === 'following' ? (
+        <section className="card passport-panel-fancy">
+          <p className="eyebrow"><i className="fa-solid fa-user-plus" /> Following</p>
           <div className="entity-list">
-            {feedItems.slice(0, 25).map((item) => (
-              <div key={item.feed_id} className="entity-row">
+            {followingItems.map((item) => (
+              <div key={item.account} className="entity-row">
                 <div>
-                  <strong><i className={feedIcon(item.type)} /> {item.title}</strong>
-                  <p>{item.subtitle}</p>
-                  <p>{formatEventDate(item.created_at)}</p>
+                  <strong>{item.organizer}</strong>
+                  <p>@{item.account}</p>
+                  <p>{item.location}</p>
                 </div>
+                <Link className="btn ghost small" to={`/a/${encodeURIComponent(item.account)}`}>
+                  Open account
+                </Link>
               </div>
             ))}
-            {feedItems.length === 0 ? <p className="sub">Belum ada aktivitas.</p> : null}
+            {followingItems.length === 0 ? <p className="sub">Belum ada akun yang di-follow.</p> : null}
           </div>
-        </article>
-        <article className="card">
-          <h2><i className="fa-solid fa-medal" /> Showcase</h2>
-          <div className="entity-list">
-            {(performance || []).slice(0, 8).map((row) => (
-              <div key={row.log_id || row.recorded_at} className="entity-row">
-                <div>
-                  <strong><i className="fa-solid fa-award" /> {row.metric_name || 'Achievement'}</strong>
-                  <p>{row.metric_value || '-'}</p>
-                  <p>{row.note || 'Performance update'}</p>
-                </div>
-              </div>
-            ))}
-            {performance.length === 0 ? <p className="sub">Belum ada pencapaian untuk dipamerkan.</p> : null}
-          </div>
-        </article>
-      </section>
+        </section>
+      ) : null}
 
       <footer className="dash-foot">
         {apiStatus === 'error' ? <p className="mini-note">Sebagian data belum tampil. Coba refresh lagi.</p> : null}
