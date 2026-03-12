@@ -1,7 +1,16 @@
 import { IS_MOCK_MODE, IS_MOCKUP_OPEN_ACCESS } from './lib.js';
 
-export const PASSPORT_API_BASE_URL = import.meta.env.VITE_PASSPORT_API_BASE_URL || 'http://localhost:3600';
-export const FOREMOZ_API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3310';
+function normalizeBaseUrl(value, fallback) {
+  const raw = String(value || '').trim();
+  if (!raw) return fallback;
+  if (raw.startsWith('http://') || raw.startsWith('https://')) return raw.replace(/\/+$/, '');
+  if (raw.startsWith('/')) return raw.replace(/\/+$/, '');
+  if (/^(localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$/i.test(raw)) return `http://${raw}`;
+  return `https://${raw}`;
+}
+
+export const PASSPORT_API_BASE_URL = normalizeBaseUrl(import.meta.env.VITE_PASSPORT_API_BASE_URL, 'http://localhost:3600');
+export const FOREMOZ_API_BASE_URL = normalizeBaseUrl(import.meta.env.VITE_API_BASE_URL, 'http://localhost:3310');
 
 const PASSPORT_AUTH_KEY = 'fp.auth';
 
