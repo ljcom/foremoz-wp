@@ -229,10 +229,10 @@ export default function PassportLandingPage() {
 
         const result = await apiJson(`/v1/read/event-registrations?${params.toString()}`);
         const apiIds = Array.isArray(result.event_ids) ? result.event_ids.map((v) => String(v)) : [];
-        const merged = [...new Set([...localIds, ...apiIds])];
         if (!active) return;
-        setJoinedEventIds(merged);
-        localStorage.setItem(JOINED_EVENTS_KEY, JSON.stringify(merged));
+        // API is source of truth; local cache is only temporary fallback.
+        setJoinedEventIds(apiIds);
+        localStorage.setItem(JOINED_EVENTS_KEY, JSON.stringify(apiIds));
       } catch {
         // keep local cache as fallback
       }
