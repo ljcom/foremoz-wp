@@ -46,6 +46,8 @@ function normalizePublicVisibility(raw) {
 export default function PassportDashboardPage() {
   const navigate = useNavigate();
   const location = useLocation();
+  const dashboardQuery = useMemo(() => new URLSearchParams(location.search || ''), [location.search]);
+  const accountFilter = String(dashboardQuery.get('account') || '').trim().toLowerCase();
   const authBase = location.pathname.startsWith('/passport') ? '/passport' : '/events';
   const session = getPassportSession();
   const tenantId = session?.tenant?.id || 'ps_001';
@@ -136,19 +138,24 @@ export default function PassportDashboardPage() {
     load();
   }, [passportId, tenantId, session?.passport?.planCode]);
 
+  const filteredJoinedEvents = useMemo(() => {
+    if (!accountFilter) return joinedEvents;
+    return joinedEvents.filter((event) => String(event?.account_slug || '').trim().toLowerCase() === accountFilter);
+  }, [joinedEvents, accountFilter]);
+
   const upcomingEvents = useMemo(() => {
     const now = Date.now();
-    return [...joinedEvents]
+    return [...filteredJoinedEvents]
       .filter((event) => new Date(event.start_at || '').getTime() >= now)
       .sort((a, b) => new Date(a.start_at || 0).getTime() - new Date(b.start_at || 0).getTime());
-  }, [joinedEvents]);
+  }, [filteredJoinedEvents]);
 
   const pastEvents = useMemo(() => {
     const now = Date.now();
-    return [...joinedEvents]
+    return [...filteredJoinedEvents]
       .filter((event) => new Date(event.start_at || '').getTime() < now)
       .sort((a, b) => new Date(b.start_at || 0).getTime() - new Date(a.start_at || 0).getTime());
-  }, [joinedEvents]);
+  }, [filteredJoinedEvents]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -287,6 +294,7 @@ export default function PassportDashboardPage() {
         <div>
           <h1>{displayName}</h1>
           <p>{memberStatus || 'Belum ada status profile.'}</p>
+          {accountFilter ? <p className="sub">Context account: {accountFilter}</p> : null}
         </div>
         <div className="meta">
           <button
@@ -357,7 +365,7 @@ export default function PassportDashboardPage() {
         </article>
         <article className="stat">
           <p><i className="fa-solid fa-ticket" /> Joined</p>
-          <h3>{joinedEvents.length}</h3>
+          <h3>{filteredJoinedEvents.length}</h3>
         </article>
         <article className="stat">
           <p><i className="fa-solid fa-camera-retro" /> Posts</p>

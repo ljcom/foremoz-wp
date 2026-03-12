@@ -14,7 +14,6 @@ import SignUpPage from './pages/SignUpPage.jsx';
 import SignInPage from './pages/SignInPage.jsx';
 import MemberSignUpPage from './pages/MemberSignUpPage.jsx';
 import MemberSignInPage from './pages/MemberSignInPage.jsx';
-import MemberPortalPage from './pages/MemberPortalPage.jsx';
 import DashboardPage from './pages/DashboardPage.jsx';
 import MemberPage from './pages/MemberPage.jsx';
 import AdminPage from './pages/AdminPage.jsx';
@@ -131,7 +130,7 @@ function PassportProtectedRoute({ children }) {
   const session = getPassportSession();
   const authBase = location.pathname.startsWith('/passport') ? '/passport' : '/events';
   if (!session?.isAuthenticated) {
-    return <Navigate to={`${authBase}/signin`} replace state={{ from: location.pathname }} />;
+    return <Navigate to={`${authBase}/signin${location.search || ''}`} replace state={{ from: `${location.pathname}${location.search || ''}` }} />;
   }
   return children;
 }
@@ -143,6 +142,14 @@ function PassportRequireOnboarding({ children }) {
   if (!session?.isAuthenticated) return <Navigate to={`${authBase}/signin`} replace />;
   if (!session?.isOnboarded) return <Navigate to={`${authBase}/onboarding`} replace />;
   return children;
+}
+
+function LegacyMemberPortalRedirect() {
+  const { account } = useParams();
+  const query = new URLSearchParams();
+  if (account) query.set('account', account);
+  const suffix = query.toString();
+  return <Navigate to={`/passport/dashboard${suffix ? `?${suffix}` : ''}`} replace />;
 }
 
 export default function App() {
@@ -313,25 +320,13 @@ export default function App() {
       <Route path="/a/:account/dashboard/pt" element={<LegacyPtRedirect />} />
       <Route
         path="/a/:account/member"
-        element={
-          <MemberProtectedRoute>
-            <RoleRoute roles={['member']}>
-              <MemberPortalPage />
-            </RoleRoute>
-          </MemberProtectedRoute>
-        }
+        element={<LegacyMemberPortalRedirect />}
       />
       <Route
         path="/a/:account/member/portal"
-        element={
-          <MemberProtectedRoute>
-            <RoleRoute roles={['member']}>
-              <MemberPortalPage />
-            </RoleRoute>
-          </MemberProtectedRoute>
-        }
+        element={<LegacyMemberPortalRedirect />}
       />
-      <Route path="/member/portal" element={<Navigate to={accountPath(getSession(), '/member/portal')} replace />} />
+      <Route path="/member/portal" element={<Navigate to="/passport/dashboard" replace />} />
 
       <Route path="/dashboard" element={<Navigate to={roleHome(getSession())} replace />} />
       <Route path="/dashboard/admin" element={<Navigate to={accountPath(getSession(), '/admin/dashboard')} replace />} />
