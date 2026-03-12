@@ -88,6 +88,7 @@ export default function EventCheckoutPage() {
     passportSession?.user?.email ||
     '';
   const accountInfo = String(eventItem?.account_slug || accountSlug || '').trim();
+  const accountHomeHref = accountInfo ? `/a/${encodeURIComponent(accountInfo)}` : backToEvents;
   const registrationFields = useMemo(
     () => (Array.isArray(eventItem?.registration_fields) ? eventItem.registration_fields : []),
     [eventItem]
@@ -266,11 +267,9 @@ export default function EventCheckoutPage() {
   return (
     <main className="dashboard">
       <header className="topbar">
-        <div className="brand">Foremoz Events</div>
-        <nav>
-          <Link to={backToEvents}>Back to events</Link>
-          <span>{`Account: ${accountInfo || '-'}`}</span>
-        </nav>
+        <div className="brand">
+          <Link to={accountHomeHref}>{accountInfo || '-'}</Link>
+        </div>
       </header>
       <section className="card wide">
         <p className="eyebrow">Event Checkout</p>
@@ -420,7 +419,9 @@ export default function EventCheckoutPage() {
         )}
       </section>
       <footer className="topbar">
-        <div className="brand">Session</div>
+        <div className="brand">
+          <Link to={backToEvents}>Foremoz Events</Link>
+        </div>
         <nav>
           <span>{isAuthed ? `Signed in: ${signedInAs || 'Member'}` : 'Not signed in'}</span>
           {isAuthed ? (

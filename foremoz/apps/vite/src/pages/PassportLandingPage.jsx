@@ -71,6 +71,7 @@ export default function PassportLandingPage() {
   const registerBase = isPassportSurface ? '/passport/register' : '/events/register';
   const profileHref = '/passport/dashboard';
   const [events, setEvents] = useState(fallbackEvents);
+  const [allEvents, setAllEvents] = useState([]);
   const [joinedEventIds, setJoinedEventIds] = useState([]);
   const [activeTab, setActiveTab] = useState('events');
   const [loading, setLoading] = useState(false);
@@ -132,10 +133,46 @@ export default function PassportLandingPage() {
         });
         if (!isMounted) return;
         setEvents(mapped);
+        try {
+          const allResult = await apiJson('/v1/read/events?status=all&limit=400');
+          const allRows = Array.isArray(allResult.rows) ? allResult.rows : [];
+          const allMapped = allRows.map((row) => {
+            const startAt = new Date(row.start_at || '');
+            const validStart = !Number.isNaN(startAt.getTime());
+            const vertical = guessVertical(row);
+            const verticalSlug = guessVerticalSlugByEventText(row, 'active');
+            const vocabularyCreator = getVerticalConfig(verticalSlug)?.vocabulary?.creator || 'Creator';
+            return {
+              event_id: row.event_id || '',
+              account_slug: row.account_slug || '',
+              title: row.event_name || 'Untitled Event',
+              vertical,
+              category: guessCategory(row),
+              host: `${vocabularyCreator} - ${row.location || 'Foremoz Venue'}`,
+              organizer:
+                row.organizer_name ||
+                row.host_name ||
+                row.created_by_name ||
+                row.tenant_name ||
+                'Foremoz Organizer',
+              time: validStart
+                ? `Mulai ${startAt.toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' })}`
+                : 'Jadwal belum ditentukan',
+              status: String(row.status || 'draft').toUpperCase(),
+              image: row.image_url || fallbackEvents[0].image
+            };
+          });
+          if (!isMounted) return;
+          setAllEvents(allMapped);
+        } catch {
+          if (!isMounted) return;
+          setAllEvents(mapped);
+        }
       } catch (err) {
         if (!isMounted) return;
         setError(err.message || 'Gagal memuat event');
         setEvents(fallbackEvents);
+        setAllEvents(fallbackEvents);
       } finally {
         if (isMounted) setLoading(false);
       }
@@ -156,6 +193,14 @@ export default function PassportLandingPage() {
     });
     return list;
   }, [events, highlightedEventId]);
+
+  const joinedEvents = useMemo(() => {
+    if (!joinedEventIds.length) return [];
+    const byId = new Map(allEvents.map((item) => [String(item.event_id || ''), item]));
+    return joinedEventIds
+      .map((id) => byId.get(String(id)))
+      .filter(Boolean);
+  }, [allEvents, joinedEventIds]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -263,6 +308,13 @@ export default function PassportLandingPage() {
           </button>
           <button
             type="button"
+            className={`landing-tab ${activeTab === 'my-events' ? 'active' : ''}`}
+            onClick={() => setActiveTab('my-events')}
+          >
+            My Events
+          </button>
+          <button
+            type="button"
             className={`landing-tab ${activeTab === 'faq' ? 'active' : ''}`}
             onClick={() => setActiveTab('faq')}
           >
@@ -309,6 +361,44 @@ export default function PassportLandingPage() {
                 <article className="passport-live-card">
                   <h3>Belum ada event published</h3>
                   <p className="passport-live-time">Coba lagi sebentar lagi, event baru akan segera hadir.</p>
+                </article>
+              ) : null}
+            </div>
+          </>
+        ) : activeTab === 'my-events' ? (
+          <>
+            <p className="eyebrow">My Events</p>
+            <h2 className="landing-title">Event yang sudah kamu join</h2>
+            {!isAuthenticated ? <p className="feedback">Sign in dulu untuk lihat My Events.</p> : null}
+            <div className="passport-live-grid">
+              {isAuthenticated && joinedEvents.map((event, idx) => (
+                <article className="passport-live-card" key={event.event_id || `${event.title}-${idx}`}>
+                  <img className="passport-live-image" src={event.image} alt={event.title} />
+                  <div className="passport-live-head">
+                    <span className="passport-live-badge">{event.status}</span>
+                    <span className="passport-live-vertical"><i className={iconForVertical(event.vertical)} /> {event.vertical}</span>
+                  </div>
+                  <h3>{event.title}</h3>
+                  <p className="passport-live-category">Category: {event.category}</p>
+                  <p className="passport-live-host">{event.host}</p>
+                  <p className="passport-live-host">Penyelenggara: {event.organizer || 'Foremoz Organizer'}</p>
+                  <p className="passport-live-time">{event.time}</p>
+                  <Link
+                    className="btn ghost small"
+                    to={event.event_id
+                      ? (event.account_slug
+                        ? `/a/${encodeURIComponent(event.account_slug)}/e/${encodeURIComponent(event.event_id)}`
+                        : `${registerBase}?event=${encodeURIComponent(event.event_id)}`)
+                      : registerBase}
+                  >
+                    Buka event
+                  </Link>
+                </article>
+              ))}
+              {isAuthenticated && !loading && joinedEvents.length === 0 ? (
+                <article className="passport-live-card">
+                  <h3>Belum ada event yang kamu join</h3>
+                  <p className="passport-live-time">Setelah register event, daftar event akan muncul di sini.</p>
                 </article>
               ) : null}
             </div>

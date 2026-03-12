@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import AuthLayout from '../components/AuthLayout.jsx';
 import { apiJson, IS_MOCK_MODE, IS_MOCKUP_OPEN_ACCESS, requireField, setSession } from '../lib.js';
+import { passportApiJson } from '../passport-client.js';
 
 export default function MemberSignInPage() {
   const navigate = useNavigate();
@@ -45,7 +46,7 @@ export default function MemberSignInPage() {
           },
           tenant: {
             id: tenantId,
-            account_slug: tenantId,
+            account_slug: account || tenantId,
             namespace: `foremoz:${tenantId}`,
             gym_name: 'Foremoz Mock Gym'
           },
@@ -56,18 +57,70 @@ export default function MemberSignInPage() {
             expiresIn: 86400
           }
         });
-        navigate(`/a/${tenantId}/member/portal`, { replace: true });
+        navigate(`/a/${account || tenantId}/member/portal`, { replace: true });
         return;
       }
 
-      const result = await apiJson('/v1/auth/signin', {
-        method: 'POST',
-        body: JSON.stringify({
-          tenant_id: tenantId,
-          email,
-          password
-        })
-      });
+      let result;
+      try {
+        result = await apiJson('/v1/auth/signin', {
+          method: 'POST',
+          body: JSON.stringify({
+            tenant_id: tenantId,
+            email,
+            password
+          })
+        });
+      } catch (memberSigninError) {
+        // Fallback: account may exist only in Passport (event flow), not yet in tenant member auth.
+        let passportAuth = null;
+        const passportSigninPayloads = [
+          { email, password },
+          { tenant_id: 'tn_001', email, password },
+          { tenant_id: 'ps_001', email, password }
+        ];
+        for (let i = 0; i < passportSigninPayloads.length; i += 1) {
+          try {
+            passportAuth = await passportApiJson('/v1/tenant/auth/signin', {
+              method: 'POST',
+              body: JSON.stringify(passportSigninPayloads[i])
+            });
+            break;
+          } catch {
+            // try next payload variant
+          }
+        }
+
+        if (!passportAuth?.user?.email) {
+          throw memberSigninError;
+        }
+
+        try {
+          await apiJson('/v1/auth/signup', {
+            method: 'POST',
+            body: JSON.stringify({
+              tenant_id: tenantId,
+              full_name: passportAuth.user?.full_name || email.split('@')[0],
+              email,
+              password
+            })
+          });
+        } catch (signupError) {
+          const message = String(signupError?.message || '').toLowerCase();
+          if (!message.includes('already registered') && !message.includes('email already')) {
+            throw signupError;
+          }
+        }
+
+        result = await apiJson('/v1/auth/signin', {
+          method: 'POST',
+          body: JSON.stringify({
+            tenant_id: tenantId,
+            email,
+            password
+          })
+        });
+      }
 
       setSession({
         isAuthenticated: true,
