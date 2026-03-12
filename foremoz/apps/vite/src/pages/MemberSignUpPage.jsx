@@ -11,6 +11,20 @@ export default function MemberSignUpPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  async function resolveTenantId(accountOrTenant) {
+    const raw = String(accountOrTenant || '').trim();
+    if (!raw) return 'tn_001';
+    if (raw.startsWith('tn_')) return raw;
+    try {
+      const resolved = await apiJson(`/v1/public/account/resolve?account_slug=${encodeURIComponent(raw)}`);
+      const tenantId = String(resolved?.row?.tenant_id || '').trim();
+      if (tenantId) return tenantId;
+    } catch {
+      // fallback to provided value for backward compatibility
+    }
+    return raw;
+  }
+
   async function submit(e) {
     e.preventDefault();
     try {
@@ -20,7 +34,7 @@ export default function MemberSignUpPage() {
       const email = requireField(form.email, 'email');
       const phone = requireField(form.phone, 'phone');
       const password = requireField(form.password, 'password');
-      const tenantId = account || 'tn_001';
+      const tenantId = await resolveTenantId(account || 'tn_001');
 
       const result = await apiJson('/v1/auth/signup', {
         method: 'POST',
@@ -45,7 +59,7 @@ export default function MemberSignUpPage() {
         },
         tenant: {
           id: tenantId,
-          account_slug: tenantId,
+          account_slug: account || tenantId,
           namespace: `foremoz:${tenantId}`,
           gym_name: 'Foremoz Demo Gym'
         },
@@ -57,7 +71,7 @@ export default function MemberSignUpPage() {
         }
       });
 
-      navigate(`/a/${tenantId}/member/portal`, { replace: true });
+      navigate(`/a/${account || tenantId}/member/portal`, { replace: true });
     } catch (err) {
       setError(err.message);
     } finally {
