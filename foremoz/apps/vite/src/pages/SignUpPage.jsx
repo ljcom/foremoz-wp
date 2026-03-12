@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import AuthLayout from '../components/AuthLayout.jsx';
 import { apiJson, requireField, setOwnerSetup, setSession } from '../lib.js';
+import { listVerticalConfigs } from '../industry-jargon.js';
 
 function generateTenantId(email) {
   const localPart = String(email || '')
@@ -15,7 +16,14 @@ function generateTenantId(email) {
 
 export default function SignUpPage() {
   const navigate = useNavigate();
-  const [form, setForm] = useState({ fullName: '', email: '', password: '' });
+  const [searchParams] = useSearchParams();
+  const verticalOptions = listVerticalConfigs();
+  const defaultIndustry = (() => {
+    const requested = String(searchParams.get('industry') || '').trim().toLowerCase();
+    if (verticalOptions.some((item) => item.slug === requested)) return requested;
+    return 'active';
+  })();
+  const [form, setForm] = useState({ fullName: '', email: '', password: '', industrySlug: defaultIndustry });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -31,6 +39,7 @@ export default function SignUpPage() {
       const fullName = requireField(form.fullName, 'full name');
       const email = requireField(form.email, 'email');
       const password = requireField(form.password, 'password');
+      const industrySlug = requireField(form.industrySlug, 'industry');
       const tenantId = generateTenantId(email);
 
       const result = await apiJson('/v1/tenant/auth/signup', {
@@ -40,12 +49,13 @@ export default function SignUpPage() {
           full_name: fullName,
           email,
           password,
+          industry_slug: industrySlug,
           role: 'owner'
         })
       });
 
-      // New signup starts a fresh tenant onboarding flow.
-      setOwnerSetup(null);
+      // New signup starts a fresh tenant onboarding flow with selected industry seed.
+      setOwnerSetup({ tenant_id: tenantId, industry_slug: industrySlug });
       setSession({
         isAuthenticated: true,
         isOnboarded: false,
@@ -59,7 +69,8 @@ export default function SignUpPage() {
           id: tenantId,
           account_slug: '',
           namespace: `foremoz:${tenantId}`,
-          gym_name: ''
+          gym_name: '',
+          industry_slug: result.user?.industry_slug || industrySlug
         },
         branch: { id: '', chain: '' },
         auth: {
@@ -92,6 +103,16 @@ export default function SignUpPage() {
         <label>
           Email
           <input name="email" type="email" value={form.email} onChange={handleChange} />
+        </label>
+        <label>
+          Industry
+          <select name="industrySlug" value={form.industrySlug} onChange={handleChange}>
+            {verticalOptions.map((item) => (
+              <option key={item.slug} value={item.slug}>
+                {item.label}
+              </option>
+            ))}
+          </select>
         </label>
         <label>
           Password

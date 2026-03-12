@@ -48,7 +48,8 @@ export default function SignInPage() {
             account_slug: tenantId,
             namespace: `foremoz:${tenantId}`,
             gym_name: 'Foremoz Mock Gym',
-            package_plan: 'free'
+            package_plan: 'free',
+            industry_slug: 'active'
           },
           branch: {
             id: 'br_mock_01',
@@ -107,7 +108,8 @@ export default function SignInPage() {
           tenant_id: setupForTenant.tenant_id,
           branch_id: setupForTenant.branch_id,
           account_slug: setupForTenant.account_slug,
-          package_plan: setupForTenant.package_plan || 'free'
+          package_plan: setupForTenant.package_plan || 'free',
+          industry_slug: setupForTenant.industry_slug || 'active'
         });
       } else if (!activeSetup) {
         setOwnerSetup(null);
@@ -130,7 +132,8 @@ export default function SignInPage() {
           account_slug: activeSetup?.account_slug || accountSetup?.account_slug || account || signedTenantId,
           namespace: `foremoz:${signedTenantId}`,
           gym_name: activeSetup?.gym_name || accountSetup?.gym_name || 'Foremoz Demo Gym',
-          package_plan: normalizePackagePlan(activeSetup?.package_plan || setupForTenant?.package_plan || 'starter')
+          package_plan: normalizePackagePlan(activeSetup?.package_plan || setupForTenant?.package_plan || 'starter'),
+          industry_slug: activeSetup?.industry_slug || accountSetup?.industry_slug || setup?.industry_slug || 'active'
         },
         branch: {
           id: activeSetup?.branch_id || accountSetup?.branch_id || 'br_jkt_01',

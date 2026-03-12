@@ -215,7 +215,7 @@ export default function VerticalLandingPage() {
           <p>Kelola event dan class lebih mudah, biar kamu fokus ke pengalaman terbaik untuk komunitas.</p>
           <div className="hero-actions">
             <Link className="btn" to="/events">Lihat Events</Link>
-            <Link className="btn ghost" to="/signup">Mulai Sekarang</Link>
+            <Link className="btn ghost" to={`/signup?industry=${activeSlug}`}>Mulai Sekarang</Link>
           </div>
         </div>
 

@@ -16,7 +16,8 @@ function visualForVertical(slug) {
 export default function AccountPublicPage() {
   const { account } = useParams();
   const [accountInfo, setAccountInfo] = useState(null);
-  const verticalSlug = guessVerticalSlugByText(account, 'active');
+  const verticalSlug = String(accountInfo?.industry_slug || '').trim().toLowerCase()
+    || guessVerticalSlugByText(account, 'active');
   const verticalLabel = getVerticalLabel(verticalSlug, 'Active');
   const vocabulary = getVerticalConfig(verticalSlug)?.vocabulary || {};
   const creatorLabel = vocabulary.creator || 'Coach';

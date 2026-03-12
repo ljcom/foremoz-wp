@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import AuthLayout from '../components/AuthLayout.jsx';
 import { apiJson, IS_MOCK_MODE, IS_MOCKUP_OPEN_ACCESS, requireField, setSession } from '../lib.js';
 
@@ -107,6 +107,11 @@ export default function MemberSignInPage() {
         <button className="btn" type="submit" disabled={loading}>
           {loading ? 'Signing in...' : 'Sign in as member'}
         </button>
+        <p style={{ margin: '0.25rem 0 0' }}>
+          <Link className="link-inline" to={`/a/${account || 'tn_001'}/signin`}>
+            Staff sign in
+          </Link>
+        </p>
       </form>
     </AuthLayout>
   );

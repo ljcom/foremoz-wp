@@ -13,6 +13,11 @@ export async function runFitnessProjection({ tenantId, branchId }) {
 
   return withTx(async (client) => {
     await client.query(
+      `alter table if exists read.rm_owner_setup
+         add column if not exists industry_slug text not null default 'active'`
+    );
+
+    await client.query(
       `insert into read.rm_checkpoint (projector_name, namespace_id, chain_id, last_sequence)
        values ($1, $2, $3, 0)
        on conflict (projector_name, namespace_id, chain_id) do nothing`,
@@ -184,8 +189,8 @@ export async function runFitnessProjection({ tenantId, branchId }) {
       if (event.event_type === 'owner.tenant.setup.saved') {
         await client.query(
           `insert into read.rm_owner_setup (
-             tenant_id, gym_name, branch_id, account_slug, address, city, photo_url, package_plan, status, updated_at
-           ) values ($1,$2,$3,$4,$5,$6,$7,$8,'active',$9)
+             tenant_id, gym_name, branch_id, account_slug, address, city, photo_url, package_plan, industry_slug, status, updated_at
+           ) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,'active',$10)
            on conflict (tenant_id) do update set
              gym_name = excluded.gym_name,
              branch_id = excluded.branch_id,
@@ -194,6 +199,7 @@ export async function runFitnessProjection({ tenantId, branchId }) {
              city = excluded.city,
              photo_url = excluded.photo_url,
              package_plan = excluded.package_plan,
+             industry_slug = excluded.industry_slug,
              status = 'active',
              updated_at = excluded.updated_at`,
           [
@@ -205,6 +211,7 @@ export async function runFitnessProjection({ tenantId, branchId }) {
             data.city || null,
             data.photo_url || null,
             data.package_plan || 'free',
+            String(data.industry_slug || '').trim().toLowerCase() || 'active',
             data.saved_at || eventTs
           ]
         );

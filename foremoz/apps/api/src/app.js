@@ -397,6 +397,14 @@ function validateBranchId(input) {
   return branchId;
 }
 
+const ALLOWED_INDUSTRY_SLUGS = new Set(['active', 'learning', 'performance', 'arts', 'tourism']);
+
+function normalizeIndustrySlug(value, fallback = 'active') {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (ALLOWED_INDUSTRY_SLUGS.has(normalized)) return normalized;
+  return fallback;
+}
+
 async function ensureOwnerBranchTable() {
   await query(
     `create table if not exists read.rm_owner_branch (
@@ -424,6 +432,13 @@ async function ensureOwnerBranchTable() {
   );
 }
 
+async function ensureOwnerSetupIndustryColumn() {
+  await query(
+    `alter table if exists read.rm_owner_setup
+       add column if not exists industry_slug text not null default 'active'`
+  );
+}
+
 app.get('/health', async (_req, res) => {
   try {
     await query('select 1');
@@ -442,6 +457,7 @@ app.post('/v1/tenant/auth/signup', async (req, res, next) => {
     const email = normalizeEmail(required(data.email, 'email'));
     const password = String(required(data.password, 'password'));
     const fullName = required(data.full_name, 'full_name');
+    const industrySlug = normalizeIndustrySlug(data.industry_slug, 'active');
     const userId = data.user_id || `usr_${Date.now()}_${randomUUID().slice(0, 8)}`;
     const ts = new Date().toISOString();
 
@@ -475,6 +491,7 @@ app.post('/v1/tenant/auth/signup', async (req, res, next) => {
         full_name: fullName,
         email,
         role,
+        industry_slug: industrySlug,
         password_hash: passwordHash,
         status: 'active',
         created_at: ts
@@ -497,6 +514,7 @@ app.post('/v1/tenant/auth/signup', async (req, res, next) => {
         full_name: fullName,
         email,
         role,
+        industry_slug: industrySlug,
         status: 'active'
       },
       auth: {
@@ -603,9 +621,10 @@ app.post('/v1/tenant/auth/signin', async (req, res, next) => {
 
 app.get('/v1/owner/setup', async (req, res, next) => {
   try {
+    await ensureOwnerSetupIndustryColumn();
     const tenantId = req.query.tenant_id || config.defaultTenantId;
     const { rows } = await query(
-      `select tenant_id, gym_name, branch_id, account_slug, address, city, photo_url, package_plan, status, updated_at
+      `select tenant_id, gym_name, branch_id, account_slug, address, city, photo_url, package_plan, industry_slug, status, updated_at
        from read.rm_owner_setup
        where tenant_id = $1
        limit 1`,
@@ -619,6 +638,7 @@ app.get('/v1/owner/setup', async (req, res, next) => {
 
 app.get('/v1/public/account/resolve', async (req, res, next) => {
   try {
+    await ensureOwnerSetupIndustryColumn();
     const accountSlug = String(req.query.account_slug || '').trim().toLowerCase();
     if (!accountSlug) {
       throw fail(400, 'ACCOUNT_SLUG_REQUIRED', 'account_slug is required');
@@ -629,7 +649,7 @@ app.get('/v1/public/account/resolve', async (req, res, next) => {
     const { rows } = await query(
       `select *
        from (
-         select tenant_id, gym_name, branch_id, account_slug, address, city, photo_url, package_plan, status, updated_at
+         select tenant_id, gym_name, branch_id, account_slug, address, city, photo_url, package_plan, industry_slug, status, updated_at
          from read.rm_owner_setup
          where lower(account_slug) = $1 and status = 'active'
          union all
@@ -637,7 +657,7 @@ app.get('/v1/public/account/resolve', async (req, res, next) => {
                 coalesce(nullif(b.address, ''), s.address) as address,
                 coalesce(nullif(b.city, ''), s.city) as city,
                 coalesce(nullif(b.photo_url, ''), s.photo_url) as photo_url,
-                s.package_plan, b.status, b.updated_at
+                s.package_plan, s.industry_slug, b.status, b.updated_at
          from read.rm_owner_branch b
          left join read.rm_owner_setup s on s.tenant_id = b.tenant_id
          where lower(b.account_slug) = $1 and b.status = 'active'
@@ -654,6 +674,7 @@ app.get('/v1/public/account/resolve', async (req, res, next) => {
 
 app.get('/v1/public/passport', async (req, res, next) => {
   try {
+    await ensureOwnerSetupIndustryColumn();
     const account = String(req.query.account || '').trim().toLowerCase();
     if (!account) {
       throw fail(400, 'ACCOUNT_REQUIRED', 'account is required');
@@ -662,7 +683,7 @@ app.get('/v1/public/passport', async (req, res, next) => {
     let ownerRow = null;
     {
       const { rows } = await query(
-        `select tenant_id, gym_name, branch_id, account_slug, address, city, photo_url, package_plan, status, updated_at
+        `select tenant_id, gym_name, branch_id, account_slug, address, city, photo_url, package_plan, industry_slug, status, updated_at
          from read.rm_owner_setup
          where lower(account_slug) = $1 and status = 'active'
          order by updated_at desc
@@ -880,11 +901,13 @@ app.post('/v1/passport/public-visibility', async (req, res, next) => {
 
 app.post('/v1/owner/setup/save', async (req, res, next) => {
   try {
+    await ensureOwnerSetupIndustryColumn();
     const data = req.body || {};
     const tenantId = data.tenant_id || config.defaultTenantId;
     const branchId = required(data.branch_id, 'branch_id');
     const accountSlug = validateAccountSlug(required(data.account_slug, 'account_slug'));
     const packagePlan = data.package_plan || 'free';
+    const industrySlug = normalizeIndustrySlug(data.industry_slug, 'active');
 
     const existingSlug = await query(
       `select tenant_id
@@ -916,6 +939,7 @@ app.post('/v1/owner/setup/save', async (req, res, next) => {
         city: data.city || null,
         photo_url: data.photo_url || null,
         package_plan: packagePlan,
+        industry_slug: industrySlug,
         saved_at: new Date().toISOString()
       },
       refs: {}

@@ -664,8 +664,9 @@ export default function AdminPage() {
   }, [session, role]);
   const packagePlan = getSessionPackagePlan(session);
   const isFreePlan = packagePlan === 'free';
-  const inferredVerticalSlug = guessVerticalSlugByText(`${session?.tenant?.gym_name || ''} ${accountSlug}`, 'active');
-  const inferredVerticalLabel = getVerticalLabel(inferredVerticalSlug, 'Active');
+  const resolvedVerticalSlug = String(session?.tenant?.industry_slug || '').trim().toLowerCase()
+    || guessVerticalSlugByText(`${session?.tenant?.gym_name || ''} ${accountSlug}`, 'active');
+  const inferredVerticalLabel = getVerticalLabel(resolvedVerticalSlug, 'Active');
   const isCsView = role === 'cs';
   const dashboardTitle = isCsView ? 'Setup' : 'Admin';
   const dashboardSubtitle = isCsView ? 'Tenant setup panel' : 'Tenant administration panel';

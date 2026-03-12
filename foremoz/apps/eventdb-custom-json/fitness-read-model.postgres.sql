@@ -59,6 +59,7 @@ CREATE TABLE IF NOT EXISTS read.rm_owner_setup (
   city TEXT,
   photo_url TEXT,
   package_plan TEXT NOT NULL DEFAULT 'free',
+  industry_slug TEXT NOT NULL DEFAULT 'active',
   status TEXT NOT NULL,
   updated_at TIMESTAMPTZ NOT NULL,
   PRIMARY KEY (tenant_id)
@@ -88,7 +89,8 @@ ALTER TABLE read.rm_owner_branch
 ALTER TABLE read.rm_owner_setup
   ADD COLUMN IF NOT EXISTS address TEXT,
   ADD COLUMN IF NOT EXISTS city TEXT,
-  ADD COLUMN IF NOT EXISTS photo_url TEXT;
+  ADD COLUMN IF NOT EXISTS photo_url TEXT,
+  ADD COLUMN IF NOT EXISTS industry_slug TEXT NOT NULL DEFAULT 'active';
 
 CREATE TABLE IF NOT EXISTS read.rm_owner_saas (
   tenant_id TEXT NOT NULL,

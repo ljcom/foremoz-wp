@@ -11,6 +11,7 @@ import {
   setOwnerSetup,
   setSession
 } from '../lib.js';
+import { listVerticalConfigs } from '../industry-jargon.js';
 
 const PLANS = [
   {
@@ -119,6 +120,7 @@ export default function WebOwnerPage() {
     gym_name: existingSetup?.gym_name || session?.tenant?.gym_name || '',
     account_slug: existingSetup?.account_slug || session?.tenant?.account_slug || '',
     package_plan: normalizePackagePlan(existingSetup?.package_plan || 'free'),
+    industry_slug: existingSetup?.industry_slug || session?.tenant?.industry_slug || 'active',
     tenant_id: existingSetup?.tenant_id || session?.tenant?.id || 'tn_001',
     branch_id: existingSetup?.branch_id || session?.branch?.id || '',
     address: existingSetup?.address || '',
@@ -156,6 +158,7 @@ export default function WebOwnerPage() {
   });
 
   const selectedPlanMonthlyPrice = PLAN_PRICE[setupForm.package_plan] || 0;
+  const verticalOptions = listVerticalConfigs();
   const selectedMonths = Number(saasForm.months || 1);
   const extendTotalPrice = selectedPlanMonthlyPrice * selectedMonths;
   const isGrowthOrAbove = useMemo(
@@ -197,6 +200,7 @@ export default function WebOwnerPage() {
         tenant_id: setupRes.row.tenant_id || prev.tenant_id,
         branch_id: setupRes.row.branch_id || prev.branch_id,
         account_slug: setupRes.row.account_slug || prev.account_slug,
+        industry_slug: setupRes.row.industry_slug || prev.industry_slug || 'active',
         address: setupRes.row.address || '',
         city: setupRes.row.city || '',
         photo_url: setupRes.row.photo_url || '',
@@ -208,6 +212,7 @@ export default function WebOwnerPage() {
         branch_id: setupRes.row.branch_id,
         account_slug: setupRes.row.account_slug,
         package_plan: normalizePackagePlan(setupRes.row.package_plan || setupForm.package_plan),
+        industry_slug: setupRes.row.industry_slug || setupForm.industry_slug || 'active',
         address: setupRes.row.address || '',
         city: setupRes.row.city || '',
         photo_url: setupRes.row.photo_url || ''
@@ -222,6 +227,7 @@ export default function WebOwnerPage() {
         account_slug: '',
         branch_id: '',
         package_plan: 'free',
+        industry_slug: 'active',
         address: '',
         city: '',
         photo_url: ''
@@ -263,7 +269,8 @@ export default function WebOwnerPage() {
           account_slug: accountSlug,
           namespace: `foremoz:${tenantId}`,
           gym_name: gymName,
-          package_plan: normalizePackagePlan(setup?.package_plan || setupForm.package_plan || 'free')
+          package_plan: normalizePackagePlan(setup?.package_plan || setupForm.package_plan || 'free'),
+          industry_slug: setup?.industry_slug || setupForm.industry_slug || 'active'
         },
         branch: {
           id: branchId,
@@ -313,7 +320,8 @@ export default function WebOwnerPage() {
           account_slug: payload.account_slug,
           namespace: `foremoz:${payload.tenant_id}`,
           gym_name: payload.gym_name,
-          package_plan: normalizePackagePlan(payload.package_plan)
+          package_plan: normalizePackagePlan(payload.package_plan),
+          industry_slug: payload.industry_slug || 'active'
         },
         branch: {
           id: payload.branch_id,
@@ -335,6 +343,7 @@ export default function WebOwnerPage() {
         branch_id: setupForm.branch_id,
         account_slug: normalizeSlug(setupForm.account_slug),
         package_plan: setupForm.package_plan,
+        industry_slug: setupForm.industry_slug || 'active',
         address: setupForm.address,
         city: setupForm.city,
         photo_url: setupForm.photo_url
@@ -366,6 +375,7 @@ export default function WebOwnerPage() {
         branch_id: setupForm.branch_id,
         account_slug: setupForm.account_slug,
         package_plan: setupForm.package_plan,
+        industry_slug: setupForm.industry_slug || 'active',
         address: setupForm.address,
         city: setupForm.city,
         photo_url: setupForm.photo_url
@@ -524,6 +534,7 @@ export default function WebOwnerPage() {
         branch_id: setupForm.branch_id,
         account_slug: setupForm.account_slug,
         package_plan: setupForm.package_plan,
+        industry_slug: setupForm.industry_slug || 'active',
         address: setupForm.address,
         city: setupForm.city,
         photo_url: setupForm.photo_url
@@ -578,6 +589,7 @@ export default function WebOwnerPage() {
       branch_id: setupForm.branch_id,
       account_slug: setupForm.account_slug,
       package_plan: 'starter',
+      industry_slug: setupForm.industry_slug || 'active',
       address: setupForm.address,
       city: setupForm.city,
       photo_url: setupForm.photo_url
@@ -804,6 +816,19 @@ export default function WebOwnerPage() {
                     value={setupForm.gym_name}
                     onChange={(e) => setSetupForm((p) => ({ ...p, gym_name: e.target.value }))}
                   />
+                </label>
+                <label>
+                  Industry
+                  <select
+                    value={setupForm.industry_slug}
+                    onChange={(e) => setSetupForm((p) => ({ ...p, industry_slug: e.target.value }))}
+                  >
+                    {verticalOptions.map((item) => (
+                      <option key={item.slug} value={item.slug}>
+                        {item.label}
+                      </option>
+                    ))}
+                  </select>
                 </label>
                 <label>
                   Account slug

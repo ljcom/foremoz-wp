@@ -105,8 +105,9 @@ export default function DashboardPage() {
   const branchId = session?.branch?.id || 'core';
   const role = String(session?.role || 'admin').toLowerCase();
   const fullName = session?.user?.fullName || session?.user?.full_name || 'User';
-  const inferredVerticalSlug = guessVerticalSlugByText(`${session?.tenant?.gym_name || ''} ${accountSlug}`, 'active');
-  const inferredVerticalLabel = getVerticalLabel(inferredVerticalSlug, 'Active');
+  const resolvedVerticalSlug = String(session?.tenant?.industry_slug || '').trim().toLowerCase()
+    || guessVerticalSlugByText(`${session?.tenant?.gym_name || ''} ${accountSlug}`, 'active');
+  const inferredVerticalLabel = getVerticalLabel(resolvedVerticalSlug, 'Active');
   const [targetEnv, setTargetEnv] = useState(
     role === 'owner' || role === 'admin' ? 'admin' : role === 'sales' ? 'sales' : role === 'pt' ? 'pt' : 'cs'
   );
