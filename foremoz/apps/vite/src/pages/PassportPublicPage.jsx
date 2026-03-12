@@ -24,6 +24,10 @@ function formatDateTime(value) {
   return date.toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
 }
 
+function eventVisual(eventId) {
+  return `https://picsum.photos/seed/public-event-${encodeURIComponent(String(eventId || 'x'))}/800/450`;
+}
+
 const verticalTabs = listVerticalConfigs().map((item) => item.label);
 
 function normalizePublicVisibility(raw) {
@@ -79,7 +83,6 @@ export default function PassportPublicPage() {
   const [loading, setLoading] = useState(false);
   const [activeVertical, setActiveVertical] = useState('Active');
   const [publicVisibility, setPublicVisibility] = useState(() => normalizePublicVisibility({}));
-  const [tenantScope, setTenantScope] = useState(null);
 
   useEffect(() => {
     let mounted = true;
@@ -90,7 +93,6 @@ export default function PassportPublicPage() {
         if (!mounted) return;
         setProfile(result.profile || null);
         setPublicVisibility(normalizePublicVisibility(result.visibility || {}));
-        setTenantScope(result.tenant_id || null);
         setEvents({
           upcoming: Array.isArray(result?.events?.upcoming) ? result.events.upcoming : [],
           past: Array.isArray(result?.events?.past) ? result.events.past : []
@@ -105,7 +107,6 @@ export default function PassportPublicPage() {
         if (!mounted) return;
         setProfile(null);
         setPublicVisibility(normalizePublicVisibility({}));
-        setTenantScope(null);
         setEvents({ upcoming: [], past: [] });
       } finally {
         if (mounted) setLoading(false);
@@ -136,16 +137,24 @@ export default function PassportPublicPage() {
   );
 
   return (
-    <main className="landing">
+    <main className="landing passport-fancy-public">
+      <div className="passport-bg-orbs" aria-hidden="true" />
       <header className="topbar">
-        <div className="brand">Foremoz Passport</div>
+        <div className="brand"><i className="fa-solid fa-id-card" /> Passport</div>
         <nav>
           <Link to="/events">Events</Link>
           <Link to="/passport/signin">Sign in</Link>
         </nav>
       </header>
 
-      <section className="card passport-public-head">
+      <section className="card passport-glance-strip">
+        <div className="passport-glance-item"><i className="fa-solid fa-bolt" /><span>Active</span></div>
+        <div className="passport-glance-item"><i className="fa-solid fa-compass" /><span>Explore</span></div>
+        <div className="passport-glance-item"><i className="fa-solid fa-trophy" /><span>Progress</span></div>
+        <div className="passport-glance-item"><i className="fa-solid fa-users" /><span>Community</span></div>
+      </section>
+
+      <section className="card passport-public-head passport-public-hero-card">
         <img
           className="passport-public-avatar"
           src={`https://picsum.photos/seed/passport-${encodeURIComponent(account)}/180/180`}
@@ -160,9 +169,9 @@ export default function PassportPublicPage() {
             <button className="btn" type="button">Follow</button>
           </div>
           <div className="passport-public-stats">
-            <span>Events created: {stats.events_created}</span>
-            <span>Events attended: {stats.events_attended}</span>
-            <span>Tenant: {tenantScope || '-'}</span>
+            <span><i className="fa-solid fa-bolt" /> {stats.events_created} Hosted</span>
+            <span><i className="fa-solid fa-ticket" /> {stats.events_attended} Joined</span>
+            <span><i className="fa-solid fa-heart" /> {(seed % 1500) + 120} Followers</span>
           </div>
         </div>
       </section>
@@ -185,8 +194,8 @@ export default function PassportPublicPage() {
 
       {!publicVisibility.allowPublicPublish ? (
         <section className="card">
-          <h2>Passport Private</h2>
-          <p className="sub">Pemilik passport belum mengizinkan publish ke halaman public.</p>
+          <h2><i className="fa-solid fa-lock" /> Private Profile</h2>
+          <p className="sub">Halaman ini belum dibuka untuk publik.</p>
         </section>
       ) : null}
 
@@ -194,23 +203,27 @@ export default function PassportPublicPage() {
         <section className="ops-grid">
           {publicVisibility.showRolesCapabilities ? (
             <article className="card">
-              <h2>Roles / Capabilities</h2>
-              <ul>
+              <h2><i className="fa-solid fa-user-check" /> Roles</h2>
+              <div className="passport-badge-list">
                 {capabilities.map((item, idx) => (
-                  <li key={`${item}-${idx}`}>{item}</li>
+                  <span className="passport-chip" key={`${item}-${idx}`}>
+                    <i className="fa-solid fa-check" /> {item}
+                  </span>
                 ))}
-              </ul>
+              </div>
             </article>
           ) : null}
           {publicVisibility.showProgramsProducts ? (
             <article className="card">
-              <h2>Programs / Products</h2>
-              <ul>
+              <h2><i className="fa-solid fa-layer-group" /> Programs</h2>
+              <div className="passport-badge-list">
                 {programs.map((item, idx) => (
-                  <li key={`${item}-${idx}`}>{item}</li>
+                  <span className="passport-chip" key={`${item}-${idx}`}>
+                    <i className="fa-solid fa-star" /> {item}
+                  </span>
                 ))}
-                {programs.length === 0 ? <li>Belum ada program tersedia.</li> : null}
-              </ul>
+                {programs.length === 0 ? <span className="passport-chip"><i className="fa-solid fa-plus" /> Coming Soon</span> : null}
+              </div>
             </article>
           ) : null}
         </section>
@@ -218,20 +231,22 @@ export default function PassportPublicPage() {
 
       {publicVisibility.allowPublicPublish && publicVisibility.showUpcomingEvents ? (
         <section className="card">
-          <h2>Upcoming Events</h2>
+          <h2><i className="fa-solid fa-calendar-days" /> Upcoming Events</h2>
           {loading ? <p className="sub">Loading events...</p> : null}
-          <div className="entity-list">
+          <div className="passport-live-grid">
             {filteredUpcoming.map((item) => (
-              <div key={item.event_id} className="entity-row">
-                <div>
-                  <strong>{item.event_name || '-'}</strong>
-                  <p>{formatDateTime(item.start_at)}</p>
-                  <p>{guessVertical(item)}</p>
+              <article key={item.event_id} className="passport-live-card">
+                <img className="passport-live-image" src={eventVisual(item.event_id)} alt={item.event_name || 'Event'} />
+                <div className="passport-live-head">
+                  <span className="passport-live-badge"><i className="fa-solid fa-fire" /> Live Soon</span>
+                  <span className="passport-live-vertical">{guessVertical(item)}</span>
                 </div>
+                <h3>{item.event_name || '-'}</h3>
+                <p className="passport-live-time"><i className="fa-regular fa-clock" /> {formatDateTime(item.start_at)}</p>
                 <Link className="btn ghost small" to={`/events/register?event=${encodeURIComponent(item.event_id)}`}>
                   Join Event
                 </Link>
-              </div>
+              </article>
             ))}
             {filteredUpcoming.length === 0 ? <p className="sub">Belum ada upcoming events untuk vertical ini.</p> : null}
           </div>
@@ -240,16 +255,18 @@ export default function PassportPublicPage() {
 
       {publicVisibility.allowPublicPublish && publicVisibility.showPastEvents ? (
         <section className="card">
-          <h2>Past Events</h2>
-          <div className="entity-list">
+          <h2><i className="fa-solid fa-clock-rotate-left" /> Event History</h2>
+          <div className="passport-live-grid">
             {filteredHistory.map((item) => (
-              <div key={item.event_id} className="entity-row">
-                <div>
-                  <strong>{item.event_name || '-'}</strong>
-                  <p>{formatDateTime(item.start_at)}</p>
-                  <p>{guessVertical(item)}</p>
+              <article key={item.event_id} className="passport-live-card">
+                <img className="passport-live-image" src={eventVisual(item.event_id)} alt={item.event_name || 'Event'} />
+                <div className="passport-live-head">
+                  <span className="passport-live-badge joined"><i className="fa-solid fa-circle-check" /> Joined</span>
+                  <span className="passport-live-vertical">{guessVertical(item)}</span>
                 </div>
-              </div>
+                <h3>{item.event_name || '-'}</h3>
+                <p className="passport-live-time"><i className="fa-regular fa-clock" /> {formatDateTime(item.start_at)}</p>
+              </article>
             ))}
             {filteredHistory.length === 0 ? <p className="sub">Belum ada history events untuk vertical ini.</p> : null}
           </div>
@@ -260,17 +277,17 @@ export default function PassportPublicPage() {
         <section className="ops-grid">
           {publicVisibility.showAchievements ? (
             <article className="card">
-              <h2>Reputation / Achievements</h2>
+              <h2><i className="fa-solid fa-trophy" /> Achievements</h2>
               <div className="passport-badge-list">
-                <span className="passport-chip">Milestones: {Number(profile?.performance_milestone_count || 0)}</span>
-                <span className="passport-chip">Coach relations: {Number(profile?.coach_relation_count || 0)}</span>
-                <span className="passport-chip">Studio relations: {Number(profile?.studio_relation_count || 0)}</span>
+                <span className="passport-chip"><i className="fa-solid fa-flag-checkered" /> Milestones {Number(profile?.performance_milestone_count || 0)}</span>
+                <span className="passport-chip"><i className="fa-solid fa-user-group" /> Coach {Number(profile?.coach_relation_count || 0)}</span>
+                <span className="passport-chip"><i className="fa-solid fa-building" /> Studio {Number(profile?.studio_relation_count || 0)}</span>
               </div>
             </article>
           ) : null}
           {publicVisibility.showCommunity ? (
             <article className="card">
-              <h2>Community / Followers</h2>
+              <h2><i className="fa-solid fa-users" /> Community</h2>
               <div className="passport-avatar-strip">
                 {[1, 2, 3, 4, 5, 6].map((n) => (
                   <img
@@ -290,22 +307,22 @@ export default function PassportPublicPage() {
         <section className="ops-grid">
           {publicVisibility.showActivityFeed ? (
             <article className="card">
-              <h2>Activity Feed</h2>
+              <h2><i className="fa-solid fa-bolt" /> Activity</h2>
               <ul>
-                <li>{name} hosted HIIT training yesterday</li>
-                <li>{name} joined Marathon Workshop</li>
-                <li>{name} announced new event on {activeVertical}</li>
+                <li><i className="fa-solid fa-calendar-check" /> {name} hosted HIIT training</li>
+                <li><i className="fa-solid fa-shoe-prints" /> {name} joined Marathon Workshop</li>
+                <li><i className="fa-solid fa-bullhorn" /> {name} posted a new event on {activeVertical}</li>
               </ul>
             </article>
           ) : null}
           {publicVisibility.showHostLocations ? (
             <article className="card">
-              <h2>Regular Host Locations</h2>
+              <h2><i className="fa-solid fa-location-dot" /> Host Locations</h2>
               <ul>
                 {locations.slice(0, 5).map((loc, idx) => (
-                  <li key={`${loc}-${idx}`}>{loc}</li>
+                  <li key={`${loc}-${idx}`}><i className="fa-solid fa-map-pin" /> {loc}</li>
                 ))}
-                {locations.length === 0 ? <li>FitLab Studio</li> : null}
+                {locations.length === 0 ? <li><i className="fa-solid fa-map-pin" /> FitLab Studio</li> : null}
               </ul>
             </article>
           ) : null}
@@ -314,7 +331,7 @@ export default function PassportPublicPage() {
 
       {publicVisibility.allowPublicPublish && publicVisibility.showContactBooking ? (
         <section className="card">
-          <h2>Contact / Booking</h2>
+          <h2><i className="fa-solid fa-phone-volume" /> Contact</h2>
           <div className="hero-actions">
             <button className="btn" type="button">Book Private Session</button>
             <button className="btn ghost" type="button">Request Event</button>

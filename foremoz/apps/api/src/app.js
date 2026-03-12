@@ -384,6 +384,46 @@ function validateAccountSlug(input) {
   return slug;
 }
 
+function validateBranchId(input) {
+  const branchId = String(input || '').trim().toLowerCase();
+  const pattern = /^[a-z0-9][a-z0-9_-]{1,63}$/;
+  if (!pattern.test(branchId)) {
+    throw fail(
+      400,
+      'OWNER_INVALID_BRANCH_ID',
+      'branch_id must be lowercase letters/numbers and may include "_" or "-" (2-64 chars)'
+    );
+  }
+  return branchId;
+}
+
+async function ensureOwnerBranchTable() {
+  await query(
+    `create table if not exists read.rm_owner_branch (
+       tenant_id text not null,
+       branch_id text not null,
+       branch_name text not null,
+       account_slug text not null,
+       address text,
+       city text,
+       photo_url text,
+       status text not null default 'active',
+       updated_at timestamptz not null default now(),
+       primary key (tenant_id, branch_id)
+     )`
+  );
+  await query(
+    `alter table read.rm_owner_branch
+       add column if not exists address text,
+       add column if not exists city text,
+       add column if not exists photo_url text`
+  );
+  await query(
+    `create index if not exists idx_rm_owner_branch_account_slug
+     on read.rm_owner_branch (lower(account_slug))`
+  );
+}
+
 app.get('/health', async (_req, res) => {
   try {
     await query('select 1');
@@ -584,10 +624,24 @@ app.get('/v1/public/account/resolve', async (req, res, next) => {
       throw fail(400, 'ACCOUNT_SLUG_REQUIRED', 'account_slug is required');
     }
 
+    await ensureOwnerBranchTable();
+
     const { rows } = await query(
-      `select tenant_id, gym_name, branch_id, account_slug, address, city, photo_url, package_plan, status, updated_at
-       from read.rm_owner_setup
-       where lower(account_slug) = $1 and status = 'active'
+      `select *
+       from (
+         select tenant_id, gym_name, branch_id, account_slug, address, city, photo_url, package_plan, status, updated_at
+         from read.rm_owner_setup
+         where lower(account_slug) = $1 and status = 'active'
+         union all
+         select b.tenant_id, coalesce(nullif(b.branch_name, ''), s.gym_name) as gym_name, b.branch_id, b.account_slug,
+                coalesce(nullif(b.address, ''), s.address) as address,
+                coalesce(nullif(b.city, ''), s.city) as city,
+                coalesce(nullif(b.photo_url, ''), s.photo_url) as photo_url,
+                s.package_plan, b.status, b.updated_at
+         from read.rm_owner_branch b
+         left join read.rm_owner_setup s on s.tenant_id = b.tenant_id
+         where lower(b.account_slug) = $1 and b.status = 'active'
+       ) x
        order by updated_at desc
        limit 1`,
       [accountSlug]
@@ -873,6 +927,199 @@ app.post('/v1/owner/setup/save', async (req, res, next) => {
   }
 });
 
+app.get('/v1/owner/branches', async (req, res, next) => {
+  try {
+    await ensureOwnerBranchTable();
+    const tenantId = req.query.tenant_id || config.defaultTenantId;
+
+    const [setupRes, branchRes] = await Promise.all([
+      query(
+        `select tenant_id, gym_name, branch_id, account_slug, status, updated_at
+         from read.rm_owner_setup
+         where tenant_id = $1
+         limit 1`,
+        [tenantId]
+      ),
+      query(
+        `select tenant_id, branch_id, branch_name, account_slug, address, city, photo_url, status, updated_at
+         from read.rm_owner_branch
+         where tenant_id = $1 and status = 'active'
+         order by updated_at desc`,
+        [tenantId]
+      )
+    ]);
+
+    const setupRow = setupRes.rows[0] || null;
+    const rows = [];
+    const seenBranch = new Set();
+
+    if (setupRow?.branch_id && setupRow?.account_slug) {
+      rows.push({
+        tenant_id: setupRow.tenant_id,
+        branch_id: setupRow.branch_id,
+        branch_name: 'Primary',
+        account_slug: setupRow.account_slug,
+        status: setupRow.status || 'active',
+        updated_at: setupRow.updated_at,
+        is_primary: true,
+        url_path: `/a/${setupRow.account_slug}`
+      });
+      seenBranch.add(String(setupRow.branch_id));
+    }
+
+    for (const row of branchRes.rows) {
+      if (seenBranch.has(String(row.branch_id))) continue;
+      rows.push({
+        ...row,
+        is_primary: false,
+        url_path: `/a/${row.account_slug}`
+      });
+    }
+
+    return ok(res, { rows });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.post('/v1/owner/branches', async (req, res, next) => {
+  try {
+    await ensureOwnerBranchTable();
+    const data = req.body || {};
+    const tenantId = required(data.tenant_id || config.defaultTenantId, 'tenant_id');
+    const branchId = validateBranchId(required(data.branch_id, 'branch_id'));
+    const branchName = String(data.branch_name || branchId).trim().slice(0, 100) || branchId;
+    const address = String(data.address || '').trim().slice(0, 250);
+    const city = String(data.city || '').trim().slice(0, 120);
+    const photoUrl = String(data.photo_url || '').trim().slice(0, 500);
+    const accountSlug = validateAccountSlug(
+      required(
+        data.account_slug || branchId.replace(/_/g, '-'),
+        'account_slug'
+      )
+    );
+    const ts = new Date().toISOString();
+
+    const ownerSlugRes = await query(
+      `select tenant_id
+       from read.rm_owner_setup
+       where lower(account_slug) = $1 and status = 'active'
+       limit 1`,
+      [accountSlug]
+    );
+    if (ownerSlugRes.rows[0]) {
+      throw fail(409, 'OWNER_BRANCH_ACCOUNT_SLUG_EXISTS', `account_slug "${accountSlug}" already used`);
+    }
+
+    const branchSlugRes = await query(
+      `select tenant_id, branch_id
+       from read.rm_owner_branch
+       where lower(account_slug) = $1 and status = 'active'
+       limit 1`,
+      [accountSlug]
+    );
+    if (
+      branchSlugRes.rows[0] &&
+      (
+        String(branchSlugRes.rows[0].tenant_id) !== String(tenantId) ||
+        String(branchSlugRes.rows[0].branch_id) !== String(branchId)
+      )
+    ) {
+      throw fail(409, 'OWNER_BRANCH_ACCOUNT_SLUG_EXISTS', `account_slug "${accountSlug}" already used`);
+    }
+
+    const { rows } = await query(
+      `insert into read.rm_owner_branch (
+         tenant_id, branch_id, branch_name, account_slug, address, city, photo_url, status, updated_at
+       )
+       values ($1, $2, $3, $4, $5, $6, $7, 'active', $8)
+       on conflict (tenant_id, branch_id) do update set
+         branch_name = excluded.branch_name,
+         account_slug = excluded.account_slug,
+         address = excluded.address,
+         city = excluded.city,
+         photo_url = excluded.photo_url,
+         status = 'active',
+         updated_at = excluded.updated_at
+       returning tenant_id, branch_id, branch_name, account_slug, address, city, photo_url, status, updated_at`,
+      [tenantId, branchId, branchName, accountSlug, address || null, city || null, photoUrl || null, ts]
+    );
+
+    const row = rows[0] || null;
+    return created(res, {
+      row: row ? { ...row, is_primary: false, url_path: `/a/${row.account_slug}` } : null
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.patch('/v1/owner/branches/:branchId', async (req, res, next) => {
+  try {
+    await ensureOwnerBranchTable();
+    const data = req.body || {};
+    const tenantId = required(data.tenant_id || config.defaultTenantId, 'tenant_id');
+    const branchId = validateBranchId(required(req.params.branchId, 'branchId'));
+    const branchName = String(required(data.branch_name, 'branch_name')).trim().slice(0, 100);
+    const address = String(data.address || '').trim().slice(0, 250);
+    const city = String(data.city || '').trim().slice(0, 120);
+    const photoUrl = String(data.photo_url || '').trim().slice(0, 500);
+    const accountSlug = validateAccountSlug(required(data.account_slug, 'account_slug'));
+    const ts = new Date().toISOString();
+
+    const ownerSlugRes = await query(
+      `select tenant_id
+       from read.rm_owner_setup
+       where lower(account_slug) = $1 and status = 'active'
+       limit 1`,
+      [accountSlug]
+    );
+    if (ownerSlugRes.rows[0]) {
+      throw fail(409, 'OWNER_BRANCH_ACCOUNT_SLUG_EXISTS', `account_slug "${accountSlug}" already used`);
+    }
+
+    const branchSlugRes = await query(
+      `select tenant_id, branch_id
+       from read.rm_owner_branch
+       where lower(account_slug) = $1 and status = 'active'
+       limit 1`,
+      [accountSlug]
+    );
+    if (
+      branchSlugRes.rows[0] &&
+      (
+        String(branchSlugRes.rows[0].tenant_id) !== String(tenantId) ||
+        String(branchSlugRes.rows[0].branch_id) !== String(branchId)
+      )
+    ) {
+      throw fail(409, 'OWNER_BRANCH_ACCOUNT_SLUG_EXISTS', `account_slug "${accountSlug}" already used`);
+    }
+
+    const { rows } = await query(
+      `update read.rm_owner_branch
+       set branch_name = $3,
+           account_slug = $4,
+           address = $5,
+           city = $6,
+           photo_url = $7,
+           status = 'active',
+           updated_at = $8
+       where tenant_id = $1 and branch_id = $2
+       returning tenant_id, branch_id, branch_name, account_slug, address, city, photo_url, status, updated_at`,
+      [tenantId, branchId, branchName, accountSlug, address || null, city || null, photoUrl || null, ts]
+    );
+    if (!rows[0]) {
+      throw fail(404, 'OWNER_BRANCH_NOT_FOUND', 'branch not found');
+    }
+
+    return ok(res, {
+      row: { ...rows[0], is_primary: false, url_path: `/a/${rows[0].account_slug}` }
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
 app.delete('/v1/owner/setup', async (req, res, next) => {
   try {
     const data = req.body || {};
@@ -936,6 +1183,7 @@ app.post('/v1/owner/account/delete', async (req, res, next) => {
 
       const readTables = [
         'read.rm_owner_setup',
+        'read.rm_owner_branch',
         'read.rm_owner_saas',
         'read.rm_tenant_user_auth',
         'read.rm_member_auth',

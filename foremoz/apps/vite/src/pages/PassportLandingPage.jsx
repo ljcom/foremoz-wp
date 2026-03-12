@@ -79,11 +79,11 @@ export default function PassportLandingPage() {
   const verticalListText = verticalLabels.join(', ');
   const entryLabel = isPassportSurface ? 'passport.foremoz.com' : 'foremoz.com/events';
   const title = isPassportSurface
-    ? 'Passport Showcase untuk Member'
+    ? 'Passport Profile Member'
     : `Ikut Event Lintas ${verticalListText}`;
   const description = isPassportSurface
-    ? 'Passport dipakai member untuk menunjukkan identity, history, dan trust signal lintas event yang sudah diikuti.'
-    : 'Fokus utama di Foremoz adalah event. Pilih event yang sedang berlangsung, join, dan lanjutkan pengalamanmu di vertical yang kamu minati.';
+    ? 'Tunjukkan perjalanan event kamu di satu profile yang bisa dibagikan.'
+    : 'Pilih event favoritmu, register, lalu hadir bersama komunitas.';
   const highlightedEventId = useMemo(() => {
     const params = new URLSearchParams(location.search);
     return params.get('event') || '';
@@ -237,6 +237,16 @@ export default function PassportLandingPage() {
             <Link className="btn" to={isPassportSurface ? '/passport/signin' : '/events/signin'}>
               {isPassportSurface ? 'Masuk ke Passport' : 'Ikut Event Sekarang'}
             </Link>
+            {!isPassportSurface ? (
+              <Link className="btn ghost" to="/events">
+                Explore Semua Event
+              </Link>
+            ) : null}
+          </div>
+          <div className="passport-badge-list" style={{ marginTop: '0.75rem' }}>
+            <span className="passport-chip"><i className="fa-solid fa-calendar-check" /> Register cepat</span>
+            <span className="passport-chip"><i className="fa-solid fa-users" /> Komunitas aktif</span>
+            <span className="passport-chip"><i className="fa-solid fa-trophy" /> Progress terlihat</span>
           </div>
         </div>
       </section>
@@ -261,7 +271,7 @@ export default function PassportLandingPage() {
 
         {activeTab === 'events' ? (
           <>
-            <p className="eyebrow">Live Events</p>
+            <p className="eyebrow">Events</p>
             <h2 className="landing-title">Upcoming events</h2>
             {loading ? <p className="feedback">Loading events...</p> : null}
             {error ? <p className="feedback">{error}</p> : null}
@@ -271,7 +281,7 @@ export default function PassportLandingPage() {
                   <img className="passport-live-image" src={event.image} alt={event.title} />
                   <div className="passport-live-head">
                     <span className="passport-live-badge">{event.status}</span>
-                    <span className="passport-live-vertical">{event.vertical}</span>
+                    <span className="passport-live-vertical"><i className={iconForVertical(event.vertical)} /> {event.vertical}</span>
                   </div>
                   <h3>{event.title}</h3>
                   <p className="passport-live-category">Category: {event.category}</p>
@@ -293,7 +303,7 @@ export default function PassportLandingPage() {
               {!loading && orderedEvents.length === 0 ? (
                 <article className="passport-live-card">
                   <h3>Belum ada event published</h3>
-                  <p className="passport-live-time">Silakan post event dari dashboard admin.</p>
+                  <p className="passport-live-time">Coba lagi sebentar lagi, event baru akan segera hadir.</p>
                 </article>
               ) : null}
             </div>
@@ -301,18 +311,17 @@ export default function PassportLandingPage() {
         ) : (
           <>
             <p className="eyebrow">FAQ</p>
-            <h2 className="landing-title">Alur event-first</h2>
+            <h2 className="landing-title">Cara ikut event</h2>
             <div className="feature-grid">
               <article className="feature-card">
-                <h3>Bagaimana alur join event di Foremoz?</h3>
-                <p>1) Pilih event yang sedang aktif.</p>
-                <p>2) Join dan hadir di event.</p>
-                <p>3) Passport terbentuk sebagai identitas lintas event.</p>
-                <p>4) Data progress dan riwayat otomatis terbawa ke event berikutnya.</p>
+                <h3><i className="fa-solid fa-circle-play" /> Mulai dari event</h3>
+                <p>1) Pilih event yang kamu suka.</p>
+                <p>2) Register dan hadir di event.</p>
+                <p>3) Riwayat event langsung tersimpan di profile kamu.</p>
               </article>
               <article className="feature-card">
-                <h3>Apakah harus buat passport dulu?</h3>
-                <p>Tidak. Fokus utama adalah join event terlebih dulu, passport terbentuk sebagai konsekuensi partisipasi.</p>
+                <h3><i className="fa-solid fa-id-card" /> Perlu buat passport dulu?</h3>
+                <p>Tidak perlu. Kamu bisa mulai dari event, profile akan mengikuti perjalananmu otomatis.</p>
               </article>
             </div>
           </>
@@ -338,4 +347,14 @@ function guessCategory(row) {
   const verticalSlug = guessVerticalSlugByEventText(row, 'active');
   const firstType = (getVerticalConfig(verticalSlug)?.experience_types || [])[0];
   return firstType ? String(firstType) : 'General Event';
+}
+
+function iconForVertical(verticalLabel) {
+  const text = String(verticalLabel || '').toLowerCase();
+  if (text.includes('active')) return 'fa-solid fa-dumbbell';
+  if (text.includes('learning')) return 'fa-solid fa-book-open';
+  if (text.includes('performance')) return 'fa-solid fa-microphone-lines';
+  if (text.includes('art')) return 'fa-solid fa-palette';
+  if (text.includes('tourism')) return 'fa-solid fa-route';
+  return 'fa-solid fa-calendar';
 }

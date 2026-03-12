@@ -311,32 +311,32 @@ export default function DashboardPage() {
   const stats = useMemo(
     () => [
       {
-        label: 'active subscription',
+        label: 'Member Aktif',
         value: dashboardRow?.active_subscription_count ?? 0,
         iconClass: 'fa-solid fa-id-card',
         tone: 'tone-subscription',
-        hint: 'members with valid plan'
+        hint: 'berlangganan aktif'
       },
       {
-        label: 'today checkin',
+        label: 'Check-in Hari Ini',
         value: dashboardRow?.today_checkin_count ?? 0,
         iconClass: 'fa-solid fa-door-open',
         tone: 'tone-checkin',
-        hint: 'visits recorded today'
+        hint: 'kunjungan tercatat'
       },
       {
-        label: 'today booking',
+        label: 'Booking Hari Ini',
         value: dashboardRow?.today_booking_count ?? 0,
         iconClass: 'fa-solid fa-calendar-check',
         tone: 'tone-booking',
-        hint: 'class seats reserved'
+        hint: 'slot kelas terisi'
       },
       {
-        label: 'pending payment',
+        label: 'Pending Payment',
         value: dashboardRow?.pending_payment_count ?? 0,
         iconClass: 'fa-solid fa-money-bill',
         tone: 'tone-payment',
-        hint: 'awaiting confirmation'
+        hint: 'menunggu konfirmasi'
       }
     ],
     [dashboardRow]
@@ -368,7 +368,12 @@ export default function DashboardPage() {
       const item = {
         kind: row.source_kind,
         source_id: row.source_id || '',
-        source_name: row.source_name || (row.source_kind === 'class' ? 'Class' : 'Event')
+        source_name: row.source_name || (row.source_kind === 'class' ? 'Class' : 'Event'),
+        full_name: row.full_name || '',
+        email: row.email || '',
+        participant_no: row.participant_no || '',
+        registration_id: row.registration_id || '',
+        status: row.status || ''
       };
       const list = attachmentMap.get(memberId) || [];
       if (!list.some((attached) => attached.kind === item.kind && attached.source_id === item.source_id)) {
@@ -399,23 +404,36 @@ export default function DashboardPage() {
     if (!q) return memberRows;
 
     return memberRows.filter((member) => {
-      const fields = {
+      const directFields = {
         full_name: String(member.full_name || '').toLowerCase(),
         phone: String(member.phone || '').toLowerCase(),
         ktp_number: String(member.id_card || '').toLowerCase(),
         member_id: String(member.member_id || '').toLowerCase(),
         email: String(member.email || '').toLowerCase()
       };
+      const attachments = memberAttachmentMap.get(String(member.member_id || '').trim()) || [];
+      const attachmentFields = attachments.map((item) => ({
+        full_name: String(item.full_name || '').toLowerCase(),
+        phone: '',
+        ktp_number: '',
+        member_id: String(member.member_id || '').toLowerCase(),
+        email: String(item.email || '').toLowerCase(),
+        participant_no: String(item.participant_no || '').toLowerCase(),
+        registration_id: String(item.registration_id || '').toLowerCase(),
+        source_name: String(item.source_name || '').toLowerCase(),
+        source_id: String(item.source_id || '').toLowerCase(),
+        status: String(item.status || '').toLowerCase(),
+        kind: String(item.kind || '').toLowerCase()
+      }));
       const memberDirectHit = searchBy === 'all'
-        ? Object.values(fields).some((value) => value.includes(q))
-        : Boolean(fields[searchBy]?.includes(q));
+        ? Object.values(directFields).some((value) => value.includes(q))
+        : Boolean(directFields[searchBy]?.includes(q));
       if (memberDirectHit) return true;
 
-      const attachments = memberAttachmentMap.get(String(member.member_id || '').trim()) || [];
-      return attachments.some((attached) => {
-        const haystack = `${attached.kind} ${attached.source_name} ${attached.source_id}`.toLowerCase();
-        return haystack.includes(q);
-      });
+      if (searchBy === 'all') {
+        return attachmentFields.some((fields) => Object.values(fields).some((value) => value.includes(q)));
+      }
+      return attachmentFields.some((fields) => String(fields[searchBy] || '').includes(q));
     });
   }, [searchBy, query, searchSource, memberAttachmentMap]);
 
@@ -493,7 +511,7 @@ export default function DashboardPage() {
   }
 
   function scanQrCode() {
-    const scanned = window.prompt('Scan QR/barcode result (member_id / email):', '');
+    const scanned = window.prompt('Hasil scan QR/Barcode (member_id / email):', '');
     if (!scanned) return;
     const token = scanned.trim();
     if (!token) return;
@@ -512,7 +530,7 @@ export default function DashboardPage() {
       return;
     }
 
-    const scanned = window.prompt('Scan participant barcode / participant_no:', '');
+    const scanned = window.prompt('Scan barcode participant / participant_no:', '');
     if (!scanned) return;
     const token = toLowerText(scanned);
     if (!token) return;
@@ -738,9 +756,9 @@ export default function DashboardPage() {
     <main className="dashboard">
       <header className="dash-head card">
         <div>
-          <p className="eyebrow">Dashboard</p>
+          <p className="eyebrow">Customer Service</p>
           <h1>{session?.tenant?.gym_name || `Foremoz ${inferredVerticalLabel} Tenant`}</h1>
-          <p>Welcome {fullName}</p>
+          <p>Selamat datang, {fullName}</p>
         </div>
         <div className="meta">
           {allowedEnv.length > 0 ? (
@@ -780,7 +798,7 @@ export default function DashboardPage() {
             </div>
           ) : null}
           <button className="btn ghost" onClick={signOut}>
-            Sign out
+            Keluar
           </button>
         </div>
       </header>
@@ -791,14 +809,14 @@ export default function DashboardPage() {
         ))}
       </section>
 
-      {loading ? <p className="feedback">Loading dashboard...</p> : null}
+      {loading ? <p className="feedback">Memuat dashboard...</p> : null}
       {error ? <p className="error">{error}</p> : null}
 
       <section className="card search-panel">
         <div className="panel-head">
           <div>
             <p className="eyebrow">Workspace</p>
-            <h2>CS panel</h2>
+            <h2>Pilih Panel</h2>
           </div>
         </div>
         <div className="landing-tabs" role="tablist" aria-label="Workspace panel">
@@ -833,11 +851,11 @@ export default function DashboardPage() {
           <div className="panel-head">
             <div>
               <p className="eyebrow">Membership Search</p>
-              <h2>Search member</h2>
+              <h2>Cari Member</h2>
             </div>
             <div style={{ display: 'flex', gap: '0.5rem' }}>
               <button className="btn ghost" onClick={scanQrCode}>
-                Scan QR code
+                Scan QR/Barcode
               </button>
               <button
                 className="btn"
@@ -847,58 +865,58 @@ export default function DashboardPage() {
                   setMemberFeedback('');
                 }}
               >
-                {memberMode === 'add' ? 'Cancel add' : 'Add member'}
+                {memberMode === 'add' ? 'Batal' : 'Tambah Member'}
               </button>
             </div>
           </div>
 
           <div className="search-box">
             <label>
-              search_by
+              Cari berdasarkan
               <select value={searchBy} onChange={(e) => setSearchBy(e.target.value)}>
-                <option value="all">all</option>
-                <option value="full_name">full_name</option>
-                <option value="phone">phone</option>
-                <option value="ktp_number">ktp_number</option>
-                <option value="member_id">member_id</option>
+                <option value="all">Semua</option>
+                <option value="full_name">Nama</option>
+                <option value="phone">No. HP</option>
+                <option value="ktp_number">ID Card</option>
+                <option value="member_id">Member ID</option>
               </select>
             </label>
             <label>
-              query
-              <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="name, phone, ktp_number, member_id" />
+              Kata kunci
+              <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Nama, no HP, ID card, member ID" />
             </label>
           </div>
 
           {memberMode === 'add' ? (
             <form className="form" onSubmit={addMember} style={{ marginTop: '0.75rem' }}>
               <label>
-                full_name
+                Nama lengkap
                 <input value={memberForm.full_name} onChange={(e) => setMemberForm((prev) => ({ ...prev, full_name: e.target.value }))} placeholder="Nama member" />
               </label>
               <label>
-                phone
+                No. HP
                 <input value={memberForm.phone} onChange={(e) => setMemberForm((prev) => ({ ...prev, phone: e.target.value }))} placeholder="08xxxxxxxxxx" />
               </label>
               <label>
-                email
+                Email
                 <input type="email" value={memberForm.email} onChange={(e) => setMemberForm((prev) => ({ ...prev, email: e.target.value }))} placeholder="member@email.com" />
               </label>
               <label>
-                id_card
+                ID Card
                 <input value={memberForm.id_card} onChange={(e) => setMemberForm((prev) => ({ ...prev, id_card: e.target.value }))} placeholder="KTP / ID Card" />
               </label>
               <label>
-                member_id (optional)
+                Member ID (opsional)
                 <input value={memberForm.member_id} onChange={(e) => setMemberForm((prev) => ({ ...prev, member_id: e.target.value }))} placeholder="auto-generate if empty" />
               </label>
               <button className="btn" type="submit" disabled={memberSaving}>
-                {memberSaving ? 'Saving...' : 'Save member'}
+                {memberSaving ? 'Menyimpan...' : 'Simpan Member'}
               </button>
             </form>
           ) : null}
 
           {memberFeedback ? <p className="feedback">{memberFeedback}</p> : null}
-          {participantSearchLoading ? <p className="feedback">Indexing active event/class participants...</p> : null}
+          {participantSearchLoading ? <p className="feedback">Memuat keterkaitan member dengan event/class aktif...</p> : null}
 
           <div className="search-result-list">
             {searchResults.length > 0 ? (
@@ -931,24 +949,24 @@ export default function DashboardPage() {
                               }
                             }}
                           >
-                            {item.kind}: {item.source_name}
+                            {item.kind === 'event' ? 'Event' : 'Class'}: {item.source_name}
                           </button>
                         ))}
                       </div>
                     ) : null}
                     <div className="member-row-actions">
                       <button className="btn ghost small" type="button" onClick={() => setSelectedMemberId(row.member_id)}>
-                        {isSelected ? 'Selected' : 'Select'}
+                        {isSelected ? 'Terpilih' : 'Pilih'}
                       </button>
                       <button className="btn ghost small" type="button" onClick={() => navigate(accountPath(session, `/members/${row.member_id}`))}>
-                        View member
+                        Lihat Member
                       </button>
                     </div>
                   </div>
                 );
               })
             ) : (
-              <p className="muted">No member found.</p>
+              <p className="muted">Member tidak ditemukan.</p>
             )}
           </div>
         </section>
@@ -959,21 +977,21 @@ export default function DashboardPage() {
           <div className="panel-head">
             <div>
               <p className="eyebrow">Event Panel</p>
-              <h2>Browse events cards</h2>
+              <h2>Daftar Event</h2>
             </div>
             <div style={{ display: 'flex', gap: '0.5rem' }}>
               <button className="btn ghost" type="button" onClick={() => exportBrowseCsv('event')}>
                 Export CSV
               </button>
               <button className="btn ghost" type="button" onClick={scanParticipantBarcode}>
-                Scan barcode
+                Scan Barcode Peserta
               </button>
             </div>
           </div>
 
           <label>
-            search event
-            <input value={eventPanelQuery} onChange={(e) => setEventPanelQuery(e.target.value)} placeholder="event name, location, status" />
+            Cari event
+            <input value={eventPanelQuery} onChange={(e) => setEventPanelQuery(e.target.value)} placeholder="Nama event, lokasi, status" />
           </label>
 
           <div className="entity-list" style={{ marginTop: '0.8rem' }}>
@@ -1001,7 +1019,7 @@ export default function DashboardPage() {
                 );
               })
             ) : (
-              <p className="muted">No event found.</p>
+              <p className="muted">Event tidak ditemukan.</p>
             )}
           </div>
 
@@ -1025,7 +1043,7 @@ export default function DashboardPage() {
                   <p>Mulai: {formatDateTime(selectedEvent.start_at)}</p>
                 </>
               ) : (
-                <p className="muted">Pilih event dari card di atas.</p>
+                <p className="muted">Pilih event dari daftar di atas.</p>
               )}
             </article>
           </div>
@@ -1034,15 +1052,15 @@ export default function DashboardPage() {
             <div className="payment-history">
               <h3>Event participants</h3>
               <label>
-                search participant
+                Cari participant
                 <input
                   value={eventParticipantQuery}
                   onChange={(e) => setEventParticipantQuery(e.target.value)}
-                  placeholder="name, email, participant_no, registration_id"
+                  placeholder="Nama, email, participant no, registration ID"
                 />
               </label>
               {eventParticipantsLoading ? (
-                <p className="feedback">Loading participants...</p>
+                <p className="feedback">Memuat participant...</p>
               ) : filteredEventParticipants.length > 0 ? (
                 <div className="entity-list">
                   {filteredEventParticipants.slice(0, 20).map((participant, index) => (
@@ -1053,7 +1071,7 @@ export default function DashboardPage() {
                       </div>
                       <div className="row-actions">
                         <button className="btn ghost small" type="button" disabled={actionSaving} onClick={() => checkinByIdentity({ participant })}>
-                          {participant.checked_in_at ? 'Update check in' : 'Check in'}
+                          {participant.checked_in_at ? 'Update Check-in' : 'Check-in'}
                         </button>
                         <button
                           className="btn ghost small"
@@ -1061,14 +1079,14 @@ export default function DashboardPage() {
                           disabled={actionSaving || !participant.checked_in_at}
                           onClick={() => checkoutByIdentity({ participant })}
                         >
-                          {participant.checked_out_at ? 'Update checkout' : 'Check out'}
+                          {participant.checked_out_at ? 'Update Check-out' : 'Check-out'}
                         </button>
                       </div>
                     </div>
                   ))}
                 </div>
               ) : (
-                <p className="muted">Belum ada participant terdaftar.</p>
+                <p className="muted">Belum ada participant.</p>
               )}
             </div>
           ) : null}
@@ -1082,7 +1100,7 @@ export default function DashboardPage() {
           <div className="panel-head">
             <div>
               <p className="eyebrow">Class Panel</p>
-              <h2>Browse class cards</h2>
+              <h2>Daftar Class</h2>
             </div>
             <div style={{ display: 'flex', gap: '0.5rem' }}>
               <button className="btn ghost" type="button" onClick={() => exportBrowseCsv('class')}>
@@ -1092,8 +1110,8 @@ export default function DashboardPage() {
           </div>
 
           <label>
-            search class
-            <input value={classPanelQuery} onChange={(e) => setClassPanelQuery(e.target.value)} placeholder="class, trainer, class_id" />
+            Cari class
+            <input value={classPanelQuery} onChange={(e) => setClassPanelQuery(e.target.value)} placeholder="Nama class, trainer, class ID" />
           </label>
 
           <div className="entity-list" style={{ marginTop: '0.8rem' }}>
@@ -1121,7 +1139,7 @@ export default function DashboardPage() {
                 );
               })
             ) : (
-              <p className="muted">No class found.</p>
+              <p className="muted">Class tidak ditemukan.</p>
             )}
           </div>
 
@@ -1146,14 +1164,14 @@ export default function DashboardPage() {
                   <p>Mulai: {formatDateTime(selectedClass.start_at)}</p>
                 </>
               ) : (
-                <p className="muted">Pilih class dari card di atas.</p>
+                <p className="muted">Pilih class dari daftar di atas.</p>
               )}
             </article>
           </div>
 
           <div className="member-actions">
             <button className="btn ghost" type="button" disabled={actionSaving || !selectedMember || !selectedClass} onClick={bookClassForMember}>
-              {actionSaving ? 'Saving...' : 'Create class booking'}
+              {actionSaving ? 'Menyimpan...' : 'Buat Booking Class'}
             </button>
           </div>
 
@@ -1162,7 +1180,7 @@ export default function DashboardPage() {
       ) : null}
 
       <footer className="dash-foot">
-        <Link to="/">Back to landing</Link>
+        <Link to="/">Kembali ke Home</Link>
       </footer>
     </main>
   );

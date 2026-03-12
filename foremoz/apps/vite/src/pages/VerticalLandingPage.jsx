@@ -1,86 +1,176 @@
 import { Link, useLocation } from 'react-router-dom';
-import { describeVerticalByJargon, getVerticalConfig, getVerticalLabel, listVerticalConfigs } from '../industry-jargon.js';
+import { getVerticalConfig, getVerticalLabel, listVerticalConfigs } from '../industry-jargon.js';
 
 const PRICING_BY_VERTICAL = {
   active: [
     {
       name: 'Free',
       price: 'Rp0 / bulan',
-      note: 'Single operator',
-      items: ['One-time event', 'Check-in + check-out']
+      note: 'Mulai sendiri',
+      items: ['1 event', 'Check-in cepat']
     },
     {
       name: 'Starter',
       price: 'Rp149.000 - Rp499.000 / bulan',
-      note: 'Operational starter',
-      items: ['Event + class + CS + product', 'Check-in + check-out']
+      note: 'Untuk operasi harian',
+      items: ['Event + class + produk', 'Check-in + check-out']
     },
     {
       name: 'Growth',
       price: 'Rp990.000 - Rp1.990.000 / bulan',
-      note: 'Team mode',
-      items: ['Multi coach/team operation', 'Sales workspace enabled']
+      note: 'Untuk tim berkembang',
+      items: ['Tim multi role', 'Laporan performa']
     },
     {
       name: 'Institution',
       price: 'Mulai Rp3.490.000 / bulan',
-      note: 'Scale operations',
-      items: ['Multi location (multi branch)', 'Enterprise: customization']
+      note: 'Untuk skala besar',
+      items: ['Multi lokasi', 'Custom kebutuhan bisnis']
     }
   ],
   learning: [
     {
       name: 'Free',
       price: 'Rp0 / bulan',
-      note: 'Untuk educator/mentor tahap awal',
-      items: ['Cohort & session publishing', 'Enrollment + attendance baseline']
+      note: 'Mentor mulai publish kelas',
+      items: ['Publish workshop', 'Attendance dasar']
     },
     {
       name: 'Starter',
       price: 'Rp129.000 - Rp399.000 / bulan',
-      note: 'Operasi kelas berulang',
-      items: ['Progress checkpoint dasar', 'Participant workspace baseline']
+      note: 'Untuk batch rutin',
+      items: ['Kelas berulang', 'Progress peserta']
     },
     {
       name: 'Growth',
       price: 'Rp790.000 - Rp1.690.000 / bulan',
-      note: 'Kolaborasi mentor dan batch multi program',
-      items: ['Multi-program orchestration', 'Analytics & conversion tracking']
+      note: 'Untuk banyak program',
+      items: ['Multi program', 'Insight konversi']
     },
     {
       name: 'Institution',
       price: 'Mulai Rp2.990.000 / bulan',
-      note: 'Operasi lembaga multi tim',
-      items: ['Staff/admin control', 'Governance & operational policy']
+      note: 'Untuk sekolah/lembaga',
+      items: ['Tim admin', 'Kontrol operasional']
     }
   ],
   arts: [
     {
       name: 'Free',
       price: 'Rp0 / bulan',
-      note: 'Untuk creator/performer individu',
-      items: ['Publish session/showcase', 'Booking + participant check-in']
+      note: 'Untuk creator individu',
+      items: ['Publish showcase', 'Booking + check-in']
     },
     {
       name: 'Starter',
       price: 'Rp149.000 - Rp499.000 / bulan',
-      note: 'Gig operation berulang',
-      items: ['Run-of-show baseline', 'Basic payment recording']
+      note: 'Untuk gig rutin',
+      items: ['Run show lebih rapi', 'Pembayaran lebih mudah']
     },
     {
       name: 'Growth',
       price: 'Rp990.000 - Rp1.990.000 / bulan',
-      note: 'Kolaborasi komunitas kreatif',
-      items: ['Collaborator roles', 'Revenue split & sponsor baseline']
+      note: 'Untuk kolaborasi komunitas',
+      items: ['Kolaborator tim', 'Rangkuman pendapatan']
     },
     {
       name: 'Institution',
       price: 'Mulai Rp3.490.000 / bulan',
-      note: 'Organizer multi venue',
-      items: ['Staff/admin controls', 'Governance controls & reporting']
+      note: 'Untuk penyelenggara venue',
+      items: ['Multi venue', 'Kontrol akses tim']
+    }
+  ],
+  performance: [
+    {
+      name: 'Free',
+      price: 'Rp0 / bulan',
+      note: 'Mulai show pertama',
+      items: ['Publish show', 'Daftar peserta']
+    },
+    {
+      name: 'Starter',
+      price: 'Rp149.000 - Rp499.000 / bulan',
+      note: 'Show mingguan',
+      items: ['Manajemen jadwal', 'Tim operasional dasar']
+    },
+    {
+      name: 'Growth',
+      price: 'Rp990.000 - Rp1.990.000 / bulan',
+      note: 'Show skala komunitas',
+      items: ['Tim multi role', 'Insight audience']
+    },
+    {
+      name: 'Institution',
+      price: 'Mulai Rp3.490.000 / bulan',
+      note: 'Event organizer',
+      items: ['Multi venue', 'Kontrol lebih lengkap']
+    }
+  ],
+  tourism: [
+    {
+      name: 'Free',
+      price: 'Rp0 / bulan',
+      note: 'Trip kecil',
+      items: ['Publish trip', 'Registrasi peserta']
+    },
+    {
+      name: 'Starter',
+      price: 'Rp149.000 - Rp499.000 / bulan',
+      note: 'Trip rutin',
+      items: ['Jadwal itinerary', 'Check-in peserta']
+    },
+    {
+      name: 'Growth',
+      price: 'Rp990.000 - Rp1.990.000 / bulan',
+      note: 'Operator travel berkembang',
+      items: ['Tim guide + CS', 'Laporan trip']
+    },
+    {
+      name: 'Institution',
+      price: 'Mulai Rp3.490.000 / bulan',
+      note: 'Operator multi destinasi',
+      items: ['Multi lokasi', 'Custom kebutuhan']
     }
   ]
 };
+
+function visualForVertical(slug) {
+  const key = String(slug || '').toLowerCase();
+  if (key === 'active') {
+    return {
+      icon: 'fa-solid fa-dumbbell',
+      image: 'https://images.unsplash.com/photo-1549060279-7e168fcee0c2?auto=format&fit=crop&w=1400&q=80'
+    };
+  }
+  if (key === 'learning') {
+    return {
+      icon: 'fa-solid fa-book-open-reader',
+      image: 'https://images.unsplash.com/photo-1523240795612-9a054b0db644?auto=format&fit=crop&w=1400&q=80'
+    };
+  }
+  if (key === 'performance') {
+    return {
+      icon: 'fa-solid fa-microphone-lines',
+      image: 'https://images.unsplash.com/photo-1498038432885-c6f3f1b912ee?auto=format&fit=crop&w=1400&q=80'
+    };
+  }
+  if (key === 'arts') {
+    return {
+      icon: 'fa-solid fa-palette',
+      image: 'https://images.unsplash.com/photo-1459908676235-d5f02a50184b?auto=format&fit=crop&w=1400&q=80'
+    };
+  }
+  if (key === 'tourism') {
+    return {
+      icon: 'fa-solid fa-route',
+      image: 'https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=1400&q=80'
+    };
+  }
+  return {
+    icon: 'fa-solid fa-calendar-star',
+    image: 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=1400&q=80'
+  };
+}
 
 export default function VerticalLandingPage() {
   const location = useLocation();
@@ -89,18 +179,17 @@ export default function VerticalLandingPage() {
   const activeSlug = getVerticalConfig(slug) ? slug : 'active';
   const label = getVerticalLabel(activeSlug, 'Active');
   const navVerticals = listVerticalConfigs();
-  const pricing = PRICING_BY_VERTICAL[activeSlug] || null;
+  const pricing = PRICING_BY_VERTICAL[activeSlug] || PRICING_BY_VERTICAL.active;
   const creator = config?.vocabulary?.creator || 'Creator';
-  const participant = config?.vocabulary?.participant || 'Participant';
-  const experience = config?.vocabulary?.experience || 'Experience';
-  const place = config?.vocabulary?.place || 'Place';
-  const features = [
-    `Vocabulary: ${creator} -> ${experience} -> ${participant} di ${place}`,
-    `Duration model: ${config?.duration_model || '-'}`,
-    `Participation pattern: ${config?.participation_pattern || '-'}`,
-    `Monetization pattern: ${config?.monetization_pattern || '-'}`,
-    `Experience types: ${(config?.experience_types || []).join(', ') || '-'}`,
-    `Offering examples: ${(config?.offering_examples || []).join(', ') || '-'}`
+  const participant = config?.vocabulary?.participant || 'Member';
+  const experience = config?.vocabulary?.experience || 'Event';
+  const visual = visualForVertical(activeSlug);
+
+  const quickPoints = [
+    { icon: 'fa-solid fa-bolt', title: `${experience} lebih cepat publish` },
+    { icon: 'fa-solid fa-users', title: `${participant} lebih mudah join` },
+    { icon: 'fa-solid fa-clipboard-check', title: 'Check-in lebih rapi' },
+    { icon: 'fa-solid fa-chart-line', title: 'Progress lebih terlihat' }
   ];
 
   return (
@@ -109,72 +198,75 @@ export default function VerticalLandingPage() {
         <div className="brand">{`Foremoz ${label}`}</div>
         <nav>
           <Link to="/web">Home</Link>
+          <Link to="/events">Events</Link>
           {navVerticals.map((item) => (
             <Link key={item.slug} to={`/${item.slug}`}>
               {item.label}
             </Link>
           ))}
-          <Link to="/signin">Sign in</Link>
+          <Link className="btn small" to="/signin">Sign In</Link>
         </nav>
       </header>
 
-      <section className="hero">
+      <section className="hero web-hero-visual">
         <div>
-          <p className="eyebrow">{`foremoz.com/${activeSlug}`}</p>
-          <h1>{`${label} Experience Operations`}</h1>
-          <p>{describeVerticalByJargon(activeSlug)}</p>
+          <p className="eyebrow">{label}</p>
+          <h1>{`${label} untuk ${creator} dan ${participant}`}</h1>
+          <p>Kelola event dan class lebih mudah, biar kamu fokus ke pengalaman terbaik untuk komunitas.</p>
           <div className="hero-actions">
-            <Link className="btn" to="/signin">
-              Open Workspace
-            </Link>
-            <Link className="btn ghost" to="/web">
-              Back to Foremoz
-            </Link>
+            <Link className="btn" to="/events">Lihat Events</Link>
+            <Link className="btn ghost" to="/signup">Mulai Sekarang</Link>
           </div>
         </div>
 
-        <aside className="hero-card">
-          <h2>Feature Scope</h2>
-          <ul>
-            {features.map((item) => (
-              <li key={item}>{item}</li>
-            ))}
-          </ul>
-        </aside>
+        <div className="vertical-hero-image-wrap">
+          <img className="vertical-hero-image" src={visual.image} alt={label} />
+          <span className="vertical-hero-badge">
+            <i className={visual.icon} />
+            {label}
+          </span>
+        </div>
       </section>
 
-      {pricing ? (
-        <section className="landing-section">
-          <p className="eyebrow">Pricing</p>
-          <h2 className="landing-title">Pilih paket sesuai kematangan operasional</h2>
-          <div className="pricing-grid">
-            {pricing.map((plan) => (
-              <article key={plan.name} className="pricing-card">
-                <h3>{plan.name}</h3>
-                <p className="pricing-price">{plan.price}</p>
-                <p className="pricing-note">{plan.note}</p>
-                <ul>
-                  {plan.items.map((item) => (
-                    <li key={item}>{item}</li>
-                  ))}
-                </ul>
-              </article>
-            ))}
-          </div>
-        </section>
-      ) : null}
+      <section className="landing-section">
+        <p className="eyebrow">Highlights</p>
+        <div className="feature-grid web-icon-grid">
+          {quickPoints.map((item) => (
+            <article className="feature-card" key={item.title}>
+              <div className="feature-head">
+                <span className="feature-icon"><i className={item.icon} /></span>
+                <h3>{item.title}</h3>
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="landing-section">
+        <p className="eyebrow">Pricing</p>
+        <h2 className="landing-title">Pilih paket sesuai kebutuhan</h2>
+        <div className="pricing-grid">
+          {pricing.map((plan) => (
+            <article key={plan.name} className="pricing-card">
+              <h3>{plan.name}</h3>
+              <p className="pricing-price">{plan.price}</p>
+              <p className="pricing-note">{plan.note}</p>
+              <div className="passport-badge-list">
+                {plan.items.map((item) => (
+                  <span key={item} className="passport-chip">{item}</span>
+                ))}
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
 
       <section className="cta">
-        <p className="eyebrow">Next Step</p>
-        <h2>Pilih flow kategori ini sebagai baseline operasionalmu</h2>
-        <p>Foremoz jalan di core engine yang sama, vertical hanya configuration + vocabulary.</p>
+        <p className="eyebrow">Start</p>
+        <h2>{`Mulai ${label} kamu hari ini`}</h2>
         <div className="hero-actions">
-          <Link className="btn" to="/web/owner">
-            Configure Tenant
-          </Link>
-          <Link className="btn ghost" to="/signup">
-            Create Account
-          </Link>
+          <Link className="btn" to="/events">Explore Events</Link>
+          <Link className="btn ghost" to="/signin">Sign In</Link>
         </div>
       </section>
     </main>

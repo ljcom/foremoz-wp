@@ -12,6 +12,11 @@
 - [x] Check-in event sudah persist ke backend.
   - Endpoint: `POST /v1/admin/events/:eventId/participants/checkin`
   - Read status check-in sudah masuk di `GET /v1/admin/events/:eventId/participants` (`checked_in_at`).
+- [x] Branch management owner sudah terhubung ke backend DB.
+  - Endpoint: `GET /v1/owner/branches`
+  - Endpoint: `POST /v1/owner/branches`
+  - Endpoint: `PATCH /v1/owner/branches/:branchId`
+  - Resolve account publik (`/a/:account`) sudah bisa baca branch slug via `GET /v1/public/account/resolve`.
 
 ## Event & Participant
 - [x] Unique number participant sudah jadi field resmi di backend.
@@ -47,6 +52,71 @@
   - Passport visibility toggle mempengaruhi `/p/:account`
 - [ ] Tambah error boundary/loading skeleton di halaman `/events/register`, `/passport/dashboard`, `/p/:account`.
 - [ ] Audit konsistensi timezone untuk jadwal event (WIB/local vs UTC) di semua page.
+
+## Experience Network Backlog (Whitepaper Sync)
+
+### 2.1 Passport Core System
+- [~] Create tables: `passport`, `passport_roles`, `passport_follow`, `passport_activity`, `passport_stats`.
+  - Remark: `rm_passport_profile` sudah ada, tapi belum terpisah lengkap sesuai model social graph + stats node.
+- [~] Field identity passport lengkap (`handle`, `display_name`, `bio`, `avatar`, `location`, `verification_status`).
+  - Remark: sebagian field sudah ada di profile/passport visibility, belum full standard schema.
+- [ ] Roles context multi-role formal: `creator`, `participant`, `host`, `sponsor`.
+
+### 2.2 Follow System
+- [ ] Buat social graph table `passport_follow`.
+- [ ] Support `follow_creator`, `follow_participant`, `follow_host`.
+- [ ] Endpoint follow/unfollow + read follower/following.
+
+### 2.3 Activity Feed
+- [~] Event-based feed.
+  - Remark: feed UI sudah ada (status + event/history mix), backend activity feed terstruktur lintas actor belum final.
+- [ ] Standardize activity types:
+  - `event_created`
+  - `event_joined`
+  - `event_attended`
+  - `event_completed`
+  - `creator_followed`
+  - `program_published`
+- [ ] Table `activity_feed` formal + query timeline per passport.
+
+### 2.4 Social Media Integration
+- [ ] Passport social links: `instagram`, `tiktok`, `youtube`, `facebook`, `website`.
+- [ ] Verification mechanism: bio/token/API verification.
+- [~] Share tools.
+  - Remark: share event dasar sudah ada, share template spesifik IG/WA/TikTok belum lengkap.
+
+### 2.5 Event Promotion Tools
+- [ ] Event poster generator.
+- [ ] Event QR code generator.
+- [ ] Canonical event share link (`/e/<event_slug>`).
+- [~] Public profile link.
+  - Remark: `/p/:account` sudah ada, domain terpisah `passport.foremoz.com` belum.
+
+### 2.6 Passport Public Page Modules
+- [~] Creator modules: identity_header, upcoming_events, programs, community, activity_feed, reputation.
+  - Remark: struktur sudah ada, beberapa bagian masih placeholder/derived.
+- [~] Member modules: events_attended, achievements, following, activity.
+  - Remark: events/achievements sudah ada, following/activity lintas actor belum final.
+
+### 2.7 Creator Discovery
+- [ ] Creator search by vertical/location/popularity/activity.
+- [ ] Indexes/scoring: `creator_score`, `event_count`, `participant_count`.
+
+### 2.8 Social Event Features
+- [ ] Friends attending.
+- [ ] Invite friends.
+- [ ] Community discussion.
+
+### 2.9 Creator Conversion Tools
+- [ ] Bio link page.
+- [~] Creator landing page.
+  - Remark: `/a/:account` sudah aktif, masih perlu mode creator-optimized conversion.
+- [ ] Event short link share (`foremoz.com/e/<slug>`).
+
+### 2.10 Passport Reputation System
+- [~] Metrics foundation.
+  - Remark: hosted/attended/score mulai ada; rating, returning participants, dan community size belum lengkap.
+- [ ] Reputation formula dan rank layer lintas vertical.
 
 ## Product Scope Backlog
 
@@ -89,6 +159,13 @@
 
 ### Owner
 - [x] Signup -> signin -> onboarding -> dashboard
+- [~] Branch management
+  - [x] list branch
+  - [x] add branch (gated by package multi-branch/enterprise)
+  - [x] edit branch
+  - [x] data branch (name, slug, address, city, photo_url) dipakai di halaman `/a/:branch`
+  - [ ] delete/deactivate branch
+  - [ ] branch-level policy/access control per user
 
 ### Tenant
 - [~] Landing

@@ -1,142 +1,173 @@
+import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { apiJson } from '../lib.js';
 import { getVerticalConfig, getVerticalLabel, guessVerticalSlugByText } from '../industry-jargon.js';
+
+function visualForVertical(slug) {
+  const key = String(slug || '').toLowerCase();
+  if (key === 'active') return 'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?auto=format&fit=crop&w=1400&q=80';
+  if (key === 'learning') return 'https://images.unsplash.com/photo-1523240795612-9a054b0db644?auto=format&fit=crop&w=1400&q=80';
+  if (key === 'arts') return 'https://images.unsplash.com/photo-1513364776144-60967b0f800f?auto=format&fit=crop&w=1400&q=80';
+  if (key === 'performance') return 'https://images.unsplash.com/photo-1498038432885-c6f3f1b912ee?auto=format&fit=crop&w=1400&q=80';
+  if (key === 'tourism') return 'https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=1400&q=80';
+  return 'https://images.unsplash.com/photo-1518611012118-696072aa579a?auto=format&fit=crop&w=1400&q=80';
+}
 
 export default function AccountPublicPage() {
   const { account } = useParams();
+  const [accountInfo, setAccountInfo] = useState(null);
   const verticalSlug = guessVerticalSlugByText(account, 'active');
   const verticalLabel = getVerticalLabel(verticalSlug, 'Active');
   const vocabulary = getVerticalConfig(verticalSlug)?.vocabulary || {};
-  const creatorLabel = vocabulary.creator || 'Creator';
-  const participantLabel = vocabulary.participant || 'Participant';
-  const placeLabel = vocabulary.place || 'Location';
+  const creatorLabel = vocabulary.creator || 'Coach';
+  const participantLabel = vocabulary.participant || 'Member';
+  const heroImage = String(accountInfo?.photo_url || '').trim() || visualForVertical(verticalSlug);
+  const placeLabel = String(accountInfo?.city || '').trim();
+  const displayName = String(accountInfo?.gym_name || '').trim() || String(account || '');
+
+  useEffect(() => {
+    let active = true;
+    async function loadAccountInfo() {
+      try {
+        const result = await apiJson(`/v1/public/account/resolve?account_slug=${encodeURIComponent(String(account || ''))}`);
+        if (!active) return;
+        setAccountInfo(result.row || null);
+      } catch {
+        if (!active) return;
+        setAccountInfo(null);
+      }
+    }
+    loadAccountInfo();
+    return () => {
+      active = false;
+    };
+  }, [account]);
+
+  const quickActions = [
+    { icon: 'fa-solid fa-user-plus', title: 'Daftar member' },
+    { icon: 'fa-solid fa-calendar-check', title: 'Booking event / class' },
+    { icon: 'fa-solid fa-qrcode', title: 'Check-in cepat' },
+    { icon: 'fa-solid fa-trophy', title: 'Lihat progress' }
+  ];
+
   const promoPrograms = [
     {
-      title: 'Starter Transformation 30 Hari',
-      body: 'Kombinasi class + gym access + check-in challenge untuk bangun konsistensi latihan dari minggu pertama.'
+      title: 'Starter 30 Hari',
+      image: 'https://images.unsplash.com/photo-1549060279-7e168fcee0c2?auto=format&fit=crop&w=900&q=80'
     },
     {
-      title: 'Duo Strong Package',
-      body: 'Datang berdua lebih hemat. Cocok untuk pasangan, sahabat workout, atau rekan kantor yang mau mulai bareng.'
+      title: 'Duo Package',
+      image: 'https://images.unsplash.com/photo-1571019613576-2b22c76fd955?auto=format&fit=crop&w=900&q=80'
     },
     {
-      title: 'Weekend Fat Burn Blast',
-      body: 'Program high-energy Sabtu-Minggu untuk yang sibuk weekday tapi tetap ingin progress body composition.'
+      title: 'Weekend Blast',
+      image: 'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?auto=format&fit=crop&w=900&q=80'
     },
     {
-      title: 'PT Kickstart Session',
-      body: 'Sesi PT awal untuk assessment, setup goal, dan personal roadmap latihan sesuai level kebugaran kamu.'
+      title: 'PT Kickstart',
+      image: 'https://images.unsplash.com/photo-1599058917212-d750089bc07e?auto=format&fit=crop&w=900&q=80'
     }
   ];
+
   const coachProfiles = [
     {
       name: 'Coach Raka',
-      role: 'Strength & Conditioning',
-      focus: 'Muscle gain, fat loss, progressive overload.',
-      schedule: 'Mon, Wed, Fri - 06:30 & 18:30',
-      photo:
-        'https://images.unsplash.com/photo-1550345332-09e3ac987658?auto=format&fit=crop&w=600&q=80'
+      role: 'Strength',
+      schedule: 'Mon, Wed, Fri',
+      photo: 'https://images.unsplash.com/photo-1550345332-09e3ac987658?auto=format&fit=crop&w=600&q=80'
     },
     {
       name: 'Coach Alia',
-      role: 'Mobility & Functional Training',
-      focus: 'Mobility flow, posture correction, core stability.',
-      schedule: 'Tue, Thu, Sat - 07:00 & 17:00',
-      photo:
-        'https://images.unsplash.com/photo-1549476464-37392f717541?auto=format&fit=crop&w=600&q=80'
+      role: 'Mobility',
+      schedule: 'Tue, Thu, Sat',
+      photo: 'https://images.unsplash.com/photo-1549476464-37392f717541?auto=format&fit=crop&w=600&q=80'
     },
     {
       name: 'Coach Fajar',
-      role: 'Combat Conditioning',
-      focus: 'Boxing drills, cardio endurance, agility work.',
-      schedule: 'Tue, Thu - 19:00, Sun - 09:00',
-      photo:
-        'https://images.unsplash.com/photo-1518611012118-696072aa579a?auto=format&fit=crop&w=600&q=80'
+      role: 'Conditioning',
+      schedule: 'Tue, Thu, Sun',
+      photo: 'https://images.unsplash.com/photo-1518611012118-696072aa579a?auto=format&fit=crop&w=600&q=80'
     }
   ];
 
   return (
     <main className="landing">
       <header className="topbar">
-        <div className="brand">{account}.foremoz.com/{verticalSlug}</div>
+        <div className="brand">{displayName || account}</div>
         <nav>
-          <Link to={`/a/${account}/member/signup`}>Member signup</Link>
+          <Link to="/events">Events</Link>
+          <Link to={`/a/${account}/member/signup`}>Sign up</Link>
           <Link className="btn small" to={`/a/${account}/member/signin`}>
-            Member sign in
+            Sign in
           </Link>
         </nav>
       </header>
 
-      <section className="hero">
+      <section className="hero web-hero-visual">
         <div>
-          <p className="eyebrow">{`Public ${verticalLabel} Landing`}</p>
-          <h1>{`Grow Your ${verticalLabel} Journey at ${account}.`}</h1>
+          <p className="eyebrow">{verticalLabel}</p>
+          <h1>{`${creatorLabel} berpengalaman, komunitas aktif, progress nyata.`}</h1>
           <p>
-            Tempat ${verticalLabel.toLowerCase()} dengan program terstruktur, komunitas suportif, dan ${creatorLabel.toLowerCase()} berpengalaman
-            untuk bantu ${participantLabel.toLowerCase()} capai goal lebih cepat dan lebih konsisten.
+            {placeLabel
+              ? `${placeLabel} - Tempat ${participantLabel.toLowerCase()} berkembang lewat event dan class yang konsisten.`
+              : `Tempat ${participantLabel.toLowerCase()} berkembang lewat event dan class yang konsisten.`}
           </p>
           <div className="hero-actions">
             <Link className="btn" to={`/a/${account}/member/signup`}>
-              Join as New Member
+              Join Sekarang
             </Link>
             <Link className="btn ghost" to={`/a/${account}/member/signin`}>
-              Member Sign In
+              Saya Sudah Member
             </Link>
           </div>
-          <p className="local-note">{`Mulai dari paket trial, lanjut ke program sesuai goal ${participantLabel.toLowerCase()}.`}</p>
         </div>
 
-        <aside className="public-hero-image">
-          <div className="public-hero-overlay">
-            <p className="eyebrow">Member Favorite</p>
-            <h2>Train Smart, Feel Strong.</h2>
-            <p>{`${placeLabel} dengan energy tinggi, progress terukur, dan schedule fleksibel untuk lifestyle aktif.`}</p>
-          </div>
-        </aside>
+        <div className="vertical-hero-image-wrap">
+          <img className="vertical-hero-image" src={heroImage} alt={verticalLabel} />
+          <span className="vertical-hero-badge">
+            <i className="fa-solid fa-star" />
+            {verticalLabel}
+          </span>
+        </div>
       </section>
 
       <section className="landing-section">
-        <p className="eyebrow">Program Promo</p>
-        <h2 className="landing-title">Promo yang Bisa Kamu Ambil Minggu Ini</h2>
-        <div className="feature-grid">
-          {promoPrograms.map((program) => (
-            <article className="feature-card" key={program.title}>
-              <h3>{program.title}</h3>
-              <p>{program.body}</p>
+        <p className="eyebrow">Quick Actions</p>
+        <div className="feature-grid web-icon-grid">
+          {quickActions.map((item) => (
+            <article className="feature-card" key={item.title}>
+              <div className="feature-head">
+                <span className="feature-icon"><i className={item.icon} /></span>
+                <h3>{item.title}</h3>
+              </div>
             </article>
           ))}
         </div>
       </section>
 
-      <section className="cta">
-        <p className="eyebrow">CTA</p>
-        <h2>Undang Teman dan Join Bareng Sekarang</h2>
-        <p>
-          {`Ajak rekan kamu untuk daftar, pilih program promo, lalu mulai progres bersama di ${account} ${verticalLabel} Studio.`}
-        </p>
-        <div className="hero-actions">
-          <Link className="btn" to={`/a/${account}/member/signup`}>
-            Undang & Join Member
-          </Link>
-          <Link className="btn ghost" to={`/a/${account}/member/signin`}>
-            Saya Sudah Member
-          </Link>
+      <section className="landing-section">
+        <p className="eyebrow">Program</p>
+        <h2 className="landing-title">Pilih program favoritmu</h2>
+        <div className="case-grid web-visual-grid">
+          {promoPrograms.map((program) => (
+            <article className="feature-card case-card web-visual-card" key={program.title}>
+              <img className="web-visual-image" src={program.image} alt={program.title} />
+              <div className="web-visual-body">
+                <h3>{program.title}</h3>
+                <div className="hero-actions">
+                  <Link className="btn small" to={`/a/${account}/member/signup`}>
+                    Ambil Program
+                  </Link>
+                </div>
+              </div>
+            </article>
+          ))}
         </div>
       </section>
 
       <section className="landing-section">
-        <aside className="hero-card">
-          <h2>Public Actions</h2>
-          <ul>
-            <li>registrasi member baru</li>
-            <li>pilih paket membership dan promo</li>
-            <li>akses booking class dan PT session</li>
-          </ul>
-        </aside>
-      </section>
-
-      <section className="landing-section">
-        <p className="eyebrow">Coach & PT Profile</p>
-        <h2 className="landing-title">Kenalan dengan Coach Kami</h2>
+        <p className="eyebrow">Coach</p>
+        <h2 className="landing-title">Coach pilihan untuk kamu</h2>
         <div className="coach-grid">
           {coachProfiles.map((coach) => (
             <article className="coach-card" key={coach.name}>
@@ -144,21 +175,28 @@ export default function AccountPublicPage() {
               <div>
                 <h3>{coach.name}</h3>
                 <p className="coach-role">{coach.role}</p>
-                <p>{coach.focus}</p>
                 <p className="coach-schedule">{coach.schedule}</p>
               </div>
               <Link className="btn small" to={`/a/${account}/member/signup`}>
-                Join with {coach.name.split(' ')[1]}
+                Join {coach.name}
               </Link>
             </article>
           ))}
         </div>
       </section>
 
-      <footer className="public-footer">
-        <p>Powered by foremoz.com</p>
-        <Link to={`/a/${account}/signin`}>Login as tenant</Link>
-      </footer>
+      <section className="cta">
+        <p className="eyebrow">Start Today</p>
+        <h2>Ajak teman dan mulai bareng hari ini</h2>
+        <div className="hero-actions">
+          <Link className="btn" to={`/a/${account}/member/signup`}>
+            Daftar Member
+          </Link>
+          <Link className="btn ghost" to={`/a/${account}/member/signin`}>
+            Sign In
+          </Link>
+        </div>
+      </section>
     </main>
   );
 }

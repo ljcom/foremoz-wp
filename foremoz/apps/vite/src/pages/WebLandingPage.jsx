@@ -1,37 +1,55 @@
 import { Link } from 'react-router-dom';
-import { APP_ORIGIN } from '../lib.js';
-import { describeVerticalByJargon, listVerticalConfigs } from '../industry-jargon.js';
+import { listVerticalConfigs } from '../industry-jargon.js';
+
+function visualForVertical(slug) {
+  const key = String(slug || '').toLowerCase();
+  if (key === 'active') {
+    return {
+      icon: 'fa-solid fa-dumbbell',
+      image: 'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?auto=format&fit=crop&w=1400&q=80'
+    };
+  }
+  if (key === 'learning') {
+    return {
+      icon: 'fa-solid fa-book-open',
+      image: 'https://images.unsplash.com/photo-1524995997946-a1c2e315a42f?auto=format&fit=crop&w=1400&q=80'
+    };
+  }
+  if (key === 'performance') {
+    return {
+      icon: 'fa-solid fa-music',
+      image: 'https://images.unsplash.com/photo-1506157786151-b8491531f063?auto=format&fit=crop&w=1400&q=80'
+    };
+  }
+  if (key === 'arts') {
+    return {
+      icon: 'fa-solid fa-palette',
+      image: 'https://images.unsplash.com/photo-1513364776144-60967b0f800f?auto=format&fit=crop&w=1400&q=80'
+    };
+  }
+  if (key === 'tourism') {
+    return {
+      icon: 'fa-solid fa-map-location-dot',
+      image: 'https://images.unsplash.com/photo-1469474968028-56623f02e42e?auto=format&fit=crop&w=1400&q=80'
+    };
+  }
+  return {
+    icon: 'fa-solid fa-calendar-star',
+    image: 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=1400&q=80'
+  };
+}
 
 export default function WebLandingPage() {
   const isMockupOpenAccess = (import.meta.env.VITE_MOCKUP_OPEN_ACCESS ?? 'false') === 'true';
-  const promiseItems = [
-    {
-      title: 'From Idea to Execution',
-      body: 'Bantu gig worker merancang event, produk layanan, dan alur operasional dari nol.',
-    },
-    {
-      title: 'Operational Control',
-      body: 'Semua role kerja di workspace yang sama, dengan read model cepat untuk keputusan harian.',
-    },
-    {
-      title: 'Lifecycle Until Done',
-      body: 'Dari onboarding, booking, attendance, payment, sampai post-event retention dan repeat loop.',
-    }
-  ];
-
-  const caseStudies = [
-    ...listVerticalConfigs().map((item) => ({
-      slug: item.slug,
-      title: item.label,
-      body: `${describeVerticalByJargon(item.slug)} Monetization: ${item.monetization_pattern}.`,
-    })),
-    {
-      slug: 'events',
-      title: 'Events',
-      body: 'Event discovery lintas vertical. Identity layer terbentuk otomatis saat participant ikut event.',
-    },
-  ];
   const topNavVerticals = listVerticalConfigs().slice(0, 5);
+  const verticalCards = listVerticalConfigs().map((item) => {
+    const visual = visualForVertical(item.slug);
+    return {
+      ...item,
+      icon: visual.icon,
+      image: visual.image
+    };
+  });
 
   return (
     <main className="landing">
@@ -45,77 +63,94 @@ export default function WebLandingPage() {
               {item.label}
             </Link>
           ))}
-          {isMockupOpenAccess ? (
-            <Link className="btn small" to="/signup">
-              Admin signup
-            </Link>
-          ) : null}
+          <Link className="btn small" to="/signin">
+            Sign In
+          </Link>
         </nav>
       </header>
 
-      <section className="hero">
+      <section className="hero hero-no-aside web-hero-visual">
         <div>
-          <p className="eyebrow">foremoz.com</p>
-          <h1>Event Operating System untuk Gig Workers, dari persiapan sampai event selesai.</h1>
+          <p className="eyebrow">Home</p>
+          <h1>Semua event, class, dan komunitas kamu dalam satu tempat.</h1>
           <p>
-            Foremoz membantu creator, trainer, mentor, performer, dan operator mengelola operasi event-driven
-            secara end-to-end: bikin layanan, jalankan event, monitor performa, lalu maintain relationship
-            setelah event berakhir.
+            Tempat creator dan member ketemu, join, check in, dan tumbuh bareng.
           </p>
           <div className="hero-actions">
+            <Link className="btn" to="/events">
+              Lihat Events
+            </Link>
             {isMockupOpenAccess ? (
-              <Link className="btn" to="/signup">
-                Mulai Sekarang
+              <Link className="btn ghost" to="/signup">
+                Mulai Gratis
               </Link>
             ) : null}
-            <Link className="btn ghost" to="/web/owner">
-              Demo Owner
-            </Link>
-            <Link className="btn ghost" to="/signin">
-              Sign In
-            </Link>
           </div>
-          <p className="domain">origin: {APP_ORIGIN}</p>
         </div>
 
-        <aside className="hero-card">
-          <h2>Kenapa Foremoz</h2>
-          <ul>
-            <li>Domain-specific workflows per kategori</li>
-            <li>Role workspaces untuk tim operasional</li>
-            <li>EventDB write layer + projection read model</li>
-            <li>Scalable dari operator kecil ke multi-branch</li>
-            <li>Built for recurring gig interactions</li>
-          </ul>
-        </aside>
-      </section>
-
-      <section className="landing-section">
-        <p className="eyebrow">Narrative</p>
-        <h2 className="landing-title">Satu platform untuk seluruh lifecycle operasi gig</h2>
-        <div className="info-grid">
-          {promiseItems.map((item) => (
-            <article className="info-card" key={item.title}>
-              <h3>{item.title}</h3>
-              <p>{item.body}</p>
-            </article>
-          ))}
+        <div className="web-hero-gallery" aria-label="Foremoz highlights">
+          <img
+            src="https://images.unsplash.com/photo-1518611012118-696072aa579a?auto=format&fit=crop&w=1400&q=80"
+            alt="Event training"
+          />
+          <img
+            src="https://images.unsplash.com/photo-1529156069898-49953e39b3ac?auto=format&fit=crop&w=1400&q=80"
+            alt="Komunitas"
+          />
+          <img
+            src="https://images.unsplash.com/photo-1528605248644-14dd04022da1?auto=format&fit=crop&w=1400&q=80"
+            alt="Workshop class"
+          />
         </div>
       </section>
 
       <section className="landing-section">
-        <p className="eyebrow">Case Study Verticals</p>
-        <h2 className="landing-title">Pilih kategori yang paling relevan untuk operasimu</h2>
-        <div className="case-grid">
-          {caseStudies.map((item) => (
-            <article className="feature-card case-card" key={item.slug}>
-              <p className="eyebrow">foremoz.com/{item.slug}</p>
-              <h3>{item.title}</h3>
-              <p>{item.body}</p>
-              <div className="hero-actions">
-                <Link className="btn small" to={`/${item.slug}`}>
-                  Explore {item.title}
-                </Link>
+        <p className="eyebrow">Quick Start</p>
+        <div className="feature-grid web-icon-grid">
+          <article className="feature-card">
+            <div className="feature-head">
+              <span className="feature-icon"><i className="fa-solid fa-calendar-check" /></span>
+              <h3>Join Event</h3>
+            </div>
+          </article>
+          <article className="feature-card">
+            <div className="feature-head">
+              <span className="feature-icon"><i className="fa-solid fa-chalkboard-user" /></span>
+              <h3>Ikut Class</h3>
+            </div>
+          </article>
+          <article className="feature-card">
+            <div className="feature-head">
+              <span className="feature-icon"><i className="fa-solid fa-users" /></span>
+              <h3>Bangun Komunitas</h3>
+            </div>
+          </article>
+          <article className="feature-card">
+            <div className="feature-head">
+              <span className="feature-icon"><i className="fa-solid fa-trophy" /></span>
+              <h3>Tunjukkan Progress</h3>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section className="landing-section">
+        <p className="eyebrow">Explore</p>
+        <h2 className="landing-title">Pilih dunia yang kamu suka</h2>
+        <div className="case-grid web-visual-grid">
+          {verticalCards.map((item) => (
+            <article className="feature-card case-card web-visual-card" key={item.slug}>
+              <img className="web-visual-image" src={item.image} alt={item.label} />
+              <div className="web-visual-body">
+                <div className="feature-head">
+                  <span className="feature-icon"><i className={item.icon} /></span>
+                  <h3>{item.label}</h3>
+                </div>
+                <div className="hero-actions">
+                  <Link className="btn small" to={`/${item.slug}`}>
+                    Masuk
+                  </Link>
+                </div>
               </div>
             </article>
           ))}
@@ -123,20 +158,14 @@ export default function WebLandingPage() {
       </section>
 
       <section className="cta">
-        <p className="eyebrow">CTA</p>
-        <h2>Start dari kategori yang paling dekat dengan model bisnismu</h2>
-        <p>
-          Setiap kategori punya blueprint operasional berbeda. Masuk ke halaman kategori untuk lihat scope fitur,
-          actor model, dan workflow yang sesuai.
-        </p>
+        <p className="eyebrow">Ready</p>
+        <h2>Temukan event berikutnya dan mulai sekarang.</h2>
         <div className="hero-actions">
-          {isMockupOpenAccess ? (
-            <Link className="btn" to="/signup">
-              Buat Akun Admin
-            </Link>
-          ) : null}
+          <Link className="btn" to="/events">
+            Browse Events
+          </Link>
           <Link className="btn ghost" to="/signin">
-            Masuk ke Dashboard
+            Sign In
           </Link>
         </div>
       </section>

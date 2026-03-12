@@ -64,6 +64,27 @@ CREATE TABLE IF NOT EXISTS read.rm_owner_setup (
   PRIMARY KEY (tenant_id)
 );
 
+CREATE TABLE IF NOT EXISTS read.rm_owner_branch (
+  tenant_id TEXT NOT NULL,
+  branch_id TEXT NOT NULL,
+  branch_name TEXT NOT NULL,
+  account_slug TEXT NOT NULL,
+  address TEXT,
+  city TEXT,
+  photo_url TEXT,
+  status TEXT NOT NULL DEFAULT 'active',
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (tenant_id, branch_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_rm_owner_branch_account_slug
+  ON read.rm_owner_branch ((lower(account_slug)));
+
+ALTER TABLE read.rm_owner_branch
+  ADD COLUMN IF NOT EXISTS address TEXT,
+  ADD COLUMN IF NOT EXISTS city TEXT,
+  ADD COLUMN IF NOT EXISTS photo_url TEXT;
+
 ALTER TABLE read.rm_owner_setup
   ADD COLUMN IF NOT EXISTS address TEXT,
   ADD COLUMN IF NOT EXISTS city TEXT,

@@ -80,6 +80,20 @@ function createEmptyUserForm() {
   return { full_name: '', email: '', role: '', password: '' };
 }
 
+function formatAddUserRoleLabel(role) {
+  const normalized = String(role || '').trim().toLowerCase();
+  if (normalized === 'pt') return 'Coach';
+  if (normalized === 'sales') return 'Influencer/Sales';
+  if (normalized === 'cs') return 'CS';
+  return 'User';
+}
+
+function getAssignableUserRoles(planValue) {
+  const plan = normalizePackagePlan(planValue);
+  if (plan === 'free' || plan === 'starter') return ['cs'];
+  return ['cs', 'sales', 'pt'];
+}
+
 function openDashboardInNewTab(accountSlug) {
   const slug = String(accountSlug || '').trim();
   if (!slug) return;
@@ -116,7 +130,19 @@ export default function WebOwnerPage() {
   const [saasInfo, setSaasInfo] = useState(null);
   const [userForm, setUserForm] = useState(createEmptyUserForm);
   const [users, setUsers] = useState([]);
+  const [branches, setBranches] = useState([]);
+  const [branchMode, setBranchMode] = useState('list');
+  const [editingBranchId, setEditingBranchId] = useState('');
+  const [branchForm, setBranchForm] = useState({
+    branch_id: '',
+    branch_name: '',
+    account_slug: '',
+    address: '',
+    city: '',
+    photo_url: ''
+  });
   const [userMode, setUserMode] = useState('list');
+  const [newUserRolePreset, setNewUserRolePreset] = useState('cs');
   const [editingUserId, setEditingUserId] = useState('');
   const [editingUser, setEditingUser] = useState({ full_name: '', role: 'staff' });
   const [dangerConfirm, setDangerConfirm] = useState('');
@@ -132,6 +158,22 @@ export default function WebOwnerPage() {
   const selectedPlanMonthlyPrice = PLAN_PRICE[setupForm.package_plan] || 0;
   const selectedMonths = Number(saasForm.months || 1);
   const extendTotalPrice = selectedPlanMonthlyPrice * selectedMonths;
+  const isGrowthOrAbove = useMemo(
+    () => ['growth', 'multi_branch', 'enterprise'].includes(normalizePackagePlan(setupForm.package_plan)),
+    [setupForm.package_plan]
+  );
+  const assignableUserRoles = useMemo(
+    () => getAssignableUserRoles(setupForm.package_plan),
+    [setupForm.package_plan]
+  );
+  const canAddBranch = useMemo(
+    () => ['multi_branch', 'enterprise'].includes(normalizePackagePlan(setupForm.package_plan)),
+    [setupForm.package_plan]
+  );
+  const addUserRoleLabel = useMemo(
+    () => formatAddUserRoleLabel(userForm.role || newUserRolePreset),
+    [userForm.role, newUserRolePreset]
+  );
 
   const isSetupReady = Boolean(
     setupRow?.status === 'active' && setupRow?.gym_name && setupRow?.account_slug
@@ -139,10 +181,11 @@ export default function WebOwnerPage() {
 
   async function refreshOwnerData(targetTenantId) {
     const activeTenant = targetTenantId || setupForm.tenant_id || tenantSeed;
-    const [setupRes, saasRes, usersRes] = await Promise.all([
+    const [setupRes, saasRes, usersRes, branchesRes] = await Promise.all([
       apiJson(`/v1/owner/setup?tenant_id=${encodeURIComponent(activeTenant)}`),
       apiJson(`/v1/owner/saas?tenant_id=${encodeURIComponent(activeTenant)}`),
-      apiJson(`/v1/owner/users?tenant_id=${encodeURIComponent(activeTenant)}&status=active`)
+      apiJson(`/v1/owner/users?tenant_id=${encodeURIComponent(activeTenant)}&status=active`),
+      apiJson(`/v1/owner/branches?tenant_id=${encodeURIComponent(activeTenant)}`)
     ]);
 
     setSetupRow(setupRes.row || null);
@@ -187,6 +230,7 @@ export default function WebOwnerPage() {
 
     setSaasInfo(saasRes.row || null);
     setUsers(usersRes.rows || []);
+    setBranches(branchesRes.rows || []);
   }
 
   useEffect(() => {
@@ -336,6 +380,110 @@ export default function WebOwnerPage() {
     }
   }
 
+  async function submitBranch(e) {
+    e.preventDefault();
+    if (!canAddBranch) {
+      setFeedback('Silahkan upgrade ke Multi-branch untuk menambah branch.');
+      return;
+    }
+    const branchId = String(branchForm.branch_id || '').trim().toLowerCase();
+    const branchName = String(branchForm.branch_name || '').trim();
+    const derivedSlug = normalizeSlug(String(branchForm.account_slug || '').trim() || branchId.replace(/_/g, '-'));
+    if (!branchId || !branchName || !derivedSlug) return;
+
+    try {
+      setLoading(true);
+      await apiJson('/v1/owner/branches', {
+        method: 'POST',
+        body: JSON.stringify({
+          tenant_id: setupForm.tenant_id || tenantSeed,
+          branch_id: branchId,
+          branch_name: branchName,
+          account_slug: derivedSlug,
+          address: String(branchForm.address || '').trim(),
+          city: String(branchForm.city || '').trim(),
+          photo_url: String(branchForm.photo_url || '').trim()
+        })
+      });
+      setBranchForm({
+        branch_id: '',
+        branch_name: '',
+        account_slug: '',
+        address: '',
+        city: '',
+        photo_url: ''
+      });
+      setBranchMode('list');
+      await refreshOwnerData(setupForm.tenant_id || tenantSeed);
+      setFeedback(`owner.branch.created ${branchId} -> /a/${derivedSlug}`);
+    } catch (error) {
+      setFeedback(error.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function openAddBranchForm() {
+    if (!canAddBranch) {
+      setFeedback('Silahkan upgrade ke Multi-branch untuk menambah branch.');
+      return;
+    }
+    setBranchMode('add');
+    setEditingBranchId('');
+    setBranchForm({
+      branch_id: '',
+      branch_name: '',
+      account_slug: '',
+      address: '',
+      city: '',
+      photo_url: ''
+    });
+  }
+
+  function openEditBranchForm(row) {
+    setEditingBranchId(String(row?.branch_id || ''));
+    setBranchForm({
+      branch_id: String(row?.branch_id || ''),
+      branch_name: String(row?.branch_name || ''),
+      account_slug: String(row?.account_slug || ''),
+      address: String(row?.address || ''),
+      city: String(row?.city || ''),
+      photo_url: String(row?.photo_url || '')
+    });
+    setBranchMode('edit');
+  }
+
+  async function submitEditBranch(e) {
+    e.preventDefault();
+    const branchId = String(editingBranchId || branchForm.branch_id || '').trim().toLowerCase();
+    const branchName = String(branchForm.branch_name || '').trim();
+    const accountSlug = normalizeSlug(String(branchForm.account_slug || '').trim());
+    if (!branchId || !branchName || !accountSlug) return;
+
+    try {
+      setLoading(true);
+      await apiJson(`/v1/owner/branches/${encodeURIComponent(branchId)}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          tenant_id: setupForm.tenant_id || tenantSeed,
+          branch_name: branchName,
+          account_slug: accountSlug,
+          address: String(branchForm.address || '').trim(),
+          city: String(branchForm.city || '').trim(),
+          photo_url: String(branchForm.photo_url || '').trim()
+        })
+      });
+      setBranchMode('list');
+      setEditingBranchId('');
+      await refreshOwnerData(setupForm.tenant_id || tenantSeed);
+      setFeedback(`owner.branch.updated ${branchId}`);
+    } catch (error) {
+      setFeedback(error.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function submitSaas(e) {
     e.preventDefault();
     if (setupForm.package_plan === 'free') {
@@ -454,14 +602,17 @@ export default function WebOwnerPage() {
     return true;
   }
 
-  async function openAddUserForm() {
+  async function openAddUserForm(targetRole = 'cs') {
     try {
       setLoading(true);
       if (setupForm.package_plan === 'free') {
         const upgraded = await activateStarterTrialFromAddUser();
         if (!upgraded) return;
       }
-      setUserForm(createEmptyUserForm());
+      const allowedRoles = getAssignableUserRoles(setupForm.package_plan);
+      const safeRole = allowedRoles.includes(targetRole) ? targetRole : (allowedRoles[0] || 'cs');
+      setNewUserRolePreset(safeRole);
+      setUserForm({ ...createEmptyUserForm(), role: safeRole });
       setUserMode('add');
     } catch (error) {
       setFeedback(error.message);
@@ -470,9 +621,27 @@ export default function WebOwnerPage() {
     }
   }
 
+  async function openPresetAddUser(preset) {
+    const normalized = String(preset || '').trim().toLowerCase();
+    if (normalized === 'cs') {
+      await openAddUserForm('cs');
+      return;
+    }
+    if (!isGrowthOrAbove) {
+      setFeedback('Silahkan upgrade ke Growth untuk menambah Coach atau Influencer/Sales.');
+      return;
+    }
+    if (normalized === 'coach') {
+      await openAddUserForm('pt');
+      return;
+    }
+    await openAddUserForm('sales');
+  }
+
   async function submitUser(e) {
     e.preventDefault();
-    if (!userForm.full_name || !userForm.email || !userForm.password || !userForm.role) return;
+    const effectiveRole = String(userForm.role || newUserRolePreset || '').trim().toLowerCase();
+    if (!userForm.full_name || !userForm.email || !userForm.password || !effectiveRole) return;
 
     try {
       setLoading(true);
@@ -482,6 +651,11 @@ export default function WebOwnerPage() {
           return;
         }
       }
+      const allowedRoles = getAssignableUserRoles(setupForm.package_plan);
+      if (!allowedRoles.includes(effectiveRole)) {
+        setFeedback(`Role ${effectiveRole} tidak tersedia untuk paket ${normalizePackagePlan(setupForm.package_plan)}.`);
+        return;
+      }
 
       await apiJson('/v1/owner/users', {
         method: 'POST',
@@ -489,7 +663,7 @@ export default function WebOwnerPage() {
           tenant_id: setupForm.tenant_id || tenantSeed,
           full_name: userForm.full_name,
           email: userForm.email,
-          role: userForm.role,
+          role: effectiveRole,
           password: userForm.password
         })
       });
@@ -505,13 +679,20 @@ export default function WebOwnerPage() {
   }
 
   function startEditUser(user) {
+    const allowedRoles = getAssignableUserRoles(setupForm.package_plan);
+    const nextRole = allowedRoles.includes(user.role) ? user.role : (allowedRoles[0] || 'cs');
     setEditingUserId(user.user_id);
-    setEditingUser({ full_name: user.full_name || '', role: user.role || 'staff' });
+    setEditingUser({ full_name: user.full_name || '', role: nextRole });
   }
 
   async function saveEditUser(userId) {
     try {
       setLoading(true);
+      const allowedRoles = getAssignableUserRoles(setupForm.package_plan);
+      if (!allowedRoles.includes(editingUser.role)) {
+        setFeedback(`Role ${editingUser.role} tidak tersedia untuk paket ${normalizePackagePlan(setupForm.package_plan)}.`);
+        return;
+      }
       await apiJson(`/v1/owner/users/${encodeURIComponent(userId)}`, {
         method: 'PATCH',
         body: JSON.stringify({
@@ -724,6 +905,15 @@ export default function WebOwnerPage() {
             <button className={`side-item ${menu === 'profile' ? 'active' : ''}`} onClick={() => setMenu('profile')}>
               Business profile
             </button>
+            <button
+              className={`side-item ${menu === 'branch' ? 'active' : ''}`}
+              onClick={() => {
+                setMenu('branch');
+                setBranchMode('list');
+              }}
+            >
+              Branch
+            </button>
             <button className={`side-item ${menu === 'package' ? 'active' : ''}`} onClick={() => setMenu('package')}>
               Paket dan SaaS
             </button>
@@ -788,6 +978,168 @@ export default function WebOwnerPage() {
                     <button className="btn" type="submit" disabled={loading}>Save profile</button>
                   </div>
                 </form>
+              </>
+            ) : null}
+
+            {menu === 'branch' ? (
+              <>
+                <p className="eyebrow">Branch</p>
+                {branchMode === 'list' ? (
+                  <>
+                    <div className="panel-head">
+                      <h2>Branch list</h2>
+                      <button className="btn" type="button" onClick={openAddBranchForm} disabled={loading}>
+                        Add branch
+                      </button>
+                    </div>
+                    <p className="mini-note">Setiap branch punya URL sendiri: /a/&lt;branch-account&gt;</p>
+                    {!canAddBranch ? (
+                      <p className="mini-note">Silahkan upgrade ke Multi-branch untuk menambah branch.</p>
+                    ) : null}
+                    <div className="entity-list">
+                      {branches.map((row) => (
+                        <div className="entity-row" key={`${row.tenant_id || 'tn'}:${row.branch_id}`}>
+                          <div>
+                            <strong>{row.branch_name || row.branch_id}</strong>
+                            <p>
+                              {row.branch_id} - /a/{row.account_slug} {row.is_primary ? '(Primary)' : ''}
+                            </p>
+                          </div>
+                          <div style={{ display: 'flex', gap: '0.5rem' }}>
+                            {!row.is_primary ? (
+                              <button className="btn ghost" type="button" onClick={() => openEditBranchForm(row)} disabled={loading}>
+                                Edit
+                              </button>
+                            ) : null}
+                            <a className="btn ghost" href={`/a/${row.account_slug}`} target="_blank" rel="noreferrer">
+                              Open public
+                            </a>
+                            <a className="btn ghost" href={`/a/${row.account_slug}/admin/dashboard`} target="_blank" rel="noreferrer">
+                              Open dashboard
+                            </a>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                ) : branchMode === 'add' ? (
+                  <form className="form" onSubmit={submitBranch}>
+                    <div className="panel-head">
+                      <h2>Add branch</h2>
+                      <button className="btn ghost" type="button" onClick={() => setBranchMode('list')} disabled={loading}>
+                        Back to list
+                      </button>
+                    </div>
+                    <label>
+                      branch_id
+                      <input
+                        value={branchForm.branch_id}
+                        onChange={(e) => setBranchForm((p) => ({ ...p, branch_id: String(e.target.value || '').trim().toLowerCase() }))}
+                        placeholder="contoh: br_jkt_selatan"
+                      />
+                    </label>
+                    <label>
+                      branch_name
+                      <input
+                        value={branchForm.branch_name}
+                        onChange={(e) => setBranchForm((p) => ({ ...p, branch_name: e.target.value }))}
+                        placeholder="contoh: Jakarta Selatan"
+                      />
+                    </label>
+                    <label>
+                      branch_account_slug
+                      <input
+                        value={branchForm.account_slug}
+                        onChange={(e) => setBranchForm((p) => ({ ...p, account_slug: normalizeSlug(e.target.value) }))}
+                        placeholder="contoh: jaksel-main"
+                      />
+                    </label>
+                    <label>
+                      address
+                      <input
+                        value={branchForm.address}
+                        onChange={(e) => setBranchForm((p) => ({ ...p, address: e.target.value }))}
+                        placeholder="contoh: Jl. TB Simatupang No. 8"
+                      />
+                    </label>
+                    <label>
+                      city
+                      <input
+                        value={branchForm.city}
+                        onChange={(e) => setBranchForm((p) => ({ ...p, city: e.target.value }))}
+                        placeholder="contoh: Jakarta Selatan"
+                      />
+                    </label>
+                    <label>
+                      photo_url
+                      <input
+                        type="url"
+                        value={branchForm.photo_url}
+                        onChange={(e) => setBranchForm((p) => ({ ...p, photo_url: e.target.value }))}
+                        placeholder="https://..."
+                      />
+                    </label>
+                    <p className="mini-note">
+                      URL branch: /a/{normalizeSlug((branchForm.account_slug || branchForm.branch_id || '').replace(/_/g, '-')) || '-'}
+                    </p>
+                    <button className="btn" type="submit" disabled={loading}>
+                      Add branch
+                    </button>
+                  </form>
+                ) : (
+                  <form className="form" onSubmit={submitEditBranch}>
+                    <div className="panel-head">
+                      <h2>Edit branch</h2>
+                      <button className="btn ghost" type="button" onClick={() => setBranchMode('list')} disabled={loading}>
+                        Back to list
+                      </button>
+                    </div>
+                    <label>
+                      branch_id (read only)
+                      <input value={branchForm.branch_id} disabled readOnly />
+                    </label>
+                    <label>
+                      branch_name
+                      <input
+                        value={branchForm.branch_name}
+                        onChange={(e) => setBranchForm((p) => ({ ...p, branch_name: e.target.value }))}
+                      />
+                    </label>
+                    <label>
+                      branch_account_slug
+                      <input
+                        value={branchForm.account_slug}
+                        onChange={(e) => setBranchForm((p) => ({ ...p, account_slug: normalizeSlug(e.target.value) }))}
+                      />
+                    </label>
+                    <label>
+                      address
+                      <input
+                        value={branchForm.address}
+                        onChange={(e) => setBranchForm((p) => ({ ...p, address: e.target.value }))}
+                      />
+                    </label>
+                    <label>
+                      city
+                      <input
+                        value={branchForm.city}
+                        onChange={(e) => setBranchForm((p) => ({ ...p, city: e.target.value }))}
+                      />
+                    </label>
+                    <label>
+                      photo_url
+                      <input
+                        type="url"
+                        value={branchForm.photo_url}
+                        onChange={(e) => setBranchForm((p) => ({ ...p, photo_url: e.target.value }))}
+                        placeholder="https://..."
+                      />
+                    </label>
+                    <button className="btn" type="submit" disabled={loading}>
+                      Save branch
+                    </button>
+                  </form>
+                )}
               </>
             ) : null}
 
@@ -914,10 +1266,26 @@ export default function WebOwnerPage() {
                         <button
                           className="btn"
                           type="button"
-                          onClick={openAddUserForm}
+                          onClick={() => openPresetAddUser('cs')}
                           disabled={loading}
                         >
-                          Add New User
+                          Add CS
+                        </button>
+                        <button
+                          className="btn ghost"
+                          type="button"
+                          onClick={() => openPresetAddUser('coach')}
+                          disabled={loading}
+                        >
+                          Add Coach
+                        </button>
+                        <button
+                          className="btn ghost"
+                          type="button"
+                          onClick={() => openPresetAddUser('sales')}
+                          disabled={loading}
+                        >
+                          Add Influencer/Sales
                         </button>
                       </div>
                     </div>
@@ -929,10 +1297,9 @@ export default function WebOwnerPage() {
                               <>
                                 <input value={editingUser.full_name} onChange={(e) => setEditingUser((p) => ({ ...p, full_name: e.target.value }))} />
                                 <select value={editingUser.role} onChange={(e) => setEditingUser((p) => ({ ...p, role: e.target.value }))}>
-                                  <option value="admin">admin</option>
-                                  <option value="cs">cs</option>
-                                  <option value="sales">sales</option>
-                                  <option value="pt">pt</option>
+                                  {assignableUserRoles.map((role) => (
+                                    <option key={role} value={role}>{role}</option>
+                                  ))}
                                 </select>
                               </>
                             ) : (
@@ -957,7 +1324,7 @@ export default function WebOwnerPage() {
                 ) : (
                   <>
                     <div className="panel-head">
-                      <h2>Add user</h2>
+                      <h2>{`Add ${addUserRoleLabel}`}</h2>
                       <button className="btn ghost" type="button" onClick={() => setUserMode('list')} disabled={loading}>
                         Back to list
                       </button>
@@ -975,16 +1342,9 @@ export default function WebOwnerPage() {
                         password
                         <input type="password" value={userForm.password} onChange={(e) => setUserForm((p) => ({ ...p, password: e.target.value }))} />
                       </label>
-                      <label>
-                        role
-                        <select value={userForm.role} onChange={(e) => setUserForm((p) => ({ ...p, role: e.target.value }))}>
-                          <option value="">pilih role</option>
-                          <option value="admin">admin</option>
-                          <option value="cs">cs</option>
-                          <option value="sales">sales</option>
-                          <option value="pt">pt</option>
-                        </select>
-                      </label>
+                      <p className="mini-note">
+                        Role user: {String(userForm.role || newUserRolePreset || '-').toUpperCase()}
+                      </p>
                       <button className="btn" type="submit" disabled={loading}>Add user</button>
                     </form>
                   </>

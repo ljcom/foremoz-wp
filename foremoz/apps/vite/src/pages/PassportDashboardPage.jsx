@@ -17,6 +17,16 @@ function profilePrefsKey(passportId) {
   return `ff.passport.profile-prefs.${passportId || 'unknown'}`;
 }
 
+function eventVisual(eventId) {
+  return `https://picsum.photos/seed/passport-event-${encodeURIComponent(String(eventId || 'x'))}/720/420`;
+}
+
+function feedIcon(type) {
+  if (type === 'achievement') return 'fa-solid fa-trophy';
+  if (type === 'event') return 'fa-solid fa-calendar-check';
+  return 'fa-solid fa-sparkles';
+}
+
 function normalizePublicVisibility(raw) {
   return {
     allowPublicPublish: raw?.allowPublicPublish !== false,
@@ -41,7 +51,6 @@ export default function PassportDashboardPage() {
   const tenantId = session?.tenant?.id || 'ps_001';
   const passportId = session?.passport?.id || session?.user?.userId || '';
   const [apiStatus, setApiStatus] = useState('loading');
-  const [apiError, setApiError] = useState('');
   const [subscriptions, setSubscriptions] = useState([]);
   const [performance, setPerformance] = useState([]);
   const [consents, setConsents] = useState([]);
@@ -61,7 +70,6 @@ export default function PassportDashboardPage() {
     async function load() {
       try {
         setApiStatus('loading');
-        setApiError('');
         await passportApiJson('/v1/projections/run', {
           method: 'POST',
           body: JSON.stringify({ tenant_id: tenantId })
@@ -116,15 +124,13 @@ export default function PassportDashboardPage() {
         setPublicVisibility(normalizePublicVisibility(visibilityRes?.visibility || {}));
         setPublicVisibilityHydrated(true);
         setApiStatus('ok');
-      } catch (error) {
+      } catch {
         setApiStatus('error');
-        setApiError(error.message);
       }
     }
 
     if (!passportId) {
       setApiStatus('error');
-      setApiError('passport_id missing in session');
       return;
     }
     load();
@@ -261,9 +267,23 @@ export default function PassportDashboardPage() {
     }).catch(() => {});
   }, [publicVisibilityHydrated, tenantId, passportId, publicAccount, publicVisibility]);
 
+  const visibilityOptions = [
+    { key: 'showUpcomingEvents', label: 'Upcoming Events', icon: 'fa-solid fa-calendar-days' },
+    { key: 'showPastEvents', label: 'Event History', icon: 'fa-solid fa-clock-rotate-left' },
+    { key: 'showRolesCapabilities', label: 'Roles', icon: 'fa-solid fa-user-check' },
+    { key: 'showProgramsProducts', label: 'Programs', icon: 'fa-solid fa-layer-group' },
+    { key: 'showAchievements', label: 'Achievements', icon: 'fa-solid fa-medal' },
+    { key: 'showCommunity', label: 'Community', icon: 'fa-solid fa-users' },
+    { key: 'showActivityFeed', label: 'Activity', icon: 'fa-solid fa-bolt' },
+    { key: 'showHostLocations', label: 'Locations', icon: 'fa-solid fa-location-dot' },
+    { key: 'showContactBooking', label: 'Contact', icon: 'fa-solid fa-phone' },
+    { key: 'showPassportStats', label: 'Stats', icon: 'fa-solid fa-chart-line' }
+  ];
+
   return (
-    <main className="dashboard">
-      <header className="dash-head card">
+    <main className="dashboard passport-fancy-dashboard">
+      <div className="passport-bg-orbs" aria-hidden="true" />
+      <header className="dash-head card passport-hero-card">
         <div>
           <h1>{displayName}</h1>
           <p>{memberStatus || 'Belum ada status profile.'}</p>
@@ -284,7 +304,7 @@ export default function PassportDashboardPage() {
         </div>
       </header>
 
-      <section className="card">
+      <section className="card passport-profile-card">
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.9rem', flexWrap: 'wrap' }}>
           <div
             style={{
@@ -330,29 +350,28 @@ export default function PassportDashboardPage() {
         </div>
       </section>
 
-      <section className="stats-grid">
+      <section className="stats-grid passport-stat-grid-fancy">
         <article className="stat">
-          <p>Plan</p>
+          <p><i className="fa-solid fa-crown" /> Plan</p>
           <h3>{planCode}</h3>
         </article>
         <article className="stat">
-          <p>Joined Events</p>
+          <p><i className="fa-solid fa-ticket" /> Joined</p>
           <h3>{joinedEvents.length}</h3>
         </article>
         <article className="stat">
-          <p>Showcase Posts</p>
+          <p><i className="fa-solid fa-camera-retro" /> Posts</p>
           <h3>{socialPosts.length}</h3>
         </article>
         <article className="stat">
-          <p>Achievements</p>
+          <p><i className="fa-solid fa-trophy" /> Wins</p>
           <h3>{performance.length}</h3>
         </article>
       </section>
 
-      <section className="card">
-        <p className="eyebrow">Public Passport Visibility</p>
-        <p className="sub">Data system tidak bisa diedit. Anda hanya bisa atur publish dan tampil/sembunyi.</p>
-        <label>
+      <section className="card passport-panel-fancy">
+        <p className="eyebrow"><i className="fa-solid fa-globe" /> Public Page</p>
+        <label className="passport-toggle">
           <input
             type="checkbox"
             checked={publicVisibility.allowPublicPublish}
@@ -360,133 +379,27 @@ export default function PassportDashboardPage() {
               setPublicVisibility((prev) => ({ ...prev, allowPublicPublish: event.target.checked }))
             }
           />
-          {' '}
-          Allow publish public
+          <span><i className="fa-solid fa-earth-asia" /> Tampilkan ke publik</span>
         </label>
-        <label>
-          <input
-            type="checkbox"
-            checked={publicVisibility.showUpcomingEvents}
-            disabled={!publicVisibility.allowPublicPublish}
-            onChange={(event) =>
-              setPublicVisibility((prev) => ({ ...prev, showUpcomingEvents: event.target.checked }))
-            }
-          />
-          {' '}
-          Publish Upcoming Events
-        </label>
-        <label>
-          <input
-            type="checkbox"
-            checked={publicVisibility.showPastEvents}
-            disabled={!publicVisibility.allowPublicPublish}
-            onChange={(event) =>
-              setPublicVisibility((prev) => ({ ...prev, showPastEvents: event.target.checked }))
-            }
-          />
-          {' '}
-          Publish Past Events
-        </label>
-        <label>
-          <input
-            type="checkbox"
-            checked={publicVisibility.showRolesCapabilities}
-            disabled={!publicVisibility.allowPublicPublish}
-            onChange={(event) =>
-              setPublicVisibility((prev) => ({ ...prev, showRolesCapabilities: event.target.checked }))
-            }
-          />
-          {' '}
-          Tampilkan Roles / Capabilities
-        </label>
-        <label>
-          <input
-            type="checkbox"
-            checked={publicVisibility.showProgramsProducts}
-            disabled={!publicVisibility.allowPublicPublish}
-            onChange={(event) =>
-              setPublicVisibility((prev) => ({ ...prev, showProgramsProducts: event.target.checked }))
-            }
-          />
-          {' '}
-          Tampilkan Programs / Products
-        </label>
-        <label>
-          <input
-            type="checkbox"
-            checked={publicVisibility.showAchievements}
-            disabled={!publicVisibility.allowPublicPublish}
-            onChange={(event) =>
-              setPublicVisibility((prev) => ({ ...prev, showAchievements: event.target.checked }))
-            }
-          />
-          {' '}
-          Publish Achievements
-        </label>
-        <label>
-          <input
-            type="checkbox"
-            checked={publicVisibility.showCommunity}
-            disabled={!publicVisibility.allowPublicPublish}
-            onChange={(event) =>
-              setPublicVisibility((prev) => ({ ...prev, showCommunity: event.target.checked }))
-            }
-          />
-          {' '}
-          Publish Community / Followers
-        </label>
-        <label>
-          <input
-            type="checkbox"
-            checked={publicVisibility.showActivityFeed}
-            disabled={!publicVisibility.allowPublicPublish}
-            onChange={(event) =>
-              setPublicVisibility((prev) => ({ ...prev, showActivityFeed: event.target.checked }))
-            }
-          />
-          {' '}
-          Publish Activity Feed
-        </label>
-        <label>
-          <input
-            type="checkbox"
-            checked={publicVisibility.showHostLocations}
-            disabled={!publicVisibility.allowPublicPublish}
-            onChange={(event) =>
-              setPublicVisibility((prev) => ({ ...prev, showHostLocations: event.target.checked }))
-            }
-          />
-          {' '}
-          Publish Host Locations
-        </label>
-        <label>
-          <input
-            type="checkbox"
-            checked={publicVisibility.showContactBooking}
-            disabled={!publicVisibility.allowPublicPublish}
-            onChange={(event) =>
-              setPublicVisibility((prev) => ({ ...prev, showContactBooking: event.target.checked }))
-            }
-          />
-          {' '}
-          Publish Contact / Booking
-        </label>
-        <label>
-          <input
-            type="checkbox"
-            checked={publicVisibility.showPassportStats}
-            disabled={!publicVisibility.allowPublicPublish}
-            onChange={(event) =>
-              setPublicVisibility((prev) => ({ ...prev, showPassportStats: event.target.checked }))
-            }
-          />
-          {' '}
-          Publish Passport Stats
-        </label>
+        <div className="passport-toggle-grid">
+          {visibilityOptions.map((item) => (
+            <label className="passport-toggle" key={item.key}>
+              <input
+                type="checkbox"
+                checked={Boolean(publicVisibility[item.key])}
+                disabled={!publicVisibility.allowPublicPublish}
+                onChange={(event) =>
+                  setPublicVisibility((prev) => ({ ...prev, [item.key]: event.target.checked }))
+                }
+              />
+              <span><i className={item.icon} /> {item.label}</span>
+            </label>
+          ))}
+        </div>
       </section>
 
-      <section className="card">
-        <p className="eyebrow">Status</p>
+      <section className="card passport-panel-fancy">
+        <p className="eyebrow"><i className="fa-solid fa-pen-nib" /> New Post</p>
         <textarea
           rows={3}
           placeholder="Lagi latihan apa hari ini? Share status kamu..."
@@ -500,7 +413,7 @@ export default function PassportDashboardPage() {
         </div>
       </section>
 
-      <section className="card">
+      <section className="card passport-panel-fancy">
         <div className="landing-tabs" style={{ marginBottom: '0.8rem' }}>
           <button
             type="button"
@@ -518,46 +431,49 @@ export default function PassportDashboardPage() {
           </button>
         </div>
         {eventTab === 'upcoming' ? (
-          <div className="entity-list">
+          <div className="passport-live-grid">
             {upcomingEvents.map((row) => (
-              <div key={row.event_id} className="entity-row">
-                <div>
-                  <strong>{row.event_name || '-'}</strong>
-                  <p>Mulai: {row.start_at ? new Date(row.start_at).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' }) : '-'}</p>
-                  <p>Durasi: {Number(row.duration_minutes || 60)} menit</p>
+              <article key={row.event_id} className="passport-live-card">
+                <img className="passport-live-image" src={eventVisual(row.event_id)} alt={row.event_name || 'Event'} />
+                <div className="passport-live-head">
+                  <span className="passport-live-badge"><i className="fa-solid fa-calendar-days" /> Upcoming</span>
                 </div>
-              </div>
+                <h3>{row.event_name || '-'}</h3>
+                <p className="passport-live-time"><i className="fa-regular fa-clock" /> {formatEventDate(row.start_at)}</p>
+                <p className="passport-live-participant"><i className="fa-solid fa-stopwatch" /> {Number(row.duration_minutes || 60)} min</p>
+              </article>
             ))}
-            {upcomingEvents.length === 0 ? <p className="sub">Belum ada event yang akan berlangsung.</p> : null}
+            {upcomingEvents.length === 0 ? <p className="sub">Belum ada event terjadwal.</p> : null}
           </div>
         ) : (
-          <div className="entity-list">
+          <div className="passport-live-grid">
             {pastEvents.map((row) => (
-              <div key={row.event_id} className="entity-row">
-                <div>
-                  <strong>{row.event_name || '-'}</strong>
-                  <p>Selesai/berlalu: {row.start_at ? new Date(row.start_at).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' }) : '-'}</p>
-                  <p>Durasi: {Number(row.duration_minutes || 60)} menit</p>
+              <article key={row.event_id} className="passport-live-card">
+                <img className="passport-live-image" src={eventVisual(row.event_id)} alt={row.event_name || 'Event'} />
+                <div className="passport-live-head">
+                  <span className="passport-live-badge joined"><i className="fa-solid fa-circle-check" /> Joined</span>
                   {eventScoresByEventId[String(row.event_id || '')]?.rank !== null && eventScoresByEventId[String(row.event_id || '')]?.rank !== undefined ? (
-                    <p>Rank: #{eventScoresByEventId[String(row.event_id || '')].rank}</p>
+                    <span className="passport-live-badge"><i className="fa-solid fa-trophy" /> #{eventScoresByEventId[String(row.event_id || '')].rank}</span>
                   ) : null}
-                  <p>Score: {Number(eventScoresByEventId[String(row.event_id || '')]?.score_points || 0)}</p>
                 </div>
-              </div>
+                <h3>{row.event_name || '-'}</h3>
+                <p className="passport-live-time"><i className="fa-regular fa-clock" /> {formatEventDate(row.start_at)}</p>
+                <p className="passport-live-participant"><i className="fa-solid fa-star" /> {Number(eventScoresByEventId[String(row.event_id || '')]?.score_points || 0)} pts</p>
+              </article>
             ))}
             {pastEvents.length === 0 ? <p className="sub">Belum ada history event.</p> : null}
           </div>
         )}
       </section>
 
-      <section className="ops-grid">
+      <section className="ops-grid passport-ops-fancy">
         <article className="card">
-          <h2>Activity Feed</h2>
+          <h2><i className="fa-solid fa-bolt" /> Activity</h2>
           <div className="entity-list">
             {feedItems.slice(0, 25).map((item) => (
               <div key={item.feed_id} className="entity-row">
                 <div>
-                  <strong>{item.title}</strong>
+                  <strong><i className={feedIcon(item.type)} /> {item.title}</strong>
                   <p>{item.subtitle}</p>
                   <p>{formatEventDate(item.created_at)}</p>
                 </div>
@@ -567,12 +483,12 @@ export default function PassportDashboardPage() {
           </div>
         </article>
         <article className="card">
-          <h2>Showcase</h2>
+          <h2><i className="fa-solid fa-medal" /> Showcase</h2>
           <div className="entity-list">
             {(performance || []).slice(0, 8).map((row) => (
               <div key={row.log_id || row.recorded_at} className="entity-row">
                 <div>
-                  <strong>{row.metric_name || 'Achievement'}</strong>
+                  <strong><i className="fa-solid fa-award" /> {row.metric_name || 'Achievement'}</strong>
                   <p>{row.metric_value || '-'}</p>
                   <p>{row.note || 'Performance update'}</p>
                 </div>
@@ -583,13 +499,8 @@ export default function PassportDashboardPage() {
         </article>
       </section>
 
-      <section className="card">
-        {apiStatus === 'loading' ? <p>Connecting to passport API...</p> : null}
-        {apiStatus === 'ok' ? <p>Live API connected (EventDB projection active).</p> : null}
-        {apiStatus === 'error' ? <p>API fallback mode: {apiError}</p> : null}
-      </section>
-
       <footer className="dash-foot">
+        {apiStatus === 'error' ? <p className="mini-note">Sebagian data belum tampil. Coba refresh lagi.</p> : null}
         <Link to={authBase}>Back to landing</Link>
       </footer>
     </main>
