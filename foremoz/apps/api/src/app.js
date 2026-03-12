@@ -692,8 +692,20 @@ app.get('/v1/public/passport', async (req, res, next) => {
       );
       ownerRow = rows[0] || null;
     }
+    if (!ownerRow && account.startsWith('tn_')) {
+      const { rows } = await query(
+        `select tenant_id, gym_name, branch_id, account_slug, address, city, photo_url, package_plan, industry_slug, status, updated_at
+         from read.rm_owner_setup
+         where tenant_id = $1 and status = 'active'
+         order by updated_at desc
+         limit 1`,
+        [account]
+      );
+      ownerRow = rows[0] || null;
+    }
 
     let profileRow = null;
+    let syntheticProfile = null;
     if (ownerRow?.tenant_id) {
       const { rows } = await query(
         `select *
@@ -717,16 +729,61 @@ app.get('/v1/public/passport', async (req, res, next) => {
       profileRow = rows[0] || null;
     }
 
-    const tenantId = profileRow?.tenant_id || ownerRow?.tenant_id || null;
-    const passportId = String(profileRow?.passport_id || '').trim() || null;
+    // Fallback: profile may not be projected into read.rm_passport_profile yet,
+    // while participant registration already exists with passport_id.
+    if (!profileRow) {
+      const passportIdInput = account.startsWith('pass_') ? account : '';
+      if (passportIdInput) {
+        const { rows } = await query(
+          `select payload->'data' as data
+           from eventdb_event
+           where event_type = 'event.participant.registered'
+             and payload->'data'->>'passport_id' = $1
+           order by sequence desc
+           limit 1`,
+          [passportIdInput]
+        );
+        const registrationData = rows[0]?.data || null;
+        const fallbackTenantId = String(registrationData?.tenant_id || '').trim() || null;
+        if (!ownerRow && fallbackTenantId) {
+          const ownerRes = await query(
+            `select tenant_id, gym_name, branch_id, account_slug, address, city, photo_url, package_plan, industry_slug, status, updated_at
+             from read.rm_owner_setup
+             where tenant_id = $1 and status = 'active'
+             order by updated_at desc
+             limit 1`,
+            [fallbackTenantId]
+          );
+          ownerRow = ownerRes.rows[0] || null;
+        }
+        if (registrationData) {
+          syntheticProfile = {
+            tenant_id: fallbackTenantId || ownerRow?.tenant_id || null,
+            passport_id: passportIdInput,
+            member_id: passportIdInput,
+            full_name: String(registrationData?.full_name || '').trim() || null,
+            sport_interests: [],
+            coach_relation_count: 0,
+            studio_relation_count: 0,
+            performance_milestone_count: 0,
+            updated_at: registrationData?.registered_at || null
+          };
+        }
+      }
+    }
+
+    const activeProfile = profileRow || syntheticProfile;
+    const tenantId = activeProfile?.tenant_id || ownerRow?.tenant_id || null;
+    const passportId = String(activeProfile?.passport_id || '').trim() || null;
     let memberRow = null;
-    if (tenantId && profileRow?.member_id) {
+    const memberId = String(activeProfile?.member_id || '').trim() || null;
+    if (tenantId && memberId) {
       const { rows } = await query(
         `select member_id, full_name, phone, email, branch_id
          from read.rm_member
          where tenant_id = $1 and member_id = $2
          limit 1`,
-        [tenantId, profileRow.member_id]
+        [tenantId, memberId]
       );
       memberRow = rows[0] || null;
     }
@@ -808,21 +865,21 @@ app.get('/v1/public/passport', async (req, res, next) => {
         .map((item) => String(item?.location || '').trim())
         .filter(Boolean)
     );
-    const profile = profileRow
+    const profile = activeProfile
       ? {
           tenant_id: tenantId,
-          passport_id: profileRow.passport_id || null,
-          member_id: profileRow.member_id || null,
-          full_name: memberRow?.full_name || null,
+          passport_id: activeProfile.passport_id || null,
+          member_id: activeProfile.member_id || null,
+          full_name: memberRow?.full_name || activeProfile.full_name || null,
           email: memberRow?.email || null,
           phone: memberRow?.phone || null,
           city: cityCandidates[0] || null,
           account_slug: ownerRow?.account_slug || account,
-          sport_interests: Array.isArray(profileRow.sport_interests) ? profileRow.sport_interests : [],
-          coach_relation_count: Number(profileRow.coach_relation_count || 0),
-          studio_relation_count: Number(profileRow.studio_relation_count || 0),
-          performance_milestone_count: Number(profileRow.performance_milestone_count || 0),
-          updated_at: profileRow.updated_at || null
+          sport_interests: Array.isArray(activeProfile.sport_interests) ? activeProfile.sport_interests : [],
+          coach_relation_count: Number(activeProfile.coach_relation_count || 0),
+          studio_relation_count: Number(activeProfile.studio_relation_count || 0),
+          performance_milestone_count: Number(activeProfile.performance_milestone_count || 0),
+          updated_at: activeProfile.updated_at || null
         }
       : null;
 
@@ -840,7 +897,7 @@ app.get('/v1/public/passport', async (req, res, next) => {
         events_created: publishedEvents.length,
         events_attended: joinedEventIds.length,
         cities_active: Math.max(1, locationSet.size || (cityCandidates.length > 0 ? 1 : 0)),
-        collaborations: Number((profileRow?.coach_relation_count || 0)) + Number((profileRow?.studio_relation_count || 0))
+        collaborations: Number((activeProfile?.coach_relation_count || 0)) + Number((activeProfile?.studio_relation_count || 0))
       }
     });
   } catch (error) {

@@ -99,7 +99,7 @@ function openDashboardInNewTab(accountSlug) {
   const slug = String(accountSlug || '').trim();
   if (!slug) return;
   const baseOrigin = APP_ORIGIN || window.location.origin;
-  const targetUrl = `${baseOrigin}/a/${slug}/dashboard`;
+  const targetUrl = `${baseOrigin}/a/${slug}/admin/dashboard`;
   window.open(targetUrl, '_blank', 'noopener,noreferrer');
 }
 

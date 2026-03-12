@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { apiJson } from '../lib.js';
-import { getVerticalConfig, getVerticalLabel, guessVerticalSlugByEventText, listVerticalConfigs } from '../industry-jargon.js';
+import { getVerticalConfig, getVerticalLabel, guessVerticalSlugByEventText } from '../industry-jargon.js';
 
 function hashInt(value) {
   let hash = 0;
@@ -28,7 +28,9 @@ function eventVisual(eventId) {
   return `https://picsum.photos/seed/public-event-${encodeURIComponent(String(eventId || 'x'))}/800/450`;
 }
 
-const verticalTabs = listVerticalConfigs().map((item) => item.label);
+function followStorageKey(slug) {
+  return `ff.passport.public.follow.${String(slug || '').trim().toLowerCase()}`;
+}
 
 function normalizePublicVisibility(raw) {
   return {
@@ -74,16 +76,19 @@ export default function PassportPublicPage() {
   const { account = 'member' } = useParams();
   const [events, setEvents] = useState({ upcoming: [], past: [] });
   const [profile, setProfile] = useState(null);
+  const [ownerSetup, setOwnerSetup] = useState(null);
   const [stats, setStats] = useState({
     events_created: 0,
-    events_attended: 0,
-    cities_active: 1,
-    collaborations: 0
+    events_attended: 0
   });
   const [loading, setLoading] = useState(false);
   const [notFound, setNotFound] = useState(false);
-  const [activeVertical, setActiveVertical] = useState('Active');
   const [publicVisibility, setPublicVisibility] = useState(() => normalizePublicVisibility({}));
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [followCount, setFollowCount] = useState(0);
+  const [actionMessage, setActionMessage] = useState('');
+  const [eventsTab, setEventsTab] = useState('upcoming');
+  const upcomingCarouselRef = useRef(null);
 
   useEffect(() => {
     let mounted = true;
@@ -94,7 +99,9 @@ export default function PassportPublicPage() {
         const result = await apiJson(`/v1/public/passport?account=${encodeURIComponent(account)}`);
         if (!mounted) return;
         const profileItem = result.profile || null;
+        const ownerItem = result.owner_setup || null;
         setProfile(profileItem);
+        setOwnerSetup(ownerItem);
         setPublicVisibility(normalizePublicVisibility(result.visibility || {}));
         setEvents({
           upcoming: Array.isArray(result?.events?.upcoming) ? result.events.upcoming : [],
@@ -102,14 +109,13 @@ export default function PassportPublicPage() {
         });
         setStats({
           events_created: Number(result?.stats?.events_created || 0),
-          events_attended: Number(result?.stats?.events_attended || 0),
-          cities_active: Number(result?.stats?.cities_active || 1),
-          collaborations: Number(result?.stats?.collaborations || 0)
+          events_attended: Number(result?.stats?.events_attended || 0)
         });
-        setNotFound(!profileItem);
+        setNotFound(!profileItem && !ownerItem);
       } catch {
         if (!mounted) return;
         setProfile(null);
+        setOwnerSetup(null);
         setNotFound(true);
         setPublicVisibility(normalizePublicVisibility({}));
         setEvents({ upcoming: [], past: [] });
@@ -123,6 +129,21 @@ export default function PassportPublicPage() {
     };
   }, [account]);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const key = followStorageKey(account);
+    const localFollow = localStorage.getItem(key) === '1';
+    setIsFollowing(localFollow);
+    const storedCount = Number(localStorage.getItem(`${key}.count`) || 0);
+    if (Number.isFinite(storedCount) && storedCount > 0) {
+      setFollowCount(storedCount);
+      return;
+    }
+    const baseline = (hashInt(account) % 1500) + 120;
+    setFollowCount(baseline);
+    localStorage.setItem(`${key}.count`, String(baseline));
+  }, [account]);
+
   const upcoming = useMemo(() => (Array.isArray(events?.upcoming) ? events.upcoming : []), [events]);
   const history = useMemo(() => (Array.isArray(events?.past) ? events.past : []), [events]);
 
@@ -132,14 +153,89 @@ export default function PassportPublicPage() {
   const capabilities = deriveCapabilities(mergedEvents);
   const programs = derivePrograms(mergedEvents);
   const locations = [...new Set(mergedEvents.map((item) => String(item.location || '').trim()).filter(Boolean))];
-  const filteredUpcoming = useMemo(
-    () => upcoming.filter((item) => guessVertical(item) === activeVertical),
-    [upcoming, activeVertical]
-  );
-  const filteredHistory = useMemo(
-    () => history.filter((item) => guessVertical(item) === activeVertical),
-    [history, activeVertical]
-  );
+  const activityItems = useMemo(() => {
+    const rows = [...upcoming, ...history]
+      .sort((a, b) => new Date(b.start_at || 0).getTime() - new Date(a.start_at || 0).getTime())
+      .slice(0, 6);
+    return rows.map((item) => {
+      const isPast = new Date(item.start_at || '').getTime() < Date.now();
+      return {
+        id: String(item?.event_id || Math.random()),
+        icon: isPast ? 'fa-solid fa-circle-check' : 'fa-solid fa-calendar-days',
+        text: `${name} ${isPast ? 'joined' : 'scheduled'} ${item.event_name || 'event'}`,
+        time: formatDateTime(item.start_at)
+      };
+    });
+  }, [history, name, upcoming]);
+  const accountSlug = String(account || '').trim().toLowerCase();
+  const ownerAccountSlug = String(ownerSetup?.account_slug || '').trim().toLowerCase();
+  const isOwnerContext = Boolean(ownerAccountSlug) && ownerAccountSlug === accountSlug;
+  const isPassportIdContext = accountSlug.startsWith('pass_');
+  const canShowUpcomingEvents = publicVisibility.allowPublicPublish && publicVisibility.showUpcomingEvents;
+  const canShowHistoryEvents = publicVisibility.allowPublicPublish && publicVisibility.showPastEvents;
+  const canShowEventsSection = canShowUpcomingEvents || canShowHistoryEvents;
+  const isCreatorProfile = isOwnerContext && Number(stats.events_created || 0) > 0;
+  const showContactPanel =
+    publicVisibility.allowPublicPublish &&
+    publicVisibility.showContactBooking &&
+    isOwnerContext &&
+    !isPassportIdContext;
+
+  useEffect(() => {
+    if (eventsTab === 'upcoming' && !canShowUpcomingEvents && canShowHistoryEvents) {
+      setEventsTab('history');
+      return;
+    }
+    if (eventsTab === 'history' && !canShowHistoryEvents && canShowUpcomingEvents) {
+      setEventsTab('upcoming');
+    }
+  }, [eventsTab, canShowUpcomingEvents, canShowHistoryEvents]);
+
+  function toggleFollow() {
+    if (typeof window === 'undefined') return;
+    const key = followStorageKey(account);
+    const next = !isFollowing;
+    const nextCount = Math.max(0, Number(followCount || 0) + (next ? 1 : -1));
+    localStorage.setItem(key, next ? '1' : '0');
+    localStorage.setItem(`${key}.count`, String(nextCount));
+    setIsFollowing(next);
+    setFollowCount(nextCount);
+    setActionMessage(next ? 'Now following.' : 'Unfollowed.');
+  }
+
+  function shareProfile() {
+    const href = typeof window !== 'undefined' ? window.location.href : `/p/${encodeURIComponent(account)}`;
+    if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(href).then(() => setActionMessage('Profile link copied.'));
+      return;
+    }
+    setActionMessage(href);
+  }
+
+  function contactCreator(type) {
+    const subjectMap = {
+      book: `Book private session with ${name}`,
+      request: `Request event with ${name}`,
+      contact: `Contact ${name}`
+    };
+    const subject = subjectMap[type] || `Contact ${name}`;
+    const body = [
+      `Hi ${name},`,
+      '',
+      `I found your passport profile: ${typeof window !== 'undefined' ? window.location.href : ''}`,
+      '',
+      'Regards,'
+    ].join('\n');
+    const mailto = `mailto:hello@foremoz.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    if (typeof window !== 'undefined') window.location.href = mailto;
+  }
+
+  function scrollUpcomingCarousel(direction) {
+    const node = upcomingCarouselRef.current;
+    if (!node) return;
+    const delta = direction === 'next' ? node.clientWidth * 0.85 : node.clientWidth * -0.85;
+    node.scrollBy({ left: delta, behavior: 'smooth' });
+  }
 
   if (!loading && notFound) {
     return (
@@ -175,13 +271,6 @@ export default function PassportPublicPage() {
         </nav>
       </header>
 
-      <section className="card passport-glance-strip">
-        <div className="passport-glance-item"><i className="fa-solid fa-bolt" /><span>Active</span></div>
-        <div className="passport-glance-item"><i className="fa-solid fa-compass" /><span>Explore</span></div>
-        <div className="passport-glance-item"><i className="fa-solid fa-trophy" /><span>Progress</span></div>
-        <div className="passport-glance-item"><i className="fa-solid fa-users" /><span>Community</span></div>
-      </section>
-
       <section className="card passport-public-head passport-public-hero-card">
         <img
           className="passport-public-avatar"
@@ -194,29 +283,15 @@ export default function PassportPublicPage() {
           <p className="sub">{profile?.city || '-'}</p>
           <div className="row-actions">
             {profile?.passport_id ? <span className="passport-verified">Verified</span> : null}
-            <button className="btn" type="button">Follow</button>
+            <button className="btn" type="button" onClick={toggleFollow}>{isFollowing ? 'Following' : 'Follow'}</button>
+            <button className="btn ghost" type="button" onClick={shareProfile}>Share</button>
           </div>
           <div className="passport-public-stats">
             <span><i className="fa-solid fa-bolt" /> {stats.events_created} Hosted</span>
             <span><i className="fa-solid fa-ticket" /> {stats.events_attended} Joined</span>
-            <span><i className="fa-solid fa-heart" /> {(seed % 1500) + 120} Followers</span>
+            <span><i className="fa-solid fa-heart" /> {followCount} Followers</span>
           </div>
-        </div>
-      </section>
-
-      <section className="card">
-        <p className="eyebrow">Vertical</p>
-        <div className="landing-tabs">
-          {verticalTabs.map((tab) => (
-            <button
-              key={tab}
-              type="button"
-              className={`landing-tab ${activeVertical === tab ? 'active' : ''}`}
-              onClick={() => setActiveVertical(tab)}
-            >
-              {tab}
-            </button>
-          ))}
+          {actionMessage ? <p className="sub">{actionMessage}</p> : null}
         </div>
       </section>
 
@@ -227,10 +302,16 @@ export default function PassportPublicPage() {
         </section>
       ) : null}
 
-      {publicVisibility.allowPublicPublish ? (
-        <section className="ops-grid">
+      {publicVisibility.allowPublicPublish &&
+      (publicVisibility.showRolesCapabilities ||
+        publicVisibility.showProgramsProducts ||
+        publicVisibility.showAchievements ||
+        publicVisibility.showCommunity ||
+        publicVisibility.showActivityFeed ||
+        publicVisibility.showHostLocations) ? (
+        <section className="ops-grid passport-insight-grid">
           {publicVisibility.showRolesCapabilities ? (
-            <article className="card">
+            <article className="card passport-insight-card">
               <h2><i className="fa-solid fa-user-check" /> Roles</h2>
               <div className="passport-badge-list">
                 {capabilities.map((item, idx) => (
@@ -242,7 +323,7 @@ export default function PassportPublicPage() {
             </article>
           ) : null}
           {publicVisibility.showProgramsProducts ? (
-            <article className="card">
+            <article className="card passport-insight-card">
               <h2><i className="fa-solid fa-layer-group" /> Programs</h2>
               <div className="passport-badge-list">
                 {programs.map((item, idx) => (
@@ -254,57 +335,8 @@ export default function PassportPublicPage() {
               </div>
             </article>
           ) : null}
-        </section>
-      ) : null}
-
-      {publicVisibility.allowPublicPublish && publicVisibility.showUpcomingEvents ? (
-        <section className="card">
-          <h2><i className="fa-solid fa-calendar-days" /> Upcoming Events</h2>
-          {loading ? <p className="sub">Loading events...</p> : null}
-          <div className="passport-live-grid">
-            {filteredUpcoming.map((item) => (
-              <article key={item.event_id} className="passport-live-card">
-                <img className="passport-live-image" src={eventVisual(item.event_id)} alt={item.event_name || 'Event'} />
-                <div className="passport-live-head">
-                  <span className="passport-live-badge"><i className="fa-solid fa-fire" /> Live Soon</span>
-                  <span className="passport-live-vertical">{guessVertical(item)}</span>
-                </div>
-                <h3>{item.event_name || '-'}</h3>
-                <p className="passport-live-time"><i className="fa-regular fa-clock" /> {formatDateTime(item.start_at)}</p>
-                <Link className="btn ghost small" to={`/a/${encodeURIComponent(account)}/e/${encodeURIComponent(item.event_id)}`}>
-                  Join Event
-                </Link>
-              </article>
-            ))}
-            {filteredUpcoming.length === 0 ? <p className="sub">Belum ada upcoming events untuk vertical ini.</p> : null}
-          </div>
-        </section>
-      ) : null}
-
-      {publicVisibility.allowPublicPublish && publicVisibility.showPastEvents ? (
-        <section className="card">
-          <h2><i className="fa-solid fa-clock-rotate-left" /> Event History</h2>
-          <div className="passport-live-grid">
-            {filteredHistory.map((item) => (
-              <article key={item.event_id} className="passport-live-card">
-                <img className="passport-live-image" src={eventVisual(item.event_id)} alt={item.event_name || 'Event'} />
-                <div className="passport-live-head">
-                  <span className="passport-live-badge joined"><i className="fa-solid fa-circle-check" /> Joined</span>
-                  <span className="passport-live-vertical">{guessVertical(item)}</span>
-                </div>
-                <h3>{item.event_name || '-'}</h3>
-                <p className="passport-live-time"><i className="fa-regular fa-clock" /> {formatDateTime(item.start_at)}</p>
-              </article>
-            ))}
-            {filteredHistory.length === 0 ? <p className="sub">Belum ada history events untuk vertical ini.</p> : null}
-          </div>
-        </section>
-      ) : null}
-
-      {publicVisibility.allowPublicPublish && (publicVisibility.showAchievements || publicVisibility.showCommunity) ? (
-        <section className="ops-grid">
           {publicVisibility.showAchievements ? (
-            <article className="card">
+            <article className="card passport-insight-card">
               <h2><i className="fa-solid fa-trophy" /> Achievements</h2>
               <div className="passport-badge-list">
                 <span className="passport-chip"><i className="fa-solid fa-flag-checkered" /> Milestones {Number(profile?.performance_milestone_count || 0)}</span>
@@ -314,7 +346,7 @@ export default function PassportPublicPage() {
             </article>
           ) : null}
           {publicVisibility.showCommunity ? (
-            <article className="card">
+            <article className="card passport-insight-card">
               <h2><i className="fa-solid fa-users" /> Community</h2>
               <div className="passport-avatar-strip">
                 {[1, 2, 3, 4, 5, 6].map((n) => (
@@ -325,26 +357,26 @@ export default function PassportPublicPage() {
                   />
                 ))}
               </div>
-              <button className="btn" type="button">Follow</button>
+              <div className="passport-insight-action">
+                <button className="btn" type="button" onClick={toggleFollow}>{isFollowing ? 'Following' : 'Follow'}</button>
+              </div>
             </article>
           ) : null}
-        </section>
-      ) : null}
-
-      {publicVisibility.allowPublicPublish && (publicVisibility.showActivityFeed || publicVisibility.showHostLocations) ? (
-        <section className="ops-grid">
           {publicVisibility.showActivityFeed ? (
-            <article className="card">
+            <article className="card passport-insight-card">
               <h2><i className="fa-solid fa-bolt" /> Activity</h2>
               <ul>
-                <li><i className="fa-solid fa-calendar-check" /> {name} hosted HIIT training</li>
-                <li><i className="fa-solid fa-shoe-prints" /> {name} joined Marathon Workshop</li>
-                <li><i className="fa-solid fa-bullhorn" /> {name} posted a new event on {activeVertical}</li>
+                {activityItems.map((item) => (
+                  <li key={item.id}><i className={item.icon} /> {item.text} - {item.time}</li>
+                ))}
+                {activityItems.length === 0 ? (
+                  <li><i className="fa-solid fa-bolt" /> Belum ada aktivitas yang bisa ditampilkan.</li>
+                ) : null}
               </ul>
             </article>
           ) : null}
           {publicVisibility.showHostLocations ? (
-            <article className="card">
+            <article className="card passport-insight-card">
               <h2><i className="fa-solid fa-location-dot" /> Host Locations</h2>
               <ul>
                 {locations.slice(0, 5).map((loc, idx) => (
@@ -357,37 +389,96 @@ export default function PassportPublicPage() {
         </section>
       ) : null}
 
-      {publicVisibility.allowPublicPublish && publicVisibility.showContactBooking ? (
+      {canShowEventsSection ? (
+        <section className="card" id="public-events">
+          <h2><i className="fa-solid fa-calendar-days" /> Events</h2>
+          <p className="sub">{isCreatorProfile ? 'See you in my event.' : 'Mau join event yang sama?'}</p>
+          {canShowUpcomingEvents && canShowHistoryEvents ? (
+            <div className="landing-tabs">
+              <button
+                type="button"
+                className={`landing-tab ${eventsTab === 'upcoming' ? 'active' : ''}`}
+                onClick={() => setEventsTab('upcoming')}
+              >
+                {isCreatorProfile ? 'My Upcoming Events' : 'Upcoming Events'}
+              </button>
+              <button
+                type="button"
+                className={`landing-tab ${eventsTab === 'history' ? 'active' : ''}`}
+                onClick={() => setEventsTab('history')}
+              >
+                {isCreatorProfile ? 'My Event History' : 'History Events'}
+              </button>
+            </div>
+          ) : null}
+          {loading ? <p className="sub">Loading events...</p> : null}
+          {canShowUpcomingEvents && eventsTab === 'upcoming' ? (
+            <div>
+              {isCreatorProfile ? (
+                <div className="passport-carousel-head">
+                  <p className="sub">Swipe atau gunakan tombol untuk lihat event lainnya.</p>
+                  <div className="passport-carousel-arrows">
+                    <button type="button" className="btn ghost small" onClick={() => scrollUpcomingCarousel('prev')}>
+                      <i className="fa-solid fa-chevron-left" />
+                    </button>
+                    <button type="button" className="btn ghost small" onClick={() => scrollUpcomingCarousel('next')}>
+                      <i className="fa-solid fa-chevron-right" />
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+              <div
+                ref={isCreatorProfile ? upcomingCarouselRef : null}
+                className={isCreatorProfile ? 'passport-live-carousel' : 'passport-live-grid'}
+              >
+              {upcoming.map((item) => (
+                <article key={item.event_id} className="passport-live-card">
+                  <img className="passport-live-image" src={eventVisual(item.event_id)} alt={item.event_name || 'Event'} />
+                  <div className="passport-live-head">
+                    <span className="passport-live-badge"><i className="fa-solid fa-fire" /> Live Soon</span>
+                    <span className="passport-live-vertical">{guessVertical(item)}</span>
+                  </div>
+                  <h3>{item.event_name || '-'}</h3>
+                  <p className="passport-live-time"><i className="fa-regular fa-clock" /> {formatDateTime(item.start_at)}</p>
+                  <Link className="btn ghost small" to={`/a/${encodeURIComponent(item.account_slug || account)}/e/${encodeURIComponent(item.event_id)}`}>
+                    Join Event
+                  </Link>
+                </article>
+              ))}
+              {upcoming.length === 0 ? <p className="sub">Belum ada upcoming events.</p> : null}
+              </div>
+            </div>
+          ) : null}
+          {canShowHistoryEvents && eventsTab === 'history' ? (
+            <div className="passport-live-grid">
+              {history.map((item) => (
+                <article key={item.event_id} className="passport-live-card">
+                  <img className="passport-live-image" src={eventVisual(item.event_id)} alt={item.event_name || 'Event'} />
+                  <div className="passport-live-head">
+                    <span className="passport-live-badge joined"><i className="fa-solid fa-circle-check" /> Joined</span>
+                    <span className="passport-live-vertical">{guessVertical(item)}</span>
+                  </div>
+                  <h3>{item.event_name || '-'}</h3>
+                  <p className="passport-live-time"><i className="fa-regular fa-clock" /> {formatDateTime(item.start_at)}</p>
+                </article>
+              ))}
+              {history.length === 0 ? <p className="sub">Belum ada history events.</p> : null}
+            </div>
+          ) : null}
+        </section>
+      ) : null}
+
+      {showContactPanel ? (
         <section className="card">
           <h2><i className="fa-solid fa-phone-volume" /> Contact</h2>
           <div className="hero-actions">
-            <button className="btn" type="button">Book Private Session</button>
-            <button className="btn ghost" type="button">Request Event</button>
-            <button className="btn ghost" type="button">Contact Creator</button>
+            <button className="btn" type="button" onClick={() => contactCreator('book')}>Book Private Session</button>
+            <button className="btn ghost" type="button" onClick={() => contactCreator('request')}>Request Event</button>
+            <button className="btn ghost" type="button" onClick={() => contactCreator('contact')}>Contact Creator</button>
           </div>
         </section>
       ) : null}
 
-      {publicVisibility.allowPublicPublish && publicVisibility.showPassportStats ? (
-        <section className="stats-grid">
-          <article className="stat">
-            <p>Events created</p>
-            <h3>{stats.events_created}</h3>
-          </article>
-          <article className="stat">
-            <p>Events attended</p>
-            <h3>{stats.events_attended}</h3>
-          </article>
-          <article className="stat">
-            <p>Cities active</p>
-            <h3>{Math.max(1, Number(stats.cities_active || locations.length || 1))}</h3>
-          </article>
-          <article className="stat">
-            <p>Collaborations</p>
-            <h3>{Number(stats.collaborations || 0)}</h3>
-          </article>
-        </section>
-      ) : null}
     </main>
   );
 }

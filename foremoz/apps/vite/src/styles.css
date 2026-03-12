@@ -436,6 +436,39 @@ select:focus-visible {
   gap: 0.85rem;
 }
 
+.passport-live-carousel {
+  margin-top: 1rem;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(260px, 320px);
+  gap: 0.85rem;
+  overflow-x: auto;
+  padding-bottom: 0.35rem;
+  scroll-snap-type: x proximity;
+}
+
+.passport-live-carousel .passport-live-card {
+  scroll-snap-align: start;
+  height: 100%;
+}
+
+.passport-carousel-head {
+  margin-top: 0.4rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.7rem;
+}
+
+.passport-carousel-head .sub {
+  margin: 0;
+}
+
+.passport-carousel-arrows {
+  display: inline-flex;
+  gap: 0.4rem;
+}
+
 .passport-live-card {
   border: 1px solid #ddccb2;
   border-radius: 15px;
@@ -744,7 +777,7 @@ select:focus-visible {
   background: linear-gradient(180deg, #fffefb, #fff8ef);
   display: inline-flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 0.45rem;
   font-weight: 700;
   color: #7f4122;
@@ -752,6 +785,122 @@ select:focus-visible {
 
 .passport-glance-item i {
   color: #bb5d2f;
+}
+
+.passport-glance-value {
+  display: block;
+  line-height: 1.05;
+  font-size: 1rem;
+}
+
+.passport-glance-label {
+  display: block;
+  margin-top: 0.12rem;
+  color: #85563b;
+  font-size: 0.74rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.passport-context-strip {
+  margin-top: 0.95rem;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.6rem;
+  background:
+    linear-gradient(160deg, #ffffffd9, #f2f7ffd1),
+    radial-gradient(280px 120px at 0% 0%, #9fc4ff33 0%, transparent 70%);
+  border-color: #d5e2f4;
+}
+
+.passport-context-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  border: 1px solid #d6e0ef;
+  border-radius: 12px;
+  padding: 0.58rem 0.68rem;
+  font-size: 0.84rem;
+  color: #35506e;
+  font-weight: 700;
+  background: linear-gradient(180deg, #ffffff, #f4f9ff);
+  box-shadow: 0 8px 18px #1d4f9110;
+}
+
+.passport-context-pill i {
+  color: #2f6fb8;
+}
+
+.passport-dash-tabbar {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.45rem;
+  padding: 0.4rem;
+  border: 1px solid #d7e2f1;
+  border-radius: 14px;
+  background:
+    linear-gradient(180deg, #fafdff, #eef5ff),
+    radial-gradient(260px 100px at 0 0, #89b9ff26 0%, transparent 70%);
+}
+
+.passport-dash-tab {
+  border-radius: 11px;
+  padding: 0.58rem 0.5rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.42rem;
+  font-size: 0.84rem;
+  color: #4b6684;
+  border: 1px solid transparent;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.passport-dash-tab i {
+  color: #6588af;
+}
+
+.passport-dash-tab:hover {
+  transform: translateY(-1px);
+  border-color: #cfdbeb;
+  box-shadow: 0 8px 18px #1d4f9114;
+}
+
+.passport-dash-tab.active {
+  border-color: #9eb8da;
+  color: #1f4f87;
+  background: linear-gradient(180deg, #ffffff, #e8f2ff);
+  box-shadow: 0 10px 22px #1d4f9120;
+}
+
+.passport-dash-tab.active i {
+  color: #1f5ea5;
+}
+
+.passport-insight-grid .passport-insight-card {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.passport-insight-grid .passport-insight-card h2 {
+  margin-top: 0;
+}
+
+.passport-insight-grid .passport-insight-card ul {
+  margin: 0;
+  padding-left: 1rem;
+}
+
+.passport-insight-action {
+  margin-top: auto;
+}
+
+.passport-insight-grid + #public-events {
+  margin-top: 0.95rem;
 }
 
 .info-grid {
@@ -1609,6 +1758,14 @@ code {
     grid-template-columns: 1fr;
   }
 
+  .passport-context-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .passport-dash-tabbar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .passport-public-avatar {
     width: 120px;
     height: 120px;
@@ -1644,5 +1801,12 @@ code {
 
   .payment-meta {
     align-items: flex-start;
+  }
+}
+
+@media (max-width: 560px) {
+  .passport-context-strip,
+  .passport-dash-tabbar {
+    grid-template-columns: 1fr;
   }
 }

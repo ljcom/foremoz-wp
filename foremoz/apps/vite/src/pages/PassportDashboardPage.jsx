@@ -315,6 +315,13 @@ export default function PassportDashboardPage() {
     { key: 'showContactBooking', label: 'Contact', icon: 'fa-solid fa-phone' },
     { key: 'showPassportStats', label: 'Stats', icon: 'fa-solid fa-chart-line' }
   ];
+  const dashboardTabs = [
+    { key: 'upcoming', label: 'Upcoming Events', icon: 'fa-solid fa-calendar-days' },
+    { key: 'history', label: 'Event History', icon: 'fa-solid fa-clock-rotate-left' },
+    { key: 'following', label: 'Following', icon: 'fa-solid fa-user-plus' },
+    { key: 'profile', label: 'Profile', icon: 'fa-solid fa-id-card' },
+    { key: 'settings', label: 'Settings', icon: 'fa-solid fa-sliders' }
+  ];
 
   return (
     <main className="dashboard passport-fancy-dashboard">
@@ -346,23 +353,25 @@ export default function PassportDashboardPage() {
         </div>
       </header>
 
+      <section className="card passport-context-strip">
+        <span className="passport-context-pill"><i className="fa-solid fa-ticket" /> Joined: {filteredJoinedEvents.length}</span>
+        <span className="passport-context-pill"><i className="fa-solid fa-users" /> Following: {followingItems.length}</span>
+        <span className="passport-context-pill"><i className="fa-solid fa-crown" /> Plan: {planCode}</span>
+        {accountFilter ? <span className="passport-context-pill"><i className="fa-solid fa-location-dot" /> Account: @{accountFilter}</span> : null}
+      </section>
+
       <section className="card passport-panel-fancy">
-        <div className="landing-tabs" style={{ marginBottom: 0 }}>
-          <button type="button" className={`landing-tab ${dashboardTab === 'upcoming' ? 'active' : ''}`} onClick={() => setDashboardTab('upcoming')}>
-            Upcoming Events
-          </button>
-          <button type="button" className={`landing-tab ${dashboardTab === 'history' ? 'active' : ''}`} onClick={() => setDashboardTab('history')}>
-            Event History
-          </button>
-          <button type="button" className={`landing-tab ${dashboardTab === 'following' ? 'active' : ''}`} onClick={() => setDashboardTab('following')}>
-            Following
-          </button>
-          <button type="button" className={`landing-tab ${dashboardTab === 'profile' ? 'active' : ''}`} onClick={() => setDashboardTab('profile')}>
-            Profile
-          </button>
-          <button type="button" className={`landing-tab ${dashboardTab === 'settings' ? 'active' : ''}`} onClick={() => setDashboardTab('settings')}>
-            Settings
-          </button>
+        <div className="landing-tabs passport-dash-tabbar" style={{ marginBottom: 0 }}>
+          {dashboardTabs.map((tab) => (
+            <button
+              key={tab.key}
+              type="button"
+              className={`landing-tab passport-dash-tab ${dashboardTab === tab.key ? 'active' : ''}`}
+              onClick={() => setDashboardTab(tab.key)}
+            >
+              <i className={tab.icon} /> {tab.label}
+            </button>
+          ))}
         </div>
       </section>
 

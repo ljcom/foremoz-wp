@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { apiJson } from '../lib.js';
 import { clearPassportSession, getPassportSession } from '../passport-client.js';
 import { getVerticalConfig, getVerticalLabel, guessVerticalSlugByEventText, listVerticalConfigs } from '../industry-jargon.js';
@@ -67,24 +67,40 @@ const fallbackEvents = [
 export default function PassportLandingPage() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { account: accountParam } = useParams();
+  const normalizedAccount = String(accountParam || '').trim().toLowerCase();
+  const isAccountSurface = location.pathname.startsWith('/a/') && location.pathname.endsWith('/events') && Boolean(normalizedAccount);
   const isPassportSurface = location.pathname.startsWith('/passport') || location.pathname.startsWith('/p/');
   const registerBase = isPassportSurface ? '/passport/register' : '/events/register';
   const profileHref = '/passport/dashboard';
   const [events, setEvents] = useState(fallbackEvents);
   const [allEvents, setAllEvents] = useState([]);
+  const [accountInfo, setAccountInfo] = useState(null);
   const [joinedEventIds, setJoinedEventIds] = useState([]);
   const [activeTab, setActiveTab] = useState('events');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const verticalLabels = listVerticalConfigs().map((item) => item.label);
   const verticalListText = verticalLabels.join(', ');
-  const entryLabel = isPassportSurface ? 'passport.foremoz.com' : 'foremoz.com/events';
+  const homeHref = isAccountSurface ? `/a/${encodeURIComponent(normalizedAccount)}` : '/web';
+  const accountMemberSigninHref = isAccountSurface
+    ? `/a/${encodeURIComponent(normalizedAccount)}/member/signin`
+    : null;
+  const entryLabel = isPassportSurface
+    ? 'passport.foremoz.com'
+    : isAccountSurface
+      ? `/a/${normalizedAccount}/events`
+      : 'foremoz.com/events';
   const title = isPassportSurface
     ? 'Passport Profile Member'
-    : `Ikut Event Lintas ${verticalListText}`;
+    : isAccountSurface
+      ? `Event @${normalizedAccount}`
+      : `Ikut Event Lintas ${verticalListText}`;
   const description = isPassportSurface
     ? 'Tunjukkan perjalanan event kamu di satu profile yang bisa dibagikan.'
-    : 'Pilih event favoritmu, register, lalu hadir bersama komunitas.';
+    : isAccountSurface
+      ? 'Semua event dari account ini ada di satu halaman.'
+      : 'Pilih event favoritmu, register, lalu hadir bersama komunitas.';
   const highlightedEventId = useMemo(() => {
     const params = new URLSearchParams(location.search);
     return params.get('event') || '';
@@ -131,8 +147,11 @@ export default function PassportLandingPage() {
             image: row.image_url || fallbackEvents[0].image
           };
         });
+        const scopedMapped = isAccountSurface
+          ? mapped.filter((item) => String(item.account_slug || '').trim().toLowerCase() === normalizedAccount)
+          : mapped;
         if (!isMounted) return;
-        setEvents(mapped);
+        setEvents(scopedMapped);
         try {
           const allResult = await apiJson('/v1/read/events?status=all&limit=400');
           const allRows = Array.isArray(allResult.rows) ? allResult.rows : [];
@@ -162,11 +181,14 @@ export default function PassportLandingPage() {
               image: row.image_url || fallbackEvents[0].image
             };
           });
+          const scopedAllMapped = isAccountSurface
+            ? allMapped.filter((item) => String(item.account_slug || '').trim().toLowerCase() === normalizedAccount)
+            : allMapped;
           if (!isMounted) return;
-          setAllEvents(allMapped);
+          setAllEvents(scopedAllMapped);
         } catch {
           if (!isMounted) return;
-          setAllEvents(mapped);
+          setAllEvents(scopedMapped);
         }
       } catch (err) {
         if (!isMounted) return;
@@ -181,7 +203,7 @@ export default function PassportLandingPage() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [isAccountSurface, normalizedAccount]);
 
   const orderedEvents = useMemo(() => {
     if (!highlightedEventId) return events;
@@ -243,12 +265,39 @@ export default function PassportLandingPage() {
     };
   }, [isAuthenticated, passportSession?.user?.userId, passportSession?.passport?.id, passportSession?.user?.email]);
 
+  useEffect(() => {
+    if (!isAccountSurface || !normalizedAccount) {
+      setAccountInfo(null);
+      return;
+    }
+    let active = true;
+    async function loadAccountInfo() {
+      try {
+        const result = await apiJson(`/v1/public/account/resolve?account_slug=${encodeURIComponent(normalizedAccount)}`);
+        if (!active) return;
+        setAccountInfo(result.row || null);
+      } catch {
+        if (!active) return;
+        setAccountInfo(null);
+      }
+    }
+    loadAccountInfo();
+    return () => {
+      active = false;
+    };
+  }, [isAccountSurface, normalizedAccount]);
+
+  const accountDisplayName = String(accountInfo?.gym_name || '').trim() || normalizedAccount;
+  const brandLabel = isAccountSurface
+    ? accountDisplayName
+    : (isPassportSurface ? 'Foremoz Passport' : 'Foremoz Events');
+
   return (
     <main className="landing">
       <header className="topbar">
-        <div className="brand">{isPassportSurface ? 'Foremoz Passport' : 'Foremoz Events'}</div>
+        <div className="brand">{brandLabel}</div>
         <nav>
-          <Link to="/web">Home</Link>
+          <Link to={homeHref}>Home</Link>
           {isAuthenticated ? (
             <>
               <span>Welcome {welcomeName}</span>
@@ -262,14 +311,22 @@ export default function PassportLandingPage() {
                     localStorage.removeItem(JOINED_EVENTS_KEY);
                   }
                   setJoinedEventIds([]);
-                  navigate(isPassportSurface ? '/passport' : '/events', { replace: true });
+                  if (isPassportSurface) {
+                    navigate('/passport', { replace: true });
+                    return;
+                  }
+                  if (isAccountSurface) {
+                    navigate(`/a/${encodeURIComponent(normalizedAccount)}/events`, { replace: true });
+                    return;
+                  }
+                  navigate('/events', { replace: true });
                 }}
               >
                 Sign out
               </button>
             </>
           ) : (
-            <Link to={isPassportSurface ? '/passport/signin' : '/events/signin'}>Sign in</Link>
+            <Link to={isPassportSurface ? '/passport/signin' : accountMemberSigninHref || '/events/signin'}>Sign in</Link>
           )}
         </nav>
       </header>
@@ -280,10 +337,10 @@ export default function PassportLandingPage() {
           <h1>{title}</h1>
           <p>{description}</p>
           <div className="hero-actions">
-            <Link className="btn" to={isPassportSurface ? '/passport/signin' : '/events/signin'}>
+            <Link className="btn" to={isPassportSurface ? '/passport/signin' : accountMemberSigninHref || '/events/signin'}>
               {isPassportSurface ? 'Masuk ke Passport' : 'Ikut Event Sekarang'}
             </Link>
-            {!isPassportSurface ? (
+            {!isPassportSurface && !isAccountSurface ? (
               <Link className="btn ghost" to="/events">
                 Explore Semua Event
               </Link>

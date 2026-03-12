@@ -168,6 +168,7 @@ export default function App() {
       <Route path="/passport/register" element={<EventCheckoutPage />} />
       <Route path="/e/:eventId" element={<EventCheckoutPage />} />
       <Route path="/a/:account/e/:eventId" element={<EventCheckoutPage />} />
+      <Route path="/a/:account/events" element={<PassportLandingPage />} />
       <Route
         path="/events/onboarding"
         element={

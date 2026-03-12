@@ -96,7 +96,7 @@ export default function AccountPublicPage() {
       <header className="topbar">
         <div className="brand">{displayName || account}</div>
         <nav>
-          <Link to="/events">Events</Link>
+          <Link to={`/a/${account}/events`}>Events</Link>
           <Link to={`/a/${account}/member/signup`}>Sign up</Link>
           <Link className="btn small" to={`/a/${account}/member/signin`}>
             Sign in

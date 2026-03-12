@@ -65,7 +65,7 @@ export default function EventCheckoutPage() {
     return `${base}${eventId ? `?event=${encodeURIComponent(eventId)}` : ''}`;
   }, [accountSlug, authBase, eventId, isAccountEventPath, isShortEventPath]);
   const backToEvents = useMemo(() => {
-    if (accountSlug) return `/a/${encodeURIComponent(accountSlug)}`;
+    if (accountSlug) return `/a/${encodeURIComponent(accountSlug)}/events`;
     return '/events';
   }, [accountSlug]);
   const signinHref = useMemo(() => {

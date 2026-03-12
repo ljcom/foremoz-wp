@@ -1332,7 +1332,7 @@ export default function AdminPage() {
           start_at: startAtIso,
           duration_minutes: durationMinutes,
           registration_fields: normalizeRegistrationFieldsForPayload(eventForm.registration_fields),
-          status: 'scheduled'
+          status: editingEventId ? (editingEvent?.status || 'scheduled') : 'scheduled'
         })
       });
       setFeedback(editingEventId ? `event.updated: ${eventForm.event_name}` : `event.created: ${eventForm.event_name}`);
@@ -1630,11 +1630,11 @@ export default function AdminPage() {
 
   function preparePostEventQuote() {
     if (!editingEventId) {
-      setFeedback('Simpan event dulu sebelum post ke Foremoz Event.');
+      setFeedback('Simpan event dulu sebelum dipublikasikan.');
       return;
     }
     if (isEditingEventPublished) {
-      setFeedback('Event sudah published.');
+      setFeedback('Event sudah dipublikasikan.');
       return;
     }
     const startAtIso = toApiDatetime(eventForm.start_at);
@@ -1653,6 +1653,28 @@ export default function AdminPage() {
       duration_minutes: durationMinutes,
       price
     });
+  }
+
+  async function moveEventToDraft() {
+    if (!editingEventId) return;
+    try {
+      setEventSaving(true);
+      await apiJson(`/v1/admin/events/${encodeURIComponent(editingEventId)}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          tenant_id: tenantId,
+          branch_id: branchId,
+          status: 'draft'
+        })
+      });
+      await loadEvents();
+      setEventPostQuote(null);
+      setFeedback(`event.draft: ${eventForm.event_name || editingEvent?.event_name || editingEventId}. Event diturunkan ke draft.`);
+    } catch (error) {
+      setFeedback(error.message);
+    } finally {
+      setEventSaving(false);
+    }
   }
 
   async function proceedPostEventPayment() {
@@ -2236,11 +2258,16 @@ export default function AdminPage() {
                         <button className="btn" type="submit" disabled={eventSaving}>{eventSaving ? 'Saving...' : 'Save event'}</button>
                         {editingEventId && !isEditingEventPublished ? (
                           <button className="btn ghost" type="button" disabled={eventSaving} onClick={preparePostEventQuote}>
-                            Post to Foremoz Event
+                            Publikasikan Event
                           </button>
                         ) : null}
                         {editingEventId && isEditingEventPublished ? (
-                          <p className="feedback">Status: PUBLISHED (event sudah diposting ke Foremoz Events)</p>
+                          <>
+                            <p className="feedback">Status: Dipublikasikan</p>
+                            <button className="btn ghost" type="button" disabled={eventSaving} onClick={moveEventToDraft}>
+                              Turunkan ke Draft
+                            </button>
+                          </>
                         ) : null}
                         {editingEventId ? (
                           <button
@@ -2263,12 +2290,12 @@ export default function AdminPage() {
                   </form>
                   {editingEventId && eventPostQuote && !isEditingEventPublished ? (
                     <div className="card" style={{ marginTop: '0.8rem', borderStyle: 'dashed' }}>
-                      <p className="eyebrow">Post Preview</p>
+                      <p className="eyebrow">Preview Publikasi</p>
                       <p>Mulai: {formatClassDatetime(eventPostQuote.start_at)}</p>
                       <p>Durasi: {eventPostQuote.duration_minutes} menit</p>
-                      <p>Harga publish: <strong>{formatIdr(eventPostQuote.price)}</strong></p>
+                      <p>Biaya publikasi: <strong>{formatIdr(eventPostQuote.price)}</strong></p>
                       <button className="btn" type="button" disabled={eventSaving} onClick={proceedPostEventPayment}>
-                        Lanjut ke pembayaran
+                        Publikasikan Sekarang
                       </button>
                     </div>
                   ) : null}
