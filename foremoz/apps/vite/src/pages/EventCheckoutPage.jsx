@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { apiJson } from '../lib.js';
 import { getPassportSession } from '../passport-client.js';
 
@@ -39,7 +39,10 @@ function resolvePrimaryImage(eventItem) {
 export default function EventCheckoutPage() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { account: accountParam, eventId: eventIdParam } = useParams();
   const isPassportSurface = location.pathname.startsWith('/passport');
+  const isShortEventPath = location.pathname.startsWith('/e/');
+  const isAccountEventPath = location.pathname.startsWith('/a/') && location.pathname.includes('/e/');
   const authBase = isPassportSurface ? '/passport' : '/events';
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -48,11 +51,23 @@ export default function EventCheckoutPage() {
   const [alreadyJoined, setAlreadyJoined] = useState(false);
   const [registrationAnswers, setRegistrationAnswers] = useState({});
   const [registrationError, setRegistrationError] = useState('');
-  const eventId = useMemo(() => new URLSearchParams(location.search).get('event') || '', [location.search]);
+  const eventId = useMemo(
+    () => String(eventIdParam || new URLSearchParams(location.search).get('event') || '').trim(),
+    [eventIdParam, location.search]
+  );
+  const accountSlug = String(accountParam || '').trim();
   const returnTo = useMemo(() => {
+    if (isAccountEventPath && accountSlug && eventId) {
+      return `/a/${encodeURIComponent(accountSlug)}/e/${encodeURIComponent(eventId)}`;
+    }
+    if (isShortEventPath && eventId) return `/e/${encodeURIComponent(eventId)}`;
     const base = `${authBase}/register`;
     return `${base}${eventId ? `?event=${encodeURIComponent(eventId)}` : ''}`;
-  }, [authBase, eventId]);
+  }, [accountSlug, authBase, eventId, isAccountEventPath, isShortEventPath]);
+  const backToEvents = useMemo(() => {
+    if (accountSlug) return `/a/${encodeURIComponent(accountSlug)}`;
+    return '/events';
+  }, [accountSlug]);
   const signinHref = useMemo(() => {
     const params = new URLSearchParams();
     if (eventId) params.set('event', eventId);
@@ -78,16 +93,49 @@ export default function EventCheckoutPage() {
   const eventGallery = useMemo(() => resolveEventGallery(eventItem), [eventItem]);
 
   useEffect(() => {
-    if (!eventId || typeof window === 'undefined') return;
-    try {
-      const ids = JSON.parse(localStorage.getItem(JOINED_EVENTS_KEY) || '[]');
-      const exists = Array.isArray(ids) && ids.map((v) => String(v)).includes(String(eventId));
-      setAlreadyJoined(exists);
-      if (exists) setPaymentDone(true);
-    } catch {
-      setAlreadyJoined(false);
+    let active = true;
+    async function loadJoinedState() {
+      if (!eventId) {
+        if (!active) return;
+        setAlreadyJoined(false);
+        setPaymentDone(false);
+        return;
+      }
+      if (!isAuthed) {
+        if (!active) return;
+        setAlreadyJoined(false);
+        setPaymentDone(false);
+        return;
+      }
+      try {
+        const params = new URLSearchParams();
+        const passportId = String(passportSession?.user?.userId || passportSession?.passport?.id || '').trim();
+        const email = String(passportSession?.user?.email || '').trim().toLowerCase();
+        if (passportId) params.set('passport_id', passportId);
+        if (email) params.set('email', email);
+        if (!passportId && !email) {
+          if (!active) return;
+          setAlreadyJoined(false);
+          setPaymentDone(false);
+          return;
+        }
+        const result = await apiJson(`/v1/read/event-registrations?${params.toString()}`);
+        const eventIds = Array.isArray(result.event_ids) ? result.event_ids.map((v) => String(v)) : [];
+        if (!active) return;
+        const exists = eventIds.includes(String(eventId));
+        setAlreadyJoined(exists);
+        setPaymentDone(exists);
+      } catch {
+        if (!active) return;
+        setAlreadyJoined(false);
+        setPaymentDone(false);
+      }
     }
-  }, [eventId]);
+    loadJoinedState();
+    return () => {
+      active = false;
+    };
+  }, [eventId, isAuthed, passportSession?.user?.userId, passportSession?.passport?.id, passportSession?.user?.email]);
 
   useEffect(() => {
     let mounted = true;
@@ -103,6 +151,17 @@ export default function EventCheckoutPage() {
         setEventItem(selected || null);
         if (!selected) {
           setError('Event tidak ditemukan.');
+          return;
+        }
+        const selectedAccount = String(selected.account_slug || '').trim();
+        const routeAccount = String(accountParam || '').trim();
+        if ((isShortEventPath || !isAccountEventPath) && selectedAccount) {
+          navigate(`/a/${encodeURIComponent(selectedAccount)}/e/${encodeURIComponent(eventId)}`, { replace: true });
+          return;
+        }
+        if (isAccountEventPath && routeAccount && selectedAccount && routeAccount !== selectedAccount) {
+          navigate(`/a/${encodeURIComponent(selectedAccount)}/e/${encodeURIComponent(eventId)}`, { replace: true });
+          return;
         }
       } catch (err) {
         if (!mounted) return;
@@ -115,7 +174,7 @@ export default function EventCheckoutPage() {
     return () => {
       mounted = false;
     };
-  }, [eventId]);
+  }, [accountParam, eventId, isAccountEventPath, isShortEventPath, navigate]);
 
   useEffect(() => {
     if (!eventId || typeof window === 'undefined') {
@@ -324,7 +383,7 @@ export default function EventCheckoutPage() {
               <Link className="btn ghost" to={signupHref}>
                 Create account
               </Link>
-              <button className="btn ghost" type="button" onClick={() => navigate('/events')}>
+              <button className="btn ghost" type="button" onClick={() => navigate(backToEvents)}>
                 Kembali ke events
               </button>
             </div>
@@ -334,14 +393,14 @@ export default function EventCheckoutPage() {
             <button className="btn" type="button" disabled={!eventItem || loading} onClick={submitPayment}>
               Lanjut ke pembayaran
             </button>
-            <button className="btn ghost" type="button" onClick={() => navigate('/events')}>
+            <button className="btn ghost" type="button" onClick={() => navigate(backToEvents)}>
               Kembali ke events
             </button>
           </div>
         ) : (
           <div className="entity-list">
             <p className="feedback">{alreadyJoined ? 'Kamu sudah join event ini.' : 'Pembayaran berhasil. Langkah berikutnya autentikasi akun.'}</p>
-            <button className="btn" type="button" onClick={() => navigate('/events', { replace: true })}>
+            <button className="btn" type="button" onClick={() => navigate(backToEvents, { replace: true })}>
               Kembali ke events
             </button>
           </div>

@@ -60,7 +60,7 @@ export function getAllowedEnvironments(session, roleInput) {
   const plan = getSessionPackagePlan(session);
 
   const planAllowed = (() => {
-    if (plan === 'free') return ['admin'];
+    if (plan === 'free') return ['admin', 'cs'];
     if (plan === 'starter') return ['admin', 'cs'];
     if (plan === 'growth' || plan === 'multi_branch' || plan === 'enterprise') {
       return ['admin', 'cs', 'pt', 'sales'];
@@ -77,6 +77,13 @@ export function getAllowedEnvironments(session, roleInput) {
   })();
 
   return roleAllowed.filter((env) => planAllowed.includes(env));
+}
+
+export function getEnvironmentLabel(env) {
+  const value = String(env || '').trim().toLowerCase();
+  if (value === 'admin') return 'settings';
+  if (value === 'cs') return 'customer service';
+  return value;
 }
 
 export function getAdminTabsByPlan(session) {

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { accountPath, apiJson, clearSession, getAccountSlug, getSession, getAllowedEnvironments } from '../lib.js';
+import { accountPath, apiJson, clearSession, getAccountSlug, getEnvironmentLabel, getSession, getAllowedEnvironments } from '../lib.js';
 import { getVerticalLabel, guessVerticalSlugByText } from '../industry-jargon.js';
 
 function Stat({ label, value, iconClass, tone, hint }) {
@@ -757,7 +757,7 @@ export default function DashboardPage() {
     <main className="dashboard">
       <header className="dash-head card">
         <div>
-          <p className="eyebrow">Customer Service</p>
+          <p className="eyebrow">Operational</p>
           <h1>{session?.tenant?.gym_name || `Foremoz ${inferredVerticalLabel} Tenant`}</h1>
           <p>Selamat datang, {fullName}</p>
         </div>
@@ -776,7 +776,7 @@ export default function DashboardPage() {
                 >
                   {allowedEnv.map((env) => (
                     <option key={env} value={env}>
-                      {env}
+                      {getEnvironmentLabel(env)}
                     </option>
                   ))}
                 </select>
@@ -792,7 +792,7 @@ export default function DashboardPage() {
                       goToEnv(env);
                     }}
                   >
-                    {env}
+                    {getEnvironmentLabel(env)}
                   </button>
                 ))}
               </div>

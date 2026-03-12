@@ -1329,6 +1329,21 @@ app.patch('/v1/owner/users/:userId', async (req, res, next) => {
     if (!fullName && !role) {
       throw fail(400, 'BAD_REQUEST', 'full_name or role is required');
     }
+    const existingUserRes = await query(
+      `select role
+       from read.rm_tenant_user_auth
+       where tenant_id = $1 and user_id = $2
+       limit 1`,
+      [tenantId, userId]
+    );
+    const existingUser = existingUserRes.rows[0] || null;
+    if (!existingUser) {
+      throw fail(404, 'OWNER_USER_NOT_FOUND', `user_id "${userId}" not found`);
+    }
+    const existingRole = String(existingUser.role || '').trim().toLowerCase();
+    if (existingRole === 'owner' && role && role !== 'owner') {
+      throw fail(403, 'OWNER_ROLE_LOCKED', 'owner role cannot be changed');
+    }
 
     const event = await appendDomainEvent({
       tenantId,
@@ -1360,6 +1375,21 @@ app.delete('/v1/owner/users/:userId', async (req, res, next) => {
     const data = req.body || {};
     const tenantId = data.tenant_id || req.query.tenant_id || config.defaultTenantId;
     const userId = required(req.params.userId, 'userId');
+    const existingUserRes = await query(
+      `select role
+       from read.rm_tenant_user_auth
+       where tenant_id = $1 and user_id = $2
+       limit 1`,
+      [tenantId, userId]
+    );
+    const existingUser = existingUserRes.rows[0] || null;
+    if (!existingUser) {
+      throw fail(404, 'OWNER_USER_NOT_FOUND', `user_id "${userId}" not found`);
+    }
+    const existingRole = String(existingUser.role || '').trim().toLowerCase();
+    if (existingRole === 'owner') {
+      throw fail(403, 'OWNER_DELETE_FORBIDDEN', 'owner user cannot be deleted');
+    }
     const event = await appendDomainEvent({
       tenantId,
       branchId: null,
@@ -2954,6 +2984,30 @@ app.get('/v1/read/events', async (req, res, next) => {
     let activeRows = rows
       .filter((row) => row.event_type !== 'event.deleted')
       .map((row) => row.data || {});
+
+    const tenantIds = [...new Set(
+      activeRows
+        .map((row) => String(row?.tenant_id || '').trim())
+        .filter(Boolean)
+    )];
+    let accountByTenant = new Map();
+    if (tenantIds.length > 0) {
+      const setupRes = await query(
+        `select tenant_id, account_slug
+         from read.rm_owner_setup
+         where tenant_id = any($1::text[]) and status = 'active'`,
+        [tenantIds]
+      );
+      accountByTenant = new Map(
+        (setupRes.rows || []).map((row) => [String(row.tenant_id || ''), String(row.account_slug || '')])
+      );
+    }
+    activeRows = activeRows.map((row) => ({
+      ...row,
+      account_slug: String(row?.account_slug || '').trim()
+        || accountByTenant.get(String(row?.tenant_id || '').trim())
+        || null
+    }));
 
     if (status !== 'all') {
       activeRows = activeRows.filter((row) => {

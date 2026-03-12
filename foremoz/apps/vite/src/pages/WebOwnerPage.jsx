@@ -692,7 +692,10 @@ export default function WebOwnerPage() {
 
   function startEditUser(user) {
     const allowedRoles = getAssignableUserRoles(setupForm.package_plan);
-    const nextRole = allowedRoles.includes(user.role) ? user.role : (allowedRoles[0] || 'cs');
+    const normalizedUserRole = String(user.role || '').trim().toLowerCase();
+    const nextRole = normalizedUserRole === 'owner'
+      ? 'owner'
+      : (allowedRoles.includes(normalizedUserRole) ? normalizedUserRole : (allowedRoles[0] || 'cs'));
     setEditingUserId(user.user_id);
     setEditingUser({ full_name: user.full_name || '', role: nextRole });
   }
@@ -700,8 +703,14 @@ export default function WebOwnerPage() {
   async function saveEditUser(userId) {
     try {
       setLoading(true);
+      const currentUser = users.find((item) => String(item.user_id) === String(userId));
+      const isOwnerUser = String(currentUser?.role || '').trim().toLowerCase() === 'owner';
       const allowedRoles = getAssignableUserRoles(setupForm.package_plan);
-      if (!allowedRoles.includes(editingUser.role)) {
+      if (isOwnerUser && String(editingUser.role || '').trim().toLowerCase() !== 'owner') {
+        setFeedback('Role owner tidak bisa diubah ke role lain.');
+        return;
+      }
+      if (!isOwnerUser && !allowedRoles.includes(editingUser.role)) {
         setFeedback(`Role ${editingUser.role} tidak tersedia untuk paket ${normalizePackagePlan(setupForm.package_plan)}.`);
         return;
       }
@@ -726,6 +735,12 @@ export default function WebOwnerPage() {
   async function deleteUser(userId) {
     try {
       setLoading(true);
+      const currentUser = users.find((item) => String(item.user_id) === String(userId));
+      const isOwnerUser = String(currentUser?.role || '').trim().toLowerCase() === 'owner';
+      if (isOwnerUser) {
+        setFeedback('User owner tidak bisa dihapus.');
+        return;
+      }
       await apiJson(`/v1/owner/users/${encodeURIComponent(userId)}?tenant_id=${encodeURIComponent(setupForm.tenant_id || tenantSeed)}`, {
         method: 'DELETE'
       });
@@ -1321,11 +1336,15 @@ export default function WebOwnerPage() {
                             {editingUserId === u.user_id ? (
                               <>
                                 <input value={editingUser.full_name} onChange={(e) => setEditingUser((p) => ({ ...p, full_name: e.target.value }))} />
-                                <select value={editingUser.role} onChange={(e) => setEditingUser((p) => ({ ...p, role: e.target.value }))}>
-                                  {assignableUserRoles.map((role) => (
-                                    <option key={role} value={role}>{role}</option>
-                                  ))}
-                                </select>
+                                {String(u.role || '').trim().toLowerCase() === 'owner' ? (
+                                  <input value="owner" disabled readOnly />
+                                ) : (
+                                  <select value={editingUser.role} onChange={(e) => setEditingUser((p) => ({ ...p, role: e.target.value }))}>
+                                    {assignableUserRoles.map((role) => (
+                                      <option key={role} value={role}>{role}</option>
+                                    ))}
+                                  </select>
+                                )}
                               </>
                             ) : (
                               <>
@@ -1340,7 +1359,14 @@ export default function WebOwnerPage() {
                             ) : (
                               <button className="btn ghost" onClick={() => startEditUser(u)} disabled={loading}>Edit</button>
                             )}
-                            <button className="btn ghost" onClick={() => deleteUser(u.user_id)} disabled={loading}>Delete</button>
+                            <button
+                              className="btn ghost"
+                              onClick={() => deleteUser(u.user_id)}
+                              disabled={loading || String(u.role || '').trim().toLowerCase() === 'owner'}
+                              title={String(u.role || '').trim().toLowerCase() === 'owner' ? 'Owner tidak bisa dihapus' : ''}
+                            >
+                              Delete
+                            </button>
                           </div>
                         </div>
                       ))}

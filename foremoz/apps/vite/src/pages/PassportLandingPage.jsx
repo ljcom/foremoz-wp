@@ -112,6 +112,7 @@ export default function PassportLandingPage() {
           const vocabularyCreator = getVerticalConfig(verticalSlug)?.vocabulary?.creator || 'Creator';
           return {
             event_id: row.event_id || '',
+            account_slug: row.account_slug || '',
             title: row.event_name || 'Untitled Event',
             vertical,
             category: guessCategory(row),
@@ -293,7 +294,11 @@ export default function PassportLandingPage() {
                   ) : (
                     <Link
                       className="btn ghost small"
-                      to={`${registerBase}${event.event_id ? `?event=${encodeURIComponent(event.event_id)}` : ''}`}
+                      to={event.event_id
+                        ? (event.account_slug
+                          ? `/a/${encodeURIComponent(event.account_slug)}/e/${encodeURIComponent(event.event_id)}`
+                          : `${registerBase}?event=${encodeURIComponent(event.event_id)}`)
+                        : registerBase}
                     >
                       Register
                     </Link>

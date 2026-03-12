@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { clearSession, getAccountSlug, getSession, getAllowedEnvironments } from '../lib.js';
+import { clearSession, getAccountSlug, getEnvironmentLabel, getSession, getAllowedEnvironments } from '../lib.js';
 
 function Stat({ label, value, iconClass, tone, hint }) {
   return (
@@ -162,7 +162,7 @@ export default function SalesPage() {
                 >
                   {allowedEnv.map((env) => (
                     <option key={env} value={env}>
-                      {env}
+                      {getEnvironmentLabel(env)}
                     </option>
                   ))}
                 </select>
@@ -178,7 +178,7 @@ export default function SalesPage() {
                       goToEnv(env);
                     }}
                   >
-                    {env}
+                    {getEnvironmentLabel(env)}
                   </button>
                 ))}
               </div>

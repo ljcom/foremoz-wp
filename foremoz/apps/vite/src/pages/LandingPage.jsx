@@ -1,14 +1,17 @@
 import { Link } from 'react-router-dom';
-import { APP_ORIGIN } from '../lib.js';
+import { APP_ORIGIN, getSession } from '../lib.js';
+import { getVerticalLabel } from '../industry-jargon.js';
 
 export default function LandingPage() {
   const host = window.location.host;
   const isLocal = host.includes('localhost') || host.includes('127.0.0.1');
+  const industrySlug = String(getSession()?.tenant?.industry_slug || '').trim().toLowerCase() || 'active';
+  const brand = `Foremoz ${getVerticalLabel(industrySlug, 'Active')}`;
 
   return (
     <main className="landing">
       <header className="topbar">
-        <div className="brand">Foremoz Industries</div>
+        <div className="brand">{brand}</div>
         <nav>
           <Link to="/signin">Sign in</Link>
           <Link className="btn small" to="/signup">

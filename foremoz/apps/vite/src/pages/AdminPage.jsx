@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { accountPath, apiJson, getAccountSlug, getSession, getAdminTabsByPlan, getAllowedEnvironments, getSessionPackagePlan } from '../lib.js';
+import { accountPath, apiJson, getAccountSlug, getEnvironmentLabel, getSession, getAdminTabsByPlan, getAllowedEnvironments, getSessionPackagePlan } from '../lib.js';
 import { getVerticalLabel, guessVerticalSlugByText } from '../industry-jargon.js';
 
 const ADMIN_TABS = [
@@ -259,6 +259,15 @@ function compactCode(value) {
     .replace(/[^a-zA-Z0-9]/g, '')
     .toUpperCase()
     .slice(0, 12);
+}
+
+function getEventCategoryExamplesByIndustry(industrySlug) {
+  const slug = String(industrySlug || '').trim().toLowerCase();
+  if (slug === 'learning') return ['Workshop Dasar', 'Workshop Lanjutan', 'Sertifikasi'];
+  if (slug === 'performance') return ['Konser Akustik', 'Festival Musik', 'VIP'];
+  if (slug === 'arts') return ['Pameran Lukis', 'Gallery Opening', 'Art Talk'];
+  if (slug === 'tourism') return ['City Tour', 'Sunrise Trip', 'Family Package'];
+  return ['Running 5K', 'Running 10K', 'Beginner Friendly'];
 }
 
 function formatRegistrationAnswers(value) {
@@ -667,6 +676,12 @@ export default function AdminPage() {
   const resolvedVerticalSlug = String(session?.tenant?.industry_slug || '').trim().toLowerCase()
     || guessVerticalSlugByText(`${session?.tenant?.gym_name || ''} ${accountSlug}`, 'active');
   const inferredVerticalLabel = getVerticalLabel(resolvedVerticalSlug, 'Active');
+  const eventCategoryExamples = useMemo(
+    () => getEventCategoryExamplesByIndustry(resolvedVerticalSlug),
+    [resolvedVerticalSlug]
+  );
+  const eventCategoryInstruction = `Pisahkan dengan koma atau baris baru. Contoh: ${eventCategoryExamples[0]}, ${eventCategoryExamples[1]}.`;
+  const eventCategoryPlaceholder = `${eventCategoryExamples[0]}, ${eventCategoryExamples[1]}\n${eventCategoryExamples[2]}`;
   const isCsView = role === 'cs';
   const dashboardTitle = isCsView ? 'Setup' : 'Admin';
   const dashboardSubtitle = isCsView ? 'Tenant setup panel' : 'Tenant administration panel';
@@ -1461,7 +1476,7 @@ export default function AdminPage() {
     const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
     const eventId = encodeURIComponent(String(item?.event_id || ''));
     const eventName = String(item?.event_name || 'Event');
-    const shareUrl = `${baseUrl}/events${eventId ? `?event=${eventId}` : ''}`;
+    const shareUrl = `${baseUrl}${eventId ? `/a/${encodeURIComponent(accountSlug)}/e/${eventId}` : `/a/${encodeURIComponent(accountSlug)}`}`;
     const shareText = `${eventName}\n${shareUrl}`;
 
     try {
@@ -1671,7 +1686,7 @@ export default function AdminPage() {
       });
       await loadEvents();
       if (typeof window !== 'undefined') {
-        const postedUrl = `${window.location.origin}/events?event=${encodeURIComponent(editingEventId)}`;
+        const postedUrl = `${window.location.origin}/a/${encodeURIComponent(accountSlug)}/e/${encodeURIComponent(editingEventId)}`;
         window.open(postedUrl, '_blank', 'noopener,noreferrer');
       }
       if (enabledAdminTabIds.includes('transaction')) {
@@ -1710,7 +1725,7 @@ export default function AdminPage() {
           })
         });
         if (typeof window !== 'undefined') {
-          const postedUrl = `${window.location.origin}/events?event=${encodeURIComponent(pendingPostedEventId)}`;
+          const postedUrl = `${window.location.origin}/a/${encodeURIComponent(accountSlug)}/e/${encodeURIComponent(pendingPostedEventId)}`;
           window.open(postedUrl, '_blank', 'noopener,noreferrer');
         }
         setFeedback(`payment.recorded: ${transactionForm.no_transaction}. event sudah tampil di Foremoz Events.`);
@@ -1764,7 +1779,7 @@ export default function AdminPage() {
                 >
                   {allowedEnv.map((env) => (
                     <option key={env} value={env}>
-                      {env}
+                      {getEnvironmentLabel(env)}
                     </option>
                   ))}
                 </select>
@@ -1780,16 +1795,11 @@ export default function AdminPage() {
                       goToEnv(env);
                     }}
                   >
-                    {env}
+                    {getEnvironmentLabel(env)}
                   </button>
                 ))}
               </div>
             </div>
-          ) : null}
-          {allowedEnv.includes('cs') ? (
-            <button className="btn ghost" onClick={() => navigate(accountPath(session, '/cs/dashboard'))}>
-              Back to CS dashboard
-            </button>
           ) : null}
         </div>
       </header>
@@ -1938,20 +1948,6 @@ export default function AdminPage() {
                     >
                       Participants
                     </button>
-                    <button
-                      type="button"
-                      className={`landing-tab ${eventEditTab === 'checkin' ? 'active' : ''}`}
-                      onClick={() => setEventEditTab('checkin')}
-                    >
-                      Check in
-                    </button>
-                    <button
-                      type="button"
-                      className={`landing-tab ${eventEditTab === 'checkout' ? 'active' : ''}`}
-                      onClick={() => setEventEditTab('checkout')}
-                    >
-                      Checkout
-                    </button>
                   </div>
                   <form className="form" onSubmit={addEvent}>
                     {eventEditTab === 'general' ? (
@@ -1992,10 +1988,10 @@ export default function AdminPage() {
                     {eventEditTab === 'category' ? (
                       <div className="card" style={{ borderStyle: 'dashed' }}>
                         <p className="eyebrow">Event category</p>
-                        <p className="feedback">Pisahkan dengan koma atau baris baru. Contoh: Running 5K, Running 10K.</p>
+                        <p className="feedback">{eventCategoryInstruction}</p>
                         <textarea
                           rows={4}
-                          placeholder={'Running 5K, Running 10K\nBeginner Friendly'}
+                          placeholder={eventCategoryPlaceholder}
                           value={eventForm.categories_text}
                           onChange={(e) => setEventForm((p) => ({ ...p, categories_text: e.target.value }))}
                         />
@@ -2233,152 +2229,6 @@ export default function AdminPage() {
                         </div>
                       ) : (
                         <p className="feedback">Simpan event dulu untuk melihat participants.</p>
-                      )
-                    ) : null}
-                    {eventEditTab === 'checkin' ? (
-                      editingEventId ? (
-                        <div className="card" style={{ borderStyle: 'dashed' }}>
-                          <div className="panel-head" style={{ marginBottom: '0.5rem' }}>
-                            <h3 style={{ margin: 0 }}>Check in</h3>
-                            <button
-                              className="btn ghost small"
-                              type="button"
-                              onClick={() => loadEventParticipants(editingEventId)}
-                              disabled={eventParticipantsLoading}
-                            >
-                              {eventParticipantsLoading ? 'Refreshing...' : 'Refresh participants'}
-                            </button>
-                          </div>
-                          <div className="entity-list" style={{ marginBottom: '0.6rem' }}>
-                            <label>
-                              Search participant (ketik biasa)
-                              <input
-                                value={eventCheckinSearch}
-                                placeholder="Nama / email / passport id / registration id"
-                                onChange={(e) => setEventCheckinSearch(e.target.value)}
-                              />
-                            </label>
-                            <label>
-                              Scan barcode
-                              <input
-                                value={eventCheckinBarcode}
-                                placeholder="Scan code di sini lalu Enter"
-                                onChange={(e) => setEventCheckinBarcode(e.target.value)}
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') {
-                                    e.preventDefault();
-                                    scanCheckinByBarcode();
-                                  }
-                                }}
-                              />
-                            </label>
-                            <button className="btn ghost small" type="button" onClick={scanCheckinByBarcode}>
-                              Check in from barcode
-                            </button>
-                          </div>
-                          {eventParticipants.length === 0 ? <p className="feedback">Belum ada peserta untuk check in.</p> : null}
-                          {eventParticipants.length > 0 ? (
-                            <div className="entity-list">
-                              {filteredEventCheckinParticipants.map((participant, index) => {
-                                const checkinKey = getParticipantCheckinKey(participant, index);
-                                const isCheckedIn = Boolean(eventCheckinMap[checkinKey]);
-                                const checkinSaving = Boolean(eventCheckinSavingMap[checkinKey]);
-                                return (
-                                  <div className="entity-row" key={checkinKey}>
-                                    <div>
-                                      <strong>{participant.full_name || participant.email || participant.passport_id || 'Participant'}</strong>
-                                      <p>Unique No: {getParticipantScanCode(participant, index)}</p>
-                                      <p>Status: {isCheckedIn ? 'Checked in' : 'Belum check in'}</p>
-                                    </div>
-                                    <button
-                                      className="btn ghost small"
-                                      type="button"
-                                      disabled={checkinSaving}
-                                      onClick={() => checkinParticipant(participant, checkinKey)}
-                                    >
-                                      {checkinSaving ? 'Saving...' : isCheckedIn ? 'Update check in' : 'Check in'}
-                                    </button>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          ) : null}
-                          {eventParticipants.length > 0 && filteredEventCheckinParticipants.length === 0 ? (
-                            <p className="feedback">Tidak ada peserta yang cocok dengan pencarian.</p>
-                          ) : null}
-                        </div>
-                      ) : (
-                        <p className="feedback">Simpan event dulu untuk menggunakan check in.</p>
-                      )
-                    ) : null}
-                    {eventEditTab === 'checkout' ? (
-                      editingEventId ? (
-                        <div className="card" style={{ borderStyle: 'dashed' }}>
-                          <div className="panel-head" style={{ marginBottom: '0.5rem' }}>
-                            <h3 style={{ margin: 0 }}>Checkout</h3>
-                            <button
-                              className="btn ghost small"
-                              type="button"
-                              onClick={() => loadEventParticipants(editingEventId)}
-                              disabled={eventParticipantsLoading}
-                            >
-                              {eventParticipantsLoading ? 'Refreshing...' : 'Refresh participants'}
-                            </button>
-                          </div>
-                          {isFreePlan ? (
-                            <p className="feedback">Upgrade to starter untuk menikmati fasilitas ini.</p>
-                          ) : checkoutReadyParticipants.length === 0 ? (
-                            <p className="feedback">Belum ada peserta check in. Hanya peserta check in yang tampil di tab checkout.</p>
-                          ) : (
-                            <div className="entity-list">
-                              {checkoutReadyParticipants.map((row) => {
-                                const participant = row.participant;
-                                const checkoutKey = row.key;
-                                const isCheckedOut = Boolean(eventCheckoutMap[checkoutKey]);
-                                const topN = normalizeAwardTopN(eventForm.award_top_n, 1);
-                                const rankValue = String(eventCheckoutRankMap[checkoutKey] || '');
-                                const checkoutSaving = Boolean(eventCheckoutSavingMap[checkoutKey]);
-                                return (
-                                  <div className="entity-row" key={`checkout-${checkoutKey}`}>
-                                    <div>
-                                      <strong>{participant.full_name || participant.email || participant.passport_id || 'Participant'}</strong>
-                                      <p>Unique No: {getParticipantScanCode(participant, row.index)}</p>
-                                      <p>Status: {isCheckedOut ? 'Checked out' : 'Belum checkout'}</p>
-                                      <p>Score: {Number(participant.score_points || 0)}</p>
-                                      {participant?.rank !== undefined && participant?.rank !== null ? (
-                                        <p>Rank tersimpan: #{participant.rank}</p>
-                                      ) : null}
-                                      <label style={{ display: 'block', marginTop: '0.35rem' }}>
-                                        Rank (1 - {topN}, opsional)
-                                        <input
-                                          type="number"
-                                          min="1"
-                                          max={topN}
-                                          step="1"
-                                          placeholder={`1 - ${topN}`}
-                                          value={rankValue}
-                                          onChange={(e) =>
-                                            setEventCheckoutRankMap((prev) => ({ ...prev, [checkoutKey]: e.target.value }))
-                                          }
-                                        />
-                                      </label>
-                                    </div>
-                                    <button
-                                      className="btn ghost small"
-                                      type="button"
-                                      disabled={checkoutSaving}
-                                      onClick={() => checkoutParticipant(row)}
-                                    >
-                                      {checkoutSaving ? 'Saving...' : isCheckedOut ? 'Update checkout' : 'Checkout'}
-                                    </button>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        <p className="feedback">Simpan event dulu untuk menggunakan checkout.</p>
                       )
                     ) : null}
                     {eventEditTab === 'general' ? (

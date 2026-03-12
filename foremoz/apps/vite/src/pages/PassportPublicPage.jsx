@@ -243,7 +243,7 @@ export default function PassportPublicPage() {
                 </div>
                 <h3>{item.event_name || '-'}</h3>
                 <p className="passport-live-time"><i className="fa-regular fa-clock" /> {formatDateTime(item.start_at)}</p>
-                <Link className="btn ghost small" to={`/events/register?event=${encodeURIComponent(item.event_id)}`}>
+                <Link className="btn ghost small" to={`/a/${encodeURIComponent(account)}/e/${encodeURIComponent(item.event_id)}`}>
                   Join Event
                 </Link>
               </article>
