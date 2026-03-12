@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { apiJson } from '../lib.js';
-import { getPassportSession } from '../passport-client.js';
+import { clearPassportSession, getPassportSession } from '../passport-client.js';
 
 const JOINED_EVENTS_KEY = 'ff.events.joined';
 const REGISTRATION_ANSWERS_KEY = 'ff.events.registration.answers';
@@ -82,6 +82,12 @@ export default function EventCheckoutPage() {
   }, [authBase, eventId, returnTo]);
   const passportSession = getPassportSession();
   const isAuthed = Boolean(passportSession?.isAuthenticated);
+  const signedInAs =
+    passportSession?.user?.fullName ||
+    passportSession?.passport?.fullName ||
+    passportSession?.user?.email ||
+    '';
+  const accountInfo = String(eventItem?.account_slug || accountSlug || '').trim();
   const registrationFields = useMemo(
     () => (Array.isArray(eventItem?.registration_fields) ? eventItem.registration_fields : []),
     [eventItem]
@@ -259,6 +265,13 @@ export default function EventCheckoutPage() {
 
   return (
     <main className="dashboard">
+      <header className="topbar">
+        <div className="brand">Foremoz Events</div>
+        <nav>
+          <Link to={backToEvents}>Back to events</Link>
+          <span>{`Account: ${accountInfo || '-'}`}</span>
+        </nav>
+      </header>
       <section className="card wide">
         <p className="eyebrow">Event Checkout</p>
         <h1>Register Event</h1>
@@ -406,6 +419,24 @@ export default function EventCheckoutPage() {
           </div>
         )}
       </section>
+      <footer className="topbar">
+        <div className="brand">Session</div>
+        <nav>
+          <span>{isAuthed ? `Signed in: ${signedInAs || 'Member'}` : 'Not signed in'}</span>
+          {isAuthed ? (
+            <button
+              className="btn ghost small"
+              type="button"
+              onClick={() => {
+                clearPassportSession();
+                navigate(signinHref, { replace: true });
+              }}
+            >
+              Sign out
+            </button>
+          ) : null}
+        </nav>
+      </footer>
     </main>
   );
 }
