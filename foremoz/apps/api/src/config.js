@@ -25,7 +25,17 @@ export const config = {
   jwtIssuer: process.env.JWT_ISSUER || 'foremoz-fitness-api',
   jwtAudience: process.env.JWT_AUDIENCE || 'foremoz-fitness-member',
   jwtExpiresInSec: parseNumber(process.env.JWT_EXPIRES_IN_SEC, 86400),
-  corsOrigin: process.env.CORS_ORIGIN || '*'
+  corsOrigin: process.env.CORS_ORIGIN || '*',
+  emailEnabled: parseBoolean(process.env.EMAIL_ENABLED, false),
+  emailFromAddress: String(process.env.EMAIL_FROM_ADDRESS || '').trim(),
+  emailFromName: String(process.env.EMAIL_FROM_NAME || 'Foremoz').trim() || 'Foremoz',
+  emailReplyTo: String(process.env.EMAIL_REPLY_TO || '').trim(),
+  emailSmtpHost: String(process.env.EMAIL_SMTP_HOST || '').trim(),
+  emailSmtpPort: parseNumber(process.env.EMAIL_SMTP_PORT, 587),
+  emailSmtpSecure: parseBoolean(process.env.EMAIL_SMTP_SECURE, false),
+  emailSmtpUser: String(process.env.EMAIL_SMTP_USER || '').trim(),
+  emailSmtpPass: String(process.env.EMAIL_SMTP_PASS || '').trim(),
+  emailSmtpIgnoreTlsErrors: parseBoolean(process.env.EMAIL_SMTP_IGNORE_TLS_ERRORS, false)
 };
 
 if (!config.databaseUrl) {

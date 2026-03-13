@@ -5,6 +5,11 @@ import { appendDomainEvent, resolveNamespaceId } from './event-store.js';
 import { runFitnessProjection } from './projection.js';
 import { config } from './config.js';
 import {
+  sendEventRegistrationEmail,
+  sendMemberSignupEmail,
+  sendTenantSignupEmail
+} from './email.js';
+import {
   hashPassword,
   normalizeEmail,
   readBearerToken,
@@ -48,6 +53,12 @@ function ok(res, data) {
 
 function created(res, data) {
   return res.status(201).json({ status: 'PASS', ...data });
+}
+
+function warnEmailDelivery(context, result) {
+  if (!result || result.sent) return;
+  const reason = String(result.reason || 'unknown');
+  console.warn(`[email] ${context} not sent: ${reason}`);
 }
 
 function asPositiveInteger(value, fieldName, fallback = null) {
@@ -780,6 +791,13 @@ app.post('/v1/tenant/auth/signup', async (req, res, next) => {
 
     await runFitnessProjection({ tenantId, branchId: null });
     const tokenSigned = signTenantJwt({ tenantId, userId, email, role });
+    const signupEmailDelivery = await sendTenantSignupEmail({
+      email,
+      fullName,
+      role,
+      tenantId
+    });
+    warnEmailDelivery('tenant_signup', signupEmailDelivery);
 
     return created(res, {
       user: {
@@ -796,6 +814,7 @@ app.post('/v1/tenant/auth/signup', async (req, res, next) => {
         token_type: 'Bearer',
         expires_in: config.jwtExpiresInSec
       },
+      email_delivery: signupEmailDelivery,
       event
     });
   } catch (error) {
@@ -1881,6 +1900,13 @@ app.post('/v1/auth/signup', async (req, res, next) => {
     await runFitnessProjection({ tenantId, branchId: null });
 
     const tokenSigned = signMemberJwt({ tenantId, memberId, email });
+    const signupEmailDelivery = await sendMemberSignupEmail({
+      email,
+      fullName,
+      memberId,
+      tenantId
+    });
+    warnEmailDelivery('member_signup', signupEmailDelivery);
     return created(res, {
       member: {
         tenant_id: tenantId,
@@ -1894,6 +1920,7 @@ app.post('/v1/auth/signup', async (req, res, next) => {
         token_type: 'Bearer',
         expires_in: config.jwtExpiresInSec
       },
+      email_delivery: signupEmailDelivery,
       events
     });
   } catch (error) {
@@ -2965,6 +2992,7 @@ app.post('/v1/events/:eventId/register', async (req, res, next) => {
 
     const registrationId = data.registration_id || `evr_${Date.now()}_${randomUUID().slice(0, 8)}`;
     const participantNo = String(data.participant_no || '').trim() || buildParticipantNumber(eventId);
+    const registeredAt = data.registered_at || new Date().toISOString();
     const event = await appendDomainEvent({
       tenantId,
       branchId,
@@ -2983,12 +3011,28 @@ app.post('/v1/events/:eventId/register', async (req, res, next) => {
         full_name: fullName || null,
         email: email || null,
         registration_answers: answers,
-        registered_at: data.registered_at || new Date().toISOString()
+        registered_at: registeredAt
       },
       refs: {}
     });
-
-    return created(res, { event, registration_id: registrationId, event_id: eventId });
+    const registrationEmailDelivery = await sendEventRegistrationEmail({
+      email: email || null,
+      fullName: fullName || null,
+      eventName: latest.event_name || latest.name || eventId,
+      eventId,
+      participantNo,
+      registrationId,
+      location: latest.location || null,
+      startAt: latest.start_at || null,
+      registeredAt
+    });
+    warnEmailDelivery('event_registration', registrationEmailDelivery);
+    return created(res, {
+      event,
+      registration_id: registrationId,
+      event_id: eventId,
+      email_delivery: registrationEmailDelivery
+    });
   } catch (error) {
     return next(error);
   }

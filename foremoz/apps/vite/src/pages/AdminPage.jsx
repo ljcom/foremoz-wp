@@ -519,6 +519,15 @@ export default function AdminPage() {
   const [eventCheckoutMap, setEventCheckoutMap] = useState({});
   const [eventCheckoutRankMap, setEventCheckoutRankMap] = useState({});
   const [eventCheckoutSavingMap, setEventCheckoutSavingMap] = useState({});
+  const [eventWalkinSavingMap, setEventWalkinSavingMap] = useState({});
+  const [eventWalkinForm, setEventWalkinForm] = useState({
+    event_id: '',
+    full_name: '',
+    email: '',
+    passport_id: '',
+    registration_answers: {},
+    error: ''
+  });
   const [eventCheckinSearch, setEventCheckinSearch] = useState('');
   const [eventCheckinBarcode, setEventCheckinBarcode] = useState('');
 
@@ -751,7 +760,7 @@ export default function AdminPage() {
     try {
       setMemberSaving(true);
       const result = await apiJson(
-        `/v1/read/members?tenant_id=${encodeURIComponent(tenantId)}&branch_id=${encodeURIComponent(branchId)}&limit=200`
+        `/v1/read/members?tenant_id=${encodeURIComponent(tenantId)}&limit=200`
       );
       const rows = Array.isArray(result.rows) ? result.rows : [];
       setMembers(
@@ -848,6 +857,10 @@ export default function AdminPage() {
     String(item.start_at || '').toLowerCase().includes(eventQuery.toLowerCase()) ||
     String(item.duration_minutes || '').toLowerCase().includes(eventQuery.toLowerCase()) ||
     String(item.status || '').toLowerCase().includes(eventQuery.toLowerCase())
+  );
+  const selectedWalkinEvent = useMemo(
+    () => events.find((item) => String(item.event_id || '') === String(eventWalkinForm.event_id || '')) || null,
+    [events, eventWalkinForm.event_id]
   );
   const filteredClasses = classes.filter((item) =>
     String(item.class_name || '').toLowerCase().includes(classQuery.toLowerCase()) ||
@@ -1761,6 +1774,101 @@ export default function AdminPage() {
     setFeedback(`event.participants: ${item?.event_name || item?.event_id || '-'}`);
   }
 
+  function openEventWalkinForm(item) {
+    const eventId = String(item?.event_id || '').trim();
+    if (!eventId) return;
+    if (eventWalkinForm.event_id === eventId) {
+      setEventWalkinForm({
+        event_id: '',
+        full_name: '',
+        email: '',
+        passport_id: '',
+        registration_answers: {},
+        error: ''
+      });
+      return;
+    }
+    setEventWalkinForm({
+      event_id: eventId,
+      full_name: '',
+      email: '',
+      passport_id: '',
+      registration_answers: {},
+      error: ''
+    });
+  }
+
+  async function submitEventWalkinForm(e) {
+    e.preventDefault();
+    const eventId = String(eventWalkinForm.event_id || '').trim();
+    if (!eventId) return;
+    const email = normalizeEmailValue(eventWalkinForm.email);
+    const passportId = String(eventWalkinForm.passport_id || '').trim();
+    const fullName = String(eventWalkinForm.full_name || '').trim();
+    const registrationFields = Array.isArray(selectedWalkinEvent?.registration_fields)
+      ? selectedWalkinEvent.registration_fields
+      : [];
+    if (!email && !passportId) {
+      setEventWalkinForm((prev) => ({ ...prev, error: 'Isi minimal email atau passport ID.' }));
+      return;
+    }
+    for (let i = 0; i < registrationFields.length; i += 1) {
+      const field = registrationFields[i] || {};
+      const fieldId = String(field.field_id || '');
+      const label = String(field.label || `Field ${i + 1}`);
+      const value = String(eventWalkinForm.registration_answers[fieldId] || '').trim();
+      if (field.required !== false && !value) {
+        setEventWalkinForm((prev) => ({ ...prev, error: `${label} wajib diisi.` }));
+        return;
+      }
+    }
+    const answersByLabel = registrationFields.reduce((acc, field, index) => {
+      const fieldId = String(field?.field_id || '');
+      const label = String(field?.label || `Field ${index + 1}`).trim();
+      if (!fieldId || !label) return acc;
+      const value = String(eventWalkinForm.registration_answers[fieldId] || '').trim();
+      if (!value) return acc;
+      acc[label] = value;
+      return acc;
+    }, {});
+    try {
+      setEventWalkinForm((prev) => ({ ...prev, error: '' }));
+      setEventWalkinSavingMap((prev) => ({ ...prev, [eventId]: true }));
+      await apiJson(`/v1/events/${encodeURIComponent(eventId)}/register`, {
+        method: 'POST',
+        body: JSON.stringify({
+          tenant_id: tenantId,
+          branch_id: branchId,
+          full_name: fullName || null,
+          email: email || null,
+          passport_id: passportId || null,
+          registration_answers: answersByLabel
+        })
+      });
+      setFeedback(`walkin.registered: ${fullName || email || passportId}`);
+      setEventWalkinForm((prev) => ({
+        ...prev,
+        full_name: '',
+        email: '',
+        passport_id: '',
+        registration_answers: {},
+        error: ''
+      }));
+      await loadEvents();
+      if (editingEventId && editingEventId === eventId) {
+        await loadEventParticipants(eventId);
+      }
+    } catch (error) {
+      setEventWalkinForm((prev) => ({ ...prev, error: error.message || 'Gagal registrasi walk-in.' }));
+    } finally {
+      setEventWalkinSavingMap((prev) => {
+        const next = { ...prev };
+        delete next[eventId];
+        return next;
+      });
+    }
+  }
+
   function getParticipantCheckinKey(participant, index = 0, eventIdOverride = '') {
     const participantKey =
       String(participant?.registration_id || '').trim() ||
@@ -2161,6 +2269,129 @@ export default function AdminPage() {
                     </div>
                   </div>
                   {eventLoading ? <p className="feedback">Loading event list...</p> : null}
+                  {selectedWalkinEvent ? (
+                    <form className="card" style={{ borderStyle: 'dashed', marginBottom: '0.8rem' }} onSubmit={submitEventWalkinForm}>
+                      <p className="eyebrow">Walk-in Registration</p>
+                      <p className="feedback" style={{ marginBottom: '0.6rem' }}>
+                        Event: <strong>{selectedWalkinEvent.event_name || selectedWalkinEvent.event_id}</strong>
+                      </p>
+                      <label>
+                        Nama
+                        <input
+                          value={eventWalkinForm.full_name}
+                          onChange={(e) => setEventWalkinForm((prev) => ({ ...prev, full_name: e.target.value }))}
+                        />
+                      </label>
+                      <label>
+                        Email
+                        <input
+                          type="email"
+                          value={eventWalkinForm.email}
+                          onChange={(e) => setEventWalkinForm((prev) => ({ ...prev, email: e.target.value }))}
+                        />
+                      </label>
+                      <label>
+                        Passport ID
+                        <input
+                          value={eventWalkinForm.passport_id}
+                          onChange={(e) => setEventWalkinForm((prev) => ({ ...prev, passport_id: e.target.value }))}
+                        />
+                      </label>
+                      {Array.isArray(selectedWalkinEvent.registration_fields) && selectedWalkinEvent.registration_fields.length > 0 ? (
+                        <>
+                          <p className="eyebrow">Informasi untuk penyelenggara</p>
+                          {selectedWalkinEvent.registration_fields.map((field, index) => {
+                            const fieldId = String(field?.field_id || `field_${index}`);
+                            const type = String(field?.type || 'free_type');
+                            const label = String(field?.label || `Field ${index + 1}`);
+                            const isRequired = field?.required !== false;
+                            const value = String(eventWalkinForm.registration_answers[fieldId] || '');
+                            if (type === 'date') {
+                              return (
+                                <label key={fieldId}>
+                                  {label}{isRequired ? ' *' : ''}
+                                  <input
+                                    type="date"
+                                    value={value}
+                                    onChange={(e) =>
+                                      setEventWalkinForm((prev) => ({
+                                        ...prev,
+                                        registration_answers: { ...prev.registration_answers, [fieldId]: e.target.value }
+                                      }))
+                                    }
+                                  />
+                                </label>
+                              );
+                            }
+                            if (type === 'lookup') {
+                              const options = Array.isArray(field?.options) ? field.options : [];
+                              return (
+                                <label key={fieldId}>
+                                  {label}{isRequired ? ' *' : ''}
+                                  <select
+                                    value={value}
+                                    onChange={(e) =>
+                                      setEventWalkinForm((prev) => ({
+                                        ...prev,
+                                        registration_answers: { ...prev.registration_answers, [fieldId]: e.target.value }
+                                      }))
+                                    }
+                                  >
+                                    <option value="">Pilih</option>
+                                    {options.map((opt, optIndex) => (
+                                      <option key={`${fieldId}-${optIndex}`} value={String(opt)}>
+                                        {String(opt)}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </label>
+                              );
+                            }
+                            return (
+                              <label key={fieldId}>
+                                {label}{isRequired ? ' *' : ''}
+                                <input
+                                  value={value}
+                                  onChange={(e) =>
+                                    setEventWalkinForm((prev) => ({
+                                      ...prev,
+                                      registration_answers: { ...prev.registration_answers, [fieldId]: e.target.value }
+                                    }))
+                                  }
+                                />
+                              </label>
+                            );
+                          })}
+                        </>
+                      ) : null}
+                      {eventWalkinForm.error ? <p className="error">{eventWalkinForm.error}</p> : null}
+                      <div className="row-actions">
+                        <button
+                          className="btn"
+                          type="submit"
+                          disabled={Boolean(eventWalkinSavingMap[selectedWalkinEvent.event_id])}
+                        >
+                          {eventWalkinSavingMap[selectedWalkinEvent.event_id] ? 'Registering...' : 'Simpan Walk-in'}
+                        </button>
+                        <button
+                          className="btn ghost"
+                          type="button"
+                          onClick={() =>
+                            setEventWalkinForm({
+                              event_id: '',
+                              full_name: '',
+                              email: '',
+                              passport_id: '',
+                              registration_answers: {},
+                              error: ''
+                            })
+                          }
+                        >
+                          Batal
+                        </button>
+                      </div>
+                    </form>
+                  ) : null}
                   <div className="event-card-grid">
                     {filteredEvents.map((item) => (
                       <article key={item.event_id} className="event-admin-card">
@@ -2184,6 +2415,13 @@ export default function AdminPage() {
                           <p>Duration: {item.duration_minutes || '60'} minutes</p>
                           <p>Participants: {Number(item.participant_count || 0)}</p>
                           <div className="row-actions">
+                            <button
+                              className="btn ghost small"
+                              type="button"
+                              onClick={() => openEventWalkinForm(item)}
+                            >
+                              {eventWalkinForm.event_id === item.event_id ? 'Close' : 'Walk-in'}
+                            </button>
                             <ParticipantsButton onClick={() => openEventParticipants(item)} />
                             <ShareButton onClick={() => shareEvent(item)} />
                             <ViewButton onClick={() => viewEvent(item)} />

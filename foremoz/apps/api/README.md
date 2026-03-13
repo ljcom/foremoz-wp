@@ -38,6 +38,21 @@ JWT_AUDIENCE=foremoz-fitness-member
 JWT_EXPIRES_IN_SEC=86400
 ```
 
+Aktifkan pengiriman email (signup + registrasi event/walk-in) di `.env`:
+
+```bash
+EMAIL_ENABLED=true
+EMAIL_FROM_ADDRESS=no-reply@yourdomain.com
+EMAIL_FROM_NAME=Foremoz
+EMAIL_REPLY_TO=support@yourdomain.com
+EMAIL_SMTP_HOST=smtp.your-provider.com
+EMAIL_SMTP_PORT=587
+EMAIL_SMTP_SECURE=false
+EMAIL_SMTP_USER=your_smtp_username
+EMAIL_SMTP_PASS=your_smtp_password
+EMAIL_SMTP_IGNORE_TLS_ERRORS=false
+```
+
 ## Endpoint utama
 
 - `POST /v1/auth/signup`
