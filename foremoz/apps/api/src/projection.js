@@ -74,10 +74,11 @@ export async function runFitnessProjection({ tenantId, branchId }) {
           `update read.rm_member
            set full_name = coalesce($3, full_name),
                phone = coalesce($4, phone),
-               status = coalesce($5, status),
-               updated_at = $6
+               email = coalesce($5, email),
+               status = coalesce($6, status),
+               updated_at = $7
            where tenant_id = $1 and member_id = $2`,
-          [tenant, data.member_id, patch.full_name || null, patch.phone || null, patch.status || null, eventTs]
+          [tenant, data.member_id, patch.full_name || null, patch.phone || null, patch.email || null, patch.status || null, eventTs]
         );
         applied += 1;
         continue;

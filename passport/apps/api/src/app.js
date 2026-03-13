@@ -57,6 +57,38 @@ async function appendAndProject({
   return { event, projection };
 }
 
+async function findPassportByEmail(tenantId, email) {
+  const normalizedEmail = normalizeEmail(email);
+  const authResult = await query(
+    `select tenant_id, passport_id, full_name, email, status
+     from read.rm_passport_account_auth
+     where tenant_id = $1 and email = $2
+     limit 1`,
+    [tenantId, normalizedEmail]
+  );
+  const authRow = authResult.rows[0] || null;
+  if (!authRow) return null;
+
+  const profileResult = await query(
+    `select tenant_id, passport_id, member_id, full_name, sport_interests, updated_at
+     from read.rm_passport_profile
+     where tenant_id = $1 and passport_id = $2
+     limit 1`,
+    [tenantId, authRow.passport_id]
+  );
+  const profileRow = profileResult.rows[0] || null;
+
+  return {
+    tenant_id: authRow.tenant_id,
+    passport_id: authRow.passport_id,
+    member_id: profileRow?.member_id || authRow.passport_id,
+    full_name: profileRow?.full_name || authRow.full_name || null,
+    email: authRow.email,
+    status: authRow.status,
+    sport_interests: Array.isArray(profileRow?.sport_interests) ? profileRow.sport_interests : []
+  };
+}
+
 app.get('/health', async (_req, res) => {
   try {
     await query('select 1');
@@ -197,6 +229,94 @@ app.post('/v1/passport/create', async (req, res, next) => {
       refs: {}
     });
     return res.status(201).json({ status: 'PASS', ...result });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.post('/v1/admin/passports/ensure-by-email', async (req, res, next) => {
+  try {
+    const d = req.body || {};
+    const tenantId = d.tenant_id || config.defaultTenantId;
+    const email = normalizeEmail(required(d.email, 'email'));
+    const requestedFullName = String(d.full_name || '').trim();
+
+    const existing = await findPassportByEmail(tenantId, email);
+    if (existing) {
+      if (existing.member_id && existing.full_name) {
+        return res.json({ status: 'PASS', item: existing, created: false });
+      }
+
+      const profilePayload = {
+        tenant_id: tenantId,
+        passport_id: existing.passport_id,
+        member_id: existing.member_id || existing.passport_id,
+        full_name: existing.full_name || requestedFullName || email.split('@')[0],
+        sport_interests: existing.sport_interests || [],
+        updated_at: new Date().toISOString()
+      };
+      await appendAndProject({
+        tenantId,
+        branchId: d.branch_id || null,
+        actorId: d.actor_id || existing.passport_id,
+        actorKind: 'member',
+        eventType: 'passport.created',
+        subjectKind: 'passport',
+        subjectId: existing.passport_id,
+        data: profilePayload,
+        refs: {}
+      });
+      const hydrated = await findPassportByEmail(tenantId, email);
+      return res.json({ status: 'PASS', item: hydrated, created: false });
+    }
+
+    const passportId = d.passport_id || `pass_${Date.now()}_${randomUUID().slice(0, 6)}`;
+    const fullName = requestedFullName || email.split('@')[0];
+    const passwordHash = await hashPassword(`temp-${randomUUID()}`);
+    const ts = new Date().toISOString();
+
+    await appendAndProject({
+      tenantId,
+      branchId: null,
+      actorId: d.actor_id || passportId,
+      actorKind: 'member',
+      eventType: 'passport.account.created',
+      subjectKind: 'passport_account',
+      subjectId: passportId,
+      data: {
+        tenant_id: tenantId,
+        passport_id: passportId,
+        full_name: fullName,
+        email,
+        password_hash: passwordHash,
+        status: 'active',
+        created_at: ts,
+        updated_at: ts
+      },
+      refs: {}
+    });
+
+    await appendAndProject({
+      tenantId,
+      branchId: d.branch_id || null,
+      actorId: d.actor_id || passportId,
+      actorKind: 'member',
+      eventType: 'passport.created',
+      subjectKind: 'passport',
+      subjectId: passportId,
+      data: {
+        tenant_id: tenantId,
+        passport_id: passportId,
+        member_id: d.member_id || passportId,
+        full_name: fullName,
+        sport_interests: Array.isArray(d.sport_interests) ? d.sport_interests : [],
+        updated_at: ts
+      },
+      refs: {}
+    });
+
+    const createdItem = await findPassportByEmail(tenantId, email);
+    return res.status(201).json({ status: 'PASS', item: createdItem, created: true });
   } catch (error) {
     return next(error);
   }

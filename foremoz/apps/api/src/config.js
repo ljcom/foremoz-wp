@@ -19,6 +19,7 @@ export const config = {
   dbSsl: parseBoolean(process.env.DB_SSL, false),
   defaultTenantId: process.env.DEFAULT_TENANT_ID || 'tn_001',
   defaultActorId: process.env.DEFAULT_ACTOR_ID || 'staff_system',
+  passportApiBaseUrl: process.env.PASSPORT_API_BASE_URL || 'http://localhost:3600',
   eventGenesisPrevHash: process.env.EVENT_GENESIS_PREV_HASH || 'GENESIS',
   jwtSecret: process.env.JWT_SECRET || 'dev-change-this-secret',
   jwtIssuer: process.env.JWT_ISSUER || 'foremoz-fitness-api',

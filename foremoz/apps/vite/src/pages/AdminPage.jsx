@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { accountPath, apiJson, getAccountSlug, getEnvironmentLabel, getSession, getAdminTabsByPlan, getAllowedEnvironments, getSessionPackagePlan } from '../lib.js';
 import { getVerticalLabel, guessVerticalSlugByText } from '../industry-jargon.js';
@@ -64,6 +64,15 @@ const DEFAULT_MEMBERS = [
 const DEFAULT_TRANSACTIONS = [
   { transaction_id: 'trx_001', no_transaction: 'TRX-001', product: 'Monthly Membership', qty: '1', price: '350000' }
 ];
+
+function createEmptyMemberForm() {
+  return {
+    member_name: '',
+    phone: '',
+    email: '',
+    relations: []
+  };
+}
 
 function toInputDatetime(value) {
   const raw = String(value || '').trim();
@@ -250,6 +259,80 @@ function parseTrainerTokens(value) {
   )];
 }
 
+function normalizeEmailValue(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function normalizeMemberRelationTokens(value) {
+  const items = Array.isArray(value) ? value : [];
+  const result = [];
+  const seen = new Set();
+  for (const item of items) {
+    if (!item || typeof item !== 'object') continue;
+    const kind = String(item.kind || '').trim().toLowerCase();
+    const id = String(item.id || '').trim();
+    const label = String(item.label || '').trim();
+    if ((kind !== 'class' && kind !== 'event') || !id) continue;
+    const key = `${kind}:${id}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push({
+      kind,
+      id,
+      label: label || `${kind === 'class' ? 'Class' : 'Event'}: ${id}`
+    });
+  }
+  return result;
+}
+
+function parseCsvLine(line) {
+  const result = [];
+  let current = '';
+  let quoted = false;
+  for (let i = 0; i < line.length; i += 1) {
+    const char = line[i];
+    if (char === '"') {
+      if (quoted && line[i + 1] === '"') {
+        current += '"';
+        i += 1;
+      } else {
+        quoted = !quoted;
+      }
+      continue;
+    }
+    if (char === ',' && !quoted) {
+      result.push(current);
+      current = '';
+      continue;
+    }
+    current += char;
+  }
+  result.push(current);
+  return result.map((item) => item.trim());
+}
+
+function parseMemberCsv(text) {
+  const lines = String(text || '')
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  if (lines.length === 0) return [];
+  const headers = parseCsvLine(lines[0]).map((item) => normalizeToken(item).replace(/\s+/g, '_'));
+  return lines.slice(1).map((line, index) => {
+    const cols = parseCsvLine(line);
+    const row = {};
+    headers.forEach((header, colIndex) => {
+      row[header] = cols[colIndex] || '';
+    });
+    return {
+      member_name: row.member_name || row.full_name || row.nama || row.name || '',
+      phone: row.phone || row.no_hp || row.hp || row.mobile || '',
+      email: row.email || '',
+      row_number: index + 2
+    };
+  });
+}
+
 function normalizeToken(value) {
   return String(value || '').trim().toLowerCase();
 }
@@ -409,6 +492,7 @@ export default function AdminPage() {
   const [editingEventId, setEditingEventId] = useState('');
   const [productLoading, setProductLoading] = useState(false);
   const [productSaving, setProductSaving] = useState(false);
+  const [memberSaving, setMemberSaving] = useState(false);
   const [editingProductId, setEditingProductId] = useState('');
   const [packageLoading, setPackageLoading] = useState(false);
   const [packageSaving, setPackageSaving] = useState(false);
@@ -442,11 +526,12 @@ export default function AdminPage() {
   const [eventForm, setEventForm] = useState(() => createEmptyEventForm());
   const [classForm, setClassForm] = useState({ class_name: '', trainer_name: '', capacity: '20', start_at: '' });
   const [classTrainerDraft, setClassTrainerDraft] = useState('');
+  const [memberRelationDraft, setMemberRelationDraft] = useState('');
   const [trainerForm, setTrainerForm] = useState({ trainer_name: '', phone: '', specialization: '' });
   const [productForm, setProductForm] = useState({ product_name: '', category: 'retail', price: '', stock: '' });
   const [packageForm, setPackageForm] = useState({ package_name: '', package_type: 'membership', max_months: '1', session_count: '1', trainer_user_id: '', class_id: '', price: '' });
   const [salesForm, setSalesForm] = useState({ sales_name: '', channel: 'walkin', target_amount: '' });
-  const [memberForm, setMemberForm] = useState({ member_name: '', phone: '', email: '' });
+  const [memberForm, setMemberForm] = useState(() => createEmptyMemberForm());
   const [transactionForm, setTransactionForm] = useState({ no_transaction: '', product: '', qty: '1', price: '' });
   const [saasForm, setSaasForm] = useState({ months: '1', note: '' });
 
@@ -469,6 +554,9 @@ export default function AdminPage() {
   const [selectedSalesUser, setSelectedSalesUser] = useState(null);
   const [salesMemberRows, setSalesMemberRows] = useState([]);
   const [salesMemberLoading, setSalesMemberLoading] = useState(false);
+  const [memberUploadRelations, setMemberUploadRelations] = useState([]);
+  const [memberUploadDraft, setMemberUploadDraft] = useState('');
+  const memberUploadInputRef = useRef(null);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -659,10 +747,37 @@ export default function AdminPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tenantId, branchId]);
 
+  async function loadMembers() {
+    try {
+      setMemberSaving(true);
+      const result = await apiJson(
+        `/v1/read/members?tenant_id=${encodeURIComponent(tenantId)}&branch_id=${encodeURIComponent(branchId)}&limit=200`
+      );
+      const rows = Array.isArray(result.rows) ? result.rows : [];
+      setMembers(
+        rows.map((item) => ({
+          member_id: item.member_id || '',
+          member_name: item.full_name || '',
+          phone: item.phone || '',
+          email: item.email || ''
+        }))
+      );
+    } catch (error) {
+      setMembers(DEFAULT_MEMBERS);
+      setFeedback(error.message);
+    } finally {
+      setMemberSaving(false);
+    }
+  }
+
+  useEffect(() => {
+    loadMembers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tenantId, branchId]);
+
   useEffect(() => {
     setTrainers(loadList('trainers', accountSlug, DEFAULT_TRAINERS));
     setSales(loadList('sales', accountSlug, DEFAULT_SALES));
-    setMembers(loadList('members', accountSlug, DEFAULT_MEMBERS));
     setTransactions(loadList('transactions', accountSlug, DEFAULT_TRANSACTIONS));
     setPtTrainerEnabledMap(loadMap('pt-trainer-enabled', accountSlug, {}));
     setSalesEnabledMap(loadMap('sales-enabled', accountSlug, {}));
@@ -724,7 +839,8 @@ export default function AdminPage() {
   }
 
   const filteredMembers = members.filter((item) =>
-    item.member_name.toLowerCase().includes(memberQuery.toLowerCase())
+    String(item.member_name || '').toLowerCase().includes(memberQuery.toLowerCase()) ||
+    String(item.email || '').toLowerCase().includes(memberQuery.toLowerCase())
   );
   const filteredEvents = events.filter((item) =>
     String(item.event_name || '').toLowerCase().includes(eventQuery.toLowerCase()) ||
@@ -749,6 +865,35 @@ export default function AdminPage() {
         a.localeCompare(b)
       ),
     [trainers]
+  );
+  const memberRelationOptions = useMemo(() => {
+    const eventOptions = (events || []).map((item) => ({
+      kind: 'event',
+      id: String(item.event_id || '').trim(),
+      label: `Event: ${item.event_name || item.event_id || '-'}`
+    }));
+    const classOptions = (classes || []).map((item) => ({
+      kind: 'class',
+      id: String(item.class_id || '').trim(),
+      label: `Class: ${item.class_name || item.class_id || '-'}`
+    }));
+    return [...eventOptions, ...classOptions].filter((item) => item.id);
+  }, [events, classes]);
+  const selectedMemberRelationKeys = useMemo(
+    () => new Set((memberForm.relations || []).map((item) => `${item.kind}:${item.id}`)),
+    [memberForm.relations]
+  );
+  const availableMemberRelationOptions = useMemo(
+    () => memberRelationOptions.filter((item) => !selectedMemberRelationKeys.has(`${item.kind}:${item.id}`)),
+    [memberRelationOptions, selectedMemberRelationKeys]
+  );
+  const selectedMemberUploadRelationKeys = useMemo(
+    () => new Set((memberUploadRelations || []).map((item) => `${item.kind}:${item.id}`)),
+    [memberUploadRelations]
+  );
+  const availableMemberUploadRelationOptions = useMemo(
+    () => memberRelationOptions.filter((item) => !selectedMemberUploadRelationKeys.has(`${item.kind}:${item.id}`)),
+    [memberRelationOptions, selectedMemberUploadRelationKeys]
   );
   const selectedClassTrainerTokens = useMemo(() => parseTrainerTokens(classForm.trainer_name), [classForm.trainer_name]);
   const availableClassTrainerOptions = useMemo(
@@ -1269,13 +1414,73 @@ export default function AdminPage() {
     setSalesMode('add');
   }
 
-  function addMember(e) {
+  function addMemberRelationToken(rawValue, target = 'form') {
+    const option = memberRelationOptions.find((item) => `${item.kind}:${item.id}` === String(rawValue || '').trim());
+    if (!option) return;
+    if (target === 'upload') {
+      setMemberUploadRelations((prev) => normalizeMemberRelationTokens([...prev, option]));
+      setMemberUploadDraft('');
+      return;
+    }
+    setMemberForm((prev) => ({
+      ...prev,
+      relations: normalizeMemberRelationTokens([...(prev.relations || []), option])
+    }));
+    setMemberRelationDraft('');
+  }
+
+  function removeMemberRelationToken(token, target = 'form') {
+    const matcher = `${token.kind}:${token.id}`;
+    if (target === 'upload') {
+      setMemberUploadRelations((prev) => prev.filter((item) => `${item.kind}:${item.id}` !== matcher));
+      return;
+    }
+    setMemberForm((prev) => ({
+      ...prev,
+      relations: (prev.relations || []).filter((item) => `${item.kind}:${item.id}` !== matcher)
+    }));
+  }
+
+  async function saveMemberWithRelations(payload) {
+    const normalizedEmail = normalizeEmailValue(payload.email);
+    if (!normalizedEmail) {
+      throw new Error('email wajib diisi');
+    }
+    const relations = normalizeMemberRelationTokens(payload.relations);
+    if (relations.length === 0) {
+      throw new Error('Pilih minimal satu class/event.');
+    }
+
+    return apiJson('/v1/admin/members/upsert-with-relations', {
+      method: 'POST',
+      body: JSON.stringify({
+        tenant_id: tenantId,
+        branch_id: branchId,
+        full_name: payload.member_name || normalizedEmail.split('@')[0],
+        phone: payload.phone || '',
+        email: normalizedEmail,
+        relations: relations.map((item) => ({ kind: item.kind, id: item.id }))
+      })
+    });
+  }
+
+  async function addMember(e) {
     e.preventDefault();
-    if (!memberForm.member_name || !memberForm.phone) return;
-    setMembers((prev) => [{ ...memberForm, member_id: `member_${Date.now()}` }, ...prev]);
-    setFeedback(`member.created: ${memberForm.member_name}`);
-    setMemberForm({ member_name: '', phone: '', email: '' });
-    setMemberMode('list');
+    try {
+      setMemberSaving(true);
+      const result = await saveMemberWithRelations(memberForm);
+      setFeedback(
+        `member.saved: ${result.member?.email || normalizeEmailValue(memberForm.email)} (${result.relation_results?.length || 0} relasi)`
+      );
+      setMemberForm(createEmptyMemberForm());
+      setMemberRelationDraft('');
+      setMemberMode('list');
+      await loadMembers();
+    } catch (error) {
+      setFeedback(error.message);
+    } finally {
+      setMemberSaving(false);
+    }
   }
 
   function viewMember(item) {
@@ -1286,9 +1491,64 @@ export default function AdminPage() {
     setMemberForm({
       member_name: item.member_name || '',
       phone: item.phone || '',
-      email: item.email || ''
+      email: item.email || '',
+      relations: []
     });
+    setMemberRelationDraft('');
     setMemberMode('add');
+  }
+
+  function openMemberUploadPicker() {
+    memberUploadInputRef.current?.click();
+  }
+
+  async function handleMemberUploadChange(event) {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    if (memberUploadRelations.length === 0) {
+      setFeedback('Pilih minimal satu class/event untuk upload member.');
+      return;
+    }
+    if (!String(file.name || '').toLowerCase().endsWith('.csv')) {
+      setFeedback('Upload member saat ini mendukung file CSV.');
+      return;
+    }
+
+    try {
+      setMemberSaving(true);
+      const text = await file.text();
+      const rows = parseMemberCsv(text).filter((item) => normalizeEmailValue(item.email));
+      if (rows.length === 0) {
+        throw new Error('File CSV tidak memiliki baris member yang valid.');
+      }
+
+      let successCount = 0;
+      const errors = [];
+      for (let i = 0; i < rows.length; i += 1) {
+        const row = rows[i];
+        try {
+          await saveMemberWithRelations({
+            ...row,
+            relations: memberUploadRelations
+          });
+          successCount += 1;
+        } catch (error) {
+          errors.push(`baris ${row.row_number}: ${error.message}`);
+        }
+      }
+
+      await loadMembers();
+      if (errors.length > 0) {
+        setFeedback(`member.upload: ${successCount}/${rows.length} berhasil. ${errors[0]}`);
+      } else {
+        setFeedback(`member.upload: ${successCount}/${rows.length} berhasil.`);
+      }
+    } catch (error) {
+      setFeedback(error.message);
+    } finally {
+      setMemberSaving(false);
+    }
   }
 
   async function addEvent(e) {
@@ -2908,10 +3168,67 @@ export default function AdminPage() {
                         value={memberQuery}
                         onChange={(e) => setMemberQuery(e.target.value)}
                       />
-                      <button className="btn" type="button" onClick={() => setMemberMode('add')}>
+                      <button
+                        className="btn"
+                        type="button"
+                        onClick={() => {
+                          setMemberForm(createEmptyMemberForm());
+                          setMemberRelationDraft('');
+                          setMemberMode('add');
+                        }}
+                      >
                         Add New
                       </button>
+                      <input
+                        ref={memberUploadInputRef}
+                        type="file"
+                        accept=".csv"
+                        onChange={handleMemberUploadChange}
+                        style={{ display: 'none' }}
+                      />
+                      <button className="btn ghost" type="button" onClick={openMemberUploadPicker} disabled={memberSaving}>
+                        Upload
+                      </button>
                     </div>
+                  </div>
+                  <div className="card" style={{ borderStyle: 'dashed', marginBottom: '1rem' }}>
+                    <p className="eyebrow">Upload member relation scope</p>
+                    <div className="row-actions" style={{ marginBottom: '0.5rem' }}>
+                      {memberUploadRelations.length === 0 ? <span className="feedback">Upload akan memakai relasi class/event yang dipilih di sini.</span> : null}
+                      {memberUploadRelations.map((item) => (
+                        <span key={`${item.kind}:${item.id}`} className="passport-chip">
+                          {item.label}
+                          <button
+                            type="button"
+                            className="btn ghost small"
+                            style={{ marginLeft: '0.35rem' }}
+                            onClick={() => removeMemberRelationToken(item, 'upload')}
+                          >
+                            x
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                    <label>
+                      Tambah class/event untuk upload
+                      <select
+                        value={memberUploadDraft}
+                        onChange={(e) => {
+                          setMemberUploadDraft(e.target.value);
+                          if (e.target.value) addMemberRelationToken(e.target.value, 'upload');
+                        }}
+                      >
+                        <option value="">Pilih class/event...</option>
+                        {availableMemberUploadRelationOptions.map((item) => (
+                          <option key={`${item.kind}:${item.id}`} value={`${item.kind}:${item.id}`}>
+                            {item.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <p className="sub" style={{ marginTop: '0.5rem' }}>
+                      Format CSV: `email,member_name,phone`
+                    </p>
                   </div>
                   <div className="entity-list">
                     <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -2952,8 +3269,46 @@ export default function AdminPage() {
                   <form className="form" onSubmit={addMember}>
                     <label>member_name<input value={memberForm.member_name} onChange={(e) => setMemberForm((p) => ({ ...p, member_name: e.target.value }))} /></label>
                     <label>phone<input value={memberForm.phone} onChange={(e) => setMemberForm((p) => ({ ...p, phone: e.target.value }))} /></label>
-                    <label>email<input type="email" value={memberForm.email} onChange={(e) => setMemberForm((p) => ({ ...p, email: e.target.value }))} /></label>
-                    <button className="btn" type="submit">Save member</button>
+                    <label>email (key)<input type="email" value={memberForm.email} onChange={(e) => setMemberForm((p) => ({ ...p, email: e.target.value }))} required /></label>
+                    <div className="card" style={{ borderStyle: 'dashed' }}>
+                      <p className="eyebrow">class/event (token input)</p>
+                      <div className="row-actions" style={{ marginBottom: '0.5rem' }}>
+                        {memberForm.relations.length === 0 ? <span className="feedback">Pilih minimal satu class atau event.</span> : null}
+                        {memberForm.relations.map((item) => (
+                          <span key={`${item.kind}:${item.id}`} className="passport-chip">
+                            {item.label}
+                            <button
+                              type="button"
+                              className="btn ghost small"
+                              style={{ marginLeft: '0.35rem' }}
+                              onClick={() => removeMemberRelationToken(item)}
+                            >
+                              x
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                      <label>
+                        Tambah relasi
+                        <select
+                          value={memberRelationDraft}
+                          onChange={(e) => {
+                            setMemberRelationDraft(e.target.value);
+                            if (e.target.value) addMemberRelationToken(e.target.value);
+                          }}
+                        >
+                          <option value="">Pilih class/event...</option>
+                          {availableMemberRelationOptions.map((item) => (
+                            <option key={`${item.kind}:${item.id}`} value={`${item.kind}:${item.id}`}>
+                              {item.label}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    </div>
+                    <button className="btn" type="submit" disabled={memberSaving}>
+                      {memberSaving ? 'Saving...' : 'Save member'}
+                    </button>
                   </form>
                 </>
               )}

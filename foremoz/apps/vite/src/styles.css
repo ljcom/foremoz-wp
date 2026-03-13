@@ -1400,6 +1400,11 @@ code {
   border-bottom: 1px solid #e5ebf3;
 }
 
+.workspace-panel-head {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
 .search-box {
   display: grid;
   grid-template-columns: 220px 1fr;
@@ -1454,11 +1459,36 @@ code {
   font-family: var(--font-mono);
 }
 
+.member-row-section {
+  margin-top: 0.45rem;
+}
+
+.member-row-section-title {
+  display: block;
+  margin-bottom: 0.3rem;
+  color: #4d5f74;
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
 .member-row-actions {
   margin-top: 0.35rem;
   display: flex;
   flex-wrap: wrap;
   gap: 0.4rem;
+}
+
+.member-experience-btn {
+  border-color: #c7d7ea;
+  color: #35506e;
+}
+
+.member-experience-btn.is-linked {
+  background: #eaf4ff;
+  border-color: #87add9;
+  color: #0b4e8d;
 }
 
 .member-detail {
@@ -1645,6 +1675,11 @@ code {
 
 .payment-history h3 {
   margin: 0 0 0.6rem;
+}
+
+.payment-history label {
+  display: block;
+  margin-bottom: 0.8rem;
 }
 
 .payment-meta {

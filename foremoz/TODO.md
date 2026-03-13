@@ -1,6 +1,14 @@
 # TODO Foremoz
 
-## High Priority
+## Progress Snapshot (Estimated)
+- Overall delivery progress: **68%**
+- Platform stability & routing: **84%**
+- Passport dashboard/public experience: **72%**
+- Admin operational workflow: **70%**
+- QA automation & hardening: **28%**
+- Experience Network whitepaper scope: **34%**
+
+## High Priority (88%)
 - [~] Passport public page `/p/:account` sudah pakai real data inti.
   - Resolve `account -> tenant/passport` sudah ada via endpoint public passport.
   - Identity/stat utama sudah diambil dari API (profile, events, stats, relations).
@@ -18,7 +26,7 @@
   - Endpoint: `PATCH /v1/owner/branches/:branchId`
   - Resolve account publik (`/a/:account`) sudah bisa baca branch slug via `GET /v1/public/account/resolve`.
 
-## Event & Participant
+## Event & Participant (67%)
 - [x] Unique number participant sudah jadi field resmi di backend.
   - Field `participant_no` dibuat server-side saat `event.participant.registered`.
   - Frontend admin scan/check-in menggunakan `participant_no` sebagai prioritas.
@@ -26,26 +34,30 @@
   - Belum ada integrasi kamera (WebRTC / QR scanner) untuk scan langsung.
 - [ ] Tambah export participant/check-in (CSV/XLSX) dari tab Participants/Check in.
 
-## Passport Dashboard
+## Passport Dashboard (62%)
 - [ ] Hubungkan profile editor (nama display, status, avatar) ke API Passport.
   - Saat ini status/avatar disimpan localStorage.
 - [ ] Tambah pengaturan publikasi per-section untuk data lain (bukan hanya toggle tampil).
   - Contoh: urutan section, pin section tertentu, preview mode private/public.
 
-## Public Passport Page
+## Public Passport Page (74%)
 - [ ] Data `Roles/Capabilities` dan `Programs/Products` masih derived sederhana dari events.
   - Perlu read model khusus capability/program yang lebih akurat.
 - [ ] Tambah page khusus `passport.foremoz.com` style + SEO metadata (title/description per profile).
-- [ ] Tambah CTA real: follow, contact, request event (saat ini dummy action).
+- [~] CTA follow/contact/request event.
+  - Remark: contact sekarang hanya muncul untuk context creator/owner; action masih mailto/basic flow.
 
-## Admin Dashboard
+## Admin Dashboard (70%)
+- [x] Event edit sudah punya aksi publikasi yang lebih jelas.
+  - Tombol `Publikasikan Event` + `Turunkan ke Draft` sudah tersedia.
+  - Wording publish flow sudah dirapikan (preview/biaya/publish sekarang).
 - [ ] Event Edit tabs sudah dipisah, tapi perlu validasi UX lanjut:
   - Disable submit saat bukan tab `General` (sudah), namun perlu warning unsaved changes saat pindah tab.
   - Tambah empty-state/guide untuk tab `Check in` dan `Participants` ketika event baru belum dipublish.
 - [ ] Field `trainer_name` token input class sudah jalan.
   - Perlu opsi multi-trainer sebagai struktur data resmi (array) di backend class.
 
-## QA / Hardening
+## QA / Hardening (28%)
 - [ ] Tambah test otomatis untuk flow penting:
   - Event CRUD + publish + public listing
   - Register event + participant count + check-in
@@ -53,7 +65,7 @@
 - [ ] Tambah error boundary/loading skeleton di halaman `/events/register`, `/passport/dashboard`, `/p/:account`.
 - [ ] Audit konsistensi timezone untuk jadwal event (WIB/local vs UTC) di semua page.
 
-## Experience Network Backlog (Whitepaper Sync)
+## Experience Network Backlog (Whitepaper Sync) (34%)
 
 ### 2.1 Passport Core System
 - [~] Create tables: `passport`, `passport_roles`, `passport_follow`, `passport_activity`, `passport_stats`.
@@ -118,7 +130,7 @@
   - Remark: hosted/attended/score mulai ada; rating, returning participants, dan community size belum lengkap.
 - [ ] Reputation formula dan rank layer lintas vertical.
 
-## Product Scope Backlog
+## Product Scope Backlog (65%)
 
 ### Web
 - [ ] Landing page
@@ -179,6 +191,9 @@
   - [x] member signup -> signin
   - [x] tenant signin
 - [~] Public: event detail -> see events
+  - [x] Account scoped event page `/a/:account/events` (tidak lari ke `/events` global)
+  - [x] Pada `/a/:account/events`, `Sign in` diarahkan ke `/a/:account/member/signin`
+  - [x] Brand kiri atas di `/a/:account/events` pakai display name account (gym_name)
   - [x] registration -> member signup -> signin
   - [x] share
   - Remark: detail event sudah ada image/description/schedule; masih bisa ditambah konten media.

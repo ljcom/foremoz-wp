@@ -298,6 +298,280 @@ async function getLatestEntityDataByEventTypes(tenantId, idField, idValue, event
   return rows[0]?.data || null;
 }
 
+async function getLatestEventLifecycleData(tenantId, eventId) {
+  const namespaceId = resolveNamespaceId(tenantId);
+  const { rows } = await query(
+    `select event_type, payload->'data' as data
+     from eventdb_event
+     where namespace_id = $1
+       and event_type = any($2::text[])
+       and payload->'data'->>'event_id' = $3
+     order by sequence desc
+     limit 1`,
+    [namespaceId, ['event.created', 'event.updated', 'event.deleted'], eventId]
+  );
+  return rows[0] || null;
+}
+
+function normalizeMemberRelationTokens(value) {
+  const items = Array.isArray(value) ? value : [];
+  const deduped = [];
+  const seen = new Set();
+  for (const item of items) {
+    if (!item || typeof item !== 'object') {
+      throw fail(400, 'BAD_REQUEST', 'relations must be an array of objects');
+    }
+    const kind = String(item.kind || item.type || '').trim().toLowerCase();
+    const id = String(item.id || item.value || item.class_id || item.event_id || '').trim();
+    if (kind !== 'class' && kind !== 'event') {
+      throw fail(400, 'BAD_REQUEST', 'relation kind must be class or event');
+    }
+    if (!id) {
+      throw fail(400, 'BAD_REQUEST', 'relation id is required');
+    }
+    const key = `${kind}:${id}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    deduped.push({ kind, id });
+  }
+  if (deduped.length === 0) {
+    throw fail(400, 'BAD_REQUEST', 'at least one class/event relation is required');
+  }
+  return deduped;
+}
+
+async function callPassportApi(path, options = {}) {
+  const response = await fetch(`${config.passportApiBaseUrl.replace(/\/+$/, '')}${path}`, {
+    ...options,
+    headers: {
+      'content-type': 'application/json',
+      ...(options.headers || {})
+    }
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || payload.status === 'FAIL') {
+    throw fail(response.status || 502, 'PASSPORT_API_ERROR', payload.message || `passport request failed: ${response.status}`);
+  }
+  return payload;
+}
+
+async function ensurePassportIdentity({ tenantId, branchId, actorId, email, fullName }) {
+  const payload = await callPassportApi('/v1/admin/passports/ensure-by-email', {
+    method: 'POST',
+    body: JSON.stringify({
+      tenant_id: tenantId,
+      branch_id: branchId || null,
+      actor_id: actorId || config.defaultActorId,
+      email,
+      full_name: fullName || null
+    })
+  });
+  if (!payload?.item?.passport_id) {
+    throw fail(502, 'PASSPORT_API_ERROR', 'passport ensure response is incomplete');
+  }
+  return {
+    item: payload.item,
+    created: payload.created === true
+  };
+}
+
+async function findMemberByEmailOrId({ tenantId, memberId, email }) {
+  const normalizedMemberId = String(memberId || '').trim();
+  const normalizedEmail = String(email || '').trim().toLowerCase();
+  if (!normalizedMemberId && !normalizedEmail) return null;
+  const params = [tenantId];
+  const filters = [];
+  if (normalizedMemberId) {
+    params.push(normalizedMemberId);
+    filters.push(`member_id = $${params.length}`);
+  }
+  if (normalizedEmail) {
+    params.push(normalizedEmail);
+    filters.push(`lower(email) = $${params.length}`);
+  }
+  const { rows } = await query(
+    `select tenant_id, branch_id, member_id, full_name, phone, email, status
+     from read.rm_member
+     where tenant_id = $1
+       and (${filters.join(' or ')})
+     order by updated_at desc
+     limit 1`,
+    params
+  );
+  return rows[0] || null;
+}
+
+async function upsertMemberRecord({
+  tenantId,
+  branchId,
+  actorId,
+  memberId,
+  fullName,
+  phone,
+  email,
+  status
+}) {
+  const existing = await findMemberByEmailOrId({ tenantId, memberId, email });
+  const normalizedPhone = String(phone || '').trim() || null;
+  const normalizedEmail = String(email || '').trim().toLowerCase();
+  const resolvedStatus = status || existing?.status || 'active';
+
+  if (!existing) {
+    const event = await appendDomainEvent({
+      tenantId,
+      branchId,
+      actorId: actorId || config.defaultActorId,
+      eventType: 'member.registered',
+      subjectKind: 'member',
+      subjectId: memberId,
+      data: {
+        tenant_id: tenantId,
+        branch_id: branchId || null,
+        member_id: memberId,
+        full_name: fullName,
+        phone: normalizedPhone,
+        email: normalizedEmail,
+        status: resolvedStatus
+      },
+      refs: {},
+      uniqueIds: [{ scope: 'member.member_id', value: memberId }]
+    });
+    return { event, created: true };
+  }
+
+  const patch = {};
+  if (fullName && fullName !== existing.full_name) patch.full_name = fullName;
+  if (normalizedPhone !== (existing.phone || null)) patch.phone = normalizedPhone;
+  if (resolvedStatus !== existing.status) patch.status = resolvedStatus;
+  if (normalizedEmail && normalizedEmail !== String(existing.email || '').trim().toLowerCase()) {
+    patch.email = normalizedEmail;
+  }
+
+  if (Object.keys(patch).length === 0) {
+    return { event: null, created: false };
+  }
+
+  const event = await appendDomainEvent({
+    tenantId,
+    branchId,
+    actorId: actorId || config.defaultActorId,
+    eventType: 'member.updated',
+    subjectKind: 'member',
+    subjectId: existing.member_id,
+    data: {
+      tenant_id: tenantId,
+      branch_id: branchId || existing.branch_id || null,
+      member_id: existing.member_id,
+      patch
+    },
+    refs: {}
+  });
+  return { event, created: false };
+}
+
+async function ensureEventParticipantRelation({ tenantId, branchId, actorId, eventId, passportId, email, fullName }) {
+  const namespaceId = resolveNamespaceId(tenantId);
+  const normalizedEmail = String(email || '').trim().toLowerCase();
+  const filters = [];
+  const params = [namespaceId, eventId];
+  if (passportId) {
+    params.push(passportId);
+    filters.push(`payload->'data'->>'passport_id' = $${params.length}`);
+  }
+  if (normalizedEmail) {
+    params.push(normalizedEmail);
+    filters.push(`lower(payload->'data'->>'email') = $${params.length}`);
+  }
+  if (filters.length === 0) {
+    throw fail(400, 'BAD_REQUEST', 'passport_id or email is required for event relation');
+  }
+  const existing = await query(
+    `select payload->'data' as data
+     from eventdb_event
+     where namespace_id = $1
+       and event_type = 'event.participant.registered'
+       and payload->'data'->>'event_id' = $2
+       and (${filters.join(' or ')})
+     order by sequence desc
+     limit 1`,
+    params
+  );
+  if (existing.rows[0]?.data?.registration_id) {
+    return { created: false, relation: { kind: 'event', id: eventId, registration_id: existing.rows[0].data.registration_id } };
+  }
+
+  const registrationId = `evr_${Date.now()}_${randomUUID().slice(0, 8)}`;
+  const event = await appendDomainEvent({
+    tenantId,
+    branchId,
+    actorId: actorId || passportId || normalizedEmail || config.defaultActorId,
+    actorKind: 'member',
+    eventType: 'event.participant.registered',
+    subjectKind: 'event_registration',
+    subjectId: registrationId,
+    data: {
+      tenant_id: tenantId,
+      branch_id: branchId || null,
+      event_id: eventId,
+      registration_id: registrationId,
+      participant_no: buildParticipantNumber(eventId),
+      passport_id: passportId || null,
+      full_name: fullName || null,
+      email: normalizedEmail || null,
+      registration_answers: {},
+      registered_at: new Date().toISOString()
+    },
+    refs: {}
+  });
+  return { created: true, event, relation: { kind: 'event', id: eventId } };
+}
+
+async function ensureClassBookingRelation({ tenantId, branchId, actorId, classId, memberId }) {
+  const existing = await query(
+    `select booking_id
+     from read.rm_booking_list
+     where tenant_id = $1
+       and class_id = $2
+       and member_id = $3
+       and status = 'booked'
+     order by updated_at desc
+     limit 1`,
+    [tenantId, classId, memberId]
+  );
+  if (existing.rows[0]?.booking_id) {
+    return { created: false, relation: { kind: 'class', id: classId, booking_id: existing.rows[0].booking_id } };
+  }
+
+  const latestClass = await getLatestClassScheduledData(tenantId, classId);
+  const resolvedBranchId = branchId || latestClass?.branch_id || null;
+  if (!resolvedBranchId) {
+    throw fail(400, 'BAD_REQUEST', 'branch_id is required for class relation');
+  }
+  const bookingId = `book_${Date.now()}_${randomUUID().slice(0, 8)}`;
+  const event = await appendDomainEvent({
+    tenantId,
+    branchId: resolvedBranchId,
+    actorId: actorId || config.defaultActorId,
+    eventType: 'class.booking.created',
+    subjectKind: 'booking',
+    subjectId: bookingId,
+    data: {
+      tenant_id: tenantId,
+      branch_id: resolvedBranchId,
+      booking_id: bookingId,
+      class_id: classId,
+      booking_kind: 'member',
+      member_id: memberId,
+      guest_name: null,
+      status: 'booked',
+      booked_at: new Date().toISOString()
+    },
+    refs: {},
+    uniqueIds: [{ scope: 'booking.booking_id', value: bookingId }]
+  });
+  return { created: true, event, relation: { kind: 'class', id: classId, booking_id: bookingId } };
+}
+
 async function ensureMemberIdentityUnique({ tenantId, email, phone, idCard }) {
   const normalizedEmail = normalizeEmail(required(email, 'email'));
   const normalizedPhone = String(required(phone, 'phone')).trim();
@@ -1768,6 +2042,114 @@ app.post('/v1/members/register', async (req, res, next) => {
     });
     await runFitnessProjection({ tenantId, branchId: data.branch_id || 'core' });
     return created(res, { event });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.post('/v1/admin/members/upsert-with-relations', async (req, res, next) => {
+  try {
+    const data = req.body || {};
+    const tenantId = data.tenant_id || config.defaultTenantId;
+    const actorId = data.actor_id || config.defaultActorId;
+    const email = normalizeEmail(required(data.email, 'email'));
+    const relations = normalizeMemberRelationTokens(data.relations);
+
+    const passport = await ensurePassportIdentity({
+      tenantId,
+      branchId: data.branch_id || null,
+      actorId,
+      email,
+      fullName: String(data.full_name || '').trim()
+    });
+    const passportItem = passport.item;
+    const memberId = normalizeEmail(passportItem.email || email);
+    const fullName = String(passportItem.full_name || data.full_name || email.split('@')[0]).trim();
+
+    const memberMutation = await upsertMemberRecord({
+      tenantId,
+      branchId: data.branch_id || null,
+      actorId,
+      memberId,
+      fullName,
+      phone: data.phone || null,
+      email: memberId,
+      status: data.status || 'active'
+    });
+
+    const relationResults = [];
+    const touchedBranchIds = new Set();
+    if (data.branch_id) touchedBranchIds.add(String(data.branch_id));
+
+    for (const relation of relations) {
+      if (relation.kind === 'event') {
+        const eventState = await getLatestEventLifecycleData(tenantId, relation.id);
+        if (!eventState || eventState.event_type === 'event.deleted') {
+          throw fail(404, 'EVENT_NOT_FOUND', `event ${relation.id} not found`);
+        }
+        if (eventState?.data?.branch_id) touchedBranchIds.add(String(eventState.data.branch_id));
+        relationResults.push(
+          await ensureEventParticipantRelation({
+            tenantId,
+            branchId: eventState?.data?.branch_id || data.branch_id || null,
+            actorId,
+            eventId: relation.id,
+            passportId: String(passportItem.passport_id || '').trim(),
+            email: memberId,
+            fullName
+          })
+        );
+        continue;
+      }
+
+      const latestClass = await getLatestClassScheduledData(tenantId, relation.id);
+      if (!latestClass) {
+        throw fail(404, 'CLASS_NOT_FOUND', `class ${relation.id} not found`);
+      }
+      if (latestClass.branch_id) touchedBranchIds.add(String(latestClass.branch_id));
+      relationResults.push(
+        await ensureClassBookingRelation({
+          tenantId,
+          branchId: latestClass.branch_id || data.branch_id || null,
+          actorId,
+          classId: relation.id,
+          memberId
+        })
+      );
+    }
+
+    await runFitnessProjection({ tenantId, branchId: null });
+    for (const item of touchedBranchIds) {
+      if (!item) continue;
+      await runFitnessProjection({ tenantId, branchId: item });
+    }
+
+    const member = await findMemberByEmailOrId({ tenantId, memberId, email: memberId });
+
+    return created(res, {
+      tenant_id: tenantId,
+      member: member || {
+        tenant_id: tenantId,
+        branch_id: data.branch_id || null,
+        member_id: memberId,
+        full_name: fullName,
+        phone: data.phone || null,
+        email: memberId,
+        status: data.status || 'active'
+      },
+      passport: {
+        passport_id: passportItem.passport_id,
+        member_id: passportItem.member_id || passportItem.passport_id,
+        full_name: fullName,
+        email: memberId,
+        created: passport.created
+      },
+      member_created: memberMutation.created,
+      relation_results: relationResults.map((item) => ({
+        ...item.relation,
+        created: item.created
+      }))
+    });
   } catch (error) {
     return next(error);
   }

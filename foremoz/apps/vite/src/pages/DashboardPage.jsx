@@ -1,6 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { accountPath, apiJson, clearSession, getAccountSlug, getEnvironmentLabel, getSession, getAllowedEnvironments } from '../lib.js';
+import {
+  accountPath,
+  apiJson,
+  clearSession,
+  getAccountSlug,
+  getEnvironmentLabel,
+  getSession,
+  getAllowedEnvironments,
+  getSessionPackagePlan
+} from '../lib.js';
 import { getVerticalLabel, guessVerticalSlugByText } from '../industry-jargon.js';
 
 function Stat({ label, value, iconClass, tone, hint }) {
@@ -65,6 +74,19 @@ function isSameParticipant(member, participant) {
   return false;
 }
 
+function isSameBookingMember(member, booking) {
+  const memberId = String(member?.member_id || '').trim();
+  const bookingMemberId = String(booking?.member_id || '').trim();
+  if (memberId && bookingMemberId) return memberId === bookingMemberId;
+  const memberEmail = toLowerText(member?.email);
+  const bookingEmail = toLowerText(booking?.email);
+  if (memberEmail && bookingEmail) return memberEmail === bookingEmail;
+  const memberName = toLowerText(member?.full_name);
+  const bookingName = toLowerText(booking?.guest_name);
+  if (memberName && bookingName) return memberName === bookingName;
+  return false;
+}
+
 export default function DashboardPage() {
   const navigate = useNavigate();
   const session = getSession();
@@ -74,16 +96,6 @@ export default function DashboardPage() {
   const [error, setError] = useState('');
   const [dashboardRow, setDashboardRow] = useState(null);
   const [members, setMembers] = useState([]);
-  const [memberMode, setMemberMode] = useState('list');
-  const [memberSaving, setMemberSaving] = useState(false);
-  const [memberForm, setMemberForm] = useState({
-    full_name: '',
-    phone: '',
-    email: '',
-    id_card: '',
-    member_id: ''
-  });
-  const [memberFeedback, setMemberFeedback] = useState('');
   const [workspaceTab, setWorkspaceTab] = useState('member');
   const [classPanelQuery, setClassPanelQuery] = useState('');
   const [eventPanelQuery, setEventPanelQuery] = useState('');
@@ -94,7 +106,10 @@ export default function DashboardPage() {
   const [selectedExperienceId, setSelectedExperienceId] = useState('');
   const [eventParticipants, setEventParticipants] = useState([]);
   const [eventParticipantsLoading, setEventParticipantsLoading] = useState(false);
+  const [classBookings, setClassBookings] = useState([]);
+  const [classBookingsLoading, setClassBookingsLoading] = useState(false);
   const [eventParticipantQuery, setEventParticipantQuery] = useState('');
+  const [memberScopedFilter, setMemberScopedFilter] = useState(null);
   const [participantSearchRows, setParticipantSearchRows] = useState([]);
   const [participantSearchLoading, setParticipantSearchLoading] = useState(false);
   const [actionFeedback, setActionFeedback] = useState('');
@@ -104,6 +119,7 @@ export default function DashboardPage() {
   const tenantId = session?.tenant?.id || 'tn_001';
   const branchId = session?.branch?.id || 'core';
   const role = String(session?.role || 'admin').toLowerCase();
+  const packagePlan = getSessionPackagePlan(session);
   const fullName = session?.user?.fullName || session?.user?.full_name || 'User';
   const resolvedVerticalSlug = String(session?.tenant?.industry_slug || '').trim().toLowerCase()
     || guessVerticalSlugByText(`${session?.tenant?.gym_name || ''} ${accountSlug}`, 'active');
@@ -115,6 +131,7 @@ export default function DashboardPage() {
   const allowedEnv = useMemo(() => {
     return getAllowedEnvironments(session, role);
   }, [session, role]);
+  const showClassWorkspace = packagePlan !== 'free';
 
   useEffect(() => {
     if (allowedEnv.length === 0) return;
@@ -122,6 +139,17 @@ export default function DashboardPage() {
       setTargetEnv(allowedEnv[0]);
     }
   }, [allowedEnv, targetEnv]);
+
+  useEffect(() => {
+    if (showClassWorkspace) return;
+    if (workspaceTab === 'class') {
+      setWorkspaceTab('member');
+    }
+    if (selectedExperienceType === 'class') {
+      setSelectedExperienceType('event');
+      setSelectedExperienceId('');
+    }
+  }, [showClassWorkspace, workspaceTab, selectedExperienceType]);
 
   async function loadDashboard() {
     try {
@@ -187,6 +215,24 @@ export default function DashboardPage() {
     }
   }
 
+  async function loadClassBookings(classId) {
+    if (!classId) {
+      setClassBookings([]);
+      return;
+    }
+    try {
+      setClassBookingsLoading(true);
+      const response = await apiJson(
+        `/v1/read/bookings?tenant_id=${encodeURIComponent(tenantId)}&class_id=${encodeURIComponent(classId)}`
+      );
+      setClassBookings(response.rows || []);
+    } catch (err) {
+      setActionFeedback(err.message || 'failed to load class bookings');
+    } finally {
+      setClassBookingsLoading(false);
+    }
+  }
+
   useEffect(() => {
     loadDashboard();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -200,6 +246,15 @@ export default function DashboardPage() {
     loadEventParticipants(selectedExperienceId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedExperienceId, selectedExperienceType]);
+
+  useEffect(() => {
+    if (selectedExperienceType !== 'class' || !selectedExperienceId) {
+      setClassBookings([]);
+      return;
+    }
+    loadClassBookings(selectedExperienceId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedExperienceId, selectedExperienceType, tenantId]);
 
   const activeEvents = useMemo(() => {
     const activeStatuses = new Set(['scheduled', 'published', 'posted', 'active', 'open']);
@@ -385,6 +440,55 @@ export default function DashboardPage() {
     return attachmentMap;
   }, [searchSource, participantSearchRows]);
 
+  const activeExperienceCatalog = useMemo(() => {
+    const deduped = [];
+    const seen = new Set();
+    const rows = [
+      ...activeEvents.map((row) => ({
+        kind: 'event',
+        source_id: String(row?.event_id || '').trim(),
+        source_name: row?.event_name || 'Event'
+      })),
+      ...activeClasses.map((row) => ({
+        kind: 'class',
+        source_id: String(row?.class_id || '').trim(),
+        source_name: row?.class_name || 'Class'
+      }))
+    ];
+    rows.forEach((item) => {
+      const sourceKey = item.source_id || item.source_name;
+      const itemKey = `${item.kind}:${sourceKey}`;
+      if (!sourceKey || seen.has(itemKey)) return;
+      seen.add(itemKey);
+      deduped.push(item);
+    });
+    return deduped;
+  }, [activeEvents, activeClasses]);
+
+  const memberCardExperienceMap = useMemo(() => {
+    const mapped = new Map();
+    searchSource.forEach((member) => {
+      const memberId = String(member?.member_id || '').trim();
+      if (!memberId) return;
+      const attachments = memberAttachmentMap.get(memberId) || [];
+      const attachmentByKey = new Map(
+        attachments.map((item) => [`${item.kind}:${item.source_id}`, item])
+      );
+      mapped.set(
+        memberId,
+        activeExperienceCatalog.map((item) => {
+          const linked = attachmentByKey.get(`${item.kind}:${item.source_id}`) || null;
+          return {
+            ...item,
+            is_linked: Boolean(linked),
+            linked_status: linked?.status || ''
+          };
+        })
+      );
+    });
+    return mapped;
+  }, [searchSource, memberAttachmentMap, activeExperienceCatalog]);
+
   const searchResults = useMemo(() => {
     const q = String(query || '').trim().toLowerCase();
     const memberRows = searchSource.map((member, index) => ({
@@ -440,23 +544,29 @@ export default function DashboardPage() {
 
   const filteredEvents = useMemo(() => {
     const q = toLowerText(eventPanelQuery);
-    if (!q) return events;
-    return events.filter((row) => {
+    const baseRows = memberScopedFilter?.kind === 'event' && memberScopedFilter?.source_id
+      ? events.filter((row) => String(row?.event_id || '') === String(memberScopedFilter.source_id))
+      : events;
+    if (!q) return baseRows;
+    return baseRows.filter((row) => {
       return [row.event_name, row.location, row.event_id, row.status, row.organizer_name]
         .map((v) => toLowerText(v))
         .some((v) => v.includes(q));
     });
-  }, [events, eventPanelQuery]);
+  }, [events, eventPanelQuery, memberScopedFilter]);
 
   const filteredClassPanel = useMemo(() => {
     const q = toLowerText(classPanelQuery);
-    if (!q) return classes;
-    return classes.filter((row) => {
+    const baseRows = memberScopedFilter?.kind === 'class' && memberScopedFilter?.source_id
+      ? classes.filter((row) => String(row?.class_id || '') === String(memberScopedFilter.source_id))
+      : classes;
+    if (!q) return baseRows;
+    return baseRows.filter((row) => {
       return [row.class_name, row.class_id, row.trainer_name, row.branch_id]
         .map((v) => toLowerText(v))
         .some((v) => v.includes(q));
     });
-  }, [classes, classPanelQuery]);
+  }, [classes, classPanelQuery, memberScopedFilter]);
 
   const selectedEvent = useMemo(() => {
     if (selectedExperienceType !== 'event') return null;
@@ -467,11 +577,23 @@ export default function DashboardPage() {
     if (selectedExperienceType !== 'class') return null;
     return classes.find((row) => String(row.class_id || '') === String(selectedExperienceId || '')) || null;
   }, [classes, selectedExperienceId, selectedExperienceType]);
+  const selectedExperienceLabel = useMemo(() => {
+    if (selectedExperienceType === 'event') {
+      return selectedEvent ? `Event: ${selectedEvent.event_name || selectedEvent.event_id}` : '';
+    }
+    if (selectedExperienceType === 'class') {
+      return selectedClass ? `Class: ${selectedClass.class_name || selectedClass.class_id}` : '';
+    }
+    return '';
+  }, [selectedClass, selectedEvent, selectedExperienceType]);
 
   const filteredEventParticipants = useMemo(() => {
     const q = toLowerText(eventParticipantQuery);
-    if (!q) return eventParticipants;
-    return eventParticipants.filter((participant) => {
+    const baseRows = memberScopedFilter?.kind === 'event' && selectedMember
+      ? eventParticipants.filter((participant) => isSameParticipant(selectedMember, participant))
+      : eventParticipants;
+    if (!q) return baseRows;
+    return baseRows.filter((participant) => {
       const bucket = [
         participant.full_name,
         participant.email,
@@ -483,7 +605,20 @@ export default function DashboardPage() {
         .filter(Boolean);
       return bucket.some((value) => value.includes(q));
     });
-  }, [eventParticipants, eventParticipantQuery]);
+  }, [eventParticipants, eventParticipantQuery, memberScopedFilter, selectedMember]);
+
+  const filteredClassBookings = useMemo(() => {
+    const rows = memberScopedFilter?.kind === 'class' && selectedMember
+      ? classBookings.filter((booking) => isSameBookingMember(selectedMember, booking))
+      : classBookings;
+    return rows;
+  }, [classBookings, memberScopedFilter, selectedMember]);
+
+  function clearMemberScopedFilter() {
+    setMemberScopedFilter(null);
+    setEventParticipantQuery('');
+    setActionFeedback('');
+  }
 
   function signOut() {
     clearSession();
@@ -604,42 +739,6 @@ export default function DashboardPage() {
       ]);
     });
     downloadCsvFile(`cs-classes-${Date.now()}.csv`, rows);
-  }
-
-  async function addMember(e) {
-    e.preventDefault();
-    if (!memberForm.full_name.trim() || !memberForm.phone.trim() || !memberForm.email.trim() || !memberForm.id_card.trim()) return;
-
-    const generatedId = memberForm.member_id.trim() || `mem_${Date.now()}`;
-    try {
-      setMemberSaving(true);
-      setMemberFeedback('');
-      await apiJson('/v1/members/register', {
-        method: 'POST',
-        body: JSON.stringify({
-          tenant_id: tenantId,
-          branch_id: branchId,
-          member_id: generatedId,
-          full_name: memberForm.full_name.trim(),
-          phone: memberForm.phone.trim(),
-          email: memberForm.email.trim(),
-          id_card: memberForm.id_card.trim(),
-          status: 'active'
-        })
-      });
-
-      await loadDashboard();
-      setMemberMode('list');
-      setMemberForm({ full_name: '', phone: '', email: '', id_card: '', member_id: '' });
-      setMemberFeedback(`member.created: ${generatedId}`);
-      setSelectedMemberId(generatedId);
-      setSearchBy('member_id');
-      setQuery(generatedId);
-    } catch (err) {
-      setMemberFeedback(err.message || 'failed to create member');
-    } finally {
-      setMemberSaving(false);
-    }
   }
 
   async function checkinByIdentity({ member = null, participant = null }) {
@@ -814,7 +913,7 @@ export default function DashboardPage() {
       {error ? <p className="error">{error}</p> : null}
 
       <section className="card search-panel">
-        <div className="panel-head">
+        <div className="panel-head workspace-panel-head">
           <div>
             <p className="eyebrow">Workspace</p>
             <h2>Pilih Panel</h2>
@@ -834,16 +933,18 @@ export default function DashboardPage() {
           >
             Event
           </button>
-          <button
-            type="button"
-            className={`landing-tab ${workspaceTab === 'class' ? 'active' : ''}`}
-            onClick={() => {
-              setWorkspaceTab('class');
-              setSelectedExperienceType('class');
-            }}
-          >
-            Class
-          </button>
+          {showClassWorkspace ? (
+            <button
+              type="button"
+              className={`landing-tab ${workspaceTab === 'class' ? 'active' : ''}`}
+              onClick={() => {
+                setWorkspaceTab('class');
+                setSelectedExperienceType('class');
+              }}
+            >
+              Class
+            </button>
+          ) : null}
         </div>
       </section>
 
@@ -854,24 +955,49 @@ export default function DashboardPage() {
               <p className="eyebrow">Membership Search</p>
               <h2>Cari Member</h2>
             </div>
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
-              <button className="btn ghost" onClick={scanQrCode}>
-                Scan QR/Barcode
-              </button>
-              <button
-                className="btn"
-                type="button"
-                onClick={() => {
-                  setMemberMode((prev) => (prev === 'add' ? 'list' : 'add'));
-                  setMemberFeedback('');
-                }}
-              >
-                {memberMode === 'add' ? 'Batal' : 'Tambah Member'}
-              </button>
-            </div>
+            <button className="btn ghost" onClick={scanQrCode}>
+              Scan QR/Barcode
+            </button>
           </div>
 
           <div className="search-box">
+            <label>
+              Relasi member
+              <select
+                value={selectedExperienceType}
+                onChange={(e) => {
+                  const next = e.target.value;
+                  setSelectedExperienceType(next);
+                  setWorkspaceTab(next === 'class' ? 'class' : 'event');
+                  setSelectedExperienceId('');
+                }}
+              >
+                <option value="event">Event</option>
+                {showClassWorkspace ? <option value="class">Class</option> : null}
+              </select>
+            </label>
+            <label>
+              {selectedExperienceType === 'class' ? 'Class aktif' : 'Event aktif'}
+              <select
+                value={selectedExperienceId}
+                onChange={(e) => {
+                  setSelectedExperienceId(e.target.value);
+                }}
+              >
+                <option value="">{selectedExperienceType === 'class' ? 'Pilih class...' : 'Pilih event...'}</option>
+                {(selectedExperienceType === 'class' ? classes : events).map((item) => {
+                  const id = selectedExperienceType === 'class' ? item.class_id : item.event_id;
+                  const label = selectedExperienceType === 'class'
+                    ? (item.class_name || item.class_id || '-')
+                    : (item.event_name || item.event_id || '-');
+                  return (
+                    <option key={id} value={id}>
+                      {label}
+                    </option>
+                  );
+                })}
+              </select>
+            </label>
             <label>
               Cari berdasarkan
               <select value={searchBy} onChange={(e) => setSearchBy(e.target.value)}>
@@ -887,82 +1013,99 @@ export default function DashboardPage() {
               <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Nama, no HP, ID card, member ID" />
             </label>
           </div>
-
-          {memberMode === 'add' ? (
-            <form className="form" onSubmit={addMember} style={{ marginTop: '0.75rem' }}>
-              <label>
-                Nama lengkap
-                <input value={memberForm.full_name} onChange={(e) => setMemberForm((prev) => ({ ...prev, full_name: e.target.value }))} placeholder="Nama member" />
-              </label>
-              <label>
-                No. HP
-                <input value={memberForm.phone} onChange={(e) => setMemberForm((prev) => ({ ...prev, phone: e.target.value }))} placeholder="08xxxxxxxxxx" />
-              </label>
-              <label>
-                Email
-                <input type="email" value={memberForm.email} onChange={(e) => setMemberForm((prev) => ({ ...prev, email: e.target.value }))} placeholder="member@email.com" />
-              </label>
-              <label>
-                ID Card
-                <input value={memberForm.id_card} onChange={(e) => setMemberForm((prev) => ({ ...prev, id_card: e.target.value }))} placeholder="KTP / ID Card" />
-              </label>
-              <label>
-                Member ID (opsional)
-                <input value={memberForm.member_id} onChange={(e) => setMemberForm((prev) => ({ ...prev, member_id: e.target.value }))} placeholder="auto-generate if empty" />
-              </label>
-              <button className="btn" type="submit" disabled={memberSaving}>
-                {memberSaving ? 'Menyimpan...' : 'Simpan Member'}
-              </button>
-            </form>
-          ) : null}
-
-          {memberFeedback ? <p className="feedback">{memberFeedback}</p> : null}
+          <p className="sub" style={{ marginTop: '0.5rem' }}>
+            Konteks panel: {selectedExperienceLabel || 'belum dipilih'}
+          </p>
           {participantSearchLoading ? <p className="feedback">Memuat keterkaitan member dengan event/class aktif...</p> : null}
 
           <div className="search-result-list">
             {searchResults.length > 0 ? (
               searchResults.map((row) => {
                 const isSelected = String(row.member_id || '') === String(selectedMemberId || '');
-                const attachments = memberAttachmentMap.get(String(row.member_id || '').trim()) || [];
+                const memberId = String(row.member_id || '').trim();
+                const cardExperiences = memberCardExperienceMap.get(memberId) || [];
+                const cardEvents = cardExperiences.filter((item) => item.kind === 'event');
+                const cardClasses = cardExperiences.filter((item) => item.kind === 'class');
                 return (
-                  <div key={row.key} className={`member-row ${isSelected ? 'selected' : ''}`}>
+                  <div
+                    key={row.key}
+                    className={`member-row ${isSelected ? 'selected' : ''}`}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => setSelectedMemberId(row.member_id)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        setSelectedMemberId(row.member_id);
+                      }
+                    }}
+                  >
                     <strong>{row.full_name || '-'}</strong>
                     <span>{row.member_id || '-'}</span>
                     <span>{row.phone || '-'}</span>
                     <span>{row.email || '-'}</span>
                     <span className={`status ${row.status}`}>{row.status || '-'}</span>
-                    {attachments.length > 0 ? (
-                      <div className="member-row-actions">
-                        {attachments.map((item) => (
-                          <button
-                            key={`${row.member_id}-${item.kind}-${item.source_id}`}
-                            className="btn ghost small"
-                            type="button"
-                            onClick={() => {
-                              if (item.kind === 'event') {
+
+                    {cardEvents.length > 0 ? (
+                      <div className="member-row-section">
+                        <span className="member-row-section-title">Event aktif</span>
+                        <div className="member-row-actions">
+                          {cardEvents.map((item) => (
+                            <button
+                              key={`${row.member_id}-${item.kind}-${item.source_id}`}
+                              className={`btn ghost small member-experience-btn ${item.is_linked ? 'is-linked' : ''}`}
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                setSelectedMemberId(row.member_id);
                                 setWorkspaceTab('event');
                                 setSelectedExperienceType('event');
                                 setSelectedExperienceId(item.source_id);
-                              } else {
+                                setMemberScopedFilter({
+                                  member_id: row.member_id,
+                                  kind: 'event',
+                                  source_id: item.source_id
+                                });
+                                setEventParticipantQuery('');
+                              }}
+                            >
+                              {item.source_name}
+                              {item.is_linked ? ` - ${item.linked_status || 'registered'}` : ''}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {cardClasses.length > 0 ? (
+                      <div className="member-row-section">
+                        <span className="member-row-section-title">Class aktif</span>
+                        <div className="member-row-actions">
+                          {cardClasses.map((item) => (
+                            <button
+                              key={`${row.member_id}-${item.kind}-${item.source_id}`}
+                              className={`btn ghost small member-experience-btn ${item.is_linked ? 'is-linked' : ''}`}
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                setSelectedMemberId(row.member_id);
                                 setWorkspaceTab('class');
                                 setSelectedExperienceType('class');
                                 setSelectedExperienceId(item.source_id);
-                              }
-                            }}
-                          >
-                            {item.kind === 'event' ? 'Event' : 'Class'}: {item.source_name}
-                          </button>
-                        ))}
+                                setMemberScopedFilter({
+                                  member_id: row.member_id,
+                                  kind: 'class',
+                                  source_id: item.source_id
+                                });
+                              }}
+                            >
+                              {item.source_name}
+                              {item.is_linked ? ` - ${item.linked_status || 'booked'}` : ''}
+                            </button>
+                          ))}
+                        </div>
                       </div>
                     ) : null}
-                    <div className="member-row-actions">
-                      <button className="btn ghost small" type="button" onClick={() => setSelectedMemberId(row.member_id)}>
-                        {isSelected ? 'Terpilih' : 'Pilih'}
-                      </button>
-                      <button className="btn ghost small" type="button" onClick={() => navigate(accountPath(session, `/members/${row.member_id}`))}>
-                        Lihat Member
-                      </button>
-                    </div>
                   </div>
                 );
               })
@@ -990,6 +1133,16 @@ export default function DashboardPage() {
             </div>
           </div>
 
+          {memberScopedFilter?.kind === 'event' && selectedMember ? (
+            <p className="mini-note">
+              Filter aktif untuk member <strong>{selectedMember.full_name || selectedMember.member_id}</strong>.
+              {' '}
+              <button className="btn ghost small" type="button" onClick={clearMemberScopedFilter}>
+                Reset Filter
+              </button>
+            </p>
+          ) : null}
+
           <label>
             Cari event
             <input value={eventPanelQuery} onChange={(e) => setEventPanelQuery(e.target.value)} placeholder="Nama event, lokasi, status" />
@@ -1005,6 +1158,7 @@ export default function DashboardPage() {
                     type="button"
                     className={`member-row ${selected ? 'selected' : ''}`}
                     onClick={() => {
+                      setMemberScopedFilter(null);
                       setSelectedExperienceType('event');
                       setSelectedExperienceId(eventItem.event_id);
                       setActionFeedback('');
@@ -1022,31 +1176,6 @@ export default function DashboardPage() {
             ) : (
               <p className="muted">Event tidak ditemukan.</p>
             )}
-          </div>
-
-          <div className="member-layout">
-            <article className="member-detail">
-              <h3>Selected member</h3>
-              {selectedMember ? (
-                <>
-                  <p><strong>{selectedMember.full_name || '-'}</strong></p>
-                  <p>ID: {selectedMember.member_id}</p>
-                  <p>Email: {selectedMember.email || '-'}</p>
-                </>
-              ) : null}
-            </article>
-            <article className="member-detail">
-              <h3>Selected event</h3>
-              {selectedEvent ? (
-                <>
-                  <p><strong>{selectedEvent.event_name || '-'}</strong></p>
-                  <p>ID: {selectedEvent.event_id}</p>
-                  <p>Mulai: {formatDateTime(selectedEvent.start_at)}</p>
-                </>
-              ) : (
-                <p className="muted">Pilih event dari daftar di atas.</p>
-              )}
-            </article>
           </div>
 
           {selectedExperienceType === 'event' && selectedEvent ? (
@@ -1096,7 +1225,7 @@ export default function DashboardPage() {
         </section>
       ) : null}
 
-      {workspaceTab === 'class' ? (
+      {showClassWorkspace && workspaceTab === 'class' ? (
         <section className="card search-panel">
           <div className="panel-head">
             <div>
@@ -1109,6 +1238,16 @@ export default function DashboardPage() {
               </button>
             </div>
           </div>
+
+          {memberScopedFilter?.kind === 'class' && selectedMember ? (
+            <p className="mini-note">
+              Filter aktif untuk member <strong>{selectedMember.full_name || selectedMember.member_id}</strong>.
+              {' '}
+              <button className="btn ghost small" type="button" onClick={clearMemberScopedFilter}>
+                Reset Filter
+              </button>
+            </p>
+          ) : null}
 
           <label>
             Cari class
@@ -1125,6 +1264,7 @@ export default function DashboardPage() {
                     type="button"
                     className={`member-row ${selected ? 'selected' : ''}`}
                     onClick={() => {
+                      setMemberScopedFilter(null);
                       setSelectedExperienceType('class');
                       setSelectedExperienceId(classItem.class_id);
                       setActionFeedback('');
@@ -1175,6 +1315,34 @@ export default function DashboardPage() {
               {actionSaving ? 'Menyimpan...' : 'Buat Booking Class'}
             </button>
           </div>
+
+          {selectedExperienceType === 'class' && selectedClass ? (
+            <div className="payment-history">
+              <h3>Class bookings</h3>
+              {classBookingsLoading ? (
+                <p className="feedback">Memuat booking class...</p>
+              ) : filteredClassBookings.length > 0 ? (
+                <div className="entity-list">
+                  {filteredClassBookings.slice(0, 20).map((booking, index) => (
+                    <div className="entity-row" key={`${booking.booking_id || booking.member_id || booking.guest_name || 'b'}-${index}`}>
+                      <div>
+                        <strong>{booking.guest_name || booking.member_id || '-'}</strong>
+                        <p>
+                          {booking.member_id || '-'} | status: {booking.status || '-'} | booked: {formatDateTime(booking.booked_at)}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="muted">
+                  {memberScopedFilter?.kind === 'class' && selectedMember
+                    ? 'Belum ada booking class untuk member ini.'
+                    : 'Belum ada booking class.'}
+                </p>
+              )}
+            </div>
+          ) : null}
 
           {actionFeedback ? <p className="feedback">{actionFeedback}</p> : null}
         </section>
