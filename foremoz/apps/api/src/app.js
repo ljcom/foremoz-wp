@@ -3856,6 +3856,32 @@ app.post('/v1/bookings/classes/create', async (req, res, next) => {
         throw fail(409, 'CLASS_ALREADY_BOOKED', `member ${memberId} already booked class ${classId}`);
       }
     }
+    const paymentId = String(data.payment_id || '').trim();
+    if (paymentId) {
+      const paymentRow = await getPaymentQueueRow({ tenantId, paymentId });
+      if (!paymentRow) {
+        throw fail(404, 'PAYMENT_NOT_FOUND', `payment ${paymentId} not found`);
+      }
+      if (String(paymentRow.status || '').toLowerCase() !== 'confirmed') {
+        throw fail(409, 'PAYMENT_NOT_CONFIRMED', `payment ${paymentId} is not confirmed`);
+      }
+      const referenceType = String(paymentRow.reference_type || '').trim().toLowerCase();
+      const referenceId = String(paymentRow.reference_id || '').trim();
+      if (referenceType && referenceType !== 'class_booking') {
+        throw fail(409, 'PAYMENT_REFERENCE_INVALID', `payment ${paymentId} has invalid reference_type`);
+      }
+      if (referenceId && referenceId !== classId) {
+        throw fail(409, 'PAYMENT_REFERENCE_MISMATCH', `payment ${paymentId} is linked to another class`);
+      }
+      const paymentMemberId = String(paymentRow.member_id || '').trim().toLowerCase();
+      const identityCandidates = [
+        String(memberId || '').trim().toLowerCase(),
+        String(guestName || '').trim().toLowerCase()
+      ].filter(Boolean);
+      if (paymentMemberId && identityCandidates.length > 0 && !identityCandidates.includes(paymentMemberId)) {
+        throw fail(409, 'PAYMENT_MEMBER_MISMATCH', `payment ${paymentId} belongs to another member`);
+      }
+    }
     const status = String(data.status || 'booked').trim().toLowerCase();
     if (status !== 'booked') {
       throw fail(400, 'BAD_REQUEST', 'status must be booked for class booking creation');
@@ -3879,7 +3905,7 @@ app.post('/v1/bookings/classes/create', async (req, res, next) => {
         status,
         booked_at: data.booked_at || new Date().toISOString()
       },
-      refs: { subscription_id: data.subscription_id || null, payment_id: data.payment_id || null },
+      refs: { subscription_id: data.subscription_id || null, payment_id: paymentId || null },
       uniqueIds: [{ scope: 'booking.booking_id', value: bookingId }]
     });
     return created(res, {
@@ -3889,7 +3915,8 @@ app.post('/v1/bookings/classes/create', async (req, res, next) => {
         class_id: classId,
         member_id: memberId,
         guest_name: guestName,
-        status
+        status,
+        payment_id: paymentId || null
       }
     });
   } catch (error) {

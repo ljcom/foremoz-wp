@@ -46,6 +46,7 @@ Last audited terhadap isi folder: **2026-03-25** (`foremoz/apps/api`, `foremoz/a
   - Endpoint cancel booking sudah ada: `POST /v1/bookings/classes/:bookingId/cancel`.
   - Endpoint attendance confirm sudah ada: `POST /v1/bookings/classes/:bookingId/attendance-confirm`.
   - UI CS sudah bisa cancel/confirm attendance; member booking sudah mendukung opsi pembayaran (`payment.recorded` + `payment.confirmed` dengan `reference_type=class_booking`).
+  - Guard backend booking via `payment_id` sudah validasi status confirmed + reference class + member identity.
   - Masih perlu standardisasi policy role/permission.
 - [x] Check-in/check-out event dibuat idempotent + state guard.
   - Check-in reject participant yang belum register / sudah checkout.
