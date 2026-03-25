@@ -662,12 +662,12 @@ export default function AdminPage() {
     member_id: '',
     product: '',
     operation_link: '',
-    detail_note: '',
     qty: '1',
     price: '',
     currency: 'IDR',
     method: 'virtual_account'
   });
+  const [transactionDetail, setTransactionDetail] = useState(null);
   const [saasForm, setSaasForm] = useState({ months: '1', note: '' });
 
   const [users, setUsers] = useState([
@@ -2386,12 +2386,12 @@ export default function AdminPage() {
           member_id: session?.user?.userId || session?.user?.email || 'owner_self_service',
           product: `Post Event - ${eventForm.event_name || editingEventId}`,
           operation_link: '',
-          detail_note: '',
           qty: '1',
           price: String(eventPostQuote.price),
           currency: 'IDR',
           method: 'virtual_account'
         });
+        setTransactionDetail(null);
         setPendingPostedEventId(editingEventId);
         setTransactionMode('add');
         setActiveTab('transaction');
@@ -2456,12 +2456,12 @@ export default function AdminPage() {
         member_id: '',
         product: '',
         operation_link: '',
-        detail_note: '',
         qty: '1',
         price: '',
         currency: 'IDR',
         method: 'virtual_account'
       });
+      setTransactionDetail(null);
       setTransactionMode('list');
     } catch (error) {
       setFeedback(error.message);
@@ -2527,18 +2527,22 @@ export default function AdminPage() {
     } catch {
       detailNote = '';
     }
-    setTransactionForm({
+    setTransactionDetail({
       no_transaction: item.no_transaction || '',
       member_id: item.member_id || '',
       product: item.product || '',
       operation_link: item.operation_link || '',
-      detail_note: detailNote,
       qty: item.qty || '1',
       price: item.price || '',
       currency: item.currency || 'IDR',
-      method: item.method || 'virtual_account'
+      method: item.method || 'virtual_account',
+      status: item.status || '-',
+      review_note: item.review_note || '',
+      recorded_at: item.recorded_at || '',
+      reviewed_at: item.reviewed_at || '',
+      detail_note: detailNote
     });
-    setTransactionMode('add');
+    setTransactionMode('detail');
   }
 
   function extendSaas(e) {
@@ -4104,11 +4108,70 @@ export default function AdminPage() {
                     </table>
                   </div>
                 </>
+              ) : transactionMode === 'detail' ? (
+                <>
+                  <div className="panel-head">
+                    <h2>Transaction detail</h2>
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      <button
+                        className="btn ghost"
+                        type="button"
+                        onClick={() => {
+                          setTransactionDetail(null);
+                          setTransactionMode('list');
+                        }}
+                      >
+                        Back to list
+                      </button>
+                      <button
+                        className="btn"
+                        type="button"
+                        onClick={() => {
+                          setTransactionDetail(null);
+                          setTransactionForm({
+                            no_transaction: '',
+                            member_id: '',
+                            product: '',
+                            operation_link: '',
+                            qty: '1',
+                            price: '',
+                            currency: 'IDR',
+                            method: 'virtual_account'
+                          });
+                          setTransactionMode('add');
+                        }}
+                      >
+                        Add New
+                      </button>
+                    </div>
+                  </div>
+                  <div className="form">
+                    <p><strong>no_transaction:</strong> {transactionDetail?.no_transaction || '-'}</p>
+                    <p><strong>member_id:</strong> {transactionDetail?.member_id || '-'}</p>
+                    <p><strong>product:</strong> {transactionDetail?.product || '-'}</p>
+                    <p><strong>linked_operation:</strong> {transactionDetail?.operation_link || '-'}</p>
+                    <p><strong>detail:</strong> {transactionDetail?.detail_note || '-'}</p>
+                    <p><strong>qty:</strong> {transactionDetail?.qty || '-'}</p>
+                    <p><strong>price:</strong> {transactionDetail?.currency || 'IDR'} {transactionDetail?.price || '-'}</p>
+                    <p><strong>method:</strong> {transactionDetail?.method || '-'}</p>
+                    <p><strong>status:</strong> {String(transactionDetail?.status || '-').toUpperCase()}</p>
+                    <p><strong>recorded_at:</strong> {transactionDetail?.recorded_at || '-'}</p>
+                    <p><strong>reviewed_at:</strong> {transactionDetail?.reviewed_at || '-'}</p>
+                    <p><strong>review_note:</strong> {transactionDetail?.review_note || '-'}</p>
+                  </div>
+                </>
               ) : (
                 <>
                   <div className="panel-head">
                     <h2>Add transaction</h2>
-                    <button className="btn ghost" type="button" onClick={() => setTransactionMode('list')}>
+                    <button
+                      className="btn ghost"
+                      type="button"
+                      onClick={() => {
+                        setTransactionDetail(null);
+                        setTransactionMode('list');
+                      }}
+                    >
                       Back to list
                     </button>
                   </div>
@@ -4116,8 +4179,6 @@ export default function AdminPage() {
                     <label>no_transaction<input value={transactionForm.no_transaction} onChange={(e) => setTransactionForm((p) => ({ ...p, no_transaction: e.target.value }))} /></label>
                     <label>member_id<input value={transactionForm.member_id} onChange={(e) => setTransactionForm((p) => ({ ...p, member_id: e.target.value }))} /></label>
                     <label>product<input value={transactionForm.product} onChange={(e) => setTransactionForm((p) => ({ ...p, product: e.target.value }))} /></label>
-                    {transactionForm.operation_link ? <p className="mini-note">linked_operation: {transactionForm.operation_link}</p> : null}
-                    {transactionForm.detail_note ? <p className="mini-note">detail: {transactionForm.detail_note}</p> : null}
                     <label>qty<input type="number" min="1" value={transactionForm.qty} onChange={(e) => setTransactionForm((p) => ({ ...p, qty: e.target.value }))} /></label>
                     <label>price<input type="number" min="0" value={transactionForm.price} onChange={(e) => setTransactionForm((p) => ({ ...p, price: e.target.value }))} /></label>
                     <label>currency<select value={transactionForm.currency} onChange={(e) => setTransactionForm((p) => ({ ...p, currency: e.target.value }))}>
