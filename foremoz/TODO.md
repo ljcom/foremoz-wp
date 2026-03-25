@@ -179,7 +179,7 @@ Last audited terhadap isi folder: **2026-03-25** (`foremoz/apps/api`, `foremoz/a
 ### Events
 - [x] Browse: card (ecommerce-like)
 - [~] Detail -> passport access -> payment
-  - Remark: checkout sekarang merekam `payment.recorded` lalu `payment.confirmed` sebelum `event.participant.registered`; enrichment detail event masih bisa diperdalam.
+  - Remark: checkout sekarang merekam `payment.recorded` lalu `payment.confirmed` sebelum `event.participant.registered`, dan register menerima verifikasi `payment_id`; enrichment detail event masih bisa diperdalam.
 
 ### Passport
 - [x] Signup -> signin -> registration

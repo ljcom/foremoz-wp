@@ -270,6 +270,7 @@ export default function EventCheckoutPage() {
         body: JSON.stringify({
           tenant_id: eventItem?.tenant_id || undefined,
           branch_id: eventItem?.branch_id || undefined,
+          payment_id: paymentId,
           passport_id: passportSession?.user?.userId || passportSession?.passport?.id || '',
           full_name: passportSession?.user?.fullName || passportSession?.passport?.fullName || '',
           email: passportSession?.user?.email || '',

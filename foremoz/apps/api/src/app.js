@@ -382,7 +382,7 @@ async function getClassBookingRow({ tenantId, bookingId }) {
 
 async function getPaymentQueueRow({ tenantId, paymentId }) {
   const { rows } = await query(
-    `select tenant_id, payment_id, member_id, status
+    `select tenant_id, payment_id, member_id, status, reference_type, reference_id, recorded_at, reviewed_at
      from read.rm_payment_queue
      where tenant_id = $1 and payment_id = $2
      limit 1`,
@@ -3286,6 +3286,31 @@ app.post('/v1/events/:eventId/register', async (req, res, next) => {
     const fullName = String(data.full_name || '').trim();
     if (!passportId && !email) {
       throw fail(400, 'BAD_REQUEST', 'passport_id or email is required');
+    }
+    const paymentId = String(data.payment_id || '').trim();
+    if (paymentId) {
+      const paymentRow = await getPaymentQueueRow({ tenantId, paymentId });
+      if (!paymentRow) {
+        throw fail(404, 'PAYMENT_NOT_FOUND', `payment ${paymentId} not found`);
+      }
+      if (String(paymentRow.status || '').toLowerCase() !== 'confirmed') {
+        throw fail(409, 'PAYMENT_NOT_CONFIRMED', `payment ${paymentId} is not confirmed`);
+      }
+      const referenceType = String(paymentRow.reference_type || '').trim().toLowerCase();
+      const referenceId = String(paymentRow.reference_id || '').trim();
+      if (referenceType && referenceType !== 'event_registration') {
+        throw fail(409, 'PAYMENT_REFERENCE_INVALID', `payment ${paymentId} has invalid reference_type`);
+      }
+      if (referenceId && referenceId !== eventId) {
+        throw fail(409, 'PAYMENT_REFERENCE_MISMATCH', `payment ${paymentId} is linked to another event`);
+      }
+      const paymentMemberId = String(paymentRow.member_id || '').trim().toLowerCase();
+      const identityCandidates = [passportId, email]
+        .map((item) => String(item || '').trim().toLowerCase())
+        .filter(Boolean);
+      if (paymentMemberId && identityCandidates.length > 0 && !identityCandidates.includes(paymentMemberId)) {
+        throw fail(409, 'PAYMENT_MEMBER_MISMATCH', `payment ${paymentId} belongs to another member`);
+      }
     }
 
     const registrationId = data.registration_id || `evr_${Date.now()}_${randomUUID().slice(0, 8)}`;
