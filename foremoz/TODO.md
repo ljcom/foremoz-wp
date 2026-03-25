@@ -40,6 +40,10 @@ Last audited terhadap isi folder: **2026-03-25** (`foremoz/apps/api`, `foremoz/a
   - Validasi kapasitas class (`CLASS_FULL`).
   - Validasi anti double booking member per class (`CLASS_ALREADY_BOOKED`).
   - Validasi branch mismatch (`CLASS_BRANCH_MISMATCH`) dan class existence (`CLASS_NOT_FOUND`).
+- [~] Operasional booking class diperluas untuk lifecycle.
+  - Endpoint cancel booking sudah ada: `POST /v1/bookings/classes/:bookingId/cancel`.
+  - Endpoint attendance confirm sudah ada: `POST /v1/bookings/classes/:bookingId/attendance-confirm`.
+  - UI CS sudah bisa cancel/confirm attendance; masih perlu standardisasi policy role/permission.
 - [x] Check-in/check-out event dibuat idempotent + state guard.
   - Check-in reject participant yang belum register / sudah checkout.
   - Check-in/check-out duplicate return `duplicate: true` (tidak append event baru).

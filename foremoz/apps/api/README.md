@@ -83,6 +83,8 @@ EMAIL_SMTP_IGNORE_TLS_ERRORS=false
 - `POST /v1/payments/:paymentId/reject`
 - `POST /v1/checkins/log`
 - `POST /v1/bookings/classes/create`
+- `POST /v1/bookings/classes/:bookingId/cancel`
+- `POST /v1/bookings/classes/:bookingId/attendance-confirm`
 - `POST /v1/pt/packages/assign`
 - `POST /v1/projections/run`
 - `GET /v1/read/members`

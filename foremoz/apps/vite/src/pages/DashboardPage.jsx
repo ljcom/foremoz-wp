@@ -860,6 +860,58 @@ export default function DashboardPage() {
     }
   }
 
+  async function cancelClassBooking(booking) {
+    if (!booking?.booking_id) return;
+    try {
+      setActionSaving(true);
+      setActionFeedback('');
+      const result = await apiJson(`/v1/bookings/classes/${encodeURIComponent(booking.booking_id)}/cancel`, {
+        method: 'POST',
+        body: JSON.stringify({
+          tenant_id: tenantId,
+          branch_id: branchId
+        })
+      });
+      await loadClassBookings(booking.class_id || selectedClass?.class_id || selectedExperienceId);
+      await loadDashboard();
+      if (result?.duplicate) {
+        setActionFeedback(`booking.skip: ${booking.booking_id} sudah canceled.`);
+      } else {
+        setActionFeedback(`booking.canceled: ${booking.booking_id}`);
+      }
+    } catch (err) {
+      setActionFeedback(err.message || 'failed to cancel booking');
+    } finally {
+      setActionSaving(false);
+    }
+  }
+
+  async function confirmClassAttendance(booking) {
+    if (!booking?.booking_id) return;
+    try {
+      setActionSaving(true);
+      setActionFeedback('');
+      const result = await apiJson(`/v1/bookings/classes/${encodeURIComponent(booking.booking_id)}/attendance-confirm`, {
+        method: 'POST',
+        body: JSON.stringify({
+          tenant_id: tenantId,
+          branch_id: branchId
+        })
+      });
+      await loadClassBookings(booking.class_id || selectedClass?.class_id || selectedExperienceId);
+      await loadDashboard();
+      if (result?.duplicate) {
+        setActionFeedback(`attendance.skip: ${booking.booking_id} sudah confirmed sebelumnya.`);
+      } else {
+        setActionFeedback(`attendance.confirmed: ${booking.booking_id}`);
+      }
+    } catch (err) {
+      setActionFeedback(err.message || 'failed to confirm attendance');
+    } finally {
+      setActionSaving(false);
+    }
+  }
+
   return (
     <main className="dashboard">
       <header className="dash-head card">
@@ -1338,6 +1390,31 @@ export default function DashboardPage() {
                         <p>
                           {booking.member_id || '-'} | status: {booking.status || '-'} | booked: {formatDateTime(booking.booked_at)}
                         </p>
+                        <p>
+                          attendance: {booking.attendance_confirmed_at ? formatDateTime(booking.attendance_confirmed_at) : '-'}
+                        </p>
+                      </div>
+                      <div className="row-actions">
+                        <button
+                          className="btn ghost small"
+                          type="button"
+                          disabled={actionSaving || String(booking.status || '').toLowerCase() === 'canceled'}
+                          onClick={() => cancelClassBooking(booking)}
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          className="btn ghost small"
+                          type="button"
+                          disabled={
+                            actionSaving ||
+                            String(booking.status || '').toLowerCase() === 'canceled' ||
+                            Boolean(booking.attendance_confirmed_at)
+                          }
+                          onClick={() => confirmClassAttendance(booking)}
+                        >
+                          Confirm Attendance
+                        </button>
                       </div>
                     </div>
                   ))}

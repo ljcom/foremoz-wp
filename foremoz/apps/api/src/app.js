@@ -369,6 +369,17 @@ async function findActiveClassBooking({ tenantId, classId, memberId }) {
   return rows[0] || null;
 }
 
+async function getClassBookingRow({ tenantId, bookingId }) {
+  const { rows } = await query(
+    `select tenant_id, branch_id, booking_id, class_id, booking_kind, member_id, guest_name, status, booked_at, canceled_at, attendance_confirmed_at
+     from read.rm_booking_list
+     where tenant_id = $1 and booking_id = $2
+     limit 1`,
+    [tenantId, bookingId]
+  );
+  return rows[0] || null;
+}
+
 async function getPaymentQueueRow({ tenantId, paymentId }) {
   const { rows } = await query(
     `select tenant_id, payment_id, member_id, status
@@ -3711,6 +3722,111 @@ app.post('/v1/bookings/classes/create', async (req, res, next) => {
         guest_name: guestName,
         status
       }
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.post('/v1/bookings/classes/:bookingId/cancel', async (req, res, next) => {
+  try {
+    const data = req.body || {};
+    const tenantId = data.tenant_id || config.defaultTenantId;
+    const bookingId = required(req.params.bookingId, 'bookingId');
+    const bookingRow = await getClassBookingRow({ tenantId, bookingId });
+    if (!bookingRow) {
+      throw fail(404, 'BOOKING_NOT_FOUND', `booking ${bookingId} not found`);
+    }
+    const currentStatus = String(bookingRow.status || '').toLowerCase();
+    if (currentStatus === 'canceled') {
+      return ok(res, {
+        booking_id: bookingId,
+        class_id: bookingRow.class_id,
+        status: 'canceled',
+        duplicate: true
+      });
+    }
+    if (currentStatus !== 'booked') {
+      throw fail(409, 'BOOKING_STATUS_INVALID', `booking ${bookingId} cannot be canceled from status ${bookingRow.status}`);
+    }
+
+    const canceledAt = data.canceled_at || new Date().toISOString();
+    const event = await appendDomainEvent({
+      tenantId,
+      branchId: data.branch_id || bookingRow.branch_id || null,
+      actorId: data.actor_id || config.defaultActorId,
+      eventType: 'class.booking.canceled',
+      subjectKind: 'booking',
+      subjectId: bookingId,
+      data: {
+        tenant_id: tenantId,
+        branch_id: data.branch_id || bookingRow.branch_id || null,
+        booking_id: bookingId,
+        class_id: bookingRow.class_id,
+        member_id: bookingRow.member_id || null,
+        guest_name: bookingRow.guest_name || null,
+        canceled_at: canceledAt
+      },
+      refs: {}
+    });
+    return created(res, {
+      event,
+      booking_id: bookingId,
+      class_id: bookingRow.class_id,
+      status: 'canceled',
+      canceled_at: canceledAt
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.post('/v1/bookings/classes/:bookingId/attendance-confirm', async (req, res, next) => {
+  try {
+    const data = req.body || {};
+    const tenantId = data.tenant_id || config.defaultTenantId;
+    const bookingId = required(req.params.bookingId, 'bookingId');
+    const bookingRow = await getClassBookingRow({ tenantId, bookingId });
+    if (!bookingRow) {
+      throw fail(404, 'BOOKING_NOT_FOUND', `booking ${bookingId} not found`);
+    }
+    const currentStatus = String(bookingRow.status || '').toLowerCase();
+    if (currentStatus === 'canceled') {
+      throw fail(409, 'BOOKING_ALREADY_CANCELED', `booking ${bookingId} already canceled`);
+    }
+    if (bookingRow.attendance_confirmed_at) {
+      return ok(res, {
+        booking_id: bookingId,
+        class_id: bookingRow.class_id,
+        attendance_confirmed_at: bookingRow.attendance_confirmed_at,
+        duplicate: true
+      });
+    }
+
+    const confirmedAt = data.confirmed_at || new Date().toISOString();
+    const event = await appendDomainEvent({
+      tenantId,
+      branchId: data.branch_id || bookingRow.branch_id || null,
+      actorId: data.actor_id || config.defaultActorId,
+      eventType: 'class.attendance.confirmed',
+      subjectKind: 'booking',
+      subjectId: bookingId,
+      data: {
+        tenant_id: tenantId,
+        branch_id: data.branch_id || bookingRow.branch_id || null,
+        booking_id: bookingId,
+        class_id: bookingRow.class_id,
+        member_id: bookingRow.member_id || null,
+        guest_name: bookingRow.guest_name || null,
+        confirmed_at: confirmedAt
+      },
+      refs: {}
+    });
+    return created(res, {
+      event,
+      booking_id: bookingId,
+      class_id: bookingRow.class_id,
+      attendance_confirmed_at: confirmedAt
     });
   } catch (error) {
     return next(error);
