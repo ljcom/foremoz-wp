@@ -145,6 +145,8 @@ export default function MemberPage() {
         body: JSON.stringify({
           tenant_id: tenantId,
           branch_id: branchId,
+          registration_id: selectedEventParticipant?.registration_id || null,
+          passport_id: selectedEventParticipant?.passport_id || memberData.member_id || null,
           email: memberData.email,
           full_name: memberData.full_name || memberData.member_name || memberData.member_id || memberId
         })
@@ -174,6 +176,8 @@ export default function MemberPage() {
         body: JSON.stringify({
           tenant_id: tenantId,
           branch_id: branchId,
+          registration_id: selectedEventParticipant?.registration_id || null,
+          passport_id: selectedEventParticipant?.passport_id || memberData.member_id || null,
           email: memberData.email,
           full_name: memberData.full_name || memberData.member_name || memberData.member_id || memberId
         })
