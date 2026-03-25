@@ -294,6 +294,63 @@ async function getLatestClassScheduledData(tenantId, classId) {
   return rows[0]?.data || null;
 }
 
+async function getClassAvailabilityRow(tenantId, classId) {
+  const { rows } = await query(
+    `select tenant_id, branch_id, class_id, class_name, capacity, booked_count, available_slots, start_at, end_at
+     from read.rm_class_availability
+     where tenant_id = $1 and class_id = $2
+     limit 1`,
+    [tenantId, classId]
+  );
+  return rows[0] || null;
+}
+
+async function findActiveClassBooking({ tenantId, classId, memberId }) {
+  if (!memberId) return null;
+  const { rows } = await query(
+    `select tenant_id, booking_id, class_id, member_id, status, booked_at, attendance_confirmed_at
+     from read.rm_booking_list
+     where tenant_id = $1
+       and class_id = $2
+       and member_id = $3
+       and status = 'booked'
+     order by booked_at desc
+     limit 1`,
+    [tenantId, classId, memberId]
+  );
+  return rows[0] || null;
+}
+
+async function getPaymentQueueRow({ tenantId, paymentId }) {
+  const { rows } = await query(
+    `select tenant_id, payment_id, member_id, status
+     from read.rm_payment_queue
+     where tenant_id = $1 and payment_id = $2
+     limit 1`,
+    [tenantId, paymentId]
+  );
+  return rows[0] || null;
+}
+
+async function getLatestPaymentEventState({ tenantId, paymentId }) {
+  const namespaceId = resolveNamespaceId(tenantId);
+  const { rows } = await query(
+    `select event_type
+     from eventdb_event
+     where namespace_id = $1
+       and event_type = any($2::text[])
+       and payload->'data'->>'payment_id' = $3
+     order by sequence desc
+     limit 1`,
+    [namespaceId, ['payment.recorded', 'payment.confirmed', 'payment.rejected'], paymentId]
+  );
+  const latestEventType = rows[0]?.event_type || null;
+  return {
+    exists: Boolean(latestEventType),
+    latestEventType
+  };
+}
+
 async function getLatestEntityDataByEventTypes(tenantId, idField, idValue, eventTypes) {
   const namespaceId = resolveNamespaceId(tenantId);
   const { rows } = await query(
@@ -2216,29 +2273,146 @@ app.post('/v1/payments/record', async (req, res, next) => {
   try {
     const data = req.body || {};
     const tenantId = data.tenant_id || config.defaultTenantId;
+    const paymentId = required(data.payment_id, 'payment_id');
+    const memberId = required(data.member_id, 'member_id');
+    const amount = Number(required(data.amount, 'amount'));
+    if (!Number.isFinite(amount) || amount <= 0) {
+      throw fail(400, 'BAD_REQUEST', 'amount must be a positive number');
+    }
+    const paymentMethod = String(required(data.method, 'method')).trim().toLowerCase();
+    const allowedMethods = new Set(['cash', 'bank_transfer', 'virtual_account', 'ewallet', 'credit_card', 'debit_card', 'qris']);
+    if (!allowedMethods.has(paymentMethod)) {
+      throw fail(
+        400,
+        'BAD_REQUEST',
+        'method must be one of: cash, bank_transfer, virtual_account, ewallet, credit_card, debit_card, qris'
+      );
+    }
     const event = await appendDomainEvent({
       tenantId,
       branchId: data.branch_id || null,
       actorId: data.actor_id || config.defaultActorId,
       eventType: 'payment.recorded',
       subjectKind: 'payment',
-      subjectId: required(data.payment_id, 'payment_id'),
+      subjectId: paymentId,
       data: {
         tenant_id: tenantId,
         branch_id: data.branch_id || null,
-        payment_id: required(data.payment_id, 'payment_id'),
-        member_id: required(data.member_id, 'member_id'),
+        payment_id: paymentId,
+        member_id: memberId,
         subscription_id: data.subscription_id || null,
-        amount: Number(required(data.amount, 'amount')),
+        amount,
         currency: required(data.currency, 'currency'),
-        method: required(data.method, 'method'),
+        method: paymentMethod,
+        reference_type: data.reference_type || null,
+        reference_id: data.reference_id || null,
         proof_url: data.proof_url || null,
         recorded_at: data.recorded_at || new Date().toISOString()
       },
-      refs: { subscription_id: data.subscription_id || null },
-      uniqueIds: [{ scope: 'payment.payment_id', value: required(data.payment_id, 'payment_id') }]
+      refs: {
+        subscription_id: data.subscription_id || null,
+        reference_type: data.reference_type || null,
+        reference_id: data.reference_id || null
+      },
+      uniqueIds: [{ scope: 'payment.payment_id', value: paymentId }]
     });
     return created(res, { event });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.post('/v1/payments/:paymentId/confirm', async (req, res, next) => {
+  try {
+    const data = req.body || {};
+    const tenantId = data.tenant_id || config.defaultTenantId;
+    const paymentId = required(req.params.paymentId, 'paymentId');
+    const existing = await getPaymentQueueRow({ tenantId, paymentId });
+    const eventState = await getLatestPaymentEventState({ tenantId, paymentId });
+    if (!existing && !eventState.exists) {
+      throw fail(404, 'PAYMENT_NOT_FOUND', `payment ${paymentId} not found`);
+    }
+    const latestStatus =
+      String(existing?.status || '').toLowerCase() ||
+      (eventState.latestEventType === 'payment.confirmed'
+        ? 'confirmed'
+        : eventState.latestEventType === 'payment.rejected'
+          ? 'rejected'
+          : 'pending');
+    if (latestStatus === 'confirmed') {
+      return ok(res, { payment_id: paymentId, status: 'confirmed', duplicate: true });
+    }
+    if (latestStatus === 'rejected') {
+      throw fail(409, 'PAYMENT_ALREADY_REJECTED', `payment ${paymentId} already rejected`);
+    }
+
+    const event = await appendDomainEvent({
+      tenantId,
+      branchId: data.branch_id || null,
+      actorId: data.actor_id || config.defaultActorId,
+      eventType: 'payment.confirmed',
+      subjectKind: 'payment',
+      subjectId: paymentId,
+      data: {
+        tenant_id: tenantId,
+        branch_id: data.branch_id || null,
+        payment_id: paymentId,
+        confirmed_at: data.confirmed_at || new Date().toISOString(),
+        confirmed_by: data.confirmed_by || data.actor_id || null,
+        note: data.note || null
+      },
+      refs: {}
+    });
+
+    return created(res, { event, payment_id: paymentId, status: 'confirmed' });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.post('/v1/payments/:paymentId/reject', async (req, res, next) => {
+  try {
+    const data = req.body || {};
+    const tenantId = data.tenant_id || config.defaultTenantId;
+    const paymentId = required(req.params.paymentId, 'paymentId');
+    const existing = await getPaymentQueueRow({ tenantId, paymentId });
+    const eventState = await getLatestPaymentEventState({ tenantId, paymentId });
+    if (!existing && !eventState.exists) {
+      throw fail(404, 'PAYMENT_NOT_FOUND', `payment ${paymentId} not found`);
+    }
+    const latestStatus =
+      String(existing?.status || '').toLowerCase() ||
+      (eventState.latestEventType === 'payment.confirmed'
+        ? 'confirmed'
+        : eventState.latestEventType === 'payment.rejected'
+          ? 'rejected'
+          : 'pending');
+    if (latestStatus === 'rejected') {
+      return ok(res, { payment_id: paymentId, status: 'rejected', duplicate: true });
+    }
+    if (latestStatus === 'confirmed') {
+      throw fail(409, 'PAYMENT_ALREADY_CONFIRMED', `payment ${paymentId} already confirmed`);
+    }
+
+    const event = await appendDomainEvent({
+      tenantId,
+      branchId: data.branch_id || null,
+      actorId: data.actor_id || config.defaultActorId,
+      eventType: 'payment.rejected',
+      subjectKind: 'payment',
+      subjectId: paymentId,
+      data: {
+        tenant_id: tenantId,
+        branch_id: data.branch_id || null,
+        payment_id: paymentId,
+        rejected_at: data.rejected_at || new Date().toISOString(),
+        rejected_by: data.rejected_by || data.actor_id || null,
+        reason: data.reason || null
+      },
+      refs: {}
+    });
+
+    return created(res, { event, payment_id: paymentId, status: 'rejected' });
   } catch (error) {
     return next(error);
   }
@@ -3362,28 +3536,69 @@ app.post('/v1/bookings/classes/create', async (req, res, next) => {
   try {
     const data = req.body || {};
     const tenantId = data.tenant_id || config.defaultTenantId;
+    const classId = required(data.class_id, 'class_id');
+    const memberId = String(data.member_id || '').trim() || null;
+    const guestName = String(data.guest_name || '').trim() || null;
+    if (!memberId && !guestName) {
+      throw fail(400, 'BAD_REQUEST', 'member_id or guest_name is required');
+    }
+    const classRow = await getClassAvailabilityRow(tenantId, classId);
+    if (!classRow) {
+      throw fail(404, 'CLASS_NOT_FOUND', `class ${classId} not found`);
+    }
+    const resolvedBranchId = String(data.branch_id || classRow.branch_id || '').trim();
+    if (!resolvedBranchId) {
+      throw fail(400, 'BAD_REQUEST', 'branch_id is required');
+    }
+    if (classRow.branch_id && resolvedBranchId !== String(classRow.branch_id)) {
+      throw fail(409, 'CLASS_BRANCH_MISMATCH', `class ${classId} belongs to another branch`);
+    }
+    const currentAvailable = Number(classRow.available_slots);
+    if (!Number.isFinite(currentAvailable) || currentAvailable <= 0) {
+      throw fail(409, 'CLASS_FULL', `class ${classId} is full`);
+    }
+    if (memberId) {
+      const activeBooking = await findActiveClassBooking({ tenantId, classId, memberId });
+      if (activeBooking) {
+        throw fail(409, 'CLASS_ALREADY_BOOKED', `member ${memberId} already booked class ${classId}`);
+      }
+    }
+    const status = String(data.status || 'booked').trim().toLowerCase();
+    if (status !== 'booked') {
+      throw fail(400, 'BAD_REQUEST', 'status must be booked for class booking creation');
+    }
+    const bookingId = String(data.booking_id || '').trim() || `book_${Date.now()}_${randomUUID().slice(0, 8)}`;
     const event = await appendDomainEvent({
       tenantId,
-      branchId: required(data.branch_id, 'branch_id'),
+      branchId: resolvedBranchId,
       actorId: data.actor_id || config.defaultActorId,
       eventType: 'class.booking.created',
       subjectKind: 'booking',
-      subjectId: required(data.booking_id, 'booking_id'),
+      subjectId: bookingId,
       data: {
         tenant_id: tenantId,
-        branch_id: required(data.branch_id, 'branch_id'),
-        booking_id: required(data.booking_id, 'booking_id'),
-        class_id: required(data.class_id, 'class_id'),
+        branch_id: resolvedBranchId,
+        booking_id: bookingId,
+        class_id: classId,
         booking_kind: data.booking_kind || 'member',
-        member_id: data.member_id || null,
-        guest_name: data.guest_name || null,
-        status: data.status || 'booked',
+        member_id: memberId,
+        guest_name: guestName,
+        status,
         booked_at: data.booked_at || new Date().toISOString()
       },
       refs: { subscription_id: data.subscription_id || null },
-      uniqueIds: [{ scope: 'booking.booking_id', value: required(data.booking_id, 'booking_id') }]
+      uniqueIds: [{ scope: 'booking.booking_id', value: bookingId }]
     });
-    return created(res, { event });
+    return created(res, {
+      event,
+      booking: {
+        booking_id: bookingId,
+        class_id: classId,
+        member_id: memberId,
+        guest_name: guestName,
+        status
+      }
+    });
   } catch (error) {
     return next(error);
   }

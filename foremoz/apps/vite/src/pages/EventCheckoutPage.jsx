@@ -221,6 +221,17 @@ export default function EventCheckoutPage() {
       return;
     }
     try {
+      const memberIdentity = String(
+        passportSession?.user?.userId ||
+        passportSession?.passport?.id ||
+        passportSession?.user?.email ||
+        ''
+      ).trim();
+      if (!memberIdentity) {
+        setError('Identitas member tidak ditemukan untuk proses pembayaran.');
+        return;
+      }
+      const paymentId = `pay_evt_${Date.now()}`;
       const answersByLabel = registrationFields.reduce((acc, field, index) => {
         const fieldId = String(field?.field_id || '');
         const label = String(field?.label || `Field ${index + 1}`).trim();
@@ -230,6 +241,29 @@ export default function EventCheckoutPage() {
         acc[label] = value;
         return acc;
       }, {});
+
+      await apiJson('/v1/payments/record', {
+        method: 'POST',
+        body: JSON.stringify({
+          tenant_id: eventItem?.tenant_id || undefined,
+          branch_id: eventItem?.branch_id || undefined,
+          payment_id: paymentId,
+          member_id: memberIdentity,
+          amount: price,
+          currency: 'IDR',
+          method: 'virtual_account',
+          reference_type: 'event_registration',
+          reference_id: eventId
+        })
+      });
+      await apiJson(`/v1/payments/${encodeURIComponent(paymentId)}/confirm`, {
+        method: 'POST',
+        body: JSON.stringify({
+          tenant_id: eventItem?.tenant_id || undefined,
+          branch_id: eventItem?.branch_id || undefined,
+          note: 'MVP auto-confirm after checkout submit'
+        })
+      });
 
       await apiJson(`/v1/events/${encodeURIComponent(eventId)}/register`, {
         method: 'POST',

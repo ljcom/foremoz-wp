@@ -28,7 +28,7 @@ Last audited terhadap isi folder: **2026-03-25** (`foremoz/apps/api`, `foremoz/a
   - Endpoint: `PATCH /v1/owner/branches/:branchId`
   - Resolve account publik (`/a/:account`) sudah bisa baca branch slug via `GET /v1/public/account/resolve`.
 
-## Event & Participant (67%)
+## Event & Participant (74%)
 - [x] Unique number participant sudah jadi field resmi di backend.
   - Field `participant_no` dibuat server-side saat `event.participant.registered`.
   - Frontend admin scan/check-in menggunakan `participant_no` sebagai prioritas.
@@ -36,6 +36,10 @@ Last audited terhadap isi folder: **2026-03-25** (`foremoz/apps/api`, `foremoz/a
   - Belum ada integrasi kamera (WebRTC / QR scanner) untuk scan langsung.
 - [~] Tambah export participant/check-in (CSV/XLSX) dari tab Participants/Check in.
   - Remark: export CSV sudah ada di CS dashboard (browse event/class), tapi belum ada export khusus dari tab Participants/Check in pada Event Edit.
+- [x] Register class backend sudah punya guard operasional.
+  - Validasi kapasitas class (`CLASS_FULL`).
+  - Validasi anti double booking member per class (`CLASS_ALREADY_BOOKED`).
+  - Validasi branch mismatch (`CLASS_BRANCH_MISMATCH`) dan class existence (`CLASS_NOT_FOUND`).
 
 ## Passport Dashboard (66%)
 - [~] Hubungkan profile editor (nama display, status, avatar) ke API Passport.
@@ -163,7 +167,7 @@ Last audited terhadap isi folder: **2026-03-25** (`foremoz/apps/api`, `foremoz/a
 ### Events
 - [x] Browse: card (ecommerce-like)
 - [~] Detail -> passport access -> payment
-  - Remark: flow register -> signin/signup -> payment sudah ada; enrichment detail event masih bisa diperdalam.
+  - Remark: checkout sekarang merekam `payment.recorded` lalu `payment.confirmed` sebelum `event.participant.registered`; enrichment detail event masih bisa diperdalam.
 
 ### Passport
 - [x] Signup -> signin -> registration

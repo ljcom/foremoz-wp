@@ -79,6 +79,8 @@ EMAIL_SMTP_IGNORE_TLS_ERRORS=false
 - `GET /v1/public/events/:eventSlug`
 - `POST /v1/subscriptions/activate`
 - `POST /v1/payments/record`
+- `POST /v1/payments/:paymentId/confirm`
+- `POST /v1/payments/:paymentId/reject`
 - `POST /v1/checkins/log`
 - `POST /v1/bookings/classes/create`
 - `POST /v1/pt/packages/assign`
