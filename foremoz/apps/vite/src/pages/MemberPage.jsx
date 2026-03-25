@@ -39,6 +39,8 @@ export default function MemberPage() {
   const [memberBookings, setMemberBookings] = useState([]);
   const [availablePackages, setAvailablePackages] = useState([]);
   const [ptPackages, setPtPackages] = useState([]);
+  const [activeSubscriptions, setActiveSubscriptions] = useState([]);
+  const [ptBalanceRows, setPtBalanceRows] = useState([]);
   const [subscriptionEndDate, setSubscriptionEndDate] = useState('-');
   const [remainingPtSessions, setRemainingPtSessions] = useState('-');
   const [memberEvents, setMemberEvents] = useState([]);
@@ -120,6 +122,7 @@ export default function MemberPage() {
           }));
         }
         const activeSubscriptions = Array.isArray(subscriptionsRes.rows) ? subscriptionsRes.rows : [];
+        setActiveSubscriptions(activeSubscriptions);
         const latestSubscriptionEnd = activeSubscriptions
           .map((row) => String(row?.end_date || '').trim())
           .filter(Boolean)
@@ -127,6 +130,7 @@ export default function MemberPage() {
         setSubscriptionEndDate(latestSubscriptionEnd);
 
         const ptBalances = Array.isArray(ptBalanceRes.rows) ? ptBalanceRes.rows : [];
+        setPtBalanceRows(ptBalances);
         if (ptBalances.length > 0) {
           const totalRemaining = ptBalances.reduce((sum, row) => sum + Number(row?.remaining_sessions || 0), 0);
           setRemainingPtSessions(String(totalRemaining));
@@ -187,6 +191,7 @@ export default function MemberPage() {
     setMemberBookings(allBookings.filter((row) => String(row.member_id || '') === String(memberId || '')));
 
     const activeSubscriptions = Array.isArray(subscriptionsRes.rows) ? subscriptionsRes.rows : [];
+    setActiveSubscriptions(activeSubscriptions);
     const latestSubscriptionEnd = activeSubscriptions
       .map((row) => String(row?.end_date || '').trim())
       .filter(Boolean)
@@ -194,6 +199,7 @@ export default function MemberPage() {
     setSubscriptionEndDate(latestSubscriptionEnd);
 
     const ptBalances = Array.isArray(ptBalanceRes.rows) ? ptBalanceRes.rows : [];
+    setPtBalanceRows(ptBalances);
     if (ptBalances.length > 0) {
       const totalRemaining = ptBalances.reduce((sum, row) => sum + Number(row?.remaining_sessions || 0), 0);
       setRemainingPtSessions(String(totalRemaining));
@@ -372,6 +378,12 @@ export default function MemberPage() {
       .map((item) => [String(item?.event_id || ''), String(item?.event_name || '').trim()])
       .filter(([id]) => Boolean(id))
   );
+  const currentSubscription = activeSubscriptions
+    .slice()
+    .sort((a, b) => new Date(b?.end_date || 0).getTime() - new Date(a?.end_date || 0).getTime())[0] || null;
+  const latestPtBalance = ptBalanceRows
+    .slice()
+    .sort((a, b) => new Date(b?.updated_at || 0).getTime() - new Date(a?.updated_at || 0).getTime())[0] || null;
 
   function addMonths(date, months) {
     const next = new Date(date.getTime());
@@ -571,7 +583,11 @@ export default function MemberPage() {
               status: <span className={`status ${memberData?.status}`}>{memberData?.status || '-'}</span>
             </p>
             <p>subscription_end: {subscriptionEndDate}</p>
+            <p>subscription_plan: {currentSubscription?.plan_id || '-'}</p>
+            <p>subscription_payment: {currentSubscription?.payment_id || '-'}</p>
             <p>remaining PT session: {remainingPtSessions}</p>
+            <p>pt_package_id: {latestPtBalance?.pt_package_id || '-'}</p>
+            <p>pt_payment: {latestPtBalance?.payment_id || '-'}</p>
           </div>
 
           <div className="member-actions">
