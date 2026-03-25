@@ -92,6 +92,7 @@ Last audited terhadap isi folder: **2026-03-25** (`foremoz/apps/api`, `foremoz/a
   - [x] Mode view transaksi admin menarik detail artefak operasional langsung via query `payment_id`.
   - [x] Read model menambahkan index `payment_id` untuk query audit operasional.
   - [x] Agregasi backend `GET /v1/read/payments/:paymentId/links` sudah tersedia untuk review transaksi.
+  - [x] Filter linked operation (`subscription/booking/pt_package/unlinked`) tersedia di tabel transaksi admin.
 
 ## QA / Hardening (28%)
 - [ ] Tambah test otomatis untuk flow penting:

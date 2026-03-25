@@ -623,6 +623,7 @@ export default function AdminPage() {
   const [memberQuery, setMemberQuery] = useState('');
   const [transactionQuery, setTransactionQuery] = useState('');
   const [transactionStatusFilter, setTransactionStatusFilter] = useState('all');
+  const [transactionLinkFilter, setTransactionLinkFilter] = useState('all');
   const [eventPostQuote, setEventPostQuote] = useState(null);
   const [pendingPostedEventId, setPendingPostedEventId] = useState('');
   const [eventParticipants, setEventParticipants] = useState([]);
@@ -1196,12 +1197,19 @@ export default function AdminPage() {
     const statusMatch = transactionStatusFilter === 'all'
       ? true
       : String(item.status || '').toLowerCase() === transactionStatusFilter;
-    if (!statusMatch) return false;
+    const operationLink = String(item.operation_link || '').toLowerCase();
+    const linkMatch = transactionLinkFilter === 'all'
+      ? true
+      : transactionLinkFilter === 'unlinked'
+        ? !operationLink || operationLink === '-'
+        : operationLink.startsWith(`${transactionLinkFilter}:`);
+    if (!statusMatch || !linkMatch) return false;
     return (
       String(item.no_transaction || '').toLowerCase().includes(q) ||
       String(item.product || '').toLowerCase().includes(q) ||
       String(item.member_id || '').toLowerCase().includes(q) ||
-      String(item.status || '').toLowerCase().includes(q)
+      String(item.status || '').toLowerCase().includes(q) ||
+      operationLink.includes(q)
     );
   });
   const isEventFormDirty = useMemo(
@@ -4002,6 +4010,13 @@ export default function AdminPage() {
                         <option value="pending">pending</option>
                         <option value="confirmed">confirmed</option>
                         <option value="rejected">rejected</option>
+                      </select>
+                      <select value={transactionLinkFilter} onChange={(e) => setTransactionLinkFilter(e.target.value)}>
+                        <option value="all">all links</option>
+                        <option value="subscription">subscription</option>
+                        <option value="booking">booking</option>
+                        <option value="pt_package">pt package</option>
+                        <option value="unlinked">unlinked</option>
                       </select>
                       <button className="btn" type="button" onClick={() => setTransactionMode('add')}>
                         Add New
