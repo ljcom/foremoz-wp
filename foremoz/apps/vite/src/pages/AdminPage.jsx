@@ -3011,6 +3011,13 @@ export default function AdminPage() {
                               </button>
                             </div>
                           </div>
+                          {!isEditingEventPublished ? (
+                            <div className="card" style={{ borderStyle: 'dashed', marginBottom: '0.6rem' }}>
+                              <p className="eyebrow">Guide</p>
+                              <p className="feedback">Event masih draft. Participant biasanya muncul setelah event dipublikasikan dan member melakukan registrasi.</p>
+                              <p className="feedback">Langkah cepat: Save event {'->'} Publikasikan Event {'->'} bagikan link event {'->'} refresh tab Participants.</p>
+                            </div>
+                          ) : null}
                           {eventParticipantsLoading ? <p className="feedback">Loading participants...</p> : null}
                           {!eventParticipantsLoading && eventParticipants.length === 0 ? (
                             <p className="feedback">Belum ada participant yang join event ini.</p>

@@ -69,7 +69,7 @@ Last audited terhadap isi folder: **2026-03-25** (`foremoz/apps/api`, `foremoz/a
   - Wording publish flow sudah dirapikan (preview/biaya/publish sekarang).
 - [~] Event Edit tabs sudah dipisah, tapi perlu validasi UX lanjut:
   - Disable submit saat bukan tab `General` (sudah), warning unsaved changes saat pindah tab/menu utama juga sudah ada.
-  - Empty-state participants sudah ada; guide yang lebih jelas untuk flow check-in event baru masih perlu.
+  - Empty-state participants + guide publish flow untuk event draft sudah ada; panduan check-in lanjutan masih bisa diperdalam.
 - [~] Field `trainer_name` token input class sudah jalan.
   - Perlu opsi multi-trainer sebagai struktur data resmi (array) di backend class.
 - [x] API admin core sudah mencakup workflow utama lintas modul.
