@@ -88,6 +88,7 @@ Last audited terhadap isi folder: **2026-03-25** (`foremoz/apps/api`, `foremoz/a
   - [x] Pemetaan `product/reference` di tabel transaksi sudah baca label entity (event/package/product/class) bila tersedia.
   - [x] Payment sekarang bisa dilacak ke artefak operasional (`subscription/booking/pt_package`) dari read model.
   - [x] Endpoint read operasional sudah bisa difilter dengan `payment_id` untuk audit lanjutan.
+  - [x] View transaksi admin menampilkan `linked_operation` terpisah dari label product/reference.
 
 ## QA / Hardening (28%)
 - [ ] Tambah test otomatis untuk flow penting:

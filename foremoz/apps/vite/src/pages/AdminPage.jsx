@@ -660,6 +660,7 @@ export default function AdminPage() {
     no_transaction: '',
     member_id: '',
     product: '',
+    operation_link: '',
     qty: '1',
     price: '',
     currency: 'IDR',
@@ -2375,6 +2376,7 @@ export default function AdminPage() {
           no_transaction: `TRX-EVT-${Date.now()}`,
           member_id: session?.user?.userId || session?.user?.email || 'owner_self_service',
           product: `Post Event - ${eventForm.event_name || editingEventId}`,
+          operation_link: '',
           qty: '1',
           price: String(eventPostQuote.price),
           currency: 'IDR',
@@ -2443,6 +2445,7 @@ export default function AdminPage() {
         no_transaction: '',
         member_id: '',
         product: '',
+        operation_link: '',
         qty: '1',
         price: '',
         currency: 'IDR',
@@ -2495,7 +2498,8 @@ export default function AdminPage() {
     setTransactionForm({
       no_transaction: item.no_transaction || '',
       member_id: item.member_id || '',
-      product: item.operation_link && item.operation_link !== '-' ? `${item.product || ''} | ${item.operation_link}` : item.product || '',
+      product: item.product || '',
+      operation_link: item.operation_link || '',
       qty: item.qty || '1',
       price: item.price || '',
       currency: item.currency || 'IDR',
@@ -4072,6 +4076,7 @@ export default function AdminPage() {
                     <label>no_transaction<input value={transactionForm.no_transaction} onChange={(e) => setTransactionForm((p) => ({ ...p, no_transaction: e.target.value }))} /></label>
                     <label>member_id<input value={transactionForm.member_id} onChange={(e) => setTransactionForm((p) => ({ ...p, member_id: e.target.value }))} /></label>
                     <label>product<input value={transactionForm.product} onChange={(e) => setTransactionForm((p) => ({ ...p, product: e.target.value }))} /></label>
+                    {transactionForm.operation_link ? <p className="mini-note">linked_operation: {transactionForm.operation_link}</p> : null}
                     <label>qty<input type="number" min="1" value={transactionForm.qty} onChange={(e) => setTransactionForm((p) => ({ ...p, qty: e.target.value }))} /></label>
                     <label>price<input type="number" min="0" value={transactionForm.price} onChange={(e) => setTransactionForm((p) => ({ ...p, price: e.target.value }))} /></label>
                     <label>currency<select value={transactionForm.currency} onChange={(e) => setTransactionForm((p) => ({ ...p, currency: e.target.value }))}>
