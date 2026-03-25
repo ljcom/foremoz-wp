@@ -2,6 +2,31 @@ import { useEffect, useState } from 'react';
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
 import { accountPath, apiJson, getSession } from '../lib.js';
 
+function formatMemberPaymentReference(item, lookups = {}) {
+  const referenceType = String(item?.reference_type || '').trim().toLowerCase();
+  const referenceId = String(item?.reference_id || '').trim();
+  const classesById = lookups.classesById || new Map();
+  const packagesById = lookups.packagesById || new Map();
+  const eventsById = lookups.eventsById || new Map();
+
+  if (referenceType === 'membership_purchase') {
+    return `Membership - ${packagesById.get(referenceId) || referenceId || '-'}`;
+  }
+  if (referenceType === 'pt_package' || referenceType === 'pt_package_purchase') {
+    return `PT Package - ${packagesById.get(referenceId) || referenceId || '-'}`;
+  }
+  if (referenceType === 'class_booking') {
+    return `Class Booking - ${classesById.get(referenceId) || referenceId || '-'}`;
+  }
+  if (referenceType === 'event_registration') {
+    return `Event Registration - ${eventsById.get(referenceId) || referenceId || '-'}`;
+  }
+  if (referenceType === 'manual') {
+    return `Manual - ${referenceId || '-'}`;
+  }
+  return referenceType || referenceId ? `${referenceType || 'payment'}:${referenceId || '-'}` : '-';
+}
+
 export default function MemberPage() {
   const navigate = useNavigate();
   const session = getSession();
@@ -12,6 +37,7 @@ export default function MemberPage() {
   const [paymentHistory, setPaymentHistory] = useState([]);
   const [classes, setClasses] = useState([]);
   const [memberBookings, setMemberBookings] = useState([]);
+  const [availablePackages, setAvailablePackages] = useState([]);
   const [ptPackages, setPtPackages] = useState([]);
   const [subscriptionEndDate, setSubscriptionEndDate] = useState('-');
   const [remainingPtSessions, setRemainingPtSessions] = useState('-');
@@ -76,6 +102,7 @@ export default function MemberPage() {
           allBookings.filter((row) => String(row.member_id || '') === String(memberId || ''))
         );
         const packageRows = Array.isArray(packagesRes.rows) ? packagesRes.rows : [];
+        setAvailablePackages(packageRows);
         const activePtPackages = packageRows.filter((row) => String(row.package_type || '').toLowerCase() === 'pt');
         setPtPackages(activePtPackages);
         if (activePtPackages.length > 0) {
@@ -297,6 +324,21 @@ export default function MemberPage() {
 
   const canCheckinSelectedEvent = Boolean(selectedEventId) && !eventActionSaving;
   const canCheckoutSelectedEvent = Boolean(selectedEventId) && !eventActionSaving && Boolean(selectedEventParticipant?.checked_in_at);
+  const classNameById = new Map(
+    classes
+      .map((item) => [String(item?.class_id || ''), String(item?.class_name || '').trim()])
+      .filter(([id]) => Boolean(id))
+  );
+  const packageNameById = new Map(
+    availablePackages
+      .map((item) => [String(item?.package_id || ''), String(item?.package_name || '').trim()])
+      .filter(([id]) => Boolean(id))
+  );
+  const eventNameById = new Map(
+    memberEvents
+      .map((item) => [String(item?.event_id || ''), String(item?.event_name || '').trim()])
+      .filter(([id]) => Boolean(id))
+  );
 
   function addMonths(date, months) {
     const next = new Date(date.getTime());
@@ -720,7 +762,11 @@ export default function MemberPage() {
                       <div>
                         <strong>{item.payment_id}</strong>
                         <p>
-                          {item.recorded_at} - {item.method} - {item.reference_type || '-'}:{item.reference_id || '-'}
+                          {item.recorded_at} - {item.method} - {formatMemberPaymentReference(item, {
+                            classesById: classNameById,
+                            packagesById: packageNameById,
+                            eventsById: eventNameById
+                          })}
                         </p>
                       </div>
                       <div className="payment-meta">
