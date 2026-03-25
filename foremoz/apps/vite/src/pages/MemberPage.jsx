@@ -12,9 +12,13 @@ export default function MemberPage() {
   const [paymentHistory, setPaymentHistory] = useState([]);
   const [classes, setClasses] = useState([]);
   const [memberBookings, setMemberBookings] = useState([]);
+  const [memberEvents, setMemberEvents] = useState([]);
+  const [selectedEventId, setSelectedEventId] = useState('');
+  const [selectedEventParticipant, setSelectedEventParticipant] = useState(null);
   const [loading, setLoading] = useState(false);
   const [membershipSaving, setMembershipSaving] = useState(false);
   const [bookingSaving, setBookingSaving] = useState(false);
+  const [eventActionSaving, setEventActionSaving] = useState(false);
   const [loadError, setLoadError] = useState('');
   const [activeMenu, setActiveMenu] = useState('checkin');
   const [feedback, setFeedback] = useState('');
@@ -54,6 +58,21 @@ export default function MemberPage() {
         setMemberBookings(
           allBookings.filter((row) => String(row.member_id || '') === String(memberId || ''))
         );
+        if (memberFound?.email || memberFound?.member_id) {
+          const registrationRes = await apiJson(
+            `/v1/read/event-registrations?passport_id=${encodeURIComponent(memberFound.member_id || '')}&email=${encodeURIComponent(memberFound.email || '')}&limit=300`
+          ).catch(() => ({ event_ids: [] }));
+          const eventIds = Array.isArray(registrationRes.event_ids) ? registrationRes.event_ids.map((v) => String(v)) : [];
+          if (eventIds.length > 0) {
+            const eventsRes = await apiJson('/v1/read/events?status=all&limit=400').catch(() => ({ rows: [] }));
+            const rows = Array.isArray(eventsRes.rows) ? eventsRes.rows : [];
+            setMemberEvents(rows.filter((item) => eventIds.includes(String(item.event_id || ''))));
+          } else {
+            setMemberEvents([]);
+          }
+        } else {
+          setMemberEvents([]);
+        }
       } catch (err) {
         if (cancelled) return;
         setLoadError(err.message || 'failed to load member');
@@ -90,6 +109,86 @@ export default function MemberPage() {
 
   function runAction(action) {
     setFeedback(actionMessage(action));
+  }
+
+  async function loadParticipantForSelectedEvent(eventId) {
+    if (!eventId || !memberData?.email) {
+      setSelectedEventParticipant(null);
+      return;
+    }
+    try {
+      const participantRes = await apiJson(
+        `/v1/admin/events/${encodeURIComponent(eventId)}/participants?tenant_id=${encodeURIComponent(tenantId)}&branch_id=${encodeURIComponent(branchId)}&limit=500`
+      );
+      const rows = Array.isArray(participantRes.rows) ? participantRes.rows : [];
+      const row = rows.find((item) => String(item?.email || '').toLowerCase() === String(memberData.email || '').toLowerCase()) || null;
+      setSelectedEventParticipant(row);
+    } catch {
+      setSelectedEventParticipant(null);
+    }
+  }
+
+  useEffect(() => {
+    loadParticipantForSelectedEvent(selectedEventId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedEventId, memberData?.email, tenantId, branchId]);
+
+  async function checkinToSelectedEvent() {
+    if (!selectedEventId || !memberData?.email) {
+      setFeedback('Pilih event dulu sebelum check-in.');
+      return;
+    }
+    try {
+      setEventActionSaving(true);
+      const result = await apiJson(`/v1/admin/events/${encodeURIComponent(selectedEventId)}/participants/checkin`, {
+        method: 'POST',
+        body: JSON.stringify({
+          tenant_id: tenantId,
+          branch_id: branchId,
+          email: memberData.email,
+          full_name: memberData.full_name || memberData.member_name || memberData.member_id || memberId
+        })
+      });
+      await loadParticipantForSelectedEvent(selectedEventId);
+      if (result?.duplicate) {
+        setFeedback(`checkin.skip: ${memberData.member_id} sudah check-in di event ini.`);
+      } else {
+        setFeedback(`checkin.success: ${memberData.member_id} -> ${selectedEventId}`);
+      }
+    } catch (error) {
+      setFeedback(error.message || 'Gagal check-in event.');
+    } finally {
+      setEventActionSaving(false);
+    }
+  }
+
+  async function checkoutFromSelectedEvent() {
+    if (!selectedEventId || !memberData?.email) {
+      setFeedback('Pilih event dulu sebelum check-out.');
+      return;
+    }
+    try {
+      setEventActionSaving(true);
+      const result = await apiJson(`/v1/admin/events/${encodeURIComponent(selectedEventId)}/participants/checkout`, {
+        method: 'POST',
+        body: JSON.stringify({
+          tenant_id: tenantId,
+          branch_id: branchId,
+          email: memberData.email,
+          full_name: memberData.full_name || memberData.member_name || memberData.member_id || memberId
+        })
+      });
+      await loadParticipantForSelectedEvent(selectedEventId);
+      if (result?.duplicate) {
+        setFeedback(`checkout.skip: ${memberData.member_id} sudah checkout di event ini.`);
+      } else {
+        setFeedback(`checkout.success: ${memberData.member_id} -> ${selectedEventId}`);
+      }
+    } catch (error) {
+      setFeedback(error.message || 'Gagal check-out event.');
+    } finally {
+      setEventActionSaving(false);
+    }
   }
 
   function addMonths(date, months) {
@@ -266,14 +365,28 @@ export default function MemberPage() {
 
           <div className="member-actions">
             {activeMenu === 'checkin' ? (
-              <>
-                <button className="btn" onClick={() => runAction('checkin')}>
-                  Checkin
+              <div className="form" style={{ width: '100%' }}>
+                <label>
+                  event
+                  <select value={selectedEventId} onChange={(e) => setSelectedEventId(e.target.value)}>
+                    <option value="">Pilih event</option>
+                    {memberEvents.map((event) => (
+                      <option key={event.event_id} value={event.event_id}>
+                        {event.event_name || event.event_id}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <p className="sub">
+                  status: checkin {selectedEventParticipant?.checked_in_at ? 'yes' : 'no'} | checkout {selectedEventParticipant?.checked_out_at ? 'yes' : 'no'}
+                </p>
+                <button className="btn" type="button" disabled={eventActionSaving} onClick={checkinToSelectedEvent}>
+                  {eventActionSaving ? 'Processing...' : 'Checkin'}
                 </button>
-                <button className="btn ghost" onClick={() => runAction('checkout')}>
-                  Checkout
+                <button className="btn ghost" type="button" disabled={eventActionSaving} onClick={checkoutFromSelectedEvent}>
+                  {eventActionSaving ? 'Processing...' : 'Checkout'}
                 </button>
-              </>
+              </div>
             ) : null}
 
             {activeMenu === 'membership' ? (
