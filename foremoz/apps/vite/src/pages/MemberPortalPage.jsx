@@ -2,11 +2,17 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { apiJson, clearSession, getSession, setSession } from '../lib.js';
 
+function formatPortalDate(value) {
+  const time = new Date(value || '').getTime();
+  if (!Number.isFinite(time) || Number.isNaN(time)) return '-';
+  return new Date(time).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
+}
+
 export default function MemberPortalPage() {
   const navigate = useNavigate();
   const { account } = useParams();
   const session = getSession();
-  const [tab, setTab] = useState('my_events');
+  const [tab, setTab] = useState('overview');
   const [feedback, setFeedback] = useState('');
   const [profile, setProfile] = useState({
     fullName: session?.user?.fullName || '',
@@ -23,12 +29,44 @@ export default function MemberPortalPage() {
   const [myEvents, setMyEvents] = useState([]);
   const [myEventsLoading, setMyEventsLoading] = useState(false);
   const [myEventsError, setMyEventsError] = useState('');
+  const [payments, setPayments] = useState([]);
+  const [bookings, setBookings] = useState([]);
+  const [subscriptions, setSubscriptions] = useState([]);
+  const [ptBalances, setPtBalances] = useState([]);
+  const [portalLoading, setPortalLoading] = useState(false);
   const accountSlug = account || session?.tenant?.account_slug || 'tn_001';
   const memberEmail = String(session?.user?.email || '').trim().toLowerCase();
+  const memberId = String(session?.user?.memberId || '').trim();
 
   const orderedMyEvents = useMemo(() => {
     return [...myEvents].sort((a, b) => new Date(b.start_at || 0).getTime() - new Date(a.start_at || 0).getTime());
   }, [myEvents]);
+  const orderedPayments = useMemo(
+    () => [...payments].sort((a, b) => new Date(b.recorded_at || 0).getTime() - new Date(a.recorded_at || 0).getTime()),
+    [payments]
+  );
+  const orderedBookings = useMemo(
+    () => [...bookings].sort((a, b) => new Date(b.booked_at || 0).getTime() - new Date(a.booked_at || 0).getTime()),
+    [bookings]
+  );
+  const activeSubscription = useMemo(
+    () =>
+      [...subscriptions].sort((a, b) => new Date(b.end_date || 0).getTime() - new Date(a.end_date || 0).getTime())[0] || null,
+    [subscriptions]
+  );
+  const latestPtBalance = useMemo(
+    () =>
+      [...ptBalances].sort((a, b) => new Date(b.updated_at || 0).getTime() - new Date(a.updated_at || 0).getTime())[0] || null,
+    [ptBalances]
+  );
+  const totalRemainingPtSessions = useMemo(
+    () => ptBalances.reduce((sum, item) => sum + Number(item?.remaining_sessions || 0), 0),
+    [ptBalances]
+  );
+  const pendingPayments = useMemo(
+    () => orderedPayments.filter((item) => String(item?.status || '').toLowerCase() === 'pending'),
+    [orderedPayments]
+  );
 
   useEffect(
     () => () => {
@@ -39,18 +77,42 @@ export default function MemberPortalPage() {
 
   useEffect(() => {
     let active = true;
-    async function loadMyEvents() {
-      if (!memberEmail) {
+    async function loadPortalData() {
+      if (!memberEmail && !memberId) {
         if (!active) return;
         setMyEvents([]);
+        setPayments([]);
+        setBookings([]);
+        setSubscriptions([]);
+        setPtBalances([]);
         return;
       }
       try {
         setMyEventsLoading(true);
+        setPortalLoading(true);
         setMyEventsError('');
-        const [registrationRes, eventRes] = await Promise.all([
-          apiJson(`/v1/read/event-registrations?email=${encodeURIComponent(memberEmail)}&limit=400`),
-          apiJson('/v1/read/events?status=all&limit=400')
+        await apiJson('/v1/projections/run', {
+          method: 'POST',
+          body: JSON.stringify({
+            tenant_id: session?.tenant?.id || 'tn_001',
+            branch_id: session?.branch?.id || null
+          })
+        }).catch(() => {});
+        const [registrationRes, eventRes, paymentRes, bookingRes, subscriptionRes, ptBalanceRes] = await Promise.all([
+          apiJson(`/v1/read/event-registrations?email=${encodeURIComponent(memberEmail)}&passport_id=${encodeURIComponent(memberId)}&limit=400`),
+          apiJson('/v1/read/events?status=all&limit=400'),
+          apiJson(
+            `/v1/read/payments/history?tenant_id=${encodeURIComponent(session?.tenant?.id || 'tn_001')}&member_id=${encodeURIComponent(memberId)}`
+          ).catch(() => ({ rows: [] })),
+          apiJson(
+            `/v1/read/bookings?tenant_id=${encodeURIComponent(session?.tenant?.id || 'tn_001')}&member_id=${encodeURIComponent(memberId)}`
+          ).catch(() => ({ rows: [] })),
+          apiJson(
+            `/v1/read/subscriptions/active?tenant_id=${encodeURIComponent(session?.tenant?.id || 'tn_001')}&member_id=${encodeURIComponent(memberId)}`
+          ).catch(() => ({ rows: [] })),
+          apiJson(
+            `/v1/read/pt-balance?tenant_id=${encodeURIComponent(session?.tenant?.id || 'tn_001')}&member_id=${encodeURIComponent(memberId)}`
+          ).catch(() => ({ rows: [] }))
         ]);
         const joinedIds = new Set(
           (Array.isArray(registrationRes?.event_ids) ? registrationRes.event_ids : []).map((id) => String(id))
@@ -59,19 +121,30 @@ export default function MemberPortalPage() {
         const items = rows.filter((row) => joinedIds.has(String(row?.event_id || '')));
         if (!active) return;
         setMyEvents(items);
+        setPayments(Array.isArray(paymentRes?.rows) ? paymentRes.rows : []);
+        setBookings(Array.isArray(bookingRes?.rows) ? bookingRes.rows : []);
+        setSubscriptions(Array.isArray(subscriptionRes?.rows) ? subscriptionRes.rows : []);
+        setPtBalances(Array.isArray(ptBalanceRes?.rows) ? ptBalanceRes.rows : []);
       } catch (error) {
         if (!active) return;
         setMyEvents([]);
+        setPayments([]);
+        setBookings([]);
+        setSubscriptions([]);
+        setPtBalances([]);
         setMyEventsError(error.message || 'Gagal memuat My Events.');
       } finally {
-        if (active) setMyEventsLoading(false);
+        if (active) {
+          setMyEventsLoading(false);
+          setPortalLoading(false);
+        }
       }
     }
-    loadMyEvents();
+    loadPortalData();
     return () => {
       active = false;
     };
-  }, [memberEmail]);
+  }, [memberEmail, memberId, session?.tenant?.id, session?.branch?.id]);
 
   return (
     <main className="dashboard">
@@ -99,6 +172,9 @@ export default function MemberPortalPage() {
 
       <section className="landing-section">
         <div className="landing-tabs">
+          <button className={`landing-tab ${tab === 'overview' ? 'active' : ''}`} onClick={() => setTab('overview')}>
+            Overview
+          </button>
           <button className={`landing-tab ${tab === 'my_events' ? 'active' : ''}`} onClick={() => setTab('my_events')}>
             My Events
           </button>
@@ -114,6 +190,69 @@ export default function MemberPortalPage() {
         </div>
 
         <article className="card admin-main">
+        {tab === 'overview' ? (
+          <>
+            <p className="eyebrow">Overview</p>
+            <h2>Portal member untuk aktivitas harian</h2>
+            {portalLoading ? <p className="feedback">Loading portal status...</p> : null}
+            <section className="stats-grid passport-stat-grid-fancy">
+              <article className="stat">
+                <p>Active subscription</p>
+                <h3>{activeSubscription?.plan_id || '-'}</h3>
+              </article>
+              <article className="stat">
+                <p>PT remaining</p>
+                <h3>{totalRemainingPtSessions || 0}</h3>
+              </article>
+              <article className="stat">
+                <p>My bookings</p>
+                <h3>{orderedBookings.length}</h3>
+              </article>
+              <article className="stat">
+                <p>Pending payments</p>
+                <h3>{pendingPayments.length}</h3>
+              </article>
+            </section>
+            <div className="ops-grid">
+              <section className="card">
+                <p className="eyebrow">Quick Actions</p>
+                <div className="hero-actions">
+                  <Link className="btn" to={`/a/${accountSlug}/events`}>Explore events</Link>
+                  <Link className="btn ghost" to={`/a/${accountSlug}`}>Open public account</Link>
+                  {memberId ? (
+                    <Link className="btn ghost" to={`/a/${accountSlug}/members/${encodeURIComponent(memberId)}`}>
+                      Open member ops
+                    </Link>
+                  ) : null}
+                </div>
+              </section>
+              <section className="card">
+                <p className="eyebrow">Operational Status</p>
+                <p><strong>subscription_end:</strong> {activeSubscription?.end_date || '-'}</p>
+                <p><strong>subscription_payment:</strong> {activeSubscription?.payment_id || '-'}</p>
+                <p><strong>pt_package_id:</strong> {latestPtBalance?.pt_package_id || '-'}</p>
+                <p><strong>pt_payment:</strong> {latestPtBalance?.payment_id || '-'}</p>
+              </section>
+            </div>
+            <section className="card">
+              <p className="eyebrow">Recent Activity</p>
+              <div className="entity-list">
+                {orderedPayments.slice(0, 3).map((item) => (
+                  <div className="entity-row" key={item.payment_id}>
+                    <div>
+                      <strong>{item.payment_id}</strong>
+                      <p>{item.reference_type || '-'}:{item.reference_id || '-'}</p>
+                      <p>{formatPortalDate(item.recorded_at)}</p>
+                    </div>
+                    <span className={`status ${item.status}`}>{item.status || '-'}</span>
+                  </div>
+                ))}
+                {orderedPayments.length === 0 ? <p className="sub">Belum ada aktivitas payment.</p> : null}
+              </div>
+            </section>
+          </>
+        ) : null}
+
         {tab === 'my_events' ? (
           <>
             <p className="eyebrow">My Events</p>
@@ -153,6 +292,22 @@ export default function MemberPortalPage() {
                   <p className="passport-live-time">Event yang sudah kamu join akan muncul di sini.</p>
                 </article>
               ) : null}
+            </div>
+            <div className="card" style={{ marginTop: '1rem' }}>
+              <p className="eyebrow">My Bookings</p>
+              <div className="entity-list">
+                {orderedBookings.slice(0, 6).map((item) => (
+                  <div className="entity-row" key={item.booking_id}>
+                    <div>
+                      <strong>{item.booking_id}</strong>
+                      <p>{item.class_id || '-'} | {item.status || '-'}</p>
+                      <p>{formatPortalDate(item.booked_at)}</p>
+                    </div>
+                    <span className="passport-chip">{item.payment_id || 'no payment link'}</span>
+                  </div>
+                ))}
+                {orderedBookings.length === 0 ? <p className="sub">Belum ada booking class.</p> : null}
+              </div>
             </div>
           </>
         ) : null}
