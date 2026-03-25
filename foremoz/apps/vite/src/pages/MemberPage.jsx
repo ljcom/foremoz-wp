@@ -12,12 +12,14 @@ export default function MemberPage() {
   const [paymentHistory, setPaymentHistory] = useState([]);
   const [classes, setClasses] = useState([]);
   const [memberBookings, setMemberBookings] = useState([]);
+  const [ptPackages, setPtPackages] = useState([]);
   const [memberEvents, setMemberEvents] = useState([]);
   const [selectedEventId, setSelectedEventId] = useState('');
   const [selectedEventParticipant, setSelectedEventParticipant] = useState(null);
   const [loading, setLoading] = useState(false);
   const [membershipSaving, setMembershipSaving] = useState(false);
   const [bookingSaving, setBookingSaving] = useState(false);
+  const [ptSaving, setPtSaving] = useState(false);
   const [eventActionSaving, setEventActionSaving] = useState(false);
   const [loadError, setLoadError] = useState('');
   const [activeMenu, setActiveMenu] = useState('checkin');
@@ -31,6 +33,12 @@ export default function MemberPage() {
     plan_id: 'membership_monthly',
     months: '1',
     amount: '350000',
+    method: 'virtual_account'
+  });
+  const [ptForm, setPtForm] = useState({
+    package_id: '',
+    total_sessions: '1',
+    amount: '0',
     method: 'virtual_account'
   });
 
@@ -47,11 +55,12 @@ export default function MemberPage() {
             branch_id: branchId
           })
         }).catch(() => {});
-        const [membersRes, paymentsRes, classesRes, bookingsRes] = await Promise.all([
+        const [membersRes, paymentsRes, classesRes, bookingsRes, packagesRes] = await Promise.all([
           apiJson(`/v1/read/members?tenant_id=${encodeURIComponent(tenantId)}&limit=1000`),
           apiJson(`/v1/read/payments/history?tenant_id=${encodeURIComponent(tenantId)}&member_id=${encodeURIComponent(memberId || '')}`),
           apiJson(`/v1/read/class-availability?tenant_id=${encodeURIComponent(tenantId)}&branch_id=${encodeURIComponent(branchId)}`).catch(() => ({ rows: [] })),
-          apiJson(`/v1/read/bookings?tenant_id=${encodeURIComponent(tenantId)}`).catch(() => ({ rows: [] }))
+          apiJson(`/v1/read/bookings?tenant_id=${encodeURIComponent(tenantId)}`).catch(() => ({ rows: [] })),
+          apiJson(`/v1/admin/packages?tenant_id=${encodeURIComponent(tenantId)}&branch_id=${encodeURIComponent(branchId)}`).catch(() => ({ rows: [] }))
         ]);
         if (cancelled) return;
         const memberFound = (membersRes.rows || []).find((row) => String(row.member_id || '') === String(memberId || '')) || null;
@@ -62,6 +71,23 @@ export default function MemberPage() {
         setMemberBookings(
           allBookings.filter((row) => String(row.member_id || '') === String(memberId || ''))
         );
+        const packageRows = Array.isArray(packagesRes.rows) ? packagesRes.rows : [];
+        const activePtPackages = packageRows.filter((row) => String(row.package_type || '').toLowerCase() === 'pt');
+        setPtPackages(activePtPackages);
+        if (activePtPackages.length > 0) {
+          setPtForm((prev) => ({
+            ...prev,
+            package_id: prev.package_id || String(activePtPackages[0].package_id || ''),
+            total_sessions:
+              prev.total_sessions && Number(prev.total_sessions) > 0
+                ? prev.total_sessions
+                : String(activePtPackages[0].session_count || 1),
+            amount:
+              Number(prev.amount || 0) > 0
+                ? prev.amount
+                : String(activePtPackages[0].price || 0)
+          }));
+        }
         if (memberFound?.email || memberFound?.member_id) {
           const registrationRes = await apiJson(
             `/v1/read/event-registrations?passport_id=${encodeURIComponent(memberFound.member_id || '')}&email=${encodeURIComponent(memberFound.email || '')}&limit=300`
@@ -95,24 +121,67 @@ export default function MemberPage() {
   }
   const memberData = memberRow;
 
-  function actionMessage(action) {
-    if (action === 'checkin') {
-      return `checkin.logged queued for ${memberData?.member_id || memberId}`;
+  async function submitPtPurchase() {
+    if (!memberData?.member_id) return;
+    if (!ptForm.package_id) {
+      setFeedback('Pilih PT package terlebih dulu.');
+      return;
     }
-    if (action === 'checkout') {
-      return `checkout event queued for ${memberData?.member_id || memberId}`;
+    const totalSessions = Math.max(1, Number(ptForm.total_sessions || 1));
+    const amount = Math.max(0, Number(ptForm.amount || 0));
+    if (!Number.isFinite(totalSessions) || totalSessions <= 0) {
+      setFeedback('Total sesi PT tidak valid.');
+      return;
     }
-    if (action === 'membership') {
-      return `subscription.activated draft created for ${memberData?.member_id || memberId}`;
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setFeedback('Nominal PT package harus lebih dari 0.');
+      return;
     }
-    if (action === 'pt') {
-      return `pt.package.assigned draft created for ${memberData?.member_id || memberId}`;
+    try {
+      setPtSaving(true);
+      const paymentId = `pay_pt_${Date.now()}`;
+      const assignedId = `ptpkg_${Date.now()}`;
+      await apiJson('/v1/payments/record', {
+        method: 'POST',
+        body: JSON.stringify({
+          tenant_id: tenantId,
+          branch_id: branchId,
+          payment_id: paymentId,
+          member_id: memberData.member_id,
+          amount,
+          currency: 'IDR',
+          method: ptForm.method || 'virtual_account',
+          reference_type: 'pt_package',
+          reference_id: ptForm.package_id
+        })
+      });
+      await apiJson(`/v1/payments/${encodeURIComponent(paymentId)}/confirm`, {
+        method: 'POST',
+        body: JSON.stringify({
+          tenant_id: tenantId,
+          branch_id: branchId
+        })
+      });
+      await apiJson('/v1/pt/packages/assign', {
+        method: 'POST',
+        body: JSON.stringify({
+          tenant_id: tenantId,
+          branch_id: branchId,
+          pt_package_id: assignedId,
+          member_id: memberData.member_id,
+          total_sessions: totalSessions
+        })
+      });
+      const paymentsRes = await apiJson(
+        `/v1/read/payments/history?tenant_id=${encodeURIComponent(tenantId)}&member_id=${encodeURIComponent(memberId || '')}`
+      ).catch(() => ({ rows: [] }));
+      setPaymentHistory(paymentsRes.rows || []);
+      setFeedback(`pt.package.assigned: ${assignedId} (${totalSessions} sesi)`);
+    } catch (error) {
+      setFeedback(error.message || 'Gagal proses PT package.');
+    } finally {
+      setPtSaving(false);
     }
-    return `class.booking.created draft opened for ${memberData?.member_id || memberId}`;
-  }
-
-  function runAction(action) {
-    setFeedback(actionMessage(action));
   }
 
   async function loadParticipantForSelectedEvent(eventId) {
@@ -487,9 +556,65 @@ export default function MemberPage() {
             ) : null}
 
             {activeMenu === 'pt' ? (
-              <button className="btn" onClick={() => runAction('pt')}>
-                Buy PT package
-              </button>
+              <div className="form" style={{ width: '100%' }}>
+                <label>
+                  pt_package
+                  <select
+                    value={ptForm.package_id}
+                    onChange={(e) => {
+                      const selectedId = e.target.value;
+                      const selectedPackage = ptPackages.find((item) => String(item.package_id || '') === String(selectedId));
+                      setPtForm((prev) => ({
+                        ...prev,
+                        package_id: selectedId,
+                        total_sessions: String(selectedPackage?.session_count || prev.total_sessions || 1),
+                        amount: String(selectedPackage?.price || prev.amount || 0)
+                      }));
+                    }}
+                  >
+                    <option value="">Pilih PT package</option>
+                    {ptPackages.map((item) => (
+                      <option key={item.package_id} value={item.package_id}>
+                        {item.package_name || item.package_id}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  total_sessions
+                  <input
+                    type="number"
+                    min="1"
+                    value={ptForm.total_sessions}
+                    onChange={(e) => setPtForm((prev) => ({ ...prev, total_sessions: e.target.value }))}
+                  />
+                </label>
+                <label>
+                  amount
+                  <input
+                    type="number"
+                    min="0"
+                    value={ptForm.amount}
+                    onChange={(e) => setPtForm((prev) => ({ ...prev, amount: e.target.value }))}
+                  />
+                </label>
+                <label>
+                  method
+                  <select
+                    value={ptForm.method}
+                    onChange={(e) => setPtForm((prev) => ({ ...prev, method: e.target.value }))}
+                  >
+                    <option value="virtual_account">virtual_account</option>
+                    <option value="bank_transfer">bank_transfer</option>
+                    <option value="qris">qris</option>
+                    <option value="ewallet">ewallet</option>
+                    <option value="cash">cash</option>
+                  </select>
+                </label>
+                <button className="btn" type="button" disabled={ptSaving} onClick={submitPtPurchase}>
+                  {ptSaving ? 'Processing...' : 'Buy PT package'}
+                </button>
+              </div>
             ) : null}
 
             {activeMenu === 'booking' ? (

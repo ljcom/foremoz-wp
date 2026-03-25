@@ -164,6 +164,10 @@ function resolvePaymentReferenceLabel(item, lookups = {}) {
     const packageName = packagesById.get(referenceId) || referenceId || item?.subscription_id || '-';
     return `Membership - ${packageName}`;
   }
+  if (referenceType === 'pt_package' || referenceType === 'pt_package_purchase') {
+    const packageName = packagesById.get(referenceId) || referenceId || '-';
+    return `PT Package - ${packageName}`;
+  }
   if (referenceType === 'class_booking') {
     const className = classesById.get(referenceId) || referenceId || '-';
     return `Class Booking - ${className}`;
