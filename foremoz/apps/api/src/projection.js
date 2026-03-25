@@ -41,6 +41,11 @@ export async function runFitnessProjection({ tenantId, branchId }) {
          add column if not exists payment_id text`
     );
     await client.query(
+      `alter table if exists read.rm_pt_activity_log
+         add column if not exists pt_package_id text,
+         add column if not exists activity_type text not null default 'activity_logged'`
+    );
+    await client.query(
       `create index if not exists idx_rm_subscription_payment
        on read.rm_subscription_active (tenant_id, payment_id)`
     );
@@ -51,6 +56,14 @@ export async function runFitnessProjection({ tenantId, branchId }) {
     await client.query(
       `create index if not exists idx_rm_pt_balance_payment
        on read.rm_pt_balance (tenant_id, payment_id)`
+    );
+    await client.query(
+      `create index if not exists idx_rm_pt_balance_trainer
+       on read.rm_pt_balance (tenant_id, trainer_id, updated_at desc)`
+    );
+    await client.query(
+      `create index if not exists idx_rm_pt_activity_trainer
+       on read.rm_pt_activity_log (tenant_id, trainer_id, session_at desc)`
     );
 
     await client.query(
@@ -637,6 +650,34 @@ export async function runFitnessProjection({ tenantId, branchId }) {
            where tenant_id = $1 and pt_package_id = $2`,
           [tenant, data.pt_package_id, data.completed_at || eventTs]
         );
+        const activityId = data.session_id || data.completion_id || `${event.event_type}:${event.sequence}`;
+        await client.query(
+          `insert into read.rm_pt_activity_log (
+             tenant_id, activity_id, pt_package_id, member_id, trainer_id, session_id,
+             activity_type, activity_note, session_at, updated_at
+           ) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+           on conflict (tenant_id, activity_id) do update set
+             pt_package_id = excluded.pt_package_id,
+             member_id = excluded.member_id,
+             trainer_id = excluded.trainer_id,
+             session_id = excluded.session_id,
+             activity_type = excluded.activity_type,
+             activity_note = excluded.activity_note,
+             session_at = excluded.session_at,
+             updated_at = excluded.updated_at`,
+          [
+            tenant,
+            activityId,
+            data.pt_package_id || null,
+            data.member_id,
+            data.trainer_id || null,
+            data.session_id || null,
+            'session_completed',
+            data.activity_note || data.note || null,
+            data.completed_at || eventTs,
+            eventTs
+          ]
+        );
         applied += 1;
         continue;
       }
@@ -645,21 +686,26 @@ export async function runFitnessProjection({ tenantId, branchId }) {
         const activityId = data.activity_id || data.session_id || `${event.event_type}:${event.sequence}`;
         await client.query(
           `insert into read.rm_pt_activity_log (
-             tenant_id, activity_id, member_id, trainer_id, session_id, activity_note, session_at, updated_at
-           ) values ($1,$2,$3,$4,$5,$6,$7,$8)
+             tenant_id, activity_id, pt_package_id, member_id, trainer_id, session_id,
+             activity_type, activity_note, session_at, updated_at
+           ) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
            on conflict (tenant_id, activity_id) do update set
+             pt_package_id = excluded.pt_package_id,
              member_id = excluded.member_id,
              trainer_id = excluded.trainer_id,
              session_id = excluded.session_id,
+             activity_type = excluded.activity_type,
              activity_note = excluded.activity_note,
              session_at = excluded.session_at,
              updated_at = excluded.updated_at`,
           [
             tenant,
             activityId,
+            data.pt_package_id || null,
             data.member_id,
             data.trainer_id || null,
             data.session_id || null,
+            event.event_type === 'pt.session.booked' ? 'session_booked' : 'activity_logged',
             data.activity_note || data.note || null,
             data.session_at || data.booked_at || data.logged_at || eventTs,
             eventTs

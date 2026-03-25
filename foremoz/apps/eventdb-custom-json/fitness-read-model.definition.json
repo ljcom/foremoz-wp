@@ -73,7 +73,7 @@
     {
       "name": "read.rm_pt_activity_log",
       "primary_key": ["tenant_id", "activity_id"],
-      "columns": ["tenant_id", "activity_id", "member_id", "trainer_id", "session_id", "activity_note", "session_at", "updated_at"],
+      "columns": ["tenant_id", "activity_id", "pt_package_id", "member_id", "trainer_id", "session_id", "activity_type", "activity_note", "session_at", "updated_at"],
       "query_use": "PT workspace activity timeline"
     },
     {

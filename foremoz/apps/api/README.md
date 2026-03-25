@@ -91,6 +91,9 @@ EMAIL_SMTP_IGNORE_TLS_ERRORS=false
 - `POST /v1/bookings/classes/:bookingId/cancel`
 - `POST /v1/bookings/classes/:bookingId/attendance-confirm`
 - `POST /v1/pt/packages/assign`
+- `POST /v1/pt/sessions/book`
+- `POST /v1/pt/sessions/:ptPackageId/complete`
+- `POST /v1/pt/activity/log`
 - `POST /v1/projections/run`
 - `GET /v1/read/members`
 - `GET /v1/read/events`

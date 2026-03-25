@@ -186,9 +186,11 @@ CREATE TABLE IF NOT EXISTS read.rm_pt_balance (
 CREATE TABLE IF NOT EXISTS read.rm_pt_activity_log (
   tenant_id TEXT NOT NULL,
   activity_id TEXT NOT NULL,
+  pt_package_id TEXT,
   member_id TEXT NOT NULL,
   trainer_id TEXT,
   session_id TEXT,
+  activity_type TEXT NOT NULL DEFAULT 'activity_logged',
   activity_note TEXT,
   session_at TIMESTAMPTZ,
   updated_at TIMESTAMPTZ NOT NULL,
@@ -323,6 +325,8 @@ CREATE INDEX IF NOT EXISTS idx_rm_booking_class ON read.rm_booking_list (tenant_
 CREATE INDEX IF NOT EXISTS idx_rm_booking_payment ON read.rm_booking_list (tenant_id, payment_id);
 CREATE INDEX IF NOT EXISTS idx_rm_payment_status ON read.rm_payment_queue (tenant_id, status, recorded_at);
 CREATE INDEX IF NOT EXISTS idx_rm_pt_balance_payment ON read.rm_pt_balance (tenant_id, payment_id);
+CREATE INDEX IF NOT EXISTS idx_rm_pt_balance_trainer ON read.rm_pt_balance (tenant_id, trainer_id, updated_at DESC);
 CREATE INDEX IF NOT EXISTS idx_rm_sales_stage ON read.rm_sales_prospect (tenant_id, stage, updated_at DESC);
 CREATE INDEX IF NOT EXISTS idx_rm_pt_activity_member ON read.rm_pt_activity_log (tenant_id, member_id, session_at DESC);
+CREATE INDEX IF NOT EXISTS idx_rm_pt_activity_trainer ON read.rm_pt_activity_log (tenant_id, trainer_id, session_at DESC);
 CREATE INDEX IF NOT EXISTS idx_rm_invitation_status ON read.rm_invitation_queue (tenant_id, status, updated_at DESC);

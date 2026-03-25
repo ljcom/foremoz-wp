@@ -391,6 +391,18 @@ async function getPaymentQueueRow({ tenantId, paymentId }) {
   return rows[0] || null;
 }
 
+async function getPtBalanceRow({ tenantId, ptPackageId }) {
+  const { rows } = await query(
+    `select tenant_id, branch_id, pt_package_id, member_id, trainer_id,
+            total_sessions, consumed_sessions, remaining_sessions, payment_id, last_session_at, updated_at
+     from read.rm_pt_balance
+     where tenant_id = $1 and pt_package_id = $2
+     limit 1`,
+    [tenantId, ptPackageId]
+  );
+  return rows[0] || null;
+}
+
 async function getLatestPaymentEventState({ tenantId, paymentId }) {
   const namespaceId = resolveNamespaceId(tenantId);
   const { rows } = await query(
@@ -4107,6 +4119,215 @@ app.post('/v1/pt/packages/assign', async (req, res, next) => {
   }
 });
 
+app.post('/v1/pt/sessions/book', async (req, res, next) => {
+  try {
+    const data = req.body || {};
+    const tenantId = data.tenant_id || config.defaultTenantId;
+    const ptPackageId = required(data.pt_package_id, 'pt_package_id');
+    const balanceRow = await getPtBalanceRow({ tenantId, ptPackageId });
+    if (!balanceRow) {
+      throw fail(404, 'PT_PACKAGE_NOT_FOUND', `pt_package_id "${ptPackageId}" not found`);
+    }
+    if (Number(balanceRow.remaining_sessions || 0) <= 0) {
+      throw fail(409, 'PT_PACKAGE_DEPLETED', `pt_package_id "${ptPackageId}" has no remaining session`);
+    }
+
+    const branchId = String(data.branch_id || balanceRow.branch_id || '').trim();
+    if (!branchId) {
+      throw fail(400, 'BAD_REQUEST', 'branch_id is required');
+    }
+    if (balanceRow.branch_id && data.branch_id && String(balanceRow.branch_id) !== String(data.branch_id)) {
+      throw fail(409, 'PT_PACKAGE_BRANCH_MISMATCH', `pt_package_id "${ptPackageId}" belongs to another branch`);
+    }
+
+    const memberId = String(data.member_id || balanceRow.member_id || '').trim();
+    if (!memberId) {
+      throw fail(400, 'BAD_REQUEST', 'member_id is required');
+    }
+    if (balanceRow.member_id && data.member_id && String(balanceRow.member_id) !== String(data.member_id)) {
+      throw fail(409, 'PT_PACKAGE_MEMBER_MISMATCH', `pt_package_id "${ptPackageId}" belongs to another member`);
+    }
+
+    const trainerId = String(data.trainer_id || balanceRow.trainer_id || data.actor_id || '').trim() || null;
+    if (balanceRow.trainer_id && trainerId && String(balanceRow.trainer_id) !== trainerId) {
+      throw fail(409, 'PT_PACKAGE_TRAINER_MISMATCH', `pt_package_id "${ptPackageId}" belongs to another trainer`);
+    }
+
+    const sessionAt = String(required(data.session_at, 'session_at')).trim();
+    const sessionId = String(data.session_id || `pts_${Date.now()}_${randomUUID().slice(0, 8)}`).trim();
+    const bookedAt = data.booked_at || new Date().toISOString();
+    const activityNote = String(data.activity_note || data.note || '').trim() || null;
+    const event = await appendDomainEvent({
+      tenantId,
+      branchId,
+      actorId: data.actor_id || trainerId || config.defaultActorId,
+      eventType: 'pt.session.booked',
+      subjectKind: 'pt_package',
+      subjectId: ptPackageId,
+      data: {
+        tenant_id: tenantId,
+        branch_id: branchId,
+        pt_package_id: ptPackageId,
+        member_id: memberId,
+        trainer_id: trainerId,
+        session_id: sessionId,
+        session_at: sessionAt,
+        booked_at: bookedAt,
+        activity_note: activityNote
+      },
+      uniqueIds: [{ scope: 'pt_session.session_id', value: sessionId }]
+    });
+    return created(res, {
+      event,
+      pt_package_id: ptPackageId,
+      member_id: memberId,
+      trainer_id: trainerId,
+      session_id: sessionId
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.post('/v1/pt/sessions/:ptPackageId/complete', async (req, res, next) => {
+  try {
+    const data = req.body || {};
+    const tenantId = data.tenant_id || config.defaultTenantId;
+    const ptPackageId = required(req.params.ptPackageId, 'ptPackageId');
+    const balanceRow = await getPtBalanceRow({ tenantId, ptPackageId });
+    if (!balanceRow) {
+      throw fail(404, 'PT_PACKAGE_NOT_FOUND', `pt_package_id "${ptPackageId}" not found`);
+    }
+    if (Number(balanceRow.remaining_sessions || 0) <= 0) {
+      throw fail(409, 'PT_PACKAGE_DEPLETED', `pt_package_id "${ptPackageId}" has no remaining session`);
+    }
+
+    const branchId = String(data.branch_id || balanceRow.branch_id || '').trim();
+    if (!branchId) {
+      throw fail(400, 'BAD_REQUEST', 'branch_id is required');
+    }
+    if (balanceRow.branch_id && data.branch_id && String(balanceRow.branch_id) !== String(data.branch_id)) {
+      throw fail(409, 'PT_PACKAGE_BRANCH_MISMATCH', `pt_package_id "${ptPackageId}" belongs to another branch`);
+    }
+
+    const memberId = String(data.member_id || balanceRow.member_id || '').trim();
+    if (!memberId) {
+      throw fail(400, 'BAD_REQUEST', 'member_id is required');
+    }
+    if (balanceRow.member_id && data.member_id && String(balanceRow.member_id) !== String(data.member_id)) {
+      throw fail(409, 'PT_PACKAGE_MEMBER_MISMATCH', `pt_package_id "${ptPackageId}" belongs to another member`);
+    }
+
+    const trainerId = String(data.trainer_id || balanceRow.trainer_id || data.actor_id || '').trim() || null;
+    if (balanceRow.trainer_id && trainerId && String(balanceRow.trainer_id) !== trainerId) {
+      throw fail(409, 'PT_PACKAGE_TRAINER_MISMATCH', `pt_package_id "${ptPackageId}" belongs to another trainer`);
+    }
+
+    const completedAt = data.completed_at || new Date().toISOString();
+    const sessionId = String(data.session_id || `pts_${Date.now()}_${randomUUID().slice(0, 8)}`).trim();
+    const completionId = String(data.completion_id || `ptc_${Date.now()}_${randomUUID().slice(0, 8)}`).trim();
+    const activityNote = String(data.activity_note || data.note || '').trim() || null;
+    const event = await appendDomainEvent({
+      tenantId,
+      branchId,
+      actorId: data.actor_id || trainerId || config.defaultActorId,
+      eventType: 'pt.session.completed',
+      subjectKind: 'pt_package',
+      subjectId: ptPackageId,
+      data: {
+        tenant_id: tenantId,
+        branch_id: branchId,
+        pt_package_id: ptPackageId,
+        member_id: memberId,
+        trainer_id: trainerId,
+        session_id: sessionId,
+        completion_id: completionId,
+        completed_at: completedAt,
+        activity_note: activityNote
+      },
+      uniqueIds: [{ scope: 'pt_session.completion_id', value: completionId }]
+    });
+    return created(res, {
+      event,
+      pt_package_id: ptPackageId,
+      member_id: memberId,
+      trainer_id: trainerId,
+      session_id: sessionId,
+      completion_id: completionId
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.post('/v1/pt/activity/log', async (req, res, next) => {
+  try {
+    const data = req.body || {};
+    const tenantId = data.tenant_id || config.defaultTenantId;
+    const ptPackageId = String(data.pt_package_id || '').trim();
+    let balanceRow = null;
+    if (ptPackageId) {
+      balanceRow = await getPtBalanceRow({ tenantId, ptPackageId });
+      if (!balanceRow) {
+        throw fail(404, 'PT_PACKAGE_NOT_FOUND', `pt_package_id "${ptPackageId}" not found`);
+      }
+    }
+
+    const branchId = String(data.branch_id || balanceRow?.branch_id || '').trim();
+    if (!branchId) {
+      throw fail(400, 'BAD_REQUEST', 'branch_id is required');
+    }
+
+    const memberId = String(data.member_id || balanceRow?.member_id || '').trim();
+    if (!memberId) {
+      throw fail(400, 'BAD_REQUEST', 'member_id is required');
+    }
+    if (balanceRow?.member_id && data.member_id && String(balanceRow.member_id) !== String(data.member_id)) {
+      throw fail(409, 'PT_PACKAGE_MEMBER_MISMATCH', `pt_package_id "${ptPackageId}" belongs to another member`);
+    }
+
+    const trainerId = String(data.trainer_id || balanceRow?.trainer_id || data.actor_id || '').trim() || null;
+    if (balanceRow?.trainer_id && trainerId && String(balanceRow.trainer_id) !== trainerId) {
+      throw fail(409, 'PT_PACKAGE_TRAINER_MISMATCH', `pt_package_id "${ptPackageId}" belongs to another trainer`);
+    }
+
+    const activityNote = String(required(data.activity_note || data.note, 'activity_note')).trim();
+    const sessionAt = data.session_at || data.logged_at || new Date().toISOString();
+    const activityId = String(data.activity_id || `pta_${Date.now()}_${randomUUID().slice(0, 8)}`).trim();
+    const sessionId = String(data.session_id || '').trim() || null;
+    const event = await appendDomainEvent({
+      tenantId,
+      branchId,
+      actorId: data.actor_id || trainerId || config.defaultActorId,
+      eventType: 'pt.activity.logged',
+      subjectKind: ptPackageId ? 'pt_package' : 'member',
+      subjectId: ptPackageId || memberId,
+      data: {
+        tenant_id: tenantId,
+        branch_id: branchId,
+        pt_package_id: ptPackageId || null,
+        member_id: memberId,
+        trainer_id: trainerId,
+        session_id: sessionId,
+        activity_id: activityId,
+        session_at: sessionAt,
+        logged_at: data.logged_at || sessionAt,
+        activity_note: activityNote
+      },
+      uniqueIds: [{ scope: 'pt_activity.activity_id', value: activityId }]
+    });
+    return created(res, {
+      event,
+      pt_package_id: ptPackageId || null,
+      member_id: memberId,
+      trainer_id: trainerId,
+      activity_id: activityId
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
 app.post('/v1/projections/run', async (req, res, next) => {
   try {
     const data = req.body || {};
@@ -4486,18 +4707,28 @@ app.get('/v1/read/pt-balance', async (req, res, next) => {
   try {
     const tenantId = req.query.tenant_id || config.defaultTenantId;
     const memberId = req.query.member_id || null;
+    const trainerId = req.query.trainer_id || null;
+    const branchId = req.query.branch_id || null;
     const paymentId = req.query.payment_id || null;
     const params = [tenantId];
     let sql = `select * from read.rm_pt_balance where tenant_id = $1`;
+    if (branchId) {
+      params.push(branchId);
+      sql += ` and branch_id = $${params.length}`;
+    }
     if (memberId) {
       params.push(memberId);
-      sql += ` and member_id = $2`;
+      sql += ` and member_id = $${params.length}`;
+    }
+    if (trainerId) {
+      params.push(trainerId);
+      sql += ` and trainer_id = $${params.length}`;
     }
     if (paymentId) {
       params.push(paymentId);
       sql += ` and payment_id = $${params.length}`;
     }
-    sql += ` order by updated_at desc`;
+    sql += ` order by updated_at desc, pt_package_id asc`;
     const { rows } = await query(sql, params);
     return ok(res, { rows });
   } catch (error) {
@@ -4509,11 +4740,26 @@ app.get('/v1/read/pt-activity', async (req, res, next) => {
   try {
     const tenantId = req.query.tenant_id || config.defaultTenantId;
     const memberId = req.query.member_id || null;
+    const trainerId = req.query.trainer_id || null;
+    const ptPackageId = req.query.pt_package_id || null;
+    const activityType = req.query.activity_type || null;
     const params = [tenantId];
     let sql = `select * from read.rm_pt_activity_log where tenant_id = $1`;
     if (memberId) {
       params.push(memberId);
-      sql += ` and member_id = $2`;
+      sql += ` and member_id = $${params.length}`;
+    }
+    if (trainerId) {
+      params.push(trainerId);
+      sql += ` and trainer_id = $${params.length}`;
+    }
+    if (ptPackageId) {
+      params.push(ptPackageId);
+      sql += ` and pt_package_id = $${params.length}`;
+    }
+    if (activityType) {
+      params.push(activityType);
+      sql += ` and activity_type = $${params.length}`;
     }
     sql += ` order by session_at desc nulls last, updated_at desc`;
     const { rows } = await query(sql, params);

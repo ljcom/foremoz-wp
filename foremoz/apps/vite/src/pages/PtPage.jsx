@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { apiJson, clearSession, getAccountSlug, getEnvironmentLabel, getSession, getAllowedEnvironments } from '../lib.js';
+import { apiJson, clearSession, getAccountSlug, getAllowedEnvironments, getEnvironmentLabel, getSession } from '../lib.js';
 
 function Stat({ label, value, iconClass, tone, hint }) {
   return (
@@ -24,16 +24,35 @@ export default function PtPage() {
   const session = getSession();
   const accountSlug = getAccountSlug(session);
   const role = String(session?.role || 'pt').toLowerCase();
+  const tenantId = session?.tenant?.id || 'tn_001';
+  const branchId = session?.branch?.id || 'core';
+  const trainerId = session?.user?.userId || null;
   const [targetEnv, setTargetEnv] = useState('pt');
-  const [dashboardRow, setDashboardRow] = useState(null);
-  const [loadingInsight, setLoadingInsight] = useState(false);
-  const [errorInsight, setErrorInsight] = useState('');
-  const [activity, setActivity] = useState({ member_id: '', note: '', session_at: '' });
-  const [logs, setLogs] = useState([
-    { activity_id: 'pta_001', member_id: 'mem_4471', note: 'Mobility warmup + strength block', session_at: '2026-03-05T07:00' },
-    { activity_id: 'pta_002', member_id: 'mem_4472', note: 'Strength progression', session_at: '2026-03-05T17:30' },
-    { activity_id: 'pta_003', member_id: 'mem_4471', note: 'Recovery session', session_at: '2026-03-06T08:00' }
-  ]);
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const [feedback, setFeedback] = useState('');
+  const [ptBalances, setPtBalances] = useState([]);
+  const [ptActivityRows, setPtActivityRows] = useState([]);
+  const [bookForm, setBookForm] = useState({
+    pt_package_id: '',
+    member_id: '',
+    session_at: new Date().toISOString().slice(0, 16),
+    activity_note: ''
+  });
+  const [completeForm, setCompleteForm] = useState({
+    pt_package_id: '',
+    member_id: '',
+    session_id: '',
+    completed_at: new Date().toISOString().slice(0, 16),
+    activity_note: ''
+  });
+  const [activityForm, setActivityForm] = useState({
+    pt_package_id: '',
+    member_id: '',
+    session_at: new Date().toISOString().slice(0, 16),
+    activity_note: ''
+  });
   const allowedEnv = useMemo(() => {
     return getAllowedEnvironments(session, role);
   }, [session, role]);
@@ -44,43 +63,80 @@ export default function PtPage() {
       setTargetEnv(allowedEnv[0]);
     }
   }, [allowedEnv, targetEnv]);
-  const insightStats = useMemo(
-    () => {
-      const today = new Date().toISOString().slice(0, 10);
-      const tomorrowDate = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-      const normalized = logs.map((item) => ({
-        ...item,
-        date: String(item.session_at || '').slice(0, 10)
-      }));
-      const totalMember = new Set(normalized.map((item) => item.member_id).filter(Boolean)).size;
-      const todayBooking = normalized.filter((item) => item.date === today).length;
-      const tomorrowSchedule = normalized.filter((item) => item.date === tomorrowDate).length;
-      return [
-        {
-          label: 'total member',
-          value: totalMember,
-          iconClass: 'fa-solid fa-user-group',
-          tone: 'tone-subscription',
-          hint: 'maintained by this PT'
-        },
-        {
-          label: 'today booking',
-          value: todayBooking,
-          iconClass: 'fa-solid fa-calendar-check',
-          tone: 'tone-booking',
-          hint: 'sessions scheduled today'
-        },
-        {
-          label: 'tomorrow schedule',
-          value: tomorrowSchedule,
-          iconClass: 'fa-solid fa-calendar-day',
-          tone: 'tone-checkin',
-          hint: 'sessions planned tomorrow'
-        }
-      ];
-    },
-    [logs]
-  );
+  const insightStats = useMemo(() => {
+    const uniqueMembers = new Set(ptBalances.map((item) => String(item.member_id || '').trim()).filter(Boolean)).size;
+    const remainingSessions = ptBalances.reduce((sum, row) => sum + Number(row.remaining_sessions || 0), 0);
+    const today = new Date().toISOString().slice(0, 10);
+    const todaySessions = ptActivityRows.filter((row) => String(row.session_at || '').slice(0, 10) === today).length;
+    return [
+      {
+        label: 'active member',
+        value: uniqueMembers,
+        iconClass: 'fa-solid fa-user-group',
+        tone: 'tone-subscription',
+        hint: 'member assigned to this PT'
+      },
+      {
+        label: 'remaining session',
+        value: remainingSessions,
+        iconClass: 'fa-solid fa-dumbbell',
+        tone: 'tone-booking',
+        hint: 'across active PT package'
+      },
+      {
+        label: 'today activity',
+        value: todaySessions,
+        iconClass: 'fa-solid fa-calendar-day',
+        tone: 'tone-checkin',
+        hint: 'booked, completed, and log'
+      }
+    ];
+  }, [ptBalances, ptActivityRows]);
+
+  async function loadPtWorkspace() {
+    try {
+      setLoading(true);
+      setError('');
+      await apiJson('/v1/projections/run', {
+        method: 'POST',
+        body: JSON.stringify({
+          tenant_id: tenantId,
+          branch_id: branchId
+        })
+      }).catch(() => {});
+      const trainerFilter = trainerId ? `&trainer_id=${encodeURIComponent(trainerId)}` : '';
+      const [balanceRes, activityRes] = await Promise.all([
+        apiJson(`/v1/read/pt-balance?tenant_id=${encodeURIComponent(tenantId)}&branch_id=${encodeURIComponent(branchId)}${trainerFilter}`).catch(() => ({ rows: [] })),
+        apiJson(`/v1/read/pt-activity?tenant_id=${encodeURIComponent(tenantId)}${trainerFilter}`).catch(() => ({ rows: [] }))
+      ]);
+      const balances = Array.isArray(balanceRes.rows) ? balanceRes.rows : [];
+      setPtBalances(balances);
+      setPtActivityRows(Array.isArray(activityRes.rows) ? activityRes.rows : []);
+
+      if (balances.length > 0) {
+        const first = balances[0];
+        setBookForm((prev) => ({
+          ...prev,
+          pt_package_id: prev.pt_package_id || String(first.pt_package_id || ''),
+          member_id: prev.member_id || String(first.member_id || '')
+        }));
+        setCompleteForm((prev) => ({
+          ...prev,
+          pt_package_id: prev.pt_package_id || String(first.pt_package_id || ''),
+          member_id: prev.member_id || String(first.member_id || '')
+        }));
+        setActivityForm((prev) => ({
+          ...prev,
+          pt_package_id: prev.pt_package_id || String(first.pt_package_id || ''),
+          member_id: prev.member_id || String(first.member_id || '')
+        }));
+      }
+    } catch (err) {
+      setError(err.message || 'failed to load PT workspace');
+    } finally {
+      setLoading(false);
+    }
+  }
 
   function goToEnv(env) {
     if (!allowedEnv.includes(env)) return;
@@ -104,39 +160,116 @@ export default function PtPage() {
     navigate(`/a/${accountSlug}`, { replace: true });
   }
 
-  function addActivity(e) {
+  function toIso(value) {
+    if (!value) return new Date().toISOString();
+    return new Date(value).toISOString();
+  }
+
+  async function submitBookSession(e) {
     e.preventDefault();
-    if (!activity.member_id || !activity.note || !activity.session_at) return;
-    setLogs((prev) => [{ activity_id: `pta_${Date.now()}`, ...activity }, ...prev]);
-    setActivity({ member_id: '', note: '', session_at: '' });
+    if (!bookForm.pt_package_id || !bookForm.member_id || !bookForm.session_at) {
+      setFeedback('Lengkapi package, member, dan jadwal sesi.');
+      return;
+    }
+    try {
+      setSaving(true);
+      setFeedback('');
+      await apiJson('/v1/pt/sessions/book', {
+        method: 'POST',
+        body: JSON.stringify({
+          tenant_id: tenantId,
+          branch_id: branchId,
+          actor_id: trainerId || undefined,
+          trainer_id: trainerId || undefined,
+          pt_package_id: bookForm.pt_package_id,
+          member_id: bookForm.member_id,
+          session_at: toIso(bookForm.session_at),
+          activity_note: bookForm.activity_note || null
+        })
+      });
+      setFeedback('Session booked.');
+      await loadPtWorkspace();
+    } catch (err) {
+      setFeedback(err.message || 'Gagal booking session.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function submitCompleteSession(e) {
+    e.preventDefault();
+    if (!completeForm.pt_package_id || !completeForm.member_id || !completeForm.completed_at) {
+      setFeedback('Lengkapi package, member, dan waktu selesai sesi.');
+      return;
+    }
+    try {
+      setSaving(true);
+      setFeedback('');
+      await apiJson(`/v1/pt/sessions/${encodeURIComponent(completeForm.pt_package_id)}/complete`, {
+        method: 'POST',
+        body: JSON.stringify({
+          tenant_id: tenantId,
+          branch_id: branchId,
+          actor_id: trainerId || undefined,
+          trainer_id: trainerId || undefined,
+          member_id: completeForm.member_id,
+          session_id: completeForm.session_id || null,
+          completed_at: toIso(completeForm.completed_at),
+          activity_note: completeForm.activity_note || null
+        })
+      });
+      setFeedback('Session completed.');
+      await loadPtWorkspace();
+    } catch (err) {
+      setFeedback(err.message || 'Gagal menyelesaikan session.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function submitActivityLog(e) {
+    e.preventDefault();
+    if (!activityForm.member_id || !activityForm.activity_note) {
+      setFeedback('Lengkapi member dan catatan aktivitas.');
+      return;
+    }
+    try {
+      setSaving(true);
+      setFeedback('');
+      await apiJson('/v1/pt/activity/log', {
+        method: 'POST',
+        body: JSON.stringify({
+          tenant_id: tenantId,
+          branch_id: branchId,
+          actor_id: trainerId || undefined,
+          trainer_id: trainerId || undefined,
+          pt_package_id: activityForm.pt_package_id || null,
+          member_id: activityForm.member_id,
+          session_at: toIso(activityForm.session_at),
+          activity_note: activityForm.activity_note
+        })
+      });
+      setFeedback('Activity logged.');
+      setActivityForm((prev) => ({ ...prev, activity_note: '' }));
+      await loadPtWorkspace();
+    } catch (err) {
+      setFeedback(err.message || 'Gagal log activity.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function seedFormsFromBalance(row) {
+    const packageId = String(row?.pt_package_id || '');
+    const memberId = String(row?.member_id || '');
+    setBookForm((prev) => ({ ...prev, pt_package_id: packageId, member_id: memberId }));
+    setCompleteForm((prev) => ({ ...prev, pt_package_id: packageId, member_id: memberId }));
+    setActivityForm((prev) => ({ ...prev, pt_package_id: packageId, member_id: memberId }));
   }
 
   useEffect(() => {
-    async function loadInsight() {
-      const tenantId = session?.tenant?.id || 'tn_001';
-      const branchId = session?.branch?.id || 'core';
-      try {
-        setLoadingInsight(true);
-        setErrorInsight('');
-        await apiJson('/v1/projections/run', {
-          method: 'POST',
-          body: JSON.stringify({
-            tenant_id: tenantId,
-            branch_id: 'core'
-          })
-        });
-        const result = await apiJson(
-          `/v1/read/dashboard?tenant_id=${encodeURIComponent(tenantId)}&branch_id=${encodeURIComponent(branchId)}`
-        );
-        setDashboardRow(result.row || null);
-      } catch (error) {
-        setErrorInsight(error.message || 'failed to load insight');
-      } finally {
-        setLoadingInsight(false);
-      }
-    }
-    loadInsight();
-  }, [session?.tenant?.id, session?.branch?.id]);
+    loadPtWorkspace();
+  }, [tenantId, branchId, trainerId]);
 
   return (
     <main className="dashboard">
@@ -144,7 +277,7 @@ export default function PtPage() {
         <div>
           <p className="eyebrow">PT Workspace</p>
           <h1>{session?.user?.fullName || 'PT'}</h1>
-          <p>Log member PT activity</p>
+          <p>Session booking, completion, and member activity tracking</p>
         </div>
         <div className="meta">
           {allowedEnv.length > 0 ? (
@@ -194,30 +327,72 @@ export default function PtPage() {
             <Stat key={s.label} label={s.label} value={s.value} iconClass={s.iconClass} tone={s.tone} hint={s.hint} />
           ))}
         </section>
-        {loadingInsight ? <p className="feedback">Loading insight...</p> : null}
-        {errorInsight ? <p className="error">{errorInsight}</p> : null}
+        {loading ? <p className="feedback">Loading PT workspace...</p> : null}
+        {error ? <p className="error">{error}</p> : null}
+        {feedback ? <p className="feedback">{feedback}</p> : null}
       </section>
 
       <section className="card admin-main" style={{ marginTop: '1rem' }}>
-        <h2>PT activity log</h2>
+        <h2>PT package balance</h2>
         <div className="entity-list">
-          {logs.map((item) => (
-            <div className="entity-row" key={item.activity_id}>
+          {ptBalances.map((item) => (
+            <div className="entity-row" key={`${item.pt_package_id}:${item.member_id}`}>
               <div>
-                <strong>{item.member_id}</strong>
-                <p>{item.session_at} - {item.note}</p>
+                <strong>{item.member_id} - {item.pt_package_id}</strong>
+                <p>remaining {item.remaining_sessions} / total {item.total_sessions} | consumed {item.consumed_sessions}</p>
               </div>
-              <button className="btn ghost" onClick={() => setLogs((prev) => prev.filter((v) => v.activity_id !== item.activity_id))}>Delete</button>
+              <button className="btn ghost" onClick={() => seedFormsFromBalance(item)}>Use</button>
             </div>
           ))}
         </div>
+      </section>
 
-        <form className="form" onSubmit={addActivity}>
-          <label>member_id<input value={activity.member_id} onChange={(e) => setActivity((p) => ({ ...p, member_id: e.target.value }))} /></label>
-          <label>session_at<input type="datetime-local" value={activity.session_at} onChange={(e) => setActivity((p) => ({ ...p, session_at: e.target.value }))} /></label>
-          <label>activity_note<input value={activity.note} onChange={(e) => setActivity((p) => ({ ...p, note: e.target.value }))} /></label>
-          <button className="btn" type="submit">Log activity</button>
-        </form>
+      <section className="card admin-main" style={{ marginTop: '1rem' }}>
+        <h2>PT actions</h2>
+        <div style={{ display: 'grid', gap: '1rem', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))' }}>
+          <form className="form" onSubmit={submitBookSession}>
+            <p className="eyebrow">Book session</p>
+            <label>pt_package_id<input value={bookForm.pt_package_id} onChange={(e) => setBookForm((p) => ({ ...p, pt_package_id: e.target.value }))} /></label>
+            <label>member_id<input value={bookForm.member_id} onChange={(e) => setBookForm((p) => ({ ...p, member_id: e.target.value }))} /></label>
+            <label>session_at<input type="datetime-local" value={bookForm.session_at} onChange={(e) => setBookForm((p) => ({ ...p, session_at: e.target.value }))} /></label>
+            <label>activity_note<input value={bookForm.activity_note} onChange={(e) => setBookForm((p) => ({ ...p, activity_note: e.target.value }))} /></label>
+            <button className="btn" type="submit" disabled={saving}>{saving ? 'Saving...' : 'Book session'}</button>
+          </form>
+
+          <form className="form" onSubmit={submitCompleteSession}>
+            <p className="eyebrow">Complete session</p>
+            <label>pt_package_id<input value={completeForm.pt_package_id} onChange={(e) => setCompleteForm((p) => ({ ...p, pt_package_id: e.target.value }))} /></label>
+            <label>member_id<input value={completeForm.member_id} onChange={(e) => setCompleteForm((p) => ({ ...p, member_id: e.target.value }))} /></label>
+            <label>session_id<input value={completeForm.session_id} onChange={(e) => setCompleteForm((p) => ({ ...p, session_id: e.target.value }))} /></label>
+            <label>completed_at<input type="datetime-local" value={completeForm.completed_at} onChange={(e) => setCompleteForm((p) => ({ ...p, completed_at: e.target.value }))} /></label>
+            <label>completion_note<input value={completeForm.activity_note} onChange={(e) => setCompleteForm((p) => ({ ...p, activity_note: e.target.value }))} /></label>
+            <button className="btn" type="submit" disabled={saving}>{saving ? 'Saving...' : 'Complete session'}</button>
+          </form>
+
+          <form className="form" onSubmit={submitActivityLog}>
+            <p className="eyebrow">Log activity</p>
+            <label>pt_package_id (optional)<input value={activityForm.pt_package_id} onChange={(e) => setActivityForm((p) => ({ ...p, pt_package_id: e.target.value }))} /></label>
+            <label>member_id<input value={activityForm.member_id} onChange={(e) => setActivityForm((p) => ({ ...p, member_id: e.target.value }))} /></label>
+            <label>session_at<input type="datetime-local" value={activityForm.session_at} onChange={(e) => setActivityForm((p) => ({ ...p, session_at: e.target.value }))} /></label>
+            <label>activity_note<input value={activityForm.activity_note} onChange={(e) => setActivityForm((p) => ({ ...p, activity_note: e.target.value }))} /></label>
+            <button className="btn" type="submit" disabled={saving}>{saving ? 'Saving...' : 'Log activity'}</button>
+          </form>
+        </div>
+      </section>
+
+      <section className="card admin-main" style={{ marginTop: '1rem' }}>
+        <h2>PT timeline</h2>
+        <div className="entity-list">
+          {ptActivityRows.map((item) => (
+            <div className="entity-row" key={item.activity_id}>
+              <div>
+                <strong>{item.member_id} {item.pt_package_id ? `- ${item.pt_package_id}` : ''}</strong>
+                <p>{item.session_at} | {item.activity_type || 'activity_logged'}{item.session_id ? ` | session ${item.session_id}` : ''}</p>
+                <p>{item.activity_note || '-'}</p>
+              </div>
+            </div>
+          ))}
+        </div>
       </section>
 
       <footer className="dash-foot"><Link to="/web">Back to web</Link></footer>
