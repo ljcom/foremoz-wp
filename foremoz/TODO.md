@@ -52,6 +52,7 @@ Last audited terhadap isi folder: **2026-03-25** (`foremoz/apps/api`, `foremoz/a
   - Check-in reject participant yang belum register / sudah checkout.
   - Check-in/check-out duplicate return `duplicate: true` (tidak append event baru).
   - Frontend admin/CS sudah menampilkan feedback `checkin.skip` / `checkout.skip`.
+  - Member flow lookup participant sudah fallback by `passport_id/member_id` (tidak hanya email).
 
 ## Passport Dashboard (66%)
 - [~] Hubungkan profile editor (nama display, status, avatar) ke API Passport.

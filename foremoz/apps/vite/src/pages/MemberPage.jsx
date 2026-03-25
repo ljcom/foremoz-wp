@@ -205,7 +205,7 @@ export default function MemberPage() {
   }
 
   async function loadParticipantForSelectedEvent(eventId) {
-    if (!eventId || !memberData?.email) {
+    if (!eventId || (!memberData?.email && !memberData?.member_id)) {
       setSelectedEventParticipant(null);
       return;
     }
@@ -214,7 +214,14 @@ export default function MemberPage() {
         `/v1/admin/events/${encodeURIComponent(eventId)}/participants?tenant_id=${encodeURIComponent(tenantId)}&branch_id=${encodeURIComponent(branchId)}&limit=500`
       );
       const rows = Array.isArray(participantRes.rows) ? participantRes.rows : [];
-      const row = rows.find((item) => String(item?.email || '').toLowerCase() === String(memberData.email || '').toLowerCase()) || null;
+      const emailCandidate = String(memberData.email || '').toLowerCase();
+      const memberIdCandidate = String(memberData.member_id || '').toLowerCase();
+      const row = rows.find((item) => {
+        const emailMatch = emailCandidate && String(item?.email || '').toLowerCase() === emailCandidate;
+        const passportMatch = memberIdCandidate && String(item?.passport_id || '').toLowerCase() === memberIdCandidate;
+        const memberMatch = memberIdCandidate && String(item?.member_id || '').toLowerCase() === memberIdCandidate;
+        return Boolean(emailMatch || passportMatch || memberMatch);
+      }) || null;
       setSelectedEventParticipant(row);
     } catch {
       setSelectedEventParticipant(null);
@@ -227,7 +234,7 @@ export default function MemberPage() {
   }, [selectedEventId, memberData?.email, tenantId, branchId]);
 
   async function checkinToSelectedEvent() {
-    if (!selectedEventId || !memberData?.email) {
+    if (!selectedEventId || (!memberData?.email && !memberData?.member_id)) {
       setFeedback('Pilih event dulu sebelum check-in.');
       return;
     }
@@ -258,7 +265,7 @@ export default function MemberPage() {
   }
 
   async function checkoutFromSelectedEvent() {
-    if (!selectedEventId || !memberData?.email) {
+    if (!selectedEventId || (!memberData?.email && !memberData?.member_id)) {
       setFeedback('Pilih event dulu sebelum check-out.');
       return;
     }
