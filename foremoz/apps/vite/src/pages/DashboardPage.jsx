@@ -64,6 +64,20 @@ function downloadCsvFile(filename, rows) {
   URL.revokeObjectURL(url);
 }
 
+function parseCustomFieldsInput(raw, label) {
+  const source = String(raw || '').trim();
+  if (!source) return {};
+  try {
+    const parsed = JSON.parse(source);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      throw new Error(`${label} custom_fields must be a JSON object`);
+    }
+    return parsed;
+  } catch {
+    throw new Error(`${label} custom_fields is invalid JSON object`);
+  }
+}
+
 function isSameParticipant(member, participant) {
   const memberEmail = toLowerText(member?.email);
   const participantEmail = toLowerText(participant?.email);
@@ -112,6 +126,8 @@ export default function DashboardPage() {
   const [memberScopedFilter, setMemberScopedFilter] = useState(null);
   const [participantSearchRows, setParticipantSearchRows] = useState([]);
   const [participantSearchLoading, setParticipantSearchLoading] = useState(false);
+  const [checkinCustomFieldsText, setCheckinCustomFieldsText] = useState('');
+  const [checkoutCustomFieldsText, setCheckoutCustomFieldsText] = useState('');
   const [actionFeedback, setActionFeedback] = useState('');
   const [actionSaving, setActionSaving] = useState(false);
 
@@ -758,6 +774,7 @@ export default function DashboardPage() {
     try {
       setActionSaving(true);
       setActionFeedback('');
+      const customFields = parseCustomFieldsInput(checkinCustomFieldsText, 'Check-in');
       const result = await apiJson(`/v1/admin/events/${encodeURIComponent(selectedEvent.event_id)}/participants/checkin`, {
         method: 'POST',
         body: JSON.stringify({
@@ -766,7 +783,8 @@ export default function DashboardPage() {
           email: email || null,
           full_name: fullName,
           registration_id: registrationId,
-          passport_id: passportId
+          passport_id: passportId,
+          custom_fields: customFields
         })
       });
       await loadEventParticipants(selectedEvent.event_id);
@@ -804,6 +822,7 @@ export default function DashboardPage() {
     try {
       setActionSaving(true);
       setActionFeedback('');
+      const customFields = parseCustomFieldsInput(checkoutCustomFieldsText, 'Check-out');
       const result = await apiJson(`/v1/admin/events/${encodeURIComponent(selectedEvent.event_id)}/participants/checkout`, {
         method: 'POST',
         body: JSON.stringify({
@@ -812,7 +831,8 @@ export default function DashboardPage() {
           email: email || null,
           full_name: fullName,
           registration_id: registrationId,
-          passport_id: passportId
+          passport_id: passportId,
+          custom_fields: customFields
         })
       });
       await loadEventParticipants(selectedEvent.event_id);
@@ -1249,6 +1269,24 @@ export default function DashboardPage() {
                   placeholder="Nama, email, participant no, registration ID"
                 />
               </label>
+              <label>
+                Check-in custom_fields (JSON, optional)
+                <textarea
+                  rows={2}
+                  value={checkinCustomFieldsText}
+                  onChange={(e) => setCheckinCustomFieldsText(e.target.value)}
+                  placeholder='{"scanner":"gate-a","shift":"morning"}'
+                />
+              </label>
+              <label>
+                Check-out custom_fields (JSON, optional)
+                <textarea
+                  rows={2}
+                  value={checkoutCustomFieldsText}
+                  onChange={(e) => setCheckoutCustomFieldsText(e.target.value)}
+                  placeholder='{"judge":"staff-1","source":"manual"}'
+                />
+              </label>
               {eventParticipantsLoading ? (
                 <p className="feedback">Memuat participant...</p>
               ) : filteredEventParticipants.length > 0 ? (
@@ -1258,6 +1296,8 @@ export default function DashboardPage() {
                       <div>
                         <strong>{participant.full_name || participant.email || participant.passport_id || '-'}</strong>
                         <p>{participant.participant_no || '-'} | {participant.email || '-'} | checkin: {participant.checked_in_at ? 'yes' : 'no'} | checkout: {participant.checked_out_at ? 'yes' : 'no'}</p>
+                        <p>checkin_fields: {participant.checkin_custom_fields && Object.keys(participant.checkin_custom_fields).length > 0 ? JSON.stringify(participant.checkin_custom_fields) : '-'}</p>
+                        <p>checkout_fields: {participant.checkout_custom_fields && Object.keys(participant.checkout_custom_fields).length > 0 ? JSON.stringify(participant.checkout_custom_fields) : '-'}</p>
                       </div>
                       <div className="row-actions">
                         <button className="btn ghost small" type="button" disabled={actionSaving} onClick={() => checkinByIdentity({ participant })}>

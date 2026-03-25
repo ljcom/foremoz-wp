@@ -192,6 +192,7 @@ CREATE TABLE IF NOT EXISTS read.rm_pt_activity_log (
   session_id TEXT,
   activity_type TEXT NOT NULL DEFAULT 'activity_logged',
   activity_note TEXT,
+  custom_fields JSONB,
   session_at TIMESTAMPTZ,
   updated_at TIMESTAMPTZ NOT NULL,
   PRIMARY KEY (tenant_id, activity_id)

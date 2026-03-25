@@ -19,6 +19,20 @@ function Stat({ label, value, iconClass, tone, hint }) {
   );
 }
 
+function parseCustomFieldsInput(raw, label) {
+  const source = String(raw || '').trim();
+  if (!source) return {};
+  try {
+    const parsed = JSON.parse(source);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      throw new Error(`${label} custom_fields harus object JSON.`);
+    }
+    return parsed;
+  } catch {
+    throw new Error(`${label} custom_fields tidak valid (format JSON object).`);
+  }
+}
+
 export default function PtPage() {
   const navigate = useNavigate();
   const session = getSession();
@@ -38,20 +52,23 @@ export default function PtPage() {
     pt_package_id: '',
     member_id: '',
     session_at: new Date().toISOString().slice(0, 16),
-    activity_note: ''
+    activity_note: '',
+    custom_fields_text: ''
   });
   const [completeForm, setCompleteForm] = useState({
     pt_package_id: '',
     member_id: '',
     session_id: '',
     completed_at: new Date().toISOString().slice(0, 16),
-    activity_note: ''
+    activity_note: '',
+    custom_fields_text: ''
   });
   const [activityForm, setActivityForm] = useState({
     pt_package_id: '',
     member_id: '',
     session_at: new Date().toISOString().slice(0, 16),
-    activity_note: ''
+    activity_note: '',
+    custom_fields_text: ''
   });
   const allowedEnv = useMemo(() => {
     return getAllowedEnvironments(session, role);
@@ -174,6 +191,7 @@ export default function PtPage() {
     try {
       setSaving(true);
       setFeedback('');
+      const customFields = parseCustomFieldsInput(bookForm.custom_fields_text, 'Book session');
       await apiJson('/v1/pt/sessions/book', {
         method: 'POST',
         body: JSON.stringify({
@@ -184,7 +202,8 @@ export default function PtPage() {
           pt_package_id: bookForm.pt_package_id,
           member_id: bookForm.member_id,
           session_at: toIso(bookForm.session_at),
-          activity_note: bookForm.activity_note || null
+          activity_note: bookForm.activity_note || null,
+          custom_fields: customFields
         })
       });
       setFeedback('Session booked.');
@@ -205,6 +224,7 @@ export default function PtPage() {
     try {
       setSaving(true);
       setFeedback('');
+      const customFields = parseCustomFieldsInput(completeForm.custom_fields_text, 'Complete session');
       await apiJson(`/v1/pt/sessions/${encodeURIComponent(completeForm.pt_package_id)}/complete`, {
         method: 'POST',
         body: JSON.stringify({
@@ -215,7 +235,8 @@ export default function PtPage() {
           member_id: completeForm.member_id,
           session_id: completeForm.session_id || null,
           completed_at: toIso(completeForm.completed_at),
-          activity_note: completeForm.activity_note || null
+          activity_note: completeForm.activity_note || null,
+          custom_fields: customFields
         })
       });
       setFeedback('Session completed.');
@@ -236,6 +257,7 @@ export default function PtPage() {
     try {
       setSaving(true);
       setFeedback('');
+      const customFields = parseCustomFieldsInput(activityForm.custom_fields_text, 'Activity log');
       await apiJson('/v1/pt/activity/log', {
         method: 'POST',
         body: JSON.stringify({
@@ -246,7 +268,8 @@ export default function PtPage() {
           pt_package_id: activityForm.pt_package_id || null,
           member_id: activityForm.member_id,
           session_at: toIso(activityForm.session_at),
-          activity_note: activityForm.activity_note
+          activity_note: activityForm.activity_note,
+          custom_fields: customFields
         })
       });
       setFeedback('Activity logged.');
@@ -356,6 +379,7 @@ export default function PtPage() {
             <label>member_id<input value={bookForm.member_id} onChange={(e) => setBookForm((p) => ({ ...p, member_id: e.target.value }))} /></label>
             <label>session_at<input type="datetime-local" value={bookForm.session_at} onChange={(e) => setBookForm((p) => ({ ...p, session_at: e.target.value }))} /></label>
             <label>activity_note<input value={bookForm.activity_note} onChange={(e) => setBookForm((p) => ({ ...p, activity_note: e.target.value }))} /></label>
+            <label>custom_fields (JSON)<textarea rows={3} value={bookForm.custom_fields_text} onChange={(e) => setBookForm((p) => ({ ...p, custom_fields_text: e.target.value }))} placeholder='{"intensity":"high","coach_note":"focus core"}' /></label>
             <button className="btn" type="submit" disabled={saving}>{saving ? 'Saving...' : 'Book session'}</button>
           </form>
 
@@ -366,6 +390,7 @@ export default function PtPage() {
             <label>session_id<input value={completeForm.session_id} onChange={(e) => setCompleteForm((p) => ({ ...p, session_id: e.target.value }))} /></label>
             <label>completed_at<input type="datetime-local" value={completeForm.completed_at} onChange={(e) => setCompleteForm((p) => ({ ...p, completed_at: e.target.value }))} /></label>
             <label>completion_note<input value={completeForm.activity_note} onChange={(e) => setCompleteForm((p) => ({ ...p, activity_note: e.target.value }))} /></label>
+            <label>custom_fields (JSON)<textarea rows={3} value={completeForm.custom_fields_text} onChange={(e) => setCompleteForm((p) => ({ ...p, custom_fields_text: e.target.value }))} placeholder='{"session_quality":4,"mood":"good"}' /></label>
             <button className="btn" type="submit" disabled={saving}>{saving ? 'Saving...' : 'Complete session'}</button>
           </form>
 
@@ -375,6 +400,7 @@ export default function PtPage() {
             <label>member_id<input value={activityForm.member_id} onChange={(e) => setActivityForm((p) => ({ ...p, member_id: e.target.value }))} /></label>
             <label>session_at<input type="datetime-local" value={activityForm.session_at} onChange={(e) => setActivityForm((p) => ({ ...p, session_at: e.target.value }))} /></label>
             <label>activity_note<input value={activityForm.activity_note} onChange={(e) => setActivityForm((p) => ({ ...p, activity_note: e.target.value }))} /></label>
+            <label>custom_fields (JSON)<textarea rows={3} value={activityForm.custom_fields_text} onChange={(e) => setActivityForm((p) => ({ ...p, custom_fields_text: e.target.value }))} placeholder='{"exercise":"deadlift","weight_kg":80}' /></label>
             <button className="btn" type="submit" disabled={saving}>{saving ? 'Saving...' : 'Log activity'}</button>
           </form>
         </div>
@@ -389,6 +415,7 @@ export default function PtPage() {
                 <strong>{item.member_id} {item.pt_package_id ? `- ${item.pt_package_id}` : ''}</strong>
                 <p>{item.session_at} | {item.activity_type || 'activity_logged'}{item.session_id ? ` | session ${item.session_id}` : ''}</p>
                 <p>{item.activity_note || '-'}</p>
+                <p>{item.custom_fields && Object.keys(item.custom_fields).length > 0 ? `custom_fields: ${JSON.stringify(item.custom_fields)}` : 'custom_fields: -'}</p>
               </div>
             </div>
           ))}

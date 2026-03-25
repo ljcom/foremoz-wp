@@ -144,6 +144,20 @@ function formatIdr(value) {
   return `IDR ${Number(value || 0).toLocaleString('id-ID')}`;
 }
 
+function parseCustomFieldsInput(raw, label) {
+  const source = String(raw || '').trim();
+  if (!source) return {};
+  try {
+    const parsed = JSON.parse(source);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      throw new Error(`${label} custom_fields must be a JSON object`);
+    }
+    return parsed;
+  } catch {
+    throw new Error(`${label} custom_fields is invalid JSON object`);
+  }
+}
+
 function resolvePaymentReferenceLabel(item, lookups = {}) {
   const referenceType = String(item?.reference_type || '').trim().toLowerCase();
   const referenceId = String(item?.reference_id || '').trim();
@@ -645,6 +659,8 @@ export default function AdminPage() {
   });
   const [eventCheckinSearch, setEventCheckinSearch] = useState('');
   const [eventCheckinBarcode, setEventCheckinBarcode] = useState('');
+  const [eventCheckinCustomFieldsText, setEventCheckinCustomFieldsText] = useState('');
+  const [eventCheckoutCustomFieldsText, setEventCheckoutCustomFieldsText] = useState('');
 
   const [userForm, setUserForm] = useState({ full_name: '', email: '', role: 'staff' });
   const [eventForm, setEventForm] = useState(() => createEmptyEventForm());
@@ -2174,6 +2190,7 @@ export default function AdminPage() {
     const key = keyOverride || getParticipantCheckinKey(participant);
     try {
       setEventCheckinSavingMap((prev) => ({ ...prev, [key]: true }));
+      const customFields = parseCustomFieldsInput(eventCheckinCustomFieldsText, 'Check-in');
       const result = await apiJson(`/v1/admin/events/${encodeURIComponent(editingEventId)}/participants/checkin`, {
         method: 'POST',
         body: JSON.stringify({
@@ -2182,7 +2199,8 @@ export default function AdminPage() {
           registration_id: participant?.registration_id || null,
           passport_id: participant?.passport_id || null,
           email: participant?.email || null,
-          full_name: participant?.full_name || null
+          full_name: participant?.full_name || null,
+          custom_fields: customFields
         })
       });
       setEventCheckinMap((prev) => ({ ...prev, [key]: true }));
@@ -2222,6 +2240,7 @@ export default function AdminPage() {
     }
     try {
       setEventCheckoutSavingMap((prev) => ({ ...prev, [key]: true }));
+      const customFields = parseCustomFieldsInput(eventCheckoutCustomFieldsText, 'Check-out');
       const result = await apiJson(`/v1/admin/events/${encodeURIComponent(editingEventId)}/participants/checkout`, {
         method: 'POST',
         body: JSON.stringify({
@@ -2231,7 +2250,8 @@ export default function AdminPage() {
           passport_id: participant.passport_id || null,
           email: participant.email || null,
           full_name: participant.full_name || null,
-          rank
+          rank,
+          custom_fields: customFields
         })
       });
       const scorePoints = Number(result?.score_points || 0);
@@ -3199,6 +3219,26 @@ export default function AdminPage() {
                               <p className="feedback">Langkah cepat: Save event {'->'} Publikasikan Event {'->'} bagikan link event {'->'} refresh tab Participants.</p>
                             </div>
                           ) : null}
+                          <div className="form" style={{ marginBottom: '0.6rem' }}>
+                            <label>
+                              Check-in custom_fields (JSON, optional)
+                              <textarea
+                                rows={2}
+                                value={eventCheckinCustomFieldsText}
+                                onChange={(e) => setEventCheckinCustomFieldsText(e.target.value)}
+                                placeholder='{"gate":"east","operator":"admin-1"}'
+                              />
+                            </label>
+                            <label>
+                              Check-out custom_fields (JSON, optional)
+                              <textarea
+                                rows={2}
+                                value={eventCheckoutCustomFieldsText}
+                                onChange={(e) => setEventCheckoutCustomFieldsText(e.target.value)}
+                                placeholder='{"judge":"coach-a","score_source":"manual"}'
+                              />
+                            </label>
+                          </div>
                           {eventParticipantsLoading ? <p className="feedback">Loading participants...</p> : null}
                           {!eventParticipantsLoading && eventParticipants.length === 0 ? (
                             <p className="feedback">Belum ada participant yang join event ini.</p>
@@ -3214,6 +3254,8 @@ export default function AdminPage() {
                                     <p>Registered: {formatClassDatetime(participant.registered_at || '')}</p>
                                     <p>Answers: {formatRegistrationAnswers(participant.registration_answers)}</p>
                                     <p>Checkout: {participant.checked_out_at ? 'Sudah checkout' : 'Belum checkout'}</p>
+                                    <p>Checkin fields: {participant.checkin_custom_fields && Object.keys(participant.checkin_custom_fields).length > 0 ? JSON.stringify(participant.checkin_custom_fields) : '-'}</p>
+                                    <p>Checkout fields: {participant.checkout_custom_fields && Object.keys(participant.checkout_custom_fields).length > 0 ? JSON.stringify(participant.checkout_custom_fields) : '-'}</p>
                                     {participant.rank !== undefined && participant.rank !== null ? (
                                       <p>Rank: #{participant.rank} | Score: {Number(participant.score_points || 0)}</p>
                                     ) : (

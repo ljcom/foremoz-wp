@@ -107,6 +107,9 @@ EMAIL_SMTP_IGNORE_TLS_ERRORS=false
 - `GET /v1/read/pt-balance`
 - `GET /v1/read/dashboard`
 
+Catatan:
+- Endpoint operasional (`/v1/checkins/log`, checkin/checkout participant event, dan endpoint PT session/activity) menerima `custom_fields` (JSON object) untuk metadata tambahan.
+
 ## Auth payload ringkas
 
 `POST /v1/auth/signup`

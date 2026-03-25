@@ -208,6 +208,67 @@ function toPrimaryAwardScope(value, fallback = ['overall']) {
   return normalized[0] || 'overall';
 }
 
+function isCustomFieldPrimitive(value) {
+  return value === null || typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean';
+}
+
+function normalizeCustomFieldValue(value, fieldName, depth = 0) {
+  if (isCustomFieldPrimitive(value)) return value;
+  if (Array.isArray(value)) {
+    if (value.length > 30) {
+      throw fail(400, 'BAD_REQUEST', `${fieldName} array item max length is 30`);
+    }
+    return value.map((item, index) => {
+      if (!isCustomFieldPrimitive(item)) {
+        throw fail(400, 'BAD_REQUEST', `${fieldName}[${index}] must contain primitive values only`);
+      }
+      return item;
+    });
+  }
+  if (value && typeof value === 'object' && depth < 1) {
+    const next = {};
+    for (const [rawKey, item] of Object.entries(value)) {
+      const key = String(rawKey || '').trim();
+      if (!key) continue;
+      if (key.length > 64) {
+        throw fail(400, 'BAD_REQUEST', `${fieldName}.${key} key too long`);
+      }
+      next[key] = normalizeCustomFieldValue(item, `${fieldName}.${key}`, depth + 1);
+    }
+    return next;
+  }
+  throw fail(400, 'BAD_REQUEST', `${fieldName} contains unsupported value`);
+}
+
+function normalizeCustomFields(rawValue, fieldName = 'custom_fields') {
+  if (rawValue === undefined || rawValue === null || rawValue === '') return {};
+  let value = rawValue;
+  if (typeof value === 'string') {
+    try {
+      value = JSON.parse(value);
+    } catch {
+      throw fail(400, 'BAD_REQUEST', `${fieldName} must be a valid JSON object`);
+    }
+  }
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw fail(400, 'BAD_REQUEST', `${fieldName} must be an object`);
+  }
+  const entries = Object.entries(value);
+  if (entries.length > 40) {
+    throw fail(400, 'BAD_REQUEST', `${fieldName} max key count is 40`);
+  }
+  const normalized = {};
+  for (const [rawKey, item] of entries) {
+    const key = String(rawKey || '').trim();
+    if (!key) continue;
+    if (key.length > 64) {
+      throw fail(400, 'BAD_REQUEST', `${fieldName}.${key} key too long`);
+    }
+    normalized[key] = normalizeCustomFieldValue(item, `${fieldName}.${key}`, 0);
+  }
+  return normalized;
+}
+
 function participantIdentityKey(data) {
   const passportId = String(data?.passport_id || '').trim();
   if (passportId) return `passport:${passportId}`;
@@ -2662,6 +2723,7 @@ app.post('/v1/checkins/log', async (req, res, next) => {
   try {
     const data = req.body || {};
     const tenantId = data.tenant_id || config.defaultTenantId;
+    const customFields = normalizeCustomFields(data.custom_fields);
     const event = await appendDomainEvent({
       tenantId,
       branchId: required(data.branch_id, 'branch_id'),
@@ -2675,7 +2737,8 @@ app.post('/v1/checkins/log', async (req, res, next) => {
         checkin_id: required(data.checkin_id, 'checkin_id'),
         member_id: required(data.member_id, 'member_id'),
         channel: data.channel || 'manual',
-        checkin_at: data.checkin_at || new Date().toISOString()
+        checkin_at: data.checkin_at || new Date().toISOString(),
+        custom_fields: customFields
       },
       refs: {},
       uniqueIds: [{ scope: 'checkin.checkin_id', value: required(data.checkin_id, 'checkin_id') }]
@@ -3184,6 +3247,8 @@ app.get('/v1/admin/events/:eventId/participants', async (req, res, next) => {
         ...data,
         checked_in_at: checkinData?.checked_in_at || null,
         checked_out_at: checkoutData?.checked_out_at || null,
+        checkin_custom_fields: checkinData?.custom_fields || {},
+        checkout_custom_fields: checkoutData?.custom_fields || {},
         rank: checkoutData?.rank ?? null,
         score_points: Number(checkoutData?.score_points || 0)
       });
@@ -3199,6 +3264,7 @@ app.get('/v1/admin/events/:eventId/participants', async (req, res, next) => {
 app.post('/v1/admin/events/:eventId/participants/checkin', async (req, res, next) => {
   try {
     const data = req.body || {};
+    const customFields = normalizeCustomFields(data.custom_fields);
     const eventId = required(req.params.eventId, 'eventId');
     const tenantId = data.tenant_id || config.defaultTenantId;
     const latestEvent = await getLatestEntityDataByEventTypes(
@@ -3271,7 +3337,8 @@ app.post('/v1/admin/events/:eventId/participants/checkin', async (req, res, next
         passport_id: passportId || null,
         email: email || null,
         full_name: data.full_name || null,
-        checked_in_at: data.checked_in_at || new Date().toISOString()
+        checked_in_at: data.checked_in_at || new Date().toISOString(),
+        custom_fields: customFields
       },
       refs: {}
     });
@@ -3285,6 +3352,7 @@ app.post('/v1/admin/events/:eventId/participants/checkin', async (req, res, next
 app.post('/v1/admin/events/:eventId/participants/checkout', async (req, res, next) => {
   try {
     const data = req.body || {};
+    const customFields = normalizeCustomFields(data.custom_fields);
     const eventId = required(req.params.eventId, 'eventId');
     const tenantId = data.tenant_id || config.defaultTenantId;
     const latestEvent = await getLatestEntityDataByEventTypes(
@@ -3425,7 +3493,8 @@ app.post('/v1/admin/events/:eventId/participants/checkout', async (req, res, nex
         checked_out_at: data.checked_out_at || new Date().toISOString(),
         rank,
         score_points: scorePoints,
-        award_top_n: awardTopN
+        award_top_n: awardTopN,
+        custom_fields: customFields
       },
       refs: {}
     });
@@ -4122,6 +4191,7 @@ app.post('/v1/pt/packages/assign', async (req, res, next) => {
 app.post('/v1/pt/sessions/book', async (req, res, next) => {
   try {
     const data = req.body || {};
+    const customFields = normalizeCustomFields(data.custom_fields);
     const tenantId = data.tenant_id || config.defaultTenantId;
     const ptPackageId = required(data.pt_package_id, 'pt_package_id');
     const balanceRow = await getPtBalanceRow({ tenantId, ptPackageId });
@@ -4173,7 +4243,8 @@ app.post('/v1/pt/sessions/book', async (req, res, next) => {
         session_id: sessionId,
         session_at: sessionAt,
         booked_at: bookedAt,
-        activity_note: activityNote
+        activity_note: activityNote,
+        custom_fields: customFields
       },
       uniqueIds: [{ scope: 'pt_session.session_id', value: sessionId }]
     });
@@ -4192,6 +4263,7 @@ app.post('/v1/pt/sessions/book', async (req, res, next) => {
 app.post('/v1/pt/sessions/:ptPackageId/complete', async (req, res, next) => {
   try {
     const data = req.body || {};
+    const customFields = normalizeCustomFields(data.custom_fields);
     const tenantId = data.tenant_id || config.defaultTenantId;
     const ptPackageId = required(req.params.ptPackageId, 'ptPackageId');
     const balanceRow = await getPtBalanceRow({ tenantId, ptPackageId });
@@ -4243,7 +4315,8 @@ app.post('/v1/pt/sessions/:ptPackageId/complete', async (req, res, next) => {
         session_id: sessionId,
         completion_id: completionId,
         completed_at: completedAt,
-        activity_note: activityNote
+        activity_note: activityNote,
+        custom_fields: customFields
       },
       uniqueIds: [{ scope: 'pt_session.completion_id', value: completionId }]
     });
@@ -4263,6 +4336,7 @@ app.post('/v1/pt/sessions/:ptPackageId/complete', async (req, res, next) => {
 app.post('/v1/pt/activity/log', async (req, res, next) => {
   try {
     const data = req.body || {};
+    const customFields = normalizeCustomFields(data.custom_fields);
     const tenantId = data.tenant_id || config.defaultTenantId;
     const ptPackageId = String(data.pt_package_id || '').trim();
     let balanceRow = null;
@@ -4312,7 +4386,8 @@ app.post('/v1/pt/activity/log', async (req, res, next) => {
         activity_id: activityId,
         session_at: sessionAt,
         logged_at: data.logged_at || sessionAt,
-        activity_note: activityNote
+        activity_note: activityNote,
+        custom_fields: customFields
       },
       uniqueIds: [{ scope: 'pt_activity.activity_id', value: activityId }]
     });
