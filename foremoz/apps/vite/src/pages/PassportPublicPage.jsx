@@ -180,6 +180,44 @@ export default function PassportPublicPage() {
     publicVisibility.showContactBooking &&
     isOwnerContext &&
     !isPassportIdContext;
+  const profileDescription = [
+    String(profile?.city || '').trim(),
+    capabilities.slice(0, 2).join(', '),
+    `${Number(stats.events_created || 0)} hosted`,
+    `${Number(stats.events_attended || 0)} joined`
+  ]
+    .filter(Boolean)
+    .join(' | ');
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const previousTitle = document.title;
+    const nextTitle = `${name} | Foremoz Passport`;
+    document.title = nextTitle;
+    let meta = document.querySelector('meta[name="description"]');
+    let created = false;
+    if (!meta) {
+      meta = document.createElement('meta');
+      meta.setAttribute('name', 'description');
+      document.head.appendChild(meta);
+      created = true;
+    }
+    const previousDescription = meta.getAttribute('content');
+    meta.setAttribute(
+      'content',
+      profileDescription || `${name} on Foremoz Passport`
+    );
+    return () => {
+      document.title = previousTitle;
+      if (meta) {
+        if (previousDescription !== null) {
+          meta.setAttribute('content', previousDescription);
+        } else if (created) {
+          meta.remove();
+        }
+      }
+    };
+  }, [name, profileDescription]);
 
   useEffect(() => {
     if (eventsTab === 'upcoming' && !canShowUpcomingEvents && canShowHistoryEvents) {
@@ -285,6 +323,9 @@ export default function PassportPublicPage() {
             {profile?.passport_id ? <span className="passport-verified">Verified</span> : null}
             <button className="btn" type="button" onClick={toggleFollow}>{isFollowing ? 'Following' : 'Follow'}</button>
             <button className="btn ghost" type="button" onClick={shareProfile}>Share</button>
+            {canShowEventsSection ? (
+              <a className="btn ghost" href="#public-events">Explore Events</a>
+            ) : null}
           </div>
           <div className="passport-public-stats">
             <span><i className="fa-solid fa-bolt" /> {stats.events_created} Hosted</span>
@@ -294,6 +335,46 @@ export default function PassportPublicPage() {
           {actionMessage ? <p className="sub">{actionMessage}</p> : null}
         </div>
       </section>
+
+      {publicVisibility.allowPublicPublish ? (
+        <section className="card">
+          <div className="panel-head">
+            <div>
+              <p className="eyebrow"><i className="fa-solid fa-rocket" /> Work With This Passport</p>
+              <h2 style={{ marginBottom: '0.35rem' }}>Public profile yang siap dipakai untuk discovery dan conversion.</h2>
+              <p className="sub">{profileDescription || 'Profile ini sudah punya context event, social proof, dan CTA utama.'}</p>
+            </div>
+            <div className="row-actions">
+              <button className="btn" type="button" onClick={shareProfile}>Copy Profile Link</button>
+              {showContactPanel ? (
+                <button className="btn ghost" type="button" onClick={() => contactCreator('request')}>Request Collaboration</button>
+              ) : null}
+            </div>
+          </div>
+          <div className="ops-grid">
+            <article className="card passport-insight-card">
+              <h2><i className="fa-solid fa-bullseye" /> Best Use Case</h2>
+              <p className="sub">
+                {isCreatorProfile
+                  ? 'Gunakan profile ini untuk mengarahkan audience ke event aktif, private booking, dan kolaborasi host.'
+                  : 'Gunakan profile ini sebagai social proof untuk riwayat event, participation, dan credibility.'}
+              </p>
+            </article>
+            <article className="card passport-insight-card">
+              <h2><i className="fa-solid fa-user-group" /> Audience Signal</h2>
+              <p className="sub">{followCount} follower baseline, {locations.slice(0, 3).join(', ') || 'multi-location presence'}.</p>
+            </article>
+            <article className="card passport-insight-card">
+              <h2><i className="fa-solid fa-link" /> Conversion Path</h2>
+              <p className="sub">
+                {showContactPanel
+                  ? 'Follow -> explore events -> book session/request event.'
+                  : 'Follow -> share profile -> explore public events.'}
+              </p>
+            </article>
+          </div>
+        </section>
+      ) : null}
 
       {!publicVisibility.allowPublicPublish ? (
         <section className="card">

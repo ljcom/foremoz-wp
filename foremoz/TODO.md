@@ -65,9 +65,9 @@ Last audited terhadap isi folder: **2026-03-25** (`foremoz/apps/api`, `foremoz/a
 - [~] Data `Roles/Capabilities` dan `Programs/Products` masih derived sederhana dari events.
   - Perlu read model khusus capability/program yang lebih akurat.
 - [~] Tambah page khusus `passport.foremoz.com` style + SEO metadata (title/description per profile).
-  - Remark: style public page sudah ada; SEO metadata per profile belum diset.
+  - Remark: style public page sudah ada; SEO metadata title/description per profile sekarang sudah diset di frontend. Domain terpisah belum.
 - [~] CTA follow/contact/request event.
-  - Remark: contact sekarang hanya muncul untuk context creator/owner; action masih mailto/basic flow.
+  - Remark: CTA hero + conversion panel sudah lebih jelas; contact masih mailto/basic flow dan follow masih local state.
 
 ## Admin Dashboard (78%)
 - [x] Event edit sudah punya aksi publikasi yang lebih jelas.
