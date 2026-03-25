@@ -4336,6 +4336,7 @@ app.get('/v1/read/subscriptions/active', async (req, res, next) => {
     const tenantId = req.query.tenant_id || config.defaultTenantId;
     const branchId = req.query.branch_id || null;
     const memberId = req.query.member_id || null;
+    const paymentId = req.query.payment_id || null;
     const params = [tenantId];
     let sql = `select * from read.rm_subscription_active where tenant_id = $1 and status = 'active'`;
     if (branchId) {
@@ -4345,6 +4346,10 @@ app.get('/v1/read/subscriptions/active', async (req, res, next) => {
     if (memberId) {
       params.push(memberId);
       sql += ` and member_id = $${params.length}`;
+    }
+    if (paymentId) {
+      params.push(paymentId);
+      sql += ` and payment_id = $${params.length}`;
     }
     sql += ` order by end_date asc`;
     const { rows } = await query(sql, params);
@@ -4376,11 +4381,21 @@ app.get('/v1/read/bookings', async (req, res, next) => {
   try {
     const tenantId = req.query.tenant_id || config.defaultTenantId;
     const classId = req.query.class_id || null;
+    const memberId = req.query.member_id || null;
+    const paymentId = req.query.payment_id || null;
     const params = [tenantId];
     let sql = `select * from read.rm_booking_list where tenant_id = $1`;
     if (classId) {
       params.push(classId);
       sql += ` and class_id = $2`;
+    }
+    if (memberId) {
+      params.push(memberId);
+      sql += ` and member_id = $${params.length}`;
+    }
+    if (paymentId) {
+      params.push(paymentId);
+      sql += ` and payment_id = $${params.length}`;
     }
     sql += ` order by booked_at desc`;
     const { rows } = await query(sql, params);
@@ -4430,11 +4445,16 @@ app.get('/v1/read/pt-balance', async (req, res, next) => {
   try {
     const tenantId = req.query.tenant_id || config.defaultTenantId;
     const memberId = req.query.member_id || null;
+    const paymentId = req.query.payment_id || null;
     const params = [tenantId];
     let sql = `select * from read.rm_pt_balance where tenant_id = $1`;
     if (memberId) {
       params.push(memberId);
       sql += ` and member_id = $2`;
+    }
+    if (paymentId) {
+      params.push(paymentId);
+      sql += ` and payment_id = $${params.length}`;
     }
     sql += ` order by updated_at desc`;
     const { rows } = await query(sql, params);
