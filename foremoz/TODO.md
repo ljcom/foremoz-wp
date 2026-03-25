@@ -35,7 +35,7 @@ Last audited terhadap isi folder: **2026-03-25** (`foremoz/apps/api`, `foremoz/a
 - [ ] Barcode scanner masih berbasis text input (keyboard wedge).
   - Belum ada integrasi kamera (WebRTC / QR scanner) untuk scan langsung.
 - [~] Tambah export participant/check-in (CSV/XLSX) dari tab Participants/Check in.
-  - Remark: export CSV sudah ada di CS dashboard (browse event/class), tapi belum ada export khusus dari tab Participants/Check in pada Event Edit.
+  - Remark: export CSV sudah ada di CS dashboard (browse event/class) dan sudah ada di tab Participants Event Edit. Format XLSX masih belum ada.
 - [x] Register class backend sudah punya guard operasional.
   - Validasi kapasitas class (`CLASS_FULL`).
   - Validasi anti double booking member per class (`CLASS_ALREADY_BOOKED`).

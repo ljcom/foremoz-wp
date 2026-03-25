@@ -377,6 +377,25 @@ function formatRegistrationAnswers(value) {
   return entries.length > 0 ? entries.join(' | ') : '-';
 }
 
+function csvEscape(value) {
+  const raw = String(value ?? '');
+  if (!/[",\n]/.test(raw)) return raw;
+  return `"${raw.replace(/"/g, '""')}"`;
+}
+
+function downloadCsvFile(filename, rows) {
+  const csv = rows.map((row) => row.map(csvEscape).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.setAttribute('download', filename);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
 function getStorageKey(entity, accountSlug) {
   return `ff.admin.${entity}.${accountSlug || 'foremoz-gym'}`;
 }
@@ -2080,6 +2099,48 @@ export default function AdminPage() {
     }
   }
 
+  function exportEventParticipantsCsv() {
+    if (!editingEventId) {
+      setFeedback('Pilih event dulu sebelum export participants.');
+      return;
+    }
+    const rows = [
+      [
+        'event_id',
+        'registration_id',
+        'participant_no',
+        'full_name',
+        'email',
+        'passport_id',
+        'registered_at',
+        'checked_in_at',
+        'checked_out_at',
+        'rank',
+        'score_points',
+        'answers'
+      ]
+    ];
+    eventParticipants.forEach((participant, index) => {
+      rows.push([
+        editingEventId,
+        participant?.registration_id || '',
+        getParticipantScanCode(participant, index) || '',
+        participant?.full_name || '',
+        participant?.email || '',
+        participant?.passport_id || '',
+        participant?.registered_at || '',
+        participant?.checked_in_at || '',
+        participant?.checked_out_at || '',
+        participant?.rank ?? '',
+        Number(participant?.score_points || 0),
+        formatRegistrationAnswers(participant?.registration_answers)
+      ]);
+    });
+    const fileId = `${editingEventId}-${new Date().toISOString().slice(0, 10)}`.replace(/[^a-zA-Z0-9_-]/g, '');
+    downloadCsvFile(`event-participants-${fileId}.csv`, rows);
+    setFeedback(`participants.exported: ${rows.length - 1} rows`);
+  }
+
   function preparePostEventQuote() {
     if (!editingEventId) {
       setFeedback('Simpan event dulu sebelum dipublikasikan.');
@@ -2864,14 +2925,24 @@ export default function AdminPage() {
                         <div className="card" style={{ borderStyle: 'dashed' }}>
                           <div className="panel-head" style={{ marginBottom: '0.5rem' }}>
                             <h3 style={{ margin: 0 }}>Participants</h3>
-                            <button
-                              className="btn ghost small"
-                              type="button"
-                              onClick={() => loadEventParticipants(editingEventId)}
-                              disabled={eventParticipantsLoading}
-                            >
-                              {eventParticipantsLoading ? 'Refreshing...' : 'Refresh'}
-                            </button>
+                            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                              <button
+                                className="btn ghost small"
+                                type="button"
+                                onClick={exportEventParticipantsCsv}
+                                disabled={eventParticipantsLoading || eventParticipants.length === 0}
+                              >
+                                Export CSV
+                              </button>
+                              <button
+                                className="btn ghost small"
+                                type="button"
+                                onClick={() => loadEventParticipants(editingEventId)}
+                                disabled={eventParticipantsLoading}
+                              >
+                                {eventParticipantsLoading ? 'Refreshing...' : 'Refresh'}
+                              </button>
+                            </div>
                           </div>
                           {eventParticipantsLoading ? <p className="feedback">Loading participants...</p> : null}
                           {!eventParticipantsLoading && eventParticipants.length === 0 ? (
