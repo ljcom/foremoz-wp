@@ -82,7 +82,7 @@ Last audited terhadap isi folder: **2026-03-25** (`foremoz/apps/api`, `foremoz/a
   - Record payment sudah pakai `POST /v1/payments/record`.
   - Pending payment bisa `confirm/reject` dari UI.
   - Catatan review (reason/note) sudah tersimpan dan tampil di tabel transaksi.
-  - Masih perlu penyempurnaan pemetaan `product/reference` di tabel transaksi.
+  - [x] Pemetaan `product/reference` di tabel transaksi sudah baca label entity (event/package/product/class) bila tersedia.
 
 ## QA / Hardening (28%)
 - [ ] Tambah test otomatis untuk flow penting:

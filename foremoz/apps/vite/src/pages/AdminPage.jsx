@@ -144,6 +144,40 @@ function formatIdr(value) {
   return `IDR ${Number(value || 0).toLocaleString('id-ID')}`;
 }
 
+function resolvePaymentReferenceLabel(item, lookups = {}) {
+  const referenceType = String(item?.reference_type || '').trim().toLowerCase();
+  const referenceId = String(item?.reference_id || '').trim();
+  const productsById = lookups.productsById || new Map();
+  const packagesById = lookups.packagesById || new Map();
+  const eventsById = lookups.eventsById || new Map();
+  const classesById = lookups.classesById || new Map();
+
+  if (referenceType === 'event_posting') {
+    const eventName = eventsById.get(referenceId) || referenceId || '-';
+    return `Event Posting - ${eventName}`;
+  }
+  if (referenceType === 'event_registration') {
+    const eventName = eventsById.get(referenceId) || referenceId || '-';
+    return `Event Registration - ${eventName}`;
+  }
+  if (referenceType === 'membership_purchase') {
+    const packageName = packagesById.get(referenceId) || referenceId || item?.subscription_id || '-';
+    return `Membership - ${packageName}`;
+  }
+  if (referenceType === 'class_booking') {
+    const className = classesById.get(referenceId) || referenceId || '-';
+    return `Class Booking - ${className}`;
+  }
+  if (referenceType === 'product_purchase' || referenceType === 'product') {
+    const productName = productsById.get(referenceId) || referenceId || '-';
+    return `Product - ${productName}`;
+  }
+  if (referenceType === 'manual') {
+    return `Manual - ${referenceId || '-'}`;
+  }
+  return referenceType || referenceId ? `${referenceType || 'payment'}:${referenceId || '-'}` : item?.subscription_id || '-';
+}
+
 function estimateEventPostingPrice(durationMinutes) {
   const blocks = Math.max(1, Math.ceil(Number(durationMinutes || 60) / 60));
   return blocks * 99000;
@@ -865,18 +899,39 @@ export default function AdminPage() {
       const paymentsRes = await apiJson(
         `/v1/read/payments/queue?tenant_id=${encodeURIComponent(tenantId)}&status=all`
       ).catch(() => ({ rows: [] }));
+      const [eventsRes, packagesRes, productsRes, classesRes] = await Promise.all([
+        apiJson(`/v1/admin/events?tenant_id=${encodeURIComponent(tenantId)}&branch_id=${encodeURIComponent(branchId)}`).catch(() => ({ rows: [] })),
+        apiJson(`/v1/admin/packages?tenant_id=${encodeURIComponent(tenantId)}&branch_id=${encodeURIComponent(branchId)}`).catch(() => ({ rows: [] })),
+        apiJson(`/v1/admin/products?tenant_id=${encodeURIComponent(tenantId)}&branch_id=${encodeURIComponent(branchId)}`).catch(() => ({ rows: [] })),
+        apiJson(`/v1/admin/classes?tenant_id=${encodeURIComponent(tenantId)}&branch_id=${encodeURIComponent(branchId)}`).catch(() => ({ rows: [] }))
+      ]);
+      const eventsById = new Map(
+        (Array.isArray(eventsRes.rows) ? eventsRes.rows : [])
+          .map((row) => [String(row?.event_id || ''), String(row?.event_name || '').trim()])
+          .filter(([id]) => Boolean(id))
+      );
+      const packagesById = new Map(
+        (Array.isArray(packagesRes.rows) ? packagesRes.rows : [])
+          .map((row) => [String(row?.package_id || ''), String(row?.package_name || '').trim()])
+          .filter(([id]) => Boolean(id))
+      );
+      const productsById = new Map(
+        (Array.isArray(productsRes.rows) ? productsRes.rows : [])
+          .map((row) => [String(row?.product_id || ''), String(row?.product_name || '').trim()])
+          .filter(([id]) => Boolean(id))
+      );
+      const classesById = new Map(
+        (Array.isArray(classesRes.rows) ? classesRes.rows : [])
+          .map((row) => [String(row?.class_id || ''), String(row?.class_name || '').trim()])
+          .filter(([id]) => Boolean(id))
+      );
       const rows = Array.isArray(paymentsRes.rows) ? paymentsRes.rows : [];
       rows.sort((a, b) => new Date(b.recorded_at || 0).getTime() - new Date(a.recorded_at || 0).getTime());
       setTransactions(rows.map((item) => ({
         transaction_id: item.payment_id || `trx_${Date.now()}`,
         no_transaction: item.payment_id || '',
         member_id: item.member_id || '',
-        product:
-          item.reference_type === 'event_posting'
-            ? `event_posting:${item.reference_id || '-'}`
-            : item.reference_type === 'event_registration'
-              ? `event_registration:${item.reference_id || '-'}`
-              : item.subscription_id || '-',
+        product: resolvePaymentReferenceLabel(item, { eventsById, packagesById, productsById, classesById }),
         qty: '1',
         price: String(item.amount ?? ''),
         currency: item.currency || 'IDR',
