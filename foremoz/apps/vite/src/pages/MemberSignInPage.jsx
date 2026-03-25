@@ -157,11 +157,15 @@ export default function MemberSignInPage() {
   return (
     <AuthLayout
       title="Member sign in"
-      subtitle="Sign in as member for membership and PT self booking."
+      subtitle={`Masuk ke portal member${account ? ` @${account}` : ''} untuk booking, payment, dan status membership.`}
       alternateHref={`/a/${account || 'tn_001'}/member/signup`}
       alternateText="New member? Sign up"
     >
       <form className="card form" onSubmit={submit}>
+        <div className="card" style={{ marginBottom: '1rem', borderStyle: 'dashed' }}>
+          <p className="eyebrow">After Sign In</p>
+          <p className="sub">Portal member akan menampilkan event yang sudah kamu join, status subscription, PT balance, booking class, dan payment activity.</p>
+        </div>
         <label>
           Email
           <input type="email" value={form.email} onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))} />
@@ -179,6 +183,13 @@ export default function MemberSignInPage() {
             Staff sign in
           </Link>
         </p>
+        {account ? (
+          <p style={{ margin: '0.25rem 0 0' }}>
+            <Link className="link-inline" to={`/a/${account}`}>
+              Back to public account
+            </Link>
+          </p>
+        ) : null}
       </form>
     </AuthLayout>
   );

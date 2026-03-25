@@ -82,11 +82,15 @@ export default function MemberSignUpPage() {
   return (
     <AuthLayout
       title="Member signup"
-      subtitle="Join as member and access membership purchase + self booking PT."
+      subtitle={`Join sebagai member${account ? ` @${account}` : ''} untuk akses membership, booking, dan payment flow.`}
       alternateHref={`/a/${account || 'tn_001'}/member/signin`}
       alternateText="Already member? Sign in"
     >
       <form className="card form" onSubmit={submit}>
+        <div className="card" style={{ marginBottom: '1rem', borderStyle: 'dashed' }}>
+          <p className="eyebrow">What You Unlock</p>
+          <p className="sub">Setelah signup, kamu langsung masuk ke portal member untuk lihat event yang diikuti, status membership, PT package, booking class, dan riwayat payment.</p>
+        </div>
         <label>
           Full name
           <input value={form.fullName} onChange={(e) => setForm((p) => ({ ...p, fullName: e.target.value }))} />
@@ -107,6 +111,13 @@ export default function MemberSignUpPage() {
         <button className="btn" type="submit" disabled={loading}>
           {loading ? 'Creating account...' : 'Create member account'}
         </button>
+        {account ? (
+          <p style={{ margin: '0.25rem 0 0' }}>
+            <Link className="link-inline" to={`/a/${account}`}>
+              Back to public account
+            </Link>
+          </p>
+        ) : null}
       </form>
     </AuthLayout>
   );
