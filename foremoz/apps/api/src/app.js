@@ -4286,11 +4286,16 @@ app.get('/v1/read/subscriptions/active', async (req, res, next) => {
   try {
     const tenantId = req.query.tenant_id || config.defaultTenantId;
     const branchId = req.query.branch_id || null;
+    const memberId = req.query.member_id || null;
     const params = [tenantId];
     let sql = `select * from read.rm_subscription_active where tenant_id = $1 and status = 'active'`;
     if (branchId) {
       params.push(branchId);
       sql += ` and branch_id = $2`;
+    }
+    if (memberId) {
+      params.push(memberId);
+      sql += ` and member_id = $${params.length}`;
     }
     sql += ` order by end_date asc`;
     const { rows } = await query(sql, params);

@@ -13,6 +13,8 @@ export default function MemberPage() {
   const [classes, setClasses] = useState([]);
   const [memberBookings, setMemberBookings] = useState([]);
   const [ptPackages, setPtPackages] = useState([]);
+  const [subscriptionEndDate, setSubscriptionEndDate] = useState('-');
+  const [remainingPtSessions, setRemainingPtSessions] = useState('-');
   const [memberEvents, setMemberEvents] = useState([]);
   const [selectedEventId, setSelectedEventId] = useState('');
   const [selectedEventParticipant, setSelectedEventParticipant] = useState(null);
@@ -55,12 +57,14 @@ export default function MemberPage() {
             branch_id: branchId
           })
         }).catch(() => {});
-        const [membersRes, paymentsRes, classesRes, bookingsRes, packagesRes] = await Promise.all([
+        const [membersRes, paymentsRes, classesRes, bookingsRes, packagesRes, subscriptionsRes, ptBalanceRes] = await Promise.all([
           apiJson(`/v1/read/members?tenant_id=${encodeURIComponent(tenantId)}&limit=1000`),
           apiJson(`/v1/read/payments/history?tenant_id=${encodeURIComponent(tenantId)}&member_id=${encodeURIComponent(memberId || '')}`),
           apiJson(`/v1/read/class-availability?tenant_id=${encodeURIComponent(tenantId)}&branch_id=${encodeURIComponent(branchId)}`).catch(() => ({ rows: [] })),
           apiJson(`/v1/read/bookings?tenant_id=${encodeURIComponent(tenantId)}`).catch(() => ({ rows: [] })),
-          apiJson(`/v1/admin/packages?tenant_id=${encodeURIComponent(tenantId)}&branch_id=${encodeURIComponent(branchId)}`).catch(() => ({ rows: [] }))
+          apiJson(`/v1/admin/packages?tenant_id=${encodeURIComponent(tenantId)}&branch_id=${encodeURIComponent(branchId)}`).catch(() => ({ rows: [] })),
+          apiJson(`/v1/read/subscriptions/active?tenant_id=${encodeURIComponent(tenantId)}&member_id=${encodeURIComponent(memberId || '')}`).catch(() => ({ rows: [] })),
+          apiJson(`/v1/read/pt-balance?tenant_id=${encodeURIComponent(tenantId)}&member_id=${encodeURIComponent(memberId || '')}`).catch(() => ({ rows: [] }))
         ]);
         if (cancelled) return;
         const memberFound = (membersRes.rows || []).find((row) => String(row.member_id || '') === String(memberId || '')) || null;
@@ -87,6 +91,20 @@ export default function MemberPage() {
                 ? prev.amount
                 : String(activePtPackages[0].price || 0)
           }));
+        }
+        const activeSubscriptions = Array.isArray(subscriptionsRes.rows) ? subscriptionsRes.rows : [];
+        const latestSubscriptionEnd = activeSubscriptions
+          .map((row) => String(row?.end_date || '').trim())
+          .filter(Boolean)
+          .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0] || '-';
+        setSubscriptionEndDate(latestSubscriptionEnd);
+
+        const ptBalances = Array.isArray(ptBalanceRes.rows) ? ptBalanceRes.rows : [];
+        if (ptBalances.length > 0) {
+          const totalRemaining = ptBalances.reduce((sum, row) => sum + Number(row?.remaining_sessions || 0), 0);
+          setRemainingPtSessions(String(totalRemaining));
+        } else {
+          setRemainingPtSessions('-');
         }
         if (memberFound?.email || memberFound?.member_id) {
           const registrationRes = await apiJson(
@@ -475,8 +493,8 @@ export default function MemberPage() {
             <p>
               status: <span className={`status ${memberData?.status}`}>{memberData?.status || '-'}</span>
             </p>
-            <p>subscription_end: -</p>
-            <p>remaining PT session: -</p>
+            <p>subscription_end: {subscriptionEndDate}</p>
+            <p>remaining PT session: {remainingPtSessions}</p>
           </div>
 
           <div className="member-actions">
