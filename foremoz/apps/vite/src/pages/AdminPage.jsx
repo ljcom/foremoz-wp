@@ -661,6 +661,7 @@ export default function AdminPage() {
     member_id: '',
     product: '',
     operation_link: '',
+    detail_note: '',
     qty: '1',
     price: '',
     currency: 'IDR',
@@ -2377,6 +2378,7 @@ export default function AdminPage() {
           member_id: session?.user?.userId || session?.user?.email || 'owner_self_service',
           product: `Post Event - ${eventForm.event_name || editingEventId}`,
           operation_link: '',
+          detail_note: '',
           qty: '1',
           price: String(eventPostQuote.price),
           currency: 'IDR',
@@ -2446,6 +2448,7 @@ export default function AdminPage() {
         member_id: '',
         product: '',
         operation_link: '',
+        detail_note: '',
         qty: '1',
         price: '',
         currency: 'IDR',
@@ -2494,12 +2497,36 @@ export default function AdminPage() {
     }
   }
 
-  function viewTransaction(item) {
+  async function viewTransaction(item) {
+    let detailNote = '';
+    try {
+      const paymentId = String(item?.no_transaction || '').trim();
+      if (paymentId) {
+        const [subscriptionRes, bookingRes, ptBalanceRes] = await Promise.all([
+          apiJson(`/v1/read/subscriptions/active?tenant_id=${encodeURIComponent(tenantId)}&payment_id=${encodeURIComponent(paymentId)}`).catch(() => ({ rows: [] })),
+          apiJson(`/v1/read/bookings?tenant_id=${encodeURIComponent(tenantId)}&payment_id=${encodeURIComponent(paymentId)}`).catch(() => ({ rows: [] })),
+          apiJson(`/v1/read/pt-balance?tenant_id=${encodeURIComponent(tenantId)}&payment_id=${encodeURIComponent(paymentId)}`).catch(() => ({ rows: [] }))
+        ]);
+        const subscriptionRow = Array.isArray(subscriptionRes.rows) ? subscriptionRes.rows[0] : null;
+        const bookingRow = Array.isArray(bookingRes.rows) ? bookingRes.rows[0] : null;
+        const ptBalanceRow = Array.isArray(ptBalanceRes.rows) ? ptBalanceRes.rows[0] : null;
+        if (subscriptionRow) {
+          detailNote = `subscription_id=${subscriptionRow.subscription_id || '-'} | plan_id=${subscriptionRow.plan_id || '-'} | end_date=${subscriptionRow.end_date || '-'}`;
+        } else if (bookingRow) {
+          detailNote = `booking_id=${bookingRow.booking_id || '-'} | class_id=${bookingRow.class_id || '-'} | status=${bookingRow.status || '-'} | booked_at=${bookingRow.booked_at || '-'}`;
+        } else if (ptBalanceRow) {
+          detailNote = `pt_package_id=${ptBalanceRow.pt_package_id || '-'} | remaining_sessions=${ptBalanceRow.remaining_sessions ?? '-'} | trainer_id=${ptBalanceRow.trainer_id || '-'}`;
+        }
+      }
+    } catch {
+      detailNote = '';
+    }
     setTransactionForm({
       no_transaction: item.no_transaction || '',
       member_id: item.member_id || '',
       product: item.product || '',
       operation_link: item.operation_link || '',
+      detail_note: detailNote,
       qty: item.qty || '1',
       price: item.price || '',
       currency: item.currency || 'IDR',
@@ -4077,6 +4104,7 @@ export default function AdminPage() {
                     <label>member_id<input value={transactionForm.member_id} onChange={(e) => setTransactionForm((p) => ({ ...p, member_id: e.target.value }))} /></label>
                     <label>product<input value={transactionForm.product} onChange={(e) => setTransactionForm((p) => ({ ...p, product: e.target.value }))} /></label>
                     {transactionForm.operation_link ? <p className="mini-note">linked_operation: {transactionForm.operation_link}</p> : null}
+                    {transactionForm.detail_note ? <p className="mini-note">detail: {transactionForm.detail_note}</p> : null}
                     <label>qty<input type="number" min="1" value={transactionForm.qty} onChange={(e) => setTransactionForm((p) => ({ ...p, qty: e.target.value }))} /></label>
                     <label>price<input type="number" min="0" value={transactionForm.price} onChange={(e) => setTransactionForm((p) => ({ ...p, price: e.target.value }))} /></label>
                     <label>currency<select value={transactionForm.currency} onChange={(e) => setTransactionForm((p) => ({ ...p, currency: e.target.value }))}>
