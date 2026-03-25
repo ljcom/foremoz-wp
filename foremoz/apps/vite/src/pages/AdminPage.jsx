@@ -46,6 +46,33 @@ function createEmptyEventForm() {
     registration_fields: []
   };
 }
+
+function serializeEventForm(value) {
+  const form = value && typeof value === 'object' ? value : createEmptyEventForm();
+  const registrationFields = Array.isArray(form.registration_fields)
+    ? form.registration_fields.map((item) => ({
+      field_id: String(item?.field_id || ''),
+      label: String(item?.label || ''),
+      type: String(item?.type || 'free_type'),
+      required: item?.required === undefined ? true : Boolean(item.required),
+      options_text: String(item?.options_text || '')
+    }))
+    : [];
+  return JSON.stringify({
+    event_name: String(form.event_name || ''),
+    location: String(form.location || ''),
+    image_url: String(form.image_url || ''),
+    description: String(form.description || ''),
+    categories_text: String(form.categories_text || ''),
+    award_scopes: normalizeEventAwardScopes(form.award_scopes, ['overall']),
+    award_top_n: String(form.award_top_n || '1'),
+    gallery_images_text: String(form.gallery_images_text || ''),
+    schedule_items_text: String(form.schedule_items_text || ''),
+    start_at: String(form.start_at || ''),
+    duration_minutes: String(form.duration_minutes || '60'),
+    registration_fields: registrationFields
+  });
+}
 const DEFAULT_TRAINERS = [
   { trainer_id: 'tr_001', trainer_name: 'Raka', phone: '081234555500', specialization: 'HIIT' }
 ];
@@ -564,6 +591,7 @@ export default function AdminPage() {
 
   const [userForm, setUserForm] = useState({ full_name: '', email: '', role: 'staff' });
   const [eventForm, setEventForm] = useState(() => createEmptyEventForm());
+  const [eventFormBaseline, setEventFormBaseline] = useState(() => serializeEventForm(createEmptyEventForm()));
   const [classForm, setClassForm] = useState({ class_name: '', trainer_name: '', capacity: '20', start_at: '' });
   const [classTrainerDraft, setClassTrainerDraft] = useState('');
   const [memberRelationDraft, setMemberRelationDraft] = useState('');
@@ -1075,6 +1103,10 @@ export default function AdminPage() {
       String(item.status || '').toLowerCase().includes(q)
     );
   });
+  const isEventFormDirty = useMemo(
+    () => serializeEventForm(eventForm) !== eventFormBaseline,
+    [eventForm, eventFormBaseline]
+  );
   const filteredEventCheckinParticipants = useMemo(() => {
     const q = normalizeToken(eventCheckinSearch);
     if (!q) return eventParticipants;
@@ -1704,7 +1736,9 @@ export default function AdminPage() {
         })
       });
       setFeedback(editingEventId ? `event.updated: ${eventForm.event_name}` : `event.created: ${eventForm.event_name}`);
-      setEventForm(createEmptyEventForm());
+      const emptyForm = createEmptyEventForm();
+      setEventForm(emptyForm);
+      setEventFormBaseline(serializeEventForm(emptyForm));
       setEventPostQuote(null);
       setEditingEventId('');
       setEventMode('list');
@@ -1717,7 +1751,7 @@ export default function AdminPage() {
   }
 
   function viewEvent(item) {
-    setEventForm({
+    const nextForm = {
       event_name: item.event_name || '',
       location: item.location || '',
       image_url: item.image_url || '',
@@ -1730,7 +1764,9 @@ export default function AdminPage() {
       start_at: toInputDatetime(item.start_at || ''),
       duration_minutes: String(item.duration_minutes || '60'),
       registration_fields: (Array.isArray(item.registration_fields) ? item.registration_fields : []).map(toRegistrationFieldForm)
-    });
+    };
+    setEventForm(nextForm);
+    setEventFormBaseline(serializeEventForm(nextForm));
     setEventPostQuote(null);
     setEditingEventId(item.event_id || '');
     setEventEditTab('general');
@@ -1753,7 +1789,9 @@ export default function AdminPage() {
   }
 
   function startAddEvent() {
-    setEventForm(createEmptyEventForm());
+    const emptyForm = createEmptyEventForm();
+    setEventForm(emptyForm);
+    setEventFormBaseline(serializeEventForm(emptyForm));
     setEventPostQuote(null);
     setEditingEventId('');
     setEventParticipants([]);
@@ -1766,6 +1804,15 @@ export default function AdminPage() {
     setEventCheckoutRankMap({});
     setEventCheckoutSavingMap({});
     setEventMode('add');
+  }
+
+  function switchEventEditTab(nextTab) {
+    if (nextTab === eventEditTab) return;
+    if (isEventFormDirty && typeof window !== 'undefined') {
+      const proceed = window.confirm('Ada perubahan event yang belum disimpan. Tetap pindah tab?');
+      if (!proceed) return;
+    }
+    setEventEditTab(nextTab);
   }
 
   async function loadEventParticipants(eventId) {
@@ -2415,6 +2462,16 @@ export default function AdminPage() {
               key={tab.id}
               className={`admin-tab-btn ${activeTab === tab.id ? 'active' : ''}`}
               onClick={() => {
+                if (
+                  activeTab === 'event' &&
+                  tab.id !== 'event' &&
+                  eventMode === 'add' &&
+                  isEventFormDirty &&
+                  typeof window !== 'undefined'
+                ) {
+                  const proceed = window.confirm('Ada perubahan event yang belum disimpan. Tetap pindah menu?');
+                  if (!proceed) return;
+                }
                 setActiveTab(tab.id);
                 if (tab.id === 'class') {
                   setEditingClassId('');
@@ -2648,7 +2705,17 @@ export default function AdminPage() {
                 <>
                   <div className="panel-head">
                     <h2>{editingEventId ? 'Edit event' : 'Add event'}</h2>
-                    <button className="btn ghost" type="button" onClick={() => setEventMode('list')}>
+                    <button
+                      className="btn ghost"
+                      type="button"
+                      onClick={() => {
+                        if (isEventFormDirty && typeof window !== 'undefined') {
+                          const proceed = window.confirm('Ada perubahan event yang belum disimpan. Kembali ke list?');
+                          if (!proceed) return;
+                        }
+                        setEventMode('list');
+                      }}
+                    >
                       Back to list
                     </button>
                   </div>
@@ -2656,28 +2723,28 @@ export default function AdminPage() {
                     <button
                       type="button"
                       className={`landing-tab ${eventEditTab === 'general' ? 'active' : ''}`}
-                      onClick={() => setEventEditTab('general')}
+                      onClick={() => switchEventEditTab('general')}
                     >
                       General information
                     </button>
                     <button
                       type="button"
                       className={`landing-tab ${eventEditTab === 'category' ? 'active' : ''}`}
-                      onClick={() => setEventEditTab('category')}
+                      onClick={() => switchEventEditTab('category')}
                     >
                       Category
                     </button>
                     <button
                       type="button"
                       className={`landing-tab ${eventEditTab === 'custom_fields' ? 'active' : ''}`}
-                      onClick={() => setEventEditTab('custom_fields')}
+                      onClick={() => switchEventEditTab('custom_fields')}
                     >
                       Custom fields
                     </button>
                     <button
                       type="button"
                       className={`landing-tab ${eventEditTab === 'participants' ? 'active' : ''}`}
-                      onClick={() => setEventEditTab('participants')}
+                      onClick={() => switchEventEditTab('participants')}
                     >
                       Participants
                     </button>
