@@ -208,6 +208,7 @@ CREATE TABLE IF NOT EXISTS read.rm_payment_queue (
   recorded_at TIMESTAMPTZ NOT NULL,
   reviewed_at TIMESTAMPTZ,
   reviewed_by TEXT,
+  review_note TEXT,
   updated_at TIMESTAMPTZ NOT NULL,
   PRIMARY KEY (tenant_id, payment_id)
 );
@@ -220,6 +221,7 @@ CREATE TABLE IF NOT EXISTS read.rm_payment_history (
   currency TEXT NOT NULL,
   reference_type TEXT,
   reference_id TEXT,
+  review_note TEXT,
   status TEXT NOT NULL,
   recorded_at TIMESTAMPTZ NOT NULL,
   updated_at TIMESTAMPTZ NOT NULL,

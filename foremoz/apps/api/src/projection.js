@@ -19,12 +19,14 @@ export async function runFitnessProjection({ tenantId, branchId }) {
     await client.query(
       `alter table if exists read.rm_payment_queue
          add column if not exists reference_type text,
-         add column if not exists reference_id text`
+         add column if not exists reference_id text,
+         add column if not exists review_note text`
     );
     await client.query(
       `alter table if exists read.rm_payment_history
          add column if not exists reference_type text,
-         add column if not exists reference_id text`
+         add column if not exists reference_id text,
+         add column if not exists review_note text`
     );
 
     await client.query(
@@ -345,8 +347,8 @@ export async function runFitnessProjection({ tenantId, branchId }) {
           `insert into read.rm_payment_queue (
              tenant_id, branch_id, payment_id, member_id, subscription_id,
              amount, currency, method, proof_url, reference_type, reference_id, status,
-             recorded_at, reviewed_at, reviewed_by, updated_at
-           ) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'pending',$12,null,null,$12)
+             recorded_at, reviewed_at, reviewed_by, review_note, updated_at
+           ) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'pending',$12,null,null,null,$12)
            on conflict (tenant_id, payment_id) do update set
              branch_id = excluded.branch_id,
              member_id = excluded.member_id,
@@ -358,6 +360,7 @@ export async function runFitnessProjection({ tenantId, branchId }) {
              reference_type = excluded.reference_type,
              reference_id = excluded.reference_id,
              status = 'pending',
+             review_note = null,
              updated_at = excluded.updated_at`,
           [
             tenant,
@@ -376,14 +379,15 @@ export async function runFitnessProjection({ tenantId, branchId }) {
         );
         await client.query(
           `insert into read.rm_payment_history (
-             tenant_id, payment_id, member_id, amount, currency, reference_type, reference_id, status, recorded_at, updated_at
-           ) values ($1,$2,$3,$4,$5,$6,$7,'pending',$8,$8)
+             tenant_id, payment_id, member_id, amount, currency, reference_type, reference_id, review_note, status, recorded_at, updated_at
+           ) values ($1,$2,$3,$4,$5,$6,$7,null,'pending',$8,$8)
            on conflict (tenant_id, payment_id) do update set
              member_id = excluded.member_id,
              amount = excluded.amount,
              currency = excluded.currency,
              reference_type = excluded.reference_type,
              reference_id = excluded.reference_id,
+             review_note = null,
              status = 'pending',
              recorded_at = excluded.recorded_at,
              updated_at = excluded.updated_at`,
@@ -405,11 +409,13 @@ export async function runFitnessProjection({ tenantId, branchId }) {
       if (event.event_type === 'payment.confirmed' || event.event_type === 'payment.rejected') {
         const paymentStatus = event.event_type === 'payment.confirmed' ? 'confirmed' : 'rejected';
         const reviewedAt = data.confirmed_at || data.rejected_at || eventTs;
+        const reviewNote = data.note || data.reason || null;
         await client.query(
           `update read.rm_payment_queue
            set status = $3,
                reviewed_at = $4,
                reviewed_by = $5,
+               review_note = $6,
                updated_at = $4
            where tenant_id = $1 and payment_id = $2`,
           [
@@ -417,17 +423,21 @@ export async function runFitnessProjection({ tenantId, branchId }) {
             data.payment_id,
             paymentStatus,
             reviewedAt,
-            data.confirmed_by || data.rejected_by || payload.actor?.id || null
+            data.confirmed_by || data.rejected_by || payload.actor?.id || null,
+            reviewNote
           ]
         );
         await client.query(
           `insert into read.rm_payment_history (
-             tenant_id, payment_id, member_id, amount, currency, status, recorded_at, updated_at
+             tenant_id, payment_id, member_id, amount, currency, reference_type, reference_id, review_note, status, recorded_at, updated_at
            )
-           select tenant_id, payment_id, member_id, amount, currency, $3, recorded_at, $4
+           select tenant_id, payment_id, member_id, amount, currency, reference_type, reference_id, review_note, $3, recorded_at, $4
            from read.rm_payment_queue
            where tenant_id = $1 and payment_id = $2
            on conflict (tenant_id, payment_id) do update set
+             reference_type = excluded.reference_type,
+             reference_id = excluded.reference_id,
+             review_note = excluded.review_note,
              status = excluded.status,
              updated_at = excluded.updated_at`,
           [tenant, data.payment_id, paymentStatus, reviewedAt]

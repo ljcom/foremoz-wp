@@ -883,7 +883,8 @@ export default function AdminPage() {
         method: item.method || '-',
         status: item.status || 'pending',
         recorded_at: item.recorded_at || '',
-        reviewed_at: item.reviewed_at || ''
+        reviewed_at: item.reviewed_at || '',
+        review_note: item.review_note || ''
       })));
     } catch (error) {
       setFeedback(error.message);
@@ -3892,6 +3893,7 @@ export default function AdminPage() {
                           <th style={{ textAlign: 'left', padding: '0.65rem 0.5rem', borderBottom: '1px solid #d1d5db', background: '#f7efe6', fontWeight: 700 }}>Price</th>
                           <th style={{ textAlign: 'left', padding: '0.65rem 0.5rem', borderBottom: '1px solid #d1d5db', background: '#f7efe6', fontWeight: 700 }}>Method</th>
                           <th style={{ textAlign: 'left', padding: '0.65rem 0.5rem', borderBottom: '1px solid #d1d5db', background: '#f7efe6', fontWeight: 700 }}>Status</th>
+                          <th style={{ textAlign: 'left', padding: '0.65rem 0.5rem', borderBottom: '1px solid #d1d5db', background: '#f7efe6', fontWeight: 700 }}>Review</th>
                           <th style={{ textAlign: 'left', padding: '0.65rem 0.5rem', borderBottom: '1px solid #d1d5db', background: '#f7efe6', fontWeight: 700 }}>Aksi</th>
                         </tr>
                       </thead>
@@ -3905,6 +3907,7 @@ export default function AdminPage() {
                             <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>{item.currency || 'IDR'} {item.price}</td>
                             <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>{item.method || '-'}</td>
                             <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>{String(item.status || '-').toUpperCase()}</td>
+                            <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>{item.review_note || '-'}</td>
                             <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>
                               <div className="row-actions" style={{ display: 'flex', gap: '0' }}>
                                 <span
