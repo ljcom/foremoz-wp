@@ -1,18 +1,20 @@
 # TODO Foremoz
 
 ## Progress Snapshot (Estimated)
-- Overall delivery progress: **68%**
-- Platform stability & routing: **84%**
-- Passport dashboard/public experience: **72%**
-- Admin operational workflow: **70%**
-- QA automation & hardening: **28%**
-- Experience Network whitepaper scope: **34%**
+- Overall delivery progress: **76%**
+- Platform stability & routing: **88%**
+- Passport dashboard/public experience: **76%**
+- Admin operational workflow: **78%**
+- QA automation & hardening: **30%**
+- Experience Network whitepaper scope: **36%**
 
-## High Priority (88%)
+Last audited terhadap isi folder: **2026-03-25** (`foremoz/apps/api`, `foremoz/apps/vite`, `foremoz/apps/eventdb-custom-json`)
+
+## High Priority (90%)
 - [~] Passport public page `/p/:account` sudah pakai real data inti.
   - Resolve `account -> tenant/passport` sudah ada via endpoint public passport.
   - Identity/stat utama sudah diambil dari API (profile, events, stats, relations).
-  - Sisa: follower/community masih belum data relasi real.
+  - Sisa: follower/community masih berbasis local state (belum social graph backend).
 - [x] Simpan konfigurasi public visibility ke backend.
   - Endpoint read: `GET /v1/passport/public-visibility`
   - Endpoint write: `POST /v1/passport/public-visibility`
@@ -32,30 +34,36 @@
   - Frontend admin scan/check-in menggunakan `participant_no` sebagai prioritas.
 - [ ] Barcode scanner masih berbasis text input (keyboard wedge).
   - Belum ada integrasi kamera (WebRTC / QR scanner) untuk scan langsung.
-- [ ] Tambah export participant/check-in (CSV/XLSX) dari tab Participants/Check in.
+- [~] Tambah export participant/check-in (CSV/XLSX) dari tab Participants/Check in.
+  - Remark: export CSV sudah ada di CS dashboard (browse event/class), tapi belum ada export khusus dari tab Participants/Check in pada Event Edit.
 
-## Passport Dashboard (62%)
-- [ ] Hubungkan profile editor (nama display, status, avatar) ke API Passport.
-  - Saat ini status/avatar disimpan localStorage.
+## Passport Dashboard (66%)
+- [~] Hubungkan profile editor (nama display, status, avatar) ke API Passport.
+  - Remark: profile inti sudah load dari API Passport; status/avatar masih disimpan localStorage.
 - [ ] Tambah pengaturan publikasi per-section untuk data lain (bukan hanya toggle tampil).
   - Contoh: urutan section, pin section tertentu, preview mode private/public.
 
-## Public Passport Page (74%)
-- [ ] Data `Roles/Capabilities` dan `Programs/Products` masih derived sederhana dari events.
+## Public Passport Page (78%)
+- [~] Data `Roles/Capabilities` dan `Programs/Products` masih derived sederhana dari events.
   - Perlu read model khusus capability/program yang lebih akurat.
-- [ ] Tambah page khusus `passport.foremoz.com` style + SEO metadata (title/description per profile).
+- [~] Tambah page khusus `passport.foremoz.com` style + SEO metadata (title/description per profile).
+  - Remark: style public page sudah ada; SEO metadata per profile belum diset.
 - [~] CTA follow/contact/request event.
   - Remark: contact sekarang hanya muncul untuk context creator/owner; action masih mailto/basic flow.
 
-## Admin Dashboard (70%)
+## Admin Dashboard (78%)
 - [x] Event edit sudah punya aksi publikasi yang lebih jelas.
   - Tombol `Publikasikan Event` + `Turunkan ke Draft` sudah tersedia.
   - Wording publish flow sudah dirapikan (preview/biaya/publish sekarang).
-- [ ] Event Edit tabs sudah dipisah, tapi perlu validasi UX lanjut:
-  - Disable submit saat bukan tab `General` (sudah), namun perlu warning unsaved changes saat pindah tab.
-  - Tambah empty-state/guide untuk tab `Check in` dan `Participants` ketika event baru belum dipublish.
-- [ ] Field `trainer_name` token input class sudah jalan.
+- [~] Event Edit tabs sudah dipisah, tapi perlu validasi UX lanjut:
+  - Disable submit saat bukan tab `General` (sudah), namun belum ada warning unsaved changes saat pindah tab.
+  - Empty-state participants sudah ada; guide yang lebih jelas untuk flow check-in event baru masih perlu.
+- [~] Field `trainer_name` token input class sudah jalan.
   - Perlu opsi multi-trainer sebagai struktur data resmi (array) di backend class.
+- [x] API admin core sudah mencakup workflow utama lintas modul.
+  - Event/Class CRUD + participant check-in/check-out.
+  - Product & Package CRUD.
+  - Owner users + owner saas extension + account resolve/public passport.
 
 ## QA / Hardening (28%)
 - [ ] Tambah test otomatis untuk flow penting:
@@ -65,7 +73,7 @@
 - [ ] Tambah error boundary/loading skeleton di halaman `/events/register`, `/passport/dashboard`, `/p/:account`.
 - [ ] Audit konsistensi timezone untuk jadwal event (WIB/local vs UTC) di semua page.
 
-## Experience Network Backlog (Whitepaper Sync) (34%)
+## Experience Network Backlog (Whitepaper Sync) (36%)
 
 ### 2.1 Passport Core System
 - [~] Create tables: `passport`, `passport_roles`, `passport_follow`, `passport_activity`, `passport_stats`.
@@ -130,7 +138,7 @@
   - Remark: hosted/attended/score mulai ada; rating, returning participants, dan community size belum lengkap.
 - [ ] Reputation formula dan rank layer lintas vertical.
 
-## Product Scope Backlog (65%)
+## Product Scope Backlog (69%)
 
 ### Web
 - [ ] Landing page
