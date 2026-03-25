@@ -162,7 +162,7 @@ Last audited terhadap isi folder: **2026-03-25** (`foremoz/apps/api`, `foremoz/a
 ### 2.9 Creator Conversion Tools
 - [ ] Bio link page.
 - [~] Creator landing page.
-  - Remark: `/a/:account` sudah aktif, masih perlu mode creator-optimized conversion.
+  - Remark: `/a/:account` sudah aktif dan section conversion-oriented (`why join`, `how to start`, CTA flow) sudah ditambahkan. Masih bisa diperdalam dengan data real program/coach.
 - [ ] Event short link share (`foremoz.com/e/<slug>`).
 
 ### 2.10 Passport Reputation System

@@ -90,6 +90,26 @@ export default function AccountPublicPage() {
       photo: 'https://images.unsplash.com/photo-1518611012118-696072aa579a?auto=format&fit=crop&w=600&q=80'
     }
   ];
+  const conversionReasons = [
+    {
+      title: 'Masuk cepat ke ekosistem yang aktif',
+      body: `${participantLabel} bisa langsung pilih event, class, atau package tanpa onboarding yang membingungkan.`
+    },
+    {
+      title: 'Ada creator dan coach yang jelas',
+      body: `${creatorLabel} tampil sebagai wajah utama brand, jadi trust dan expectation lebih kebentuk sejak awal.`
+    },
+    {
+      title: 'Dari discover ke register lebih pendek',
+      body: 'CTA utama diarahkan langsung ke member signup, event list, dan repeat visit lewat sign in.'
+    }
+  ];
+  const conversionFlow = [
+    'Temukan brand dan creator yang cocok',
+    'Lihat event / class / program yang sedang aktif',
+    'Sign up sebagai member',
+    'Kembali untuk booking, check-in, dan progress'
+  ];
 
   return (
     <main className="landing">
@@ -147,6 +167,21 @@ export default function AccountPublicPage() {
       </section>
 
       <section className="landing-section">
+        <p className="eyebrow">Why Join</p>
+        <h2 className="landing-title">{`${displayName || account} dibuat untuk conversion, bukan sekadar profile statis.`}</h2>
+        <div className="feature-grid">
+          {conversionReasons.map((item) => (
+            <article className="feature-card" key={item.title}>
+              <div className="feature-head">
+                <h3>{item.title}</h3>
+              </div>
+              <p>{item.body}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="landing-section">
         <p className="eyebrow">Program</p>
         <h2 className="landing-title">Pilih program favoritmu</h2>
         <div className="case-grid web-visual-grid">
@@ -163,6 +198,30 @@ export default function AccountPublicPage() {
               </div>
             </article>
           ))}
+        </div>
+      </section>
+
+      <section className="landing-section">
+        <p className="eyebrow">How To Start</p>
+        <div className="card">
+          <div className="entity-list">
+            {conversionFlow.map((item, index) => (
+              <div className="entity-row" key={`${index + 1}-${item}`}>
+                <div>
+                  <strong>{`0${index + 1}`}</strong>
+                  <p>{item}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="hero-actions" style={{ marginTop: '1rem' }}>
+            <Link className="btn" to={`/a/${account}/events`}>
+              Explore Events
+            </Link>
+            <Link className="btn ghost" to={`/a/${account}/member/signup`}>
+              Start Membership
+            </Link>
+          </div>
         </div>
       </section>
 
