@@ -520,6 +520,7 @@ export default function AdminPage() {
   const [salesMemberQuery, setSalesMemberQuery] = useState('');
   const [memberQuery, setMemberQuery] = useState('');
   const [transactionQuery, setTransactionQuery] = useState('');
+  const [transactionStatusFilter, setTransactionStatusFilter] = useState('all');
   const [eventPostQuote, setEventPostQuote] = useState(null);
   const [pendingPostedEventId, setPendingPostedEventId] = useState('');
   const [eventParticipants, setEventParticipants] = useState([]);
@@ -814,16 +815,10 @@ export default function AdminPage() {
           branch_id: branchId
         })
       }).catch(() => {});
-      const [pendingRes, confirmedRes, rejectedRes] = await Promise.all([
-        apiJson(`/v1/read/payments/queue?tenant_id=${encodeURIComponent(tenantId)}&status=pending`).catch(() => ({ rows: [] })),
-        apiJson(`/v1/read/payments/queue?tenant_id=${encodeURIComponent(tenantId)}&status=confirmed`).catch(() => ({ rows: [] })),
-        apiJson(`/v1/read/payments/queue?tenant_id=${encodeURIComponent(tenantId)}&status=rejected`).catch(() => ({ rows: [] }))
-      ]);
-      const rows = [
-        ...(Array.isArray(pendingRes.rows) ? pendingRes.rows : []),
-        ...(Array.isArray(confirmedRes.rows) ? confirmedRes.rows : []),
-        ...(Array.isArray(rejectedRes.rows) ? rejectedRes.rows : [])
-      ];
+      const paymentsRes = await apiJson(
+        `/v1/read/payments/queue?tenant_id=${encodeURIComponent(tenantId)}&status=all`
+      ).catch(() => ({ rows: [] }));
+      const rows = Array.isArray(paymentsRes.rows) ? paymentsRes.rows : [];
       rows.sort((a, b) => new Date(b.recorded_at || 0).getTime() - new Date(a.recorded_at || 0).getTime());
       setTransactions(rows.map((item) => ({
         transaction_id: item.payment_id || `trx_${Date.now()}`,
@@ -1050,6 +1045,10 @@ export default function AdminPage() {
   });
   const filteredTransactions = transactions.filter((item) => {
     const q = transactionQuery.toLowerCase();
+    const statusMatch = transactionStatusFilter === 'all'
+      ? true
+      : String(item.status || '').toLowerCase() === transactionStatusFilter;
+    if (!statusMatch) return false;
     return (
       String(item.no_transaction || '').toLowerCase().includes(q) ||
       String(item.product || '').toLowerCase().includes(q) ||
@@ -3720,6 +3719,12 @@ export default function AdminPage() {
                         value={transactionQuery}
                         onChange={(e) => setTransactionQuery(e.target.value)}
                       />
+                      <select value={transactionStatusFilter} onChange={(e) => setTransactionStatusFilter(e.target.value)}>
+                        <option value="all">all status</option>
+                        <option value="pending">pending</option>
+                        <option value="confirmed">confirmed</option>
+                        <option value="rejected">rejected</option>
+                      </select>
                       <button className="btn" type="button" onClick={() => setTransactionMode('add')}>
                         Add New
                       </button>

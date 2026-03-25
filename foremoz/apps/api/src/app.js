@@ -4168,14 +4168,15 @@ app.get('/v1/read/bookings', async (req, res, next) => {
 app.get('/v1/read/payments/queue', async (req, res, next) => {
   try {
     const tenantId = req.query.tenant_id || config.defaultTenantId;
-    const status = req.query.status || 'pending';
-    const { rows } = await query(
-      `select *
-       from read.rm_payment_queue
-       where tenant_id = $1 and status = $2
-       order by recorded_at asc`,
-      [tenantId, status]
-    );
+    const status = String(req.query.status || 'pending').trim().toLowerCase();
+    const params = [tenantId];
+    let sql = `select * from read.rm_payment_queue where tenant_id = $1`;
+    if (status && status !== 'all') {
+      params.push(status);
+      sql += ` and lower(status) = $2`;
+    }
+    sql += ` order by recorded_at desc`;
+    const { rows } = await query(sql, params);
     return ok(res, { rows });
   } catch (error) {
     return next(error);
