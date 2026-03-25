@@ -758,7 +758,7 @@ export default function DashboardPage() {
     try {
       setActionSaving(true);
       setActionFeedback('');
-      await apiJson(`/v1/admin/events/${encodeURIComponent(selectedEvent.event_id)}/participants/checkin`, {
+      const result = await apiJson(`/v1/admin/events/${encodeURIComponent(selectedEvent.event_id)}/participants/checkin`, {
         method: 'POST',
         body: JSON.stringify({
           tenant_id: tenantId,
@@ -771,7 +771,11 @@ export default function DashboardPage() {
       });
       await loadEventParticipants(selectedEvent.event_id);
       await loadDashboard();
-      setActionFeedback(`checkin.success: ${fullName || email || passportId || registrationId || '-'}`);
+      if (result?.duplicate) {
+        setActionFeedback(`checkin.skip: ${fullName || email || passportId || registrationId || '-'} sudah check-in sebelumnya.`);
+      } else {
+        setActionFeedback(`checkin.success: ${fullName || email || passportId || registrationId || '-'}`);
+      }
     } catch (err) {
       setActionFeedback(err.message || 'failed to check in participant');
     } finally {
@@ -800,7 +804,7 @@ export default function DashboardPage() {
     try {
       setActionSaving(true);
       setActionFeedback('');
-      await apiJson(`/v1/admin/events/${encodeURIComponent(selectedEvent.event_id)}/participants/checkout`, {
+      const result = await apiJson(`/v1/admin/events/${encodeURIComponent(selectedEvent.event_id)}/participants/checkout`, {
         method: 'POST',
         body: JSON.stringify({
           tenant_id: tenantId,
@@ -813,7 +817,11 @@ export default function DashboardPage() {
       });
       await loadEventParticipants(selectedEvent.event_id);
       await loadDashboard();
-      setActionFeedback(`checkout.success: ${fullName || email || passportId || registrationId || '-'}`);
+      if (result?.duplicate) {
+        setActionFeedback(`checkout.skip: ${fullName || email || passportId || registrationId || '-'} sudah checkout sebelumnya.`);
+      } else {
+        setActionFeedback(`checkout.success: ${fullName || email || passportId || registrationId || '-'}`);
+      }
     } catch (err) {
       setActionFeedback(err.message || 'failed to check out participant');
     } finally {

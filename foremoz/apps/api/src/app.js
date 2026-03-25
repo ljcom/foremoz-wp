@@ -218,6 +218,54 @@ function participantIdentityKey(data) {
   return '';
 }
 
+function normalizeParticipantIdentity(data) {
+  return {
+    passport_id: String(data?.passport_id || '').trim() || null,
+    email: String(data?.email || '').trim().toLowerCase() || null,
+    registration_id: String(data?.registration_id || '').trim() || null
+  };
+}
+
+function participantIdentityMatches(rowData, identity) {
+  const source = normalizeParticipantIdentity(rowData || {});
+  const target = normalizeParticipantIdentity(identity || {});
+  if (target.registration_id && source.registration_id && target.registration_id === source.registration_id) return true;
+  if (target.passport_id && source.passport_id && target.passport_id === source.passport_id) return true;
+  if (target.email && source.email && target.email === source.email) return true;
+  return false;
+}
+
+async function findLatestEventParticipantEventData({
+  tenantId,
+  eventId,
+  branchId,
+  eventType,
+  identity
+}) {
+  const namespaceId = resolveNamespaceId(tenantId);
+  let branchFilter = '';
+  if (branchId) {
+    branchFilter = ` and payload->'data'->>'branch_id' = $4`;
+  }
+  const { rows } = await query(
+    `select payload->'data' as data
+     from eventdb_event
+     where namespace_id = $1
+       and event_type = $2
+       and payload->'data'->>'event_id' = $3
+       ${branchFilter}
+     order by sequence desc`,
+    [namespaceId, eventType, eventId, ...(branchId ? [branchId] : [])]
+  );
+  for (const row of rows) {
+    const rowData = row?.data || {};
+    if (participantIdentityMatches(rowData, identity)) {
+      return rowData;
+    }
+  }
+  return null;
+}
+
 function buildParticipantNumber(eventId) {
   const compactEventId = String(eventId || 'EVT')
     .replace(/[^a-zA-Z0-9]/g, '')
@@ -2978,6 +3026,42 @@ app.post('/v1/admin/events/:eventId/participants/checkin', async (req, res, next
     if (!passportId && !email && !registrationId) {
       throw fail(400, 'BAD_REQUEST', 'registration_id or passport_id or email is required');
     }
+    const identity = { passport_id: passportId, email, registration_id: registrationId };
+    const registrationData = await findLatestEventParticipantEventData({
+      tenantId,
+      eventId,
+      branchId,
+      eventType: 'event.participant.registered',
+      identity
+    });
+    if (!registrationData) {
+      throw fail(404, 'PARTICIPANT_NOT_REGISTERED', 'participant is not registered for this event');
+    }
+    const latestCheckout = await findLatestEventParticipantEventData({
+      tenantId,
+      eventId,
+      branchId,
+      eventType: 'event.participant.checked_out',
+      identity
+    });
+    if (latestCheckout?.checked_out_at) {
+      throw fail(409, 'PARTICIPANT_ALREADY_CHECKED_OUT', 'participant already checked out for this event');
+    }
+    const latestCheckin = await findLatestEventParticipantEventData({
+      tenantId,
+      eventId,
+      branchId,
+      eventType: 'event.participant.checked_in',
+      identity
+    });
+    if (latestCheckin?.checked_in_at) {
+      return ok(res, {
+        event_id: eventId,
+        checkin_id: latestCheckin.checkin_id || null,
+        checked_in_at: latestCheckin.checked_in_at,
+        duplicate: true
+      });
+    }
     const checkinId = data.checkin_id || `evci_${Date.now()}_${randomUUID().slice(0, 8)}`;
     const event = await appendDomainEvent({
       tenantId,
@@ -3028,9 +3112,38 @@ app.post('/v1/admin/events/:eventId/participants/checkout', async (req, res, nex
     if (!passportId && !email && !registrationId) {
       throw fail(400, 'BAD_REQUEST', 'registration_id or passport_id or email is required');
     }
-    const identityKey = participantIdentityKey({ passport_id: passportId, email, registration_id: registrationId });
+    const identity = { passport_id: passportId, email, registration_id: registrationId };
+    const identityKey = participantIdentityKey(identity);
     if (!identityKey) {
       throw fail(400, 'BAD_REQUEST', 'participant identity is required');
+    }
+    const registrationData = await findLatestEventParticipantEventData({
+      tenantId,
+      eventId,
+      branchId,
+      eventType: 'event.participant.registered',
+      identity
+    });
+    if (!registrationData) {
+      throw fail(404, 'PARTICIPANT_NOT_REGISTERED', 'participant is not registered for this event');
+    }
+
+    const latestCheckout = await findLatestEventParticipantEventData({
+      tenantId,
+      eventId,
+      branchId,
+      eventType: 'event.participant.checked_out',
+      identity
+    });
+    if (latestCheckout?.checked_out_at) {
+      return ok(res, {
+        event_id: eventId,
+        checkout_id: latestCheckout.checkout_id || null,
+        rank: latestCheckout.rank ?? null,
+        score_points: Number(latestCheckout.score_points || 0),
+        checked_out_at: latestCheckout.checked_out_at,
+        duplicate: true
+      });
     }
 
     const namespaceId = resolveNamespaceId(tenantId);

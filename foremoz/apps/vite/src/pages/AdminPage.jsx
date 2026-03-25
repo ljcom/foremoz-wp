@@ -1923,7 +1923,7 @@ export default function AdminPage() {
     const key = keyOverride || getParticipantCheckinKey(participant);
     try {
       setEventCheckinSavingMap((prev) => ({ ...prev, [key]: true }));
-      await apiJson(`/v1/admin/events/${encodeURIComponent(editingEventId)}/participants/checkin`, {
+      const result = await apiJson(`/v1/admin/events/${encodeURIComponent(editingEventId)}/participants/checkin`, {
         method: 'POST',
         body: JSON.stringify({
           tenant_id: tenantId,
@@ -1935,7 +1935,11 @@ export default function AdminPage() {
         })
       });
       setEventCheckinMap((prev) => ({ ...prev, [key]: true }));
-      setFeedback(`checkin.success: ${participant?.full_name || participant?.email || participant?.passport_id || '-'}`);
+      if (result?.duplicate) {
+        setFeedback(`checkin.skip: ${participant?.full_name || participant?.email || participant?.passport_id || '-'} sudah check-in sebelumnya.`);
+      } else {
+        setFeedback(`checkin.success: ${participant?.full_name || participant?.email || participant?.passport_id || '-'}`);
+      }
       setEventCheckinBarcode('');
       await loadEventParticipants(editingEventId);
     } catch (error) {
@@ -1981,9 +1985,13 @@ export default function AdminPage() {
       });
       const scorePoints = Number(result?.score_points || 0);
       setEventCheckoutMap((prev) => ({ ...prev, [key]: true }));
-      setFeedback(
-        `checkout.success: ${participant.full_name || participant.email || participant.passport_id || '-'}${rank ? ` (rank ${rank}, score ${scorePoints})` : ''}`
-      );
+      if (result?.duplicate) {
+        setFeedback(`checkout.skip: ${participant.full_name || participant.email || participant.passport_id || '-'} sudah checkout sebelumnya.`);
+      } else {
+        setFeedback(
+          `checkout.success: ${participant.full_name || participant.email || participant.passport_id || '-'}${rank ? ` (rank ${rank}, score ${scorePoints})` : ''}`
+        );
+      }
       await loadEventParticipants(editingEventId);
     } catch (error) {
       setFeedback(error.message);

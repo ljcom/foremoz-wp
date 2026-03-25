@@ -40,6 +40,10 @@ Last audited terhadap isi folder: **2026-03-25** (`foremoz/apps/api`, `foremoz/a
   - Validasi kapasitas class (`CLASS_FULL`).
   - Validasi anti double booking member per class (`CLASS_ALREADY_BOOKED`).
   - Validasi branch mismatch (`CLASS_BRANCH_MISMATCH`) dan class existence (`CLASS_NOT_FOUND`).
+- [x] Check-in/check-out event dibuat idempotent + state guard.
+  - Check-in reject participant yang belum register / sudah checkout.
+  - Check-in/check-out duplicate return `duplicate: true` (tidak append event baru).
+  - Frontend admin/CS sudah menampilkan feedback `checkin.skip` / `checkout.skip`.
 
 ## Passport Dashboard (66%)
 - [~] Hubungkan profile editor (nama display, status, avatar) ke API Passport.
