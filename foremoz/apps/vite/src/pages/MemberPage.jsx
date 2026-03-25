@@ -768,6 +768,7 @@ export default function MemberPage() {
                         <strong>{item.booking_id}</strong>
                         <p>{item.class_id} | {item.status || '-'}</p>
                         <p>booked: {item.booked_at || '-'}</p>
+                        <p>payment: {item.payment_id || '-'}</p>
                       </div>
                     </div>
                   ))}

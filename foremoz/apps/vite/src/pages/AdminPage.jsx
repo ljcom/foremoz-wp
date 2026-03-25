@@ -182,6 +182,24 @@ function resolvePaymentReferenceLabel(item, lookups = {}) {
   return referenceType || referenceId ? `${referenceType || 'payment'}:${referenceId || '-'}` : item?.subscription_id || '-';
 }
 
+function resolvePaymentOperationLink(item, lookups = {}) {
+  const subscriptionsByPaymentId = lookups.subscriptionsByPaymentId || new Map();
+  const bookingsByPaymentId = lookups.bookingsByPaymentId || new Map();
+  const ptPackagesByPaymentId = lookups.ptPackagesByPaymentId || new Map();
+  const paymentId = String(item?.payment_id || '').trim();
+  if (!paymentId) return '-';
+  if (subscriptionsByPaymentId.has(paymentId)) {
+    return `subscription:${subscriptionsByPaymentId.get(paymentId)}`;
+  }
+  if (bookingsByPaymentId.has(paymentId)) {
+    return `booking:${bookingsByPaymentId.get(paymentId)}`;
+  }
+  if (ptPackagesByPaymentId.has(paymentId)) {
+    return `pt_package:${ptPackagesByPaymentId.get(paymentId)}`;
+  }
+  return '-';
+}
+
 function estimateEventPostingPrice(durationMinutes) {
   const blocks = Math.max(1, Math.ceil(Number(durationMinutes || 60) / 60));
   return blocks * 99000;
@@ -909,6 +927,11 @@ export default function AdminPage() {
         apiJson(`/v1/admin/products?tenant_id=${encodeURIComponent(tenantId)}&branch_id=${encodeURIComponent(branchId)}`).catch(() => ({ rows: [] })),
         apiJson(`/v1/admin/classes?tenant_id=${encodeURIComponent(tenantId)}&branch_id=${encodeURIComponent(branchId)}`).catch(() => ({ rows: [] }))
       ]);
+      const [subscriptionsRes, bookingsRes, ptBalanceRes] = await Promise.all([
+        apiJson(`/v1/read/subscriptions/active?tenant_id=${encodeURIComponent(tenantId)}&branch_id=${encodeURIComponent(branchId)}`).catch(() => ({ rows: [] })),
+        apiJson(`/v1/read/bookings?tenant_id=${encodeURIComponent(tenantId)}`).catch(() => ({ rows: [] })),
+        apiJson(`/v1/read/pt-balance?tenant_id=${encodeURIComponent(tenantId)}`).catch(() => ({ rows: [] }))
+      ]);
       const eventsById = new Map(
         (Array.isArray(eventsRes.rows) ? eventsRes.rows : [])
           .map((row) => [String(row?.event_id || ''), String(row?.event_name || '').trim()])
@@ -929,6 +952,21 @@ export default function AdminPage() {
           .map((row) => [String(row?.class_id || ''), String(row?.class_name || '').trim()])
           .filter(([id]) => Boolean(id))
       );
+      const subscriptionsByPaymentId = new Map(
+        (Array.isArray(subscriptionsRes.rows) ? subscriptionsRes.rows : [])
+          .map((row) => [String(row?.payment_id || ''), String(row?.subscription_id || '').trim()])
+          .filter(([paymentId, subscriptionId]) => Boolean(paymentId && subscriptionId))
+      );
+      const bookingsByPaymentId = new Map(
+        (Array.isArray(bookingsRes.rows) ? bookingsRes.rows : [])
+          .map((row) => [String(row?.payment_id || ''), String(row?.booking_id || '').trim()])
+          .filter(([paymentId, bookingId]) => Boolean(paymentId && bookingId))
+      );
+      const ptPackagesByPaymentId = new Map(
+        (Array.isArray(ptBalanceRes.rows) ? ptBalanceRes.rows : [])
+          .map((row) => [String(row?.payment_id || ''), String(row?.pt_package_id || '').trim()])
+          .filter(([paymentId, ptPackageId]) => Boolean(paymentId && ptPackageId))
+      );
       const rows = Array.isArray(paymentsRes.rows) ? paymentsRes.rows : [];
       rows.sort((a, b) => new Date(b.recorded_at || 0).getTime() - new Date(a.recorded_at || 0).getTime());
       setTransactions(rows.map((item) => ({
@@ -936,6 +974,7 @@ export default function AdminPage() {
         no_transaction: item.payment_id || '',
         member_id: item.member_id || '',
         product: resolvePaymentReferenceLabel(item, { eventsById, packagesById, productsById, classesById }),
+        operation_link: resolvePaymentOperationLink(item, { subscriptionsByPaymentId, bookingsByPaymentId, ptPackagesByPaymentId }),
         qty: '1',
         price: String(item.amount ?? ''),
         currency: item.currency || 'IDR',
@@ -2456,7 +2495,7 @@ export default function AdminPage() {
     setTransactionForm({
       no_transaction: item.no_transaction || '',
       member_id: item.member_id || '',
-      product: item.product || '',
+      product: item.operation_link && item.operation_link !== '-' ? `${item.product || ''} | ${item.operation_link}` : item.product || '',
       qty: item.qty || '1',
       price: item.price || '',
       currency: item.currency || 'IDR',
@@ -3961,7 +4000,12 @@ export default function AdminPage() {
                           <tr key={item.transaction_id} style={{ backgroundColor: idx % 2 === 0 ? '#ffffff' : '#f7efe6' }}>
                             <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>{item.no_transaction}</td>
                             <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>{item.member_id || '-'}</td>
-                            <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>{item.product}</td>
+                            <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>
+                              <div>
+                                <strong>{item.product}</strong>
+                                <p style={{ margin: '0.2rem 0 0', fontSize: '0.85rem', color: '#6b7280' }}>{item.operation_link || '-'}</p>
+                              </div>
+                            </td>
                             <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>{item.qty}</td>
                             <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>{item.currency || 'IDR'} {item.price}</td>
                             <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>{item.method || '-'}</td>
