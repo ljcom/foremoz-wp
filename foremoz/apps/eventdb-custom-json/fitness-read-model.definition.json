@@ -37,7 +37,7 @@
     {
       "name": "read.rm_subscription_active",
       "primary_key": ["tenant_id", "subscription_id"],
-      "columns": ["tenant_id", "branch_id", "subscription_id", "member_id", "plan_id", "status", "start_date", "end_date", "freeze_until", "updated_at"],
+      "columns": ["tenant_id", "branch_id", "subscription_id", "member_id", "plan_id", "payment_id", "status", "start_date", "end_date", "freeze_until", "updated_at"],
       "query_use": "active subscription check"
     },
     {
@@ -55,7 +55,7 @@
     {
       "name": "read.rm_booking_list",
       "primary_key": ["tenant_id", "booking_id"],
-      "columns": ["tenant_id", "branch_id", "booking_id", "class_id", "booking_kind", "member_id", "guest_name", "status", "booked_at", "canceled_at", "attendance_confirmed_at", "updated_at"],
+      "columns": ["tenant_id", "branch_id", "booking_id", "class_id", "booking_kind", "member_id", "guest_name", "payment_id", "status", "booked_at", "canceled_at", "attendance_confirmed_at", "updated_at"],
       "query_use": "class roster and booking status"
     },
     {
@@ -67,7 +67,7 @@
     {
       "name": "read.rm_pt_balance",
       "primary_key": ["tenant_id", "pt_package_id"],
-      "columns": ["tenant_id", "branch_id", "pt_package_id", "member_id", "trainer_id", "total_sessions", "consumed_sessions", "remaining_sessions", "last_session_at", "updated_at"],
+      "columns": ["tenant_id", "branch_id", "pt_package_id", "member_id", "trainer_id", "total_sessions", "consumed_sessions", "remaining_sessions", "payment_id", "last_session_at", "updated_at"],
       "query_use": "PT package balance"
     },
     {

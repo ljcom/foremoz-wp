@@ -107,6 +107,7 @@ CREATE TABLE IF NOT EXISTS read.rm_subscription_active (
   subscription_id TEXT NOT NULL,
   member_id TEXT NOT NULL,
   plan_id TEXT NOT NULL,
+  payment_id TEXT,
   status TEXT NOT NULL,
   start_date DATE NOT NULL,
   end_date DATE NOT NULL,
@@ -147,6 +148,7 @@ CREATE TABLE IF NOT EXISTS read.rm_booking_list (
   booking_kind TEXT NOT NULL,
   member_id TEXT,
   guest_name TEXT,
+  payment_id TEXT,
   status TEXT NOT NULL,
   booked_at TIMESTAMPTZ NOT NULL,
   canceled_at TIMESTAMPTZ,
@@ -175,6 +177,7 @@ CREATE TABLE IF NOT EXISTS read.rm_pt_balance (
   total_sessions INTEGER NOT NULL,
   consumed_sessions INTEGER NOT NULL DEFAULT 0,
   remaining_sessions INTEGER NOT NULL,
+  payment_id TEXT,
   last_session_at TIMESTAMPTZ,
   updated_at TIMESTAMPTZ NOT NULL,
   PRIMARY KEY (tenant_id, pt_package_id)

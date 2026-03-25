@@ -28,6 +28,18 @@ export async function runFitnessProjection({ tenantId, branchId }) {
          add column if not exists reference_id text,
          add column if not exists review_note text`
     );
+    await client.query(
+      `alter table if exists read.rm_subscription_active
+         add column if not exists payment_id text`
+    );
+    await client.query(
+      `alter table if exists read.rm_booking_list
+         add column if not exists payment_id text`
+    );
+    await client.query(
+      `alter table if exists read.rm_pt_balance
+         add column if not exists payment_id text`
+    );
 
     await client.query(
       `insert into read.rm_checkpoint (projector_name, namespace_id, chain_id, last_sequence)
@@ -58,6 +70,7 @@ export async function runFitnessProjection({ tenantId, branchId }) {
     for (const event of eventRows) {
       const payload = event.payload || {};
       const data = payload.data || {};
+      const refs = payload.refs || {};
       const eventTs = payload.ts || event.event_time;
       const tenant = data.tenant_id || tenantId;
       const branch = data.branch_id || branchId || 'core';
@@ -263,13 +276,14 @@ export async function runFitnessProjection({ tenantId, branchId }) {
       if (event.event_type === 'subscription.activated') {
         await client.query(
           `insert into read.rm_subscription_active (
-             tenant_id, branch_id, subscription_id, member_id, plan_id, status,
+             tenant_id, branch_id, subscription_id, member_id, plan_id, payment_id, status,
              start_date, end_date, freeze_until, updated_at
-           ) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+           ) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
            on conflict (tenant_id, subscription_id) do update set
              branch_id = excluded.branch_id,
              member_id = excluded.member_id,
              plan_id = excluded.plan_id,
+             payment_id = excluded.payment_id,
              status = excluded.status,
              start_date = excluded.start_date,
              end_date = excluded.end_date,
@@ -281,6 +295,7 @@ export async function runFitnessProjection({ tenantId, branchId }) {
             data.subscription_id,
             data.member_id,
             data.plan_id,
+            refs.payment_id || null,
             data.status || 'active',
             data.start_date,
             data.end_date,
@@ -504,10 +519,11 @@ export async function runFitnessProjection({ tenantId, branchId }) {
         await client.query(
           `insert into read.rm_booking_list (
              tenant_id, branch_id, booking_id, class_id, booking_kind,
-             member_id, guest_name, status, booked_at,
+             member_id, guest_name, payment_id, status, booked_at,
              canceled_at, attendance_confirmed_at, updated_at
-           ) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,null,null,$9)
+           ) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,null,null,$10)
            on conflict (tenant_id, booking_id) do update set
+             payment_id = excluded.payment_id,
              status = excluded.status,
              updated_at = excluded.updated_at`,
           [
@@ -518,6 +534,7 @@ export async function runFitnessProjection({ tenantId, branchId }) {
             data.booking_kind,
             data.member_id || null,
             data.guest_name || null,
+            refs.payment_id || null,
             data.status || 'booked',
             data.booked_at || eventTs
           ]
@@ -573,14 +590,15 @@ export async function runFitnessProjection({ tenantId, branchId }) {
         await client.query(
           `insert into read.rm_pt_balance (
              tenant_id, branch_id, pt_package_id, member_id, trainer_id,
-             total_sessions, consumed_sessions, remaining_sessions, last_session_at, updated_at
-           ) values ($1,$2,$3,$4,$5,$6,0,$6,null,$7)
+             total_sessions, consumed_sessions, remaining_sessions, payment_id, last_session_at, updated_at
+           ) values ($1,$2,$3,$4,$5,$6,0,$6,$7,null,$8)
            on conflict (tenant_id, pt_package_id) do update set
              branch_id = excluded.branch_id,
              member_id = excluded.member_id,
              trainer_id = excluded.trainer_id,
              total_sessions = excluded.total_sessions,
              remaining_sessions = excluded.remaining_sessions,
+             payment_id = excluded.payment_id,
              updated_at = excluded.updated_at`,
           [
             tenant,
@@ -589,6 +607,7 @@ export async function runFitnessProjection({ tenantId, branchId }) {
             data.member_id,
             data.trainer_id || null,
             data.total_sessions,
+            refs.payment_id || null,
             data.assigned_at || eventTs
           ]
         );
