@@ -195,6 +195,9 @@ export default function MemberPage() {
     }
   }
 
+  const canCheckinSelectedEvent = Boolean(selectedEventId) && !eventActionSaving;
+  const canCheckoutSelectedEvent = Boolean(selectedEventId) && !eventActionSaving && Boolean(selectedEventParticipant?.checked_in_at);
+
   function addMonths(date, months) {
     const next = new Date(date.getTime());
     next.setMonth(next.getMonth() + months);
@@ -384,12 +387,16 @@ export default function MemberPage() {
                 <p className="sub">
                   status: checkin {selectedEventParticipant?.checked_in_at ? 'yes' : 'no'} | checkout {selectedEventParticipant?.checked_out_at ? 'yes' : 'no'}
                 </p>
-                <button className="btn" type="button" disabled={eventActionSaving} onClick={checkinToSelectedEvent}>
+                <button className="btn" type="button" disabled={!canCheckinSelectedEvent} onClick={checkinToSelectedEvent}>
                   {eventActionSaving ? 'Processing...' : 'Checkin'}
                 </button>
-                <button className="btn ghost" type="button" disabled={eventActionSaving} onClick={checkoutFromSelectedEvent}>
+                <button className="btn ghost" type="button" disabled={!canCheckoutSelectedEvent} onClick={checkoutFromSelectedEvent}>
                   {eventActionSaving ? 'Processing...' : 'Checkout'}
                 </button>
+                {!selectedEventId ? <p className="sub">Pilih event terlebih dulu.</p> : null}
+                {selectedEventId && !selectedEventParticipant?.checked_in_at ? (
+                  <p className="sub">Checkout aktif setelah participant check-in.</p>
+                ) : null}
               </div>
             ) : null}
 
