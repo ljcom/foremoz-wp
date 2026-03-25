@@ -2446,27 +2446,52 @@ app.post('/v1/subscriptions/activate', async (req, res, next) => {
   try {
     const data = req.body || {};
     const tenantId = data.tenant_id || config.defaultTenantId;
+    const subscriptionId = required(data.subscription_id, 'subscription_id');
+    const memberId = required(data.member_id, 'member_id');
+    const planId = required(data.plan_id, 'plan_id');
+    const paymentId = String(data.payment_id || '').trim();
+    if (paymentId) {
+      const paymentRow = await getPaymentQueueRow({ tenantId, paymentId });
+      if (!paymentRow) {
+        throw fail(404, 'PAYMENT_NOT_FOUND', `payment ${paymentId} not found`);
+      }
+      if (String(paymentRow.status || '').toLowerCase() !== 'confirmed') {
+        throw fail(409, 'PAYMENT_NOT_CONFIRMED', `payment ${paymentId} is not confirmed`);
+      }
+      const referenceType = String(paymentRow.reference_type || '').trim().toLowerCase();
+      const referenceId = String(paymentRow.reference_id || '').trim();
+      if (referenceType && referenceType !== 'membership_purchase') {
+        throw fail(409, 'PAYMENT_REFERENCE_INVALID', `payment ${paymentId} has invalid reference_type`);
+      }
+      if (referenceId && referenceId !== planId) {
+        throw fail(409, 'PAYMENT_REFERENCE_MISMATCH', `payment ${paymentId} is linked to another membership plan`);
+      }
+      const paymentMemberId = String(paymentRow.member_id || '').trim().toLowerCase();
+      if (paymentMemberId && paymentMemberId !== String(memberId).trim().toLowerCase()) {
+        throw fail(409, 'PAYMENT_MEMBER_MISMATCH', `payment ${paymentId} belongs to another member`);
+      }
+    }
     const event = await appendDomainEvent({
       tenantId,
       branchId: data.branch_id || null,
       actorId: data.actor_id || config.defaultActorId,
       eventType: 'subscription.activated',
       subjectKind: 'subscription',
-      subjectId: required(data.subscription_id, 'subscription_id'),
+      subjectId: subscriptionId,
       data: {
         tenant_id: tenantId,
         branch_id: data.branch_id || null,
-        subscription_id: required(data.subscription_id, 'subscription_id'),
-        member_id: required(data.member_id, 'member_id'),
-        plan_id: required(data.plan_id, 'plan_id'),
+        subscription_id: subscriptionId,
+        member_id: memberId,
+        plan_id: planId,
         start_date: required(data.start_date, 'start_date'),
         end_date: required(data.end_date, 'end_date'),
         status: data.status || 'active'
       },
-      refs: { payment_id: data.payment_id || null },
-      uniqueIds: [{ scope: 'subscription.subscription_id', value: required(data.subscription_id, 'subscription_id') }]
+      refs: { payment_id: paymentId || null },
+      uniqueIds: [{ scope: 'subscription.subscription_id', value: subscriptionId }]
     });
-    return created(res, { event });
+    return created(res, { event, payment_id: paymentId || null });
   } catch (error) {
     return next(error);
   }
