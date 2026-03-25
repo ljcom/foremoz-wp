@@ -175,22 +175,18 @@ Last audited terhadap isi folder: **2026-03-25** (`foremoz/apps/api`, `foremoz/a
 ### Web
 - [ ] Landing page
   - [x] what/who
-  - [~] why
-    - Remark: sudah ada narasi value, tapi belum konsisten di semua section.
-  - [~] how
-    - Remark: alur sudah ada, masih perlu penyederhanaan messaging.
+  - [x] why
+  - [x] how
   - [x] cta
 
 ### Industries
 - [ ] Landing
   - [x] what/who
-  - [~] why
-    - Remark: sudah ada highlight per vertical, belum tajam per persona.
-  - [~] how
-    - Remark: alur ada, tapi belum seragam untuk semua industry page.
+  - [x] why
+  - [x] how
   - [x] cta
 - [~] Pricing
-  - Remark: paket utama sudah ada (Free/Starter/Growth/Multi Branch/Enterprise), masih perlu finalisasi presentasi per industry.
+  - Remark: paket utama sudah ada dan context copy per tier sudah dirapikan; finalisasi presentasi visual per industry masih bisa diperdalam.
 
 ### Events
 - [x] Browse: card (ecommerce-like)

@@ -191,6 +191,26 @@ export default function VerticalLandingPage() {
     { icon: 'fa-solid fa-clipboard-check', title: 'Check-in lebih rapi' },
     { icon: 'fa-solid fa-chart-line', title: 'Progress lebih terlihat' }
   ];
+  const whyCards = [
+    {
+      title: `${creator} tidak lagi kerja manual`,
+      body: `Publish ${experience.toLowerCase()}, atur jadwal, dan buka registration tanpa lompat antar tool.`
+    },
+    {
+      title: `${participant} masuk ke flow yang jelas`,
+      body: `Dari discover, daftar, bayar, sampai hadir di hari H semuanya lebih konsisten.`
+    },
+    {
+      title: 'Tim operasional punya audit trail',
+      body: 'Payment, attendance, booking, dan outcome bisa direview tanpa bongkar chat atau sheet.'
+    }
+  ];
+  const howFlow = [
+    `${experience} dipublish dengan identitas brand`,
+    'Audience register dan masuk ke payment flow',
+    'Ops menjalankan attendance dan review transaksi',
+    'Riwayat creator dan participant terbentuk di passport'
+  ];
 
   return (
     <main className="landing">
@@ -243,6 +263,37 @@ export default function VerticalLandingPage() {
       </section>
 
       <section className="landing-section">
+        <p className="eyebrow">Why {label}</p>
+        <h2 className="landing-title">{`${label} butuh flow yang terasa spesifik, bukan template umum.`}</h2>
+        <div className="feature-grid">
+          {whyCards.map((item) => (
+            <article className="feature-card" key={item.title}>
+              <div className="feature-head">
+                <h3>{item.title}</h3>
+              </div>
+              <p>{item.body}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="landing-section">
+        <p className="eyebrow">How It Runs</p>
+        <div className="card">
+          <div className="entity-list">
+            {howFlow.map((item, index) => (
+              <div className="entity-row" key={`${index + 1}-${item}`}>
+                <div>
+                  <strong>{`0${index + 1}`}</strong>
+                  <p>{item}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="landing-section">
         <p className="eyebrow">Pricing</p>
         <h2 className="landing-title">Pilih paket sesuai kebutuhan</h2>
         <div className="pricing-grid">
@@ -251,6 +302,7 @@ export default function VerticalLandingPage() {
               <h3>{plan.name}</h3>
               <p className="pricing-price">{plan.price}</p>
               <p className="pricing-note">{plan.note}</p>
+              <p className="sub">{plan.name === 'Free' ? 'Untuk validasi demand' : plan.name === 'Starter' ? 'Untuk operasi aktif harian' : plan.name === 'Growth' ? 'Untuk tim yang mulai kompleks' : 'Untuk organisasi multi lokasi'}</p>
               <div className="passport-badge-list">
                 {plan.items.map((item) => (
                   <span key={item} className="passport-chip">{item}</span>
