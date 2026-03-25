@@ -2502,14 +2502,12 @@ export default function AdminPage() {
     try {
       const paymentId = String(item?.no_transaction || '').trim();
       if (paymentId) {
-        const [subscriptionRes, bookingRes, ptBalanceRes] = await Promise.all([
-          apiJson(`/v1/read/subscriptions/active?tenant_id=${encodeURIComponent(tenantId)}&payment_id=${encodeURIComponent(paymentId)}`).catch(() => ({ rows: [] })),
-          apiJson(`/v1/read/bookings?tenant_id=${encodeURIComponent(tenantId)}&payment_id=${encodeURIComponent(paymentId)}`).catch(() => ({ rows: [] })),
-          apiJson(`/v1/read/pt-balance?tenant_id=${encodeURIComponent(tenantId)}&payment_id=${encodeURIComponent(paymentId)}`).catch(() => ({ rows: [] }))
-        ]);
-        const subscriptionRow = Array.isArray(subscriptionRes.rows) ? subscriptionRes.rows[0] : null;
-        const bookingRow = Array.isArray(bookingRes.rows) ? bookingRes.rows[0] : null;
-        const ptBalanceRow = Array.isArray(ptBalanceRes.rows) ? ptBalanceRes.rows[0] : null;
+        const linksRes = await apiJson(
+          `/v1/read/payments/${encodeURIComponent(paymentId)}/links?tenant_id=${encodeURIComponent(tenantId)}`
+        ).catch(() => ({ subscription: null, booking: null, pt_package: null }));
+        const subscriptionRow = linksRes.subscription || null;
+        const bookingRow = linksRes.booking || null;
+        const ptBalanceRow = linksRes.pt_package || null;
         if (subscriptionRow) {
           detailNote = `subscription_id=${subscriptionRow.subscription_id || '-'} | plan_id=${subscriptionRow.plan_id || '-'} | end_date=${subscriptionRow.end_date || '-'}`;
         } else if (bookingRow) {

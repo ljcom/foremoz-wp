@@ -100,6 +100,7 @@ EMAIL_SMTP_IGNORE_TLS_ERRORS=false
 - `GET /v1/read/class-availability`
 - `GET /v1/read/bookings`
 - `GET /v1/read/payments/queue`
+- `GET /v1/read/payments/:paymentId/links`
 - `GET /v1/read/pt-balance`
 - `GET /v1/read/dashboard`
 

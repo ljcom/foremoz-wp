@@ -4423,6 +4423,47 @@ app.get('/v1/read/payments/queue', async (req, res, next) => {
   }
 });
 
+app.get('/v1/read/payments/:paymentId/links', async (req, res, next) => {
+  try {
+    const tenantId = req.query.tenant_id || config.defaultTenantId;
+    const paymentId = required(req.params.paymentId, 'paymentId');
+    const [subscriptionRes, bookingRes, ptBalanceRes] = await Promise.all([
+      query(
+        `select tenant_id, subscription_id, member_id, plan_id, payment_id, end_date, status
+         from read.rm_subscription_active
+         where tenant_id = $1 and payment_id = $2
+         order by end_date desc
+         limit 1`,
+        [tenantId, paymentId]
+      ),
+      query(
+        `select tenant_id, booking_id, member_id, class_id, payment_id, status, booked_at
+         from read.rm_booking_list
+         where tenant_id = $1 and payment_id = $2
+         order by booked_at desc
+         limit 1`,
+        [tenantId, paymentId]
+      ),
+      query(
+        `select tenant_id, pt_package_id, member_id, trainer_id, payment_id, remaining_sessions, updated_at
+         from read.rm_pt_balance
+         where tenant_id = $1 and payment_id = $2
+         order by updated_at desc
+         limit 1`,
+        [tenantId, paymentId]
+      )
+    ]);
+    return ok(res, {
+      payment_id: paymentId,
+      subscription: subscriptionRes.rows[0] || null,
+      booking: bookingRes.rows[0] || null,
+      pt_package: ptBalanceRes.rows[0] || null
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
 app.get('/v1/read/payments/history', async (req, res, next) => {
   try {
     const tenantId = req.query.tenant_id || config.defaultTenantId;
