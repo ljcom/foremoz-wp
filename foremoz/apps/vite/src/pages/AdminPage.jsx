@@ -2373,11 +2373,16 @@ export default function AdminPage() {
 
   async function rejectTransaction(item) {
     try {
+      const reason =
+        typeof window !== 'undefined'
+          ? window.prompt(`Alasan reject untuk ${item.no_transaction}:`, 'invalid proof / duplicate payment') || ''
+          : '';
       await apiJson(`/v1/payments/${encodeURIComponent(item.no_transaction)}/reject`, {
         method: 'POST',
         body: JSON.stringify({
           tenant_id: tenantId,
-          branch_id: branchId
+          branch_id: branchId,
+          reason: reason.trim() || null
         })
       });
       await loadTransactions();
