@@ -255,3 +255,7 @@ Last audited terhadap isi folder: **2026-03-25** (`foremoz/apps/api`, `foremoz/a
         - Remark: event flow sudah checkin/checkout penuh; class saat ini pakai booking cepat (belum checkout khusus class).
       - [x] scan barcode
     - [x] order -> payment
+- [~] Member operational page `/a/:account/members/:memberId`
+  - [x] Payment history load dari API (`/v1/read/payments/history`).
+  - [x] Buy membership submit ke backend (`payment.recorded` + `payment.confirmed` + `subscription.activated`).
+  - [x] Booking class submit ke backend (`/v1/bookings/classes/create`) + menampilkan daftar booking member.

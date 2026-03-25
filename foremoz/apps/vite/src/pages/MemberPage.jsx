@@ -7,12 +7,24 @@ export default function MemberPage() {
   const session = getSession();
   const { memberId } = useParams();
   const tenantId = session?.tenant?.id || 'tn_001';
+  const branchId = session?.branch?.id || 'core';
   const [memberRow, setMemberRow] = useState(null);
   const [paymentHistory, setPaymentHistory] = useState([]);
+  const [classes, setClasses] = useState([]);
+  const [memberBookings, setMemberBookings] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [membershipSaving, setMembershipSaving] = useState(false);
+  const [bookingSaving, setBookingSaving] = useState(false);
   const [loadError, setLoadError] = useState('');
   const [activeMenu, setActiveMenu] = useState('checkin');
   const [feedback, setFeedback] = useState('');
+  const [bookingForm, setBookingForm] = useState({ class_id: '' });
+  const [membershipForm, setMembershipForm] = useState({
+    plan_id: 'membership_monthly',
+    months: '1',
+    amount: '350000',
+    method: 'virtual_account'
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -20,14 +32,28 @@ export default function MemberPage() {
       try {
         setLoading(true);
         setLoadError('');
-        const [membersRes, paymentsRes] = await Promise.all([
+        await apiJson('/v1/projections/run', {
+          method: 'POST',
+          body: JSON.stringify({
+            tenant_id: tenantId,
+            branch_id: branchId
+          })
+        }).catch(() => {});
+        const [membersRes, paymentsRes, classesRes, bookingsRes] = await Promise.all([
           apiJson(`/v1/read/members?tenant_id=${encodeURIComponent(tenantId)}&limit=1000`),
-          apiJson(`/v1/read/payments/history?tenant_id=${encodeURIComponent(tenantId)}&member_id=${encodeURIComponent(memberId || '')}`)
+          apiJson(`/v1/read/payments/history?tenant_id=${encodeURIComponent(tenantId)}&member_id=${encodeURIComponent(memberId || '')}`),
+          apiJson(`/v1/read/class-availability?tenant_id=${encodeURIComponent(tenantId)}&branch_id=${encodeURIComponent(branchId)}`).catch(() => ({ rows: [] })),
+          apiJson(`/v1/read/bookings?tenant_id=${encodeURIComponent(tenantId)}`).catch(() => ({ rows: [] }))
         ]);
         if (cancelled) return;
         const memberFound = (membersRes.rows || []).find((row) => String(row.member_id || '') === String(memberId || '')) || null;
         setMemberRow(memberFound);
         setPaymentHistory(paymentsRes.rows || []);
+        setClasses(classesRes.rows || []);
+        const allBookings = Array.isArray(bookingsRes.rows) ? bookingsRes.rows : [];
+        setMemberBookings(
+          allBookings.filter((row) => String(row.member_id || '') === String(memberId || ''))
+        );
       } catch (err) {
         if (cancelled) return;
         setLoadError(err.message || 'failed to load member');
@@ -39,7 +65,7 @@ export default function MemberPage() {
     return () => {
       cancelled = true;
     };
-  }, [tenantId, memberId]);
+  }, [tenantId, branchId, memberId]);
 
   if (!memberRow && !loading && !loadError) {
     return <Navigate to={accountPath(session, '/cs/dashboard')} replace />;
@@ -64,6 +90,110 @@ export default function MemberPage() {
 
   function runAction(action) {
     setFeedback(actionMessage(action));
+  }
+
+  function addMonths(date, months) {
+    const next = new Date(date.getTime());
+    next.setMonth(next.getMonth() + months);
+    return next;
+  }
+
+  async function submitMembershipPurchase() {
+    if (!memberData?.member_id) return;
+    const months = Math.max(1, Number(membershipForm.months || 1));
+    const amount = Math.max(0, Number(membershipForm.amount || 0));
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setFeedback('Nominal membership harus lebih dari 0.');
+      return;
+    }
+    try {
+      setMembershipSaving(true);
+      const paymentId = `pay_sub_${Date.now()}`;
+      const subscriptionId = `sub_${Date.now()}`;
+      const start = new Date();
+      const end = addMonths(start, months);
+      await apiJson('/v1/payments/record', {
+        method: 'POST',
+        body: JSON.stringify({
+          tenant_id: tenantId,
+          branch_id: branchId,
+          payment_id: paymentId,
+          member_id: memberData.member_id,
+          amount,
+          currency: 'IDR',
+          method: membershipForm.method || 'virtual_account',
+          reference_type: 'membership_purchase',
+          reference_id: membershipForm.plan_id || 'membership'
+        })
+      });
+      await apiJson(`/v1/payments/${encodeURIComponent(paymentId)}/confirm`, {
+        method: 'POST',
+        body: JSON.stringify({
+          tenant_id: tenantId,
+          branch_id: branchId
+        })
+      });
+      await apiJson('/v1/subscriptions/activate', {
+        method: 'POST',
+        body: JSON.stringify({
+          tenant_id: tenantId,
+          branch_id: branchId,
+          subscription_id: subscriptionId,
+          member_id: memberData.member_id,
+          plan_id: membershipForm.plan_id || 'membership',
+          start_date: start.toISOString().slice(0, 10),
+          end_date: end.toISOString().slice(0, 10),
+          status: 'active',
+          payment_id: paymentId
+        })
+      });
+      setFeedback(`membership.activated: ${subscriptionId} (${months} bulan)`);
+      const paymentsRes = await apiJson(`/v1/read/payments/history?tenant_id=${encodeURIComponent(tenantId)}&member_id=${encodeURIComponent(memberId || '')}`);
+      setPaymentHistory(paymentsRes.rows || []);
+    } catch (error) {
+      setFeedback(error.message || 'Gagal proses membership.');
+    } finally {
+      setMembershipSaving(false);
+    }
+  }
+
+  async function submitClassBooking() {
+    if (!memberData?.member_id) return;
+    if (!bookingForm.class_id) {
+      setFeedback('Pilih class terlebih dulu.');
+      return;
+    }
+    try {
+      setBookingSaving(true);
+      await apiJson('/v1/bookings/classes/create', {
+        method: 'POST',
+        body: JSON.stringify({
+          tenant_id: tenantId,
+          branch_id: branchId,
+          booking_id: `book_${Date.now()}`,
+          class_id: bookingForm.class_id,
+          booking_kind: 'member',
+          member_id: memberData.member_id,
+          guest_name: memberData.full_name || null,
+          status: 'booked'
+        })
+      });
+      await apiJson('/v1/projections/run', {
+        method: 'POST',
+        body: JSON.stringify({
+          tenant_id: tenantId,
+          branch_id: branchId
+        })
+      }).catch(() => {});
+      const bookingsRes = await apiJson(`/v1/read/bookings?tenant_id=${encodeURIComponent(tenantId)}`);
+      const allBookings = Array.isArray(bookingsRes.rows) ? bookingsRes.rows : [];
+      setMemberBookings(allBookings.filter((row) => String(row.member_id || '') === String(memberId || '')));
+      setFeedback(`class.booking.created: ${memberData.member_id} -> ${bookingForm.class_id}`);
+    } catch (error) {
+      setFeedback(error.message || 'Gagal booking class.');
+    } finally {
+      setBookingSaving(false);
+    }
   }
 
   return (
@@ -147,9 +277,49 @@ export default function MemberPage() {
             ) : null}
 
             {activeMenu === 'membership' ? (
-              <button className="btn" onClick={() => runAction('membership')}>
-                Buy membership package
-              </button>
+              <div className="form" style={{ width: '100%' }}>
+                <label>
+                  plan_id
+                  <input
+                    value={membershipForm.plan_id}
+                    onChange={(e) => setMembershipForm((prev) => ({ ...prev, plan_id: e.target.value }))}
+                  />
+                </label>
+                <label>
+                  months
+                  <input
+                    type="number"
+                    min="1"
+                    value={membershipForm.months}
+                    onChange={(e) => setMembershipForm((prev) => ({ ...prev, months: e.target.value }))}
+                  />
+                </label>
+                <label>
+                  amount
+                  <input
+                    type="number"
+                    min="0"
+                    value={membershipForm.amount}
+                    onChange={(e) => setMembershipForm((prev) => ({ ...prev, amount: e.target.value }))}
+                  />
+                </label>
+                <label>
+                  method
+                  <select
+                    value={membershipForm.method}
+                    onChange={(e) => setMembershipForm((prev) => ({ ...prev, method: e.target.value }))}
+                  >
+                    <option value="virtual_account">virtual_account</option>
+                    <option value="bank_transfer">bank_transfer</option>
+                    <option value="qris">qris</option>
+                    <option value="ewallet">ewallet</option>
+                    <option value="cash">cash</option>
+                  </select>
+                </label>
+                <button className="btn" type="button" disabled={membershipSaving} onClick={submitMembershipPurchase}>
+                  {membershipSaving ? 'Processing...' : 'Buy membership package'}
+                </button>
+              </div>
             ) : null}
 
             {activeMenu === 'pt' ? (
@@ -159,11 +329,48 @@ export default function MemberPage() {
             ) : null}
 
             {activeMenu === 'booking' ? (
-              <button className="btn" onClick={() => runAction('booking')}>
-                Open booking schedule
-              </button>
+              <div className="form" style={{ width: '100%' }}>
+                <label>
+                  class_id
+                  <select
+                    value={bookingForm.class_id}
+                    onChange={(e) => setBookingForm((prev) => ({ ...prev, class_id: e.target.value }))}
+                  >
+                    <option value="">Pilih class</option>
+                    {classes.map((item) => (
+                      <option key={item.class_id} value={item.class_id}>
+                        {item.class_name || item.class_id}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <button className="btn" type="button" disabled={bookingSaving} onClick={submitClassBooking}>
+                  {bookingSaving ? 'Booking...' : 'Book class'}
+                </button>
+              </div>
             ) : null}
           </div>
+
+          {activeMenu === 'booking' ? (
+            <section className="payment-history">
+              <h3>My class bookings</h3>
+              {memberBookings.length > 0 ? (
+                <div className="entity-list">
+                  {memberBookings.slice(0, 20).map((item) => (
+                    <div className="entity-row" key={item.booking_id}>
+                      <div>
+                        <strong>{item.booking_id}</strong>
+                        <p>{item.class_id} | {item.status || '-'}</p>
+                        <p>booked: {item.booked_at || '-'}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="muted">Belum ada booking class.</p>
+              )}
+            </section>
+          ) : null}
 
           {activeMenu === 'payment_history' ? (
             <section className="payment-history">
@@ -175,11 +382,11 @@ export default function MemberPage() {
                       <div>
                         <strong>{item.payment_id}</strong>
                         <p>
-                          {item.recorded_at} - {item.method} - {item.ref}
+                          {item.recorded_at} - {item.method} - {item.reference_type || '-'}:{item.reference_id || '-'}
                         </p>
                       </div>
                       <div className="payment-meta">
-                        <strong>IDR {item.amount.toLocaleString('id-ID')}</strong>
+                        <strong>IDR {Number(item.amount || 0).toLocaleString('id-ID')}</strong>
                         <span className={`status ${item.status}`}>{item.status}</span>
                       </div>
                     </div>
