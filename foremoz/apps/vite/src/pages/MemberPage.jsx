@@ -186,8 +186,10 @@ export default function MemberPage() {
           tenant_id: tenantId,
           branch_id: branchId,
           pt_package_id: assignedId,
+          package_id: ptForm.package_id,
           member_id: memberData.member_id,
-          total_sessions: totalSessions
+          total_sessions: totalSessions,
+          payment_id: paymentId
         })
       });
       const paymentsRes = await apiJson(

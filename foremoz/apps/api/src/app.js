@@ -4033,6 +4033,30 @@ app.post('/v1/pt/packages/assign', async (req, res, next) => {
   try {
     const data = req.body || {};
     const tenantId = data.tenant_id || config.defaultTenantId;
+    const paymentId = String(data.payment_id || '').trim();
+    if (paymentId) {
+      const paymentRow = await getPaymentQueueRow({ tenantId, paymentId });
+      if (!paymentRow) {
+        throw fail(404, 'PAYMENT_NOT_FOUND', `payment ${paymentId} not found`);
+      }
+      if (String(paymentRow.status || '').toLowerCase() !== 'confirmed') {
+        throw fail(409, 'PAYMENT_NOT_CONFIRMED', `payment ${paymentId} is not confirmed`);
+      }
+      const referenceType = String(paymentRow.reference_type || '').trim().toLowerCase();
+      const referenceId = String(paymentRow.reference_id || '').trim();
+      if (referenceType && referenceType !== 'pt_package' && referenceType !== 'pt_package_purchase') {
+        throw fail(409, 'PAYMENT_REFERENCE_INVALID', `payment ${paymentId} has invalid reference_type`);
+      }
+      const ptPackageRefId = String(data.package_id || data.pt_package_id || '').trim();
+      if (referenceId && ptPackageRefId && referenceId !== ptPackageRefId) {
+        throw fail(409, 'PAYMENT_REFERENCE_MISMATCH', `payment ${paymentId} is linked to another PT package`);
+      }
+      const memberId = String(required(data.member_id, 'member_id')).trim().toLowerCase();
+      const paymentMemberId = String(paymentRow.member_id || '').trim().toLowerCase();
+      if (paymentMemberId && paymentMemberId !== memberId) {
+        throw fail(409, 'PAYMENT_MEMBER_MISMATCH', `payment ${paymentId} belongs to another member`);
+      }
+    }
     const event = await appendDomainEvent({
       tenantId,
       branchId: required(data.branch_id, 'branch_id'),
@@ -4049,10 +4073,10 @@ app.post('/v1/pt/packages/assign', async (req, res, next) => {
         total_sessions: Number(required(data.total_sessions, 'total_sessions')),
         assigned_at: data.assigned_at || new Date().toISOString()
       },
-      refs: {},
+      refs: { payment_id: paymentId || null },
       uniqueIds: [{ scope: 'pt_package.pt_package_id', value: required(data.pt_package_id, 'pt_package_id') }]
     });
-    return created(res, { event });
+    return created(res, { event, payment_id: paymentId || null });
   } catch (error) {
     return next(error);
   }
