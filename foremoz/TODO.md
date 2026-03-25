@@ -57,8 +57,9 @@ Last audited terhadap isi folder: **2026-03-25** (`foremoz/apps/api`, `foremoz/a
 ## Passport Dashboard (66%)
 - [~] Hubungkan profile editor (nama display, status, avatar) ke API Passport.
   - Remark: profile inti sudah load dari API Passport; status/avatar masih disimpan localStorage.
-- [ ] Tambah pengaturan publikasi per-section untuk data lain (bukan hanya toggle tampil).
-  - Contoh: urutan section, pin section tertentu, preview mode private/public.
+- [~] Tambah pengaturan publikasi per-section untuk data lain (bukan hanya toggle tampil).
+  - UI dashboard untuk urutan section, pin section, dan preview mode private/public sudah ada.
+  - Saat ini preferensi layout masih local browser (belum persist ke backend).
 
 ## Public Passport Page (78%)
 - [~] Data `Roles/Capabilities` dan `Programs/Products` masih derived sederhana dari events.

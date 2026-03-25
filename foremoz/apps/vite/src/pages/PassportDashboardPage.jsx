@@ -17,6 +17,10 @@ function profilePrefsKey(passportId) {
   return `ff.passport.profile-prefs.${passportId || 'unknown'}`;
 }
 
+function sectionPrefsKey(passportId) {
+  return `ff.passport.section-prefs.${passportId || 'unknown'}`;
+}
+
 function eventVisual(eventId) {
   return `https://picsum.photos/seed/passport-event-${encodeURIComponent(String(eventId || 'x'))}/720/420`;
 }
@@ -40,6 +44,31 @@ function normalizePublicVisibility(raw) {
     showHostLocations: raw?.showHostLocations !== false,
     showPassportStats: raw?.showPassportStats !== false,
     showContactBooking: raw?.showContactBooking !== false
+  };
+}
+
+function normalizeSectionPrefs(raw) {
+  const fallbackOrder = [
+    'showUpcomingEvents',
+    'showPastEvents',
+    'showRolesCapabilities',
+    'showProgramsProducts',
+    'showAchievements',
+    'showCommunity',
+    'showActivityFeed',
+    'showHostLocations',
+    'showContactBooking',
+    'showPassportStats'
+  ];
+  const source = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
+  const ordered = Array.isArray(source.sectionOrder)
+    ? source.sectionOrder.map((item) => String(item || '')).filter(Boolean)
+    : [];
+  const sectionOrder = [...new Set([...ordered, ...fallbackOrder])].filter(Boolean);
+  return {
+    sectionOrder,
+    pinnedSection: sectionOrder.includes(String(source.pinnedSection || '')) ? String(source.pinnedSection || '') : sectionOrder[0],
+    previewMode: String(source.previewMode || 'public') === 'private' ? 'private' : 'public'
   };
 }
 
@@ -73,6 +102,7 @@ export default function PassportDashboardPage() {
   const [avatarDataUrl, setAvatarDataUrl] = useState('');
   const [publicVisibility, setPublicVisibility] = useState(() => normalizePublicVisibility({}));
   const [publicVisibilityHydrated, setPublicVisibilityHydrated] = useState(false);
+  const [sectionPrefs, setSectionPrefs] = useState(() => normalizeSectionPrefs({}));
 
   useEffect(() => {
     async function load() {
@@ -195,6 +225,16 @@ export default function PassportDashboardPage() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    try {
+      const raw = JSON.parse(localStorage.getItem(sectionPrefsKey(passportId)) || '{}');
+      setSectionPrefs(normalizeSectionPrefs(raw));
+    } catch {
+      setSectionPrefs(normalizeSectionPrefs({}));
+    }
+  }, [passportId]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
     localStorage.setItem(postStorageKey(passportId), JSON.stringify(socialPosts));
   }, [passportId, socialPosts]);
 
@@ -218,6 +258,11 @@ export default function PassportDashboardPage() {
       JSON.stringify({ member_status: memberStatus, avatar_data_url: avatarDataUrl })
     );
   }, [passportId, memberStatus, avatarDataUrl]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(sectionPrefsKey(passportId), JSON.stringify(sectionPrefs));
+  }, [passportId, sectionPrefs]);
 
   const feedItems = useMemo(() => {
     const postFeed = socialPosts.map((item) => ({
@@ -322,6 +367,38 @@ export default function PassportDashboardPage() {
     { key: 'profile', label: 'Profile', icon: 'fa-solid fa-id-card' },
     { key: 'settings', label: 'Settings', icon: 'fa-solid fa-sliders' }
   ];
+  const visibilityMetaByKey = Object.fromEntries(visibilityOptions.map((item) => [item.key, item]));
+  const orderedSectionPreview = sectionPrefs.sectionOrder.map((key) => {
+    const meta = visibilityMetaByKey[key];
+    if (!meta) return null;
+    const isEnabled = Boolean(publicVisibility[key]);
+    const isVisibleInMode =
+      sectionPrefs.previewMode === 'private'
+        ? true
+        : publicVisibility.allowPublicPublish && isEnabled;
+    return {
+      key,
+      label: meta.label,
+      icon: meta.icon,
+      isEnabled,
+      isPinned: sectionPrefs.pinnedSection === key,
+      isVisibleInMode
+    };
+  }).filter(Boolean);
+
+  function moveSection(key, direction) {
+    setSectionPrefs((prev) => {
+      const nextOrder = [...prev.sectionOrder];
+      const index = nextOrder.indexOf(key);
+      if (index < 0) return prev;
+      const targetIndex = direction === 'up' ? index - 1 : index + 1;
+      if (targetIndex < 0 || targetIndex >= nextOrder.length) return prev;
+      const temp = nextOrder[index];
+      nextOrder[index] = nextOrder[targetIndex];
+      nextOrder[targetIndex] = temp;
+      return { ...prev, sectionOrder: nextOrder };
+    });
+  }
 
   return (
     <main className="dashboard passport-fancy-dashboard">
@@ -526,6 +603,71 @@ export default function PassportDashboardPage() {
                 <span><i className={item.icon} /> {item.label}</span>
               </label>
             ))}
+          </div>
+          <div className="card" style={{ marginTop: '1rem', borderStyle: 'dashed' }}>
+            <p className="eyebrow"><i className="fa-solid fa-wand-magic-sparkles" /> Section Layout</p>
+            <label className="passport-toggle" style={{ marginBottom: '0.75rem' }}>
+              <span><i className="fa-solid fa-eye" /> Preview mode</span>
+              <select
+                value={sectionPrefs.previewMode}
+                onChange={(event) =>
+                  setSectionPrefs((prev) => ({ ...prev, previewMode: event.target.value === 'private' ? 'private' : 'public' }))
+                }
+              >
+                <option value="public">Public</option>
+                <option value="private">Private</option>
+              </select>
+            </label>
+            <div className="entity-list">
+              {orderedSectionPreview.map((item, index) => (
+                <div key={item.key} className="entity-row">
+                  <div>
+                    <strong><i className={item.icon} /> {item.label}</strong>
+                    <p>
+                      order #{index + 1} | {item.isPinned ? 'Pinned hero section' : 'Standard section'} | {item.isVisibleInMode ? 'visible in preview' : 'hidden in preview'}
+                    </p>
+                  </div>
+                  <div className="row-actions">
+                    <button className="btn ghost small" type="button" onClick={() => moveSection(item.key, 'up')}>
+                      Up
+                    </button>
+                    <button className="btn ghost small" type="button" onClick={() => moveSection(item.key, 'down')}>
+                      Down
+                    </button>
+                    <button
+                      className={`btn ghost small ${item.isPinned ? 'active' : ''}`}
+                      type="button"
+                      onClick={() => setSectionPrefs((prev) => ({ ...prev, pinnedSection: item.key }))}
+                    >
+                      {item.isPinned ? 'Pinned' : 'Pin'}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="card" style={{ marginTop: '1rem', borderStyle: 'dashed' }}>
+            <p className="eyebrow"><i className="fa-solid fa-panorama" /> Public Preview Outline</p>
+            <div className="entity-list">
+              {orderedSectionPreview.map((item) => (
+                <div
+                  key={`preview-${item.key}`}
+                  className="entity-row"
+                  style={{
+                    opacity: item.isVisibleInMode ? 1 : 0.55,
+                    borderColor: item.isPinned ? '#8f3f1e' : undefined
+                  }}
+                >
+                  <div>
+                    <strong><i className={item.icon} /> {item.label}</strong>
+                    <p>{item.isPinned ? 'Pinned at top of public narrative' : 'Shown in ordered section flow'}</p>
+                  </div>
+                  <span className="passport-chip">
+                    {item.isVisibleInMode ? (sectionPrefs.previewMode === 'public' ? 'public preview' : 'private preview') : 'hidden'}
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
         </section>
       ) : null}
