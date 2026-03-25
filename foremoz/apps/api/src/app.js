@@ -464,6 +464,18 @@ async function getPtBalanceRow({ tenantId, ptPackageId }) {
   return rows[0] || null;
 }
 
+async function getSalesProspectRow({ tenantId, prospectId }) {
+  const { rows } = await query(
+    `select tenant_id, prospect_id, full_name, email, phone, id_card, source, stage,
+            owner_sales_id, converted_member_id, notes, custom_fields, next_followup_at, last_contact_at, converted_at, updated_at
+     from read.rm_sales_prospect
+     where tenant_id = $1 and prospect_id = $2
+     limit 1`,
+    [tenantId, prospectId]
+  );
+  return rows[0] || null;
+}
+
 async function getLatestPaymentEventState({ tenantId, paymentId }) {
   const namespaceId = resolveNamespaceId(tenantId);
   const { rows } = await query(
@@ -4403,6 +4415,252 @@ app.post('/v1/pt/activity/log', async (req, res, next) => {
   }
 });
 
+app.post('/v1/sales/prospects', async (req, res, next) => {
+  try {
+    const data = req.body || {};
+    const tenantId = data.tenant_id || config.defaultTenantId;
+    const prospectId = String(data.prospect_id || `lead_${Date.now()}_${randomUUID().slice(0, 8)}`).trim();
+    const stage = String(data.stage || 'new').trim().toLowerCase() || 'new';
+    const customFields = normalizeCustomFields(data.custom_fields);
+    const event = await appendDomainEvent({
+      tenantId,
+      branchId: required(data.branch_id, 'branch_id'),
+      actorId: data.actor_id || config.defaultActorId,
+      eventType: 'sales.prospect.created',
+      subjectKind: 'sales_prospect',
+      subjectId: prospectId,
+      data: {
+        tenant_id: tenantId,
+        branch_id: required(data.branch_id, 'branch_id'),
+        prospect_id: prospectId,
+        full_name: required(data.full_name, 'full_name'),
+        email: String(data.email || '').trim().toLowerCase() || null,
+        phone: String(data.phone || '').trim() || null,
+        id_card: String(data.id_card || '').trim() || null,
+        source: String(data.source || '').trim() || null,
+        stage,
+        notes: String(data.notes || '').trim() || null,
+        owner_sales_id: String(data.owner_sales_id || '').trim() || null,
+        next_followup_at: data.next_followup_at || null,
+        last_contact_at: data.last_contact_at || null,
+        custom_fields: customFields,
+        updated_at: data.updated_at || new Date().toISOString()
+      },
+      refs: {},
+      uniqueIds: [{ scope: 'sales.prospect_id', value: prospectId }]
+    });
+    return created(res, { event, prospect_id: prospectId });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.patch('/v1/sales/prospects/:prospectId', async (req, res, next) => {
+  try {
+    const data = req.body || {};
+    const tenantId = data.tenant_id || config.defaultTenantId;
+    const prospectId = required(req.params.prospectId, 'prospectId');
+    const existing = await getSalesProspectRow({ tenantId, prospectId });
+    if (!existing) {
+      throw fail(404, 'SALES_PROSPECT_NOT_FOUND', `prospect ${prospectId} not found`);
+    }
+    const customFields = data.custom_fields === undefined
+      ? existing.custom_fields || {}
+      : normalizeCustomFields(data.custom_fields);
+    const event = await appendDomainEvent({
+      tenantId,
+      branchId: data.branch_id || null,
+      actorId: data.actor_id || config.defaultActorId,
+      eventType: 'sales.prospect.updated',
+      subjectKind: 'sales_prospect',
+      subjectId: prospectId,
+      data: {
+        tenant_id: tenantId,
+        branch_id: data.branch_id || null,
+        prospect_id: prospectId,
+        full_name: data.full_name === undefined ? null : String(data.full_name || '').trim() || null,
+        email: data.email === undefined ? null : String(data.email || '').trim().toLowerCase() || null,
+        phone: data.phone === undefined ? null : String(data.phone || '').trim() || null,
+        id_card: data.id_card === undefined ? null : String(data.id_card || '').trim() || null,
+        source: data.source === undefined ? null : String(data.source || '').trim() || null,
+        stage: data.stage === undefined ? null : String(data.stage || '').trim().toLowerCase() || null,
+        notes: data.notes === undefined ? null : String(data.notes || '').trim() || null,
+        owner_sales_id: data.owner_sales_id === undefined ? null : String(data.owner_sales_id || '').trim() || null,
+        next_followup_at: data.next_followup_at === undefined ? null : data.next_followup_at,
+        last_contact_at: data.last_contact_at === undefined ? null : data.last_contact_at,
+        custom_fields: customFields,
+        updated_at: data.updated_at || new Date().toISOString()
+      },
+      refs: {}
+    });
+    return ok(res, { event, prospect_id: prospectId });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.post('/v1/sales/prospects/:prospectId/followup', async (req, res, next) => {
+  try {
+    const data = req.body || {};
+    const tenantId = data.tenant_id || config.defaultTenantId;
+    const prospectId = required(req.params.prospectId, 'prospectId');
+    const existing = await getSalesProspectRow({ tenantId, prospectId });
+    if (!existing) {
+      throw fail(404, 'SALES_PROSPECT_NOT_FOUND', `prospect ${prospectId} not found`);
+    }
+    const customFields = data.custom_fields === undefined
+      ? existing.custom_fields || {}
+      : normalizeCustomFields(data.custom_fields);
+    const event = await appendDomainEvent({
+      tenantId,
+      branchId: data.branch_id || null,
+      actorId: data.actor_id || config.defaultActorId,
+      eventType: 'sales.prospect.followup.logged',
+      subjectKind: 'sales_prospect',
+      subjectId: prospectId,
+      data: {
+        tenant_id: tenantId,
+        branch_id: data.branch_id || null,
+        prospect_id: prospectId,
+        stage: String(data.stage || 'followup').trim().toLowerCase(),
+        notes: String(data.notes || '').trim() || null,
+        owner_sales_id: String(data.owner_sales_id || existing.owner_sales_id || '').trim() || null,
+        followup_logged_at: data.followup_logged_at || new Date().toISOString(),
+        next_followup_at: data.next_followup_at || null,
+        last_contact_at: data.last_contact_at || new Date().toISOString(),
+        custom_fields: customFields,
+        updated_at: data.updated_at || new Date().toISOString()
+      },
+      refs: {}
+    });
+    return created(res, { event, prospect_id: prospectId });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.post('/v1/sales/prospects/:prospectId/convert', async (req, res, next) => {
+  try {
+    const data = req.body || {};
+    const tenantId = data.tenant_id || config.defaultTenantId;
+    const prospectId = required(req.params.prospectId, 'prospectId');
+    const existing = await getSalesProspectRow({ tenantId, prospectId });
+    if (!existing) {
+      throw fail(404, 'SALES_PROSPECT_NOT_FOUND', `prospect ${prospectId} not found`);
+    }
+    if (existing.converted_member_id) {
+      return ok(res, { prospect_id: prospectId, converted_member_id: existing.converted_member_id, duplicate: true });
+    }
+
+    const createMember = data.create_member !== false;
+    let convertedMemberId = String(data.converted_member_id || '').trim();
+    let memberEvent = null;
+    if (createMember) {
+      if (!convertedMemberId) {
+        convertedMemberId = `mem_${Date.now()}_${randomUUID().slice(0, 8)}`;
+      }
+      const uniqueIdentity = await ensureMemberIdentityUnique({
+        tenantId,
+        email: data.email || existing.email,
+        phone: data.phone || existing.phone,
+        idCard: data.id_card || existing.id_card
+      });
+      memberEvent = await appendDomainEvent({
+        tenantId,
+        branchId: required(data.branch_id, 'branch_id'),
+        actorId: data.actor_id || config.defaultActorId,
+        eventType: 'member.registered',
+        subjectKind: 'member',
+        subjectId: convertedMemberId,
+        data: {
+          tenant_id: tenantId,
+          branch_id: required(data.branch_id, 'branch_id'),
+          member_id: convertedMemberId,
+          full_name: required(data.full_name || existing.full_name, 'full_name'),
+          phone: uniqueIdentity.phone,
+          email: uniqueIdentity.email,
+          id_card: uniqueIdentity.idCard,
+          status: 'active'
+        },
+        refs: {},
+        uniqueIds: [{ scope: 'member.member_id', value: convertedMemberId }]
+      });
+    } else {
+      convertedMemberId = String(required(data.converted_member_id, 'converted_member_id')).trim();
+      const existingMemberRes = await query(
+        `select member_id from read.rm_member where tenant_id = $1 and member_id = $2 limit 1`,
+        [tenantId, convertedMemberId]
+      );
+      if (!existingMemberRes.rows[0]) {
+        throw fail(404, 'MEMBER_NOT_FOUND', `member ${convertedMemberId} not found`);
+      }
+    }
+
+    const customFields = data.custom_fields === undefined
+      ? existing.custom_fields || {}
+      : normalizeCustomFields(data.custom_fields);
+    const convertEvent = await appendDomainEvent({
+      tenantId,
+      branchId: data.branch_id || null,
+      actorId: data.actor_id || config.defaultActorId,
+      eventType: 'sales.prospect.converted',
+      subjectKind: 'sales_prospect',
+      subjectId: prospectId,
+      data: {
+        tenant_id: tenantId,
+        branch_id: data.branch_id || null,
+        prospect_id: prospectId,
+        converted_member_id: convertedMemberId,
+        converted_at: data.converted_at || new Date().toISOString(),
+        stage: 'converted',
+        notes: String(data.notes || '').trim() || null,
+        custom_fields: customFields,
+        updated_at: data.updated_at || new Date().toISOString()
+      },
+      refs: {}
+    });
+    return created(res, {
+      prospect_id: prospectId,
+      converted_member_id: convertedMemberId,
+      member_event: memberEvent,
+      convert_event: convertEvent
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.get('/v1/read/sales/prospects/:prospectId/timeline', async (req, res, next) => {
+  try {
+    const tenantId = req.query.tenant_id || config.defaultTenantId;
+    const prospectId = required(req.params.prospectId, 'prospectId');
+    const namespaceId = resolveNamespaceId(tenantId);
+    const { rows } = await query(
+      `select sequence, event_type, payload->'data' as data, payload->'ts' as ts
+       from eventdb_event
+       where namespace_id = $1
+         and event_type = any($2::text[])
+         and payload->'data'->>'prospect_id' = $3
+       order by sequence desc
+       limit 100`,
+      [
+        namespaceId,
+        ['sales.prospect.created', 'sales.prospect.updated', 'sales.prospect.followup.logged', 'sales.prospect.converted'],
+        prospectId
+      ]
+    );
+    const timeline = (rows || []).map((row) => ({
+      sequence: row.sequence,
+      event_type: row.event_type,
+      ts: row.ts || null,
+      data: row.data || {}
+    }));
+    return ok(res, { rows: timeline, prospect_id: prospectId });
+  } catch (error) {
+    return next(error);
+  }
+});
+
 app.post('/v1/projections/run', async (req, res, next) => {
   try {
     const data = req.body || {};
@@ -4848,11 +5106,34 @@ app.get('/v1/read/sales/prospects', async (req, res, next) => {
   try {
     const tenantId = req.query.tenant_id || config.defaultTenantId;
     const stage = req.query.stage || null;
+    const ownerSalesId = req.query.owner_sales_id || null;
+    const converted = req.query.converted || null;
+    const q = String(req.query.q || '').trim().toLowerCase();
     const params = [tenantId];
     let sql = `select * from read.rm_sales_prospect where tenant_id = $1`;
     if (stage) {
       params.push(stage);
-      sql += ` and stage = $2`;
+      sql += ` and lower(stage) = lower($${params.length})`;
+    }
+    if (ownerSalesId) {
+      params.push(ownerSalesId);
+      sql += ` and owner_sales_id = $${params.length}`;
+    }
+    if (converted === 'true') {
+      sql += ` and converted_member_id is not null`;
+    } else if (converted === 'false') {
+      sql += ` and converted_member_id is null`;
+    }
+    if (q) {
+      params.push(`%${q}%`);
+      sql += ` and (
+        lower(coalesce(prospect_id, '')) like $${params.length}
+        or lower(coalesce(full_name, '')) like $${params.length}
+        or lower(coalesce(email, '')) like $${params.length}
+        or lower(coalesce(phone, '')) like $${params.length}
+        or lower(coalesce(source, '')) like $${params.length}
+        or lower(coalesce(stage, '')) like $${params.length}
+      )`;
     }
     sql += ` order by updated_at desc`;
     const { rows } = await query(sql, params);

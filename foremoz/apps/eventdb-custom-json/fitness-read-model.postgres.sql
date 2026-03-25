@@ -238,11 +238,18 @@ CREATE TABLE IF NOT EXISTS read.rm_sales_prospect (
   tenant_id TEXT NOT NULL,
   prospect_id TEXT NOT NULL,
   full_name TEXT NOT NULL,
+  email TEXT,
   phone TEXT,
+  id_card TEXT,
   source TEXT,
   stage TEXT NOT NULL,
   owner_sales_id TEXT,
   converted_member_id TEXT,
+  notes TEXT,
+  custom_fields JSONB,
+  next_followup_at TIMESTAMPTZ,
+  last_contact_at TIMESTAMPTZ,
+  converted_at TIMESTAMPTZ,
   updated_at TIMESTAMPTZ NOT NULL,
   PRIMARY KEY (tenant_id, prospect_id)
 );
@@ -328,6 +335,7 @@ CREATE INDEX IF NOT EXISTS idx_rm_payment_status ON read.rm_payment_queue (tenan
 CREATE INDEX IF NOT EXISTS idx_rm_pt_balance_payment ON read.rm_pt_balance (tenant_id, payment_id);
 CREATE INDEX IF NOT EXISTS idx_rm_pt_balance_trainer ON read.rm_pt_balance (tenant_id, trainer_id, updated_at DESC);
 CREATE INDEX IF NOT EXISTS idx_rm_sales_stage ON read.rm_sales_prospect (tenant_id, stage, updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_rm_sales_owner ON read.rm_sales_prospect (tenant_id, owner_sales_id, updated_at DESC);
 CREATE INDEX IF NOT EXISTS idx_rm_pt_activity_member ON read.rm_pt_activity_log (tenant_id, member_id, session_at DESC);
 CREATE INDEX IF NOT EXISTS idx_rm_pt_activity_trainer ON read.rm_pt_activity_log (tenant_id, trainer_id, session_at DESC);
 CREATE INDEX IF NOT EXISTS idx_rm_invitation_status ON read.rm_invitation_queue (tenant_id, status, updated_at DESC);

@@ -94,6 +94,10 @@ EMAIL_SMTP_IGNORE_TLS_ERRORS=false
 - `POST /v1/pt/sessions/book`
 - `POST /v1/pt/sessions/:ptPackageId/complete`
 - `POST /v1/pt/activity/log`
+- `POST /v1/sales/prospects`
+- `PATCH /v1/sales/prospects/:prospectId`
+- `POST /v1/sales/prospects/:prospectId/followup`
+- `POST /v1/sales/prospects/:prospectId/convert`
 - `POST /v1/projections/run`
 - `GET /v1/read/members`
 - `GET /v1/read/events`
@@ -105,10 +109,12 @@ EMAIL_SMTP_IGNORE_TLS_ERRORS=false
 - `GET /v1/read/payments/queue`
 - `GET /v1/read/payments/:paymentId/links`
 - `GET /v1/read/pt-balance`
+- `GET /v1/read/sales/prospects`
+- `GET /v1/read/sales/prospects/:prospectId/timeline`
 - `GET /v1/read/dashboard`
 
 Catatan:
-- Endpoint operasional (`/v1/checkins/log`, checkin/checkout participant event, dan endpoint PT session/activity) menerima `custom_fields` (JSON object) untuk metadata tambahan.
+- Endpoint operasional (`/v1/checkins/log`, checkin/checkout participant event, endpoint PT session/activity, dan endpoint sales follow-up/convert) menerima `custom_fields` (JSON object) untuk metadata tambahan.
 
 ## Auth payload ringkas
 

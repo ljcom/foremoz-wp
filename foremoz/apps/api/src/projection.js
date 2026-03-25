@@ -47,6 +47,16 @@ export async function runFitnessProjection({ tenantId, branchId }) {
          add column if not exists custom_fields jsonb`
     );
     await client.query(
+      `alter table if exists read.rm_sales_prospect
+         add column if not exists email text,
+         add column if not exists id_card text,
+         add column if not exists notes text,
+         add column if not exists custom_fields jsonb,
+         add column if not exists next_followup_at timestamptz,
+         add column if not exists last_contact_at timestamptz,
+         add column if not exists converted_at timestamptz`
+    );
+    await client.query(
       `create index if not exists idx_rm_subscription_payment
        on read.rm_subscription_active (tenant_id, payment_id)`
     );
@@ -65,6 +75,10 @@ export async function runFitnessProjection({ tenantId, branchId }) {
     await client.query(
       `create index if not exists idx_rm_pt_activity_trainer
        on read.rm_pt_activity_log (tenant_id, trainer_id, session_at desc)`
+    );
+    await client.query(
+      `create index if not exists idx_rm_sales_owner
+       on read.rm_sales_prospect (tenant_id, owner_sales_id, updated_at desc)`
     );
 
     await client.query(
@@ -723,23 +737,37 @@ export async function runFitnessProjection({ tenantId, branchId }) {
       if (event.event_type === 'sales.prospect.created') {
         await client.query(
           `insert into read.rm_sales_prospect (
-             tenant_id, prospect_id, full_name, phone, source, stage, owner_sales_id, converted_member_id, updated_at
-           ) values ($1,$2,$3,$4,$5,$6,$7,null,$8)
+             tenant_id, prospect_id, full_name, email, phone, id_card, source, stage,
+             owner_sales_id, converted_member_id, notes, custom_fields,
+             next_followup_at, last_contact_at, converted_at, updated_at
+           ) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,null,$10,$11,$12,$13,null,$14)
            on conflict (tenant_id, prospect_id) do update set
              full_name = excluded.full_name,
+             email = excluded.email,
              phone = excluded.phone,
+             id_card = excluded.id_card,
              source = excluded.source,
              stage = excluded.stage,
              owner_sales_id = excluded.owner_sales_id,
+             notes = excluded.notes,
+             custom_fields = excluded.custom_fields,
+             next_followup_at = excluded.next_followup_at,
+             last_contact_at = excluded.last_contact_at,
              updated_at = excluded.updated_at`,
           [
             tenant,
             data.prospect_id,
             data.full_name,
+            data.email || null,
             data.phone || null,
+            data.id_card || null,
             data.source || null,
             data.stage || 'new',
             data.owner_sales_id || null,
+            data.notes || null,
+            JSON.stringify(data.custom_fields || {}),
+            data.next_followup_at || null,
+            data.last_contact_at || null,
             data.updated_at || eventTs
           ]
         );
@@ -751,20 +779,32 @@ export async function runFitnessProjection({ tenantId, branchId }) {
         await client.query(
           `update read.rm_sales_prospect
            set full_name = coalesce($3, full_name),
-               phone = coalesce($4, phone),
-               source = coalesce($5, source),
-               stage = coalesce($6, stage),
-               owner_sales_id = coalesce($7, owner_sales_id),
-               updated_at = $8
+               email = coalesce($4, email),
+               phone = coalesce($5, phone),
+               id_card = coalesce($6, id_card),
+               source = coalesce($7, source),
+               stage = coalesce($8, stage),
+               owner_sales_id = coalesce($9, owner_sales_id),
+               notes = coalesce($10, notes),
+               custom_fields = coalesce($11::jsonb, custom_fields),
+               next_followup_at = coalesce($12, next_followup_at),
+               last_contact_at = coalesce($13, last_contact_at),
+               updated_at = $14
            where tenant_id = $1 and prospect_id = $2`,
           [
             tenant,
             data.prospect_id,
             data.full_name || null,
+            data.email || null,
             data.phone || null,
+            data.id_card || null,
             data.source || null,
             data.stage || (event.event_type === 'sales.prospect.followup.logged' ? 'followup' : null),
             data.owner_sales_id || null,
+            data.notes || null,
+            data.custom_fields === undefined ? null : JSON.stringify(data.custom_fields || {}),
+            data.next_followup_at || null,
+            data.last_contact_at || null,
             data.updated_at || eventTs
           ]
         );
@@ -777,9 +817,20 @@ export async function runFitnessProjection({ tenantId, branchId }) {
           `update read.rm_sales_prospect
            set stage = 'converted',
                converted_member_id = $3,
-               updated_at = $4
+               converted_at = coalesce($4, converted_at),
+               notes = coalesce($5, notes),
+               custom_fields = coalesce($6::jsonb, custom_fields),
+               updated_at = $7
            where tenant_id = $1 and prospect_id = $2`,
-          [tenant, data.prospect_id, data.converted_member_id || null, data.updated_at || eventTs]
+          [
+            tenant,
+            data.prospect_id,
+            data.converted_member_id || null,
+            data.converted_at || null,
+            data.notes || null,
+            data.custom_fields === undefined ? null : JSON.stringify(data.custom_fields || {}),
+            data.updated_at || eventTs
+          ]
         );
         applied += 1;
         continue;
