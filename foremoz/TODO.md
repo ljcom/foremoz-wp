@@ -72,6 +72,10 @@ Last audited terhadap isi folder: **2026-03-25** (`foremoz/apps/api`, `foremoz/a
   - Event/Class CRUD + participant check-in/check-out.
   - Product & Package CRUD.
   - Owner users + owner saas extension + account resolve/public passport.
+- [~] Transaction tab payment ops terhubung backend.
+  - Record payment sudah pakai `POST /v1/payments/record`.
+  - Pending payment bisa `confirm/reject` dari UI.
+  - Masih perlu penyempurnaan pemetaan `product/reference` di tabel transaksi.
 
 ## QA / Hardening (28%)
 - [ ] Tambah test otomatis untuk flow penting:

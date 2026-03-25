@@ -79,13 +79,13 @@
     {
       "name": "read.rm_payment_queue",
       "primary_key": ["tenant_id", "payment_id"],
-      "columns": ["tenant_id", "branch_id", "payment_id", "member_id", "subscription_id", "amount", "currency", "method", "proof_url", "status", "recorded_at", "reviewed_at", "reviewed_by", "updated_at"],
+      "columns": ["tenant_id", "branch_id", "payment_id", "member_id", "subscription_id", "amount", "currency", "method", "proof_url", "reference_type", "reference_id", "status", "recorded_at", "reviewed_at", "reviewed_by", "updated_at"],
       "query_use": "payment confirmation queue"
     },
     {
       "name": "read.rm_payment_history",
       "primary_key": ["tenant_id", "payment_id"],
-      "columns": ["tenant_id", "payment_id", "member_id", "amount", "currency", "status", "recorded_at", "updated_at"],
+      "columns": ["tenant_id", "payment_id", "member_id", "amount", "currency", "reference_type", "reference_id", "status", "recorded_at", "updated_at"],
       "query_use": "member payment history"
     },
     {

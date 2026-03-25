@@ -62,7 +62,18 @@ const DEFAULT_MEMBERS = [
   { member_id: 'member_001', member_name: 'Doni', phone: '081200001111', email: 'doni@foremoz.com' }
 ];
 const DEFAULT_TRANSACTIONS = [
-  { transaction_id: 'trx_001', no_transaction: 'TRX-001', product: 'Monthly Membership', qty: '1', price: '350000' }
+  {
+    transaction_id: 'trx_001',
+    no_transaction: 'TRX-001',
+    member_id: 'owner_self_service',
+    product: 'Monthly Membership',
+    qty: '1',
+    price: '350000',
+    currency: 'IDR',
+    method: 'virtual_account',
+    status: 'pending',
+    recorded_at: ''
+  }
 ];
 
 function createEmptyMemberForm() {
@@ -541,7 +552,15 @@ export default function AdminPage() {
   const [packageForm, setPackageForm] = useState({ package_name: '', package_type: 'membership', max_months: '1', session_count: '1', trainer_user_id: '', class_id: '', price: '' });
   const [salesForm, setSalesForm] = useState({ sales_name: '', channel: 'walkin', target_amount: '' });
   const [memberForm, setMemberForm] = useState(() => createEmptyMemberForm());
-  const [transactionForm, setTransactionForm] = useState({ no_transaction: '', product: '', qty: '1', price: '' });
+  const [transactionForm, setTransactionForm] = useState({
+    no_transaction: '',
+    member_id: '',
+    product: '',
+    qty: '1',
+    price: '',
+    currency: 'IDR',
+    method: 'virtual_account'
+  });
   const [saasForm, setSaasForm] = useState({ months: '1', note: '' });
 
   const [users, setUsers] = useState([
@@ -555,6 +574,7 @@ export default function AdminPage() {
   const [sales, setSales] = useState(() => loadList('sales', accountSlug, DEFAULT_SALES));
   const [members, setMembers] = useState(() => loadList('members', accountSlug, DEFAULT_MEMBERS));
   const [transactions, setTransactions] = useState(() => loadList('transactions', accountSlug, DEFAULT_TRANSACTIONS));
+  const [transactionLoading, setTransactionLoading] = useState(false);
   const [ptTrainerEnabledMap, setPtTrainerEnabledMap] = useState(() => loadMap('pt-trainer-enabled', accountSlug, {}));
   const [salesEnabledMap, setSalesEnabledMap] = useState(() => loadMap('sales-enabled', accountSlug, {}));
   const [selectedTrainerUser, setSelectedTrainerUser] = useState(null);
@@ -784,6 +804,58 @@ export default function AdminPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tenantId, branchId]);
 
+  async function loadTransactions() {
+    try {
+      setTransactionLoading(true);
+      await apiJson('/v1/projections/run', {
+        method: 'POST',
+        body: JSON.stringify({
+          tenant_id: tenantId,
+          branch_id: branchId
+        })
+      }).catch(() => {});
+      const [pendingRes, confirmedRes, rejectedRes] = await Promise.all([
+        apiJson(`/v1/read/payments/queue?tenant_id=${encodeURIComponent(tenantId)}&status=pending`).catch(() => ({ rows: [] })),
+        apiJson(`/v1/read/payments/queue?tenant_id=${encodeURIComponent(tenantId)}&status=confirmed`).catch(() => ({ rows: [] })),
+        apiJson(`/v1/read/payments/queue?tenant_id=${encodeURIComponent(tenantId)}&status=rejected`).catch(() => ({ rows: [] }))
+      ]);
+      const rows = [
+        ...(Array.isArray(pendingRes.rows) ? pendingRes.rows : []),
+        ...(Array.isArray(confirmedRes.rows) ? confirmedRes.rows : []),
+        ...(Array.isArray(rejectedRes.rows) ? rejectedRes.rows : [])
+      ];
+      rows.sort((a, b) => new Date(b.recorded_at || 0).getTime() - new Date(a.recorded_at || 0).getTime());
+      setTransactions(rows.map((item) => ({
+        transaction_id: item.payment_id || `trx_${Date.now()}`,
+        no_transaction: item.payment_id || '',
+        member_id: item.member_id || '',
+        product:
+          item.reference_type === 'event_posting'
+            ? `event_posting:${item.reference_id || '-'}`
+            : item.reference_type === 'event_registration'
+              ? `event_registration:${item.reference_id || '-'}`
+              : item.subscription_id || '-',
+        qty: '1',
+        price: String(item.amount ?? ''),
+        currency: item.currency || 'IDR',
+        method: item.method || '-',
+        status: item.status || 'pending',
+        recorded_at: item.recorded_at || '',
+        reviewed_at: item.reviewed_at || ''
+      })));
+    } catch (error) {
+      setFeedback(error.message);
+    } finally {
+      setTransactionLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (activeTab !== 'transaction') return;
+    loadTransactions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, tenantId, branchId]);
+
   useEffect(() => {
     setTrainers(loadList('trainers', accountSlug, DEFAULT_TRAINERS));
     setSales(loadList('sales', accountSlug, DEFAULT_SALES));
@@ -976,10 +1048,15 @@ export default function AdminPage() {
       String(item.plan_id || '').toLowerCase().includes(q)
     );
   });
-  const filteredTransactions = transactions.filter((item) =>
-    item.no_transaction.toLowerCase().includes(transactionQuery.toLowerCase()) ||
-    item.product.toLowerCase().includes(transactionQuery.toLowerCase())
-  );
+  const filteredTransactions = transactions.filter((item) => {
+    const q = transactionQuery.toLowerCase();
+    return (
+      String(item.no_transaction || '').toLowerCase().includes(q) ||
+      String(item.product || '').toLowerCase().includes(q) ||
+      String(item.member_id || '').toLowerCase().includes(q) ||
+      String(item.status || '').toLowerCase().includes(q)
+    );
+  });
   const filteredEventCheckinParticipants = useMemo(() => {
     const q = normalizeToken(eventCheckinSearch);
     if (!q) return eventParticipants;
@@ -2090,9 +2167,12 @@ export default function AdminPage() {
       if (enabledAdminTabIds.includes('transaction')) {
         setTransactionForm({
           no_transaction: `TRX-EVT-${Date.now()}`,
+          member_id: session?.user?.userId || session?.user?.email || 'owner_self_service',
           product: `Post Event - ${eventForm.event_name || editingEventId}`,
           qty: '1',
-          price: String(eventPostQuote.price)
+          price: String(eventPostQuote.price),
+          currency: 'IDR',
+          method: 'virtual_account'
         });
         setPendingPostedEventId(editingEventId);
         setTransactionMode('add');
@@ -2110,16 +2190,37 @@ export default function AdminPage() {
 
   async function addTransaction(e) {
     e.preventDefault();
-    if (!transactionForm.no_transaction || !transactionForm.product || !transactionForm.qty || !transactionForm.price) return;
+    if (!transactionForm.no_transaction || !transactionForm.member_id || !transactionForm.qty || !transactionForm.price) return;
     try {
-      setTransactions((prev) => [{ ...transactionForm, transaction_id: `trx_${Date.now()}` }, ...prev]);
+      const qty = Number(transactionForm.qty || 1);
+      const price = Number(transactionForm.price || 0);
+      const amount = Math.max(0, qty) * Math.max(0, price);
+      if (!Number.isFinite(amount) || amount <= 0) {
+        setFeedback('Nominal transaksi harus lebih dari 0.');
+        return;
+      }
+      await apiJson('/v1/payments/record', {
+        method: 'POST',
+        body: JSON.stringify({
+          tenant_id: tenantId,
+          branch_id: branchId,
+          payment_id: transactionForm.no_transaction,
+          member_id: transactionForm.member_id,
+          amount,
+          currency: transactionForm.currency || 'IDR',
+          method: transactionForm.method || 'virtual_account',
+          reference_type: pendingPostedEventId ? 'event_posting' : 'manual',
+          reference_id: pendingPostedEventId || null,
+          actor_id: session?.user?.userId || session?.user?.email || 'owner_self_service'
+        })
+      });
       if (pendingPostedEventId) {
-        await apiJson(`/v1/admin/events/${encodeURIComponent(pendingPostedEventId)}`, {
-          method: 'PATCH',
+        await apiJson(`/v1/payments/${encodeURIComponent(transactionForm.no_transaction)}/confirm`, {
+          method: 'POST',
           body: JSON.stringify({
             tenant_id: tenantId,
             branch_id: branchId,
-            status: 'published'
+            note: 'Auto-confirm posting fee'
           })
         });
         if (typeof window !== 'undefined') {
@@ -2131,8 +2232,49 @@ export default function AdminPage() {
       } else {
         setFeedback(`transaction.created: ${transactionForm.no_transaction}`);
       }
-      setTransactionForm({ no_transaction: '', product: '', qty: '1', price: '' });
+      await loadTransactions();
+      setTransactionForm({
+        no_transaction: '',
+        member_id: '',
+        product: '',
+        qty: '1',
+        price: '',
+        currency: 'IDR',
+        method: 'virtual_account'
+      });
       setTransactionMode('list');
+    } catch (error) {
+      setFeedback(error.message);
+    }
+  }
+
+  async function confirmTransaction(item) {
+    try {
+      await apiJson(`/v1/payments/${encodeURIComponent(item.no_transaction)}/confirm`, {
+        method: 'POST',
+        body: JSON.stringify({
+          tenant_id: tenantId,
+          branch_id: branchId
+        })
+      });
+      await loadTransactions();
+      setFeedback(`payment.confirmed: ${item.no_transaction}`);
+    } catch (error) {
+      setFeedback(error.message);
+    }
+  }
+
+  async function rejectTransaction(item) {
+    try {
+      await apiJson(`/v1/payments/${encodeURIComponent(item.no_transaction)}/reject`, {
+        method: 'POST',
+        body: JSON.stringify({
+          tenant_id: tenantId,
+          branch_id: branchId
+        })
+      });
+      await loadTransactions();
+      setFeedback(`payment.rejected: ${item.no_transaction}`);
     } catch (error) {
       setFeedback(error.message);
     }
@@ -2141,9 +2283,12 @@ export default function AdminPage() {
   function viewTransaction(item) {
     setTransactionForm({
       no_transaction: item.no_transaction || '',
+      member_id: item.member_id || '',
       product: item.product || '',
       qty: item.qty || '1',
-      price: item.price || ''
+      price: item.price || '',
+      currency: item.currency || 'IDR',
+      method: item.method || 'virtual_account'
     });
     setTransactionMode('add');
   }
@@ -3580,14 +3725,18 @@ export default function AdminPage() {
                       </button>
                     </div>
                   </div>
+                  {transactionLoading ? <p className="feedback">Loading payments...</p> : null}
                   <div className="entity-list">
                     <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                       <thead>
                         <tr>
                           <th style={{ textAlign: 'left', padding: '0.65rem 0.5rem', borderBottom: '1px solid #d1d5db', background: '#f7efe6', fontWeight: 700 }}>No Transaction</th>
+                          <th style={{ textAlign: 'left', padding: '0.65rem 0.5rem', borderBottom: '1px solid #d1d5db', background: '#f7efe6', fontWeight: 700 }}>Member</th>
                           <th style={{ textAlign: 'left', padding: '0.65rem 0.5rem', borderBottom: '1px solid #d1d5db', background: '#f7efe6', fontWeight: 700 }}>Product</th>
                           <th style={{ textAlign: 'left', padding: '0.65rem 0.5rem', borderBottom: '1px solid #d1d5db', background: '#f7efe6', fontWeight: 700 }}>Qty</th>
                           <th style={{ textAlign: 'left', padding: '0.65rem 0.5rem', borderBottom: '1px solid #d1d5db', background: '#f7efe6', fontWeight: 700 }}>Price</th>
+                          <th style={{ textAlign: 'left', padding: '0.65rem 0.5rem', borderBottom: '1px solid #d1d5db', background: '#f7efe6', fontWeight: 700 }}>Method</th>
+                          <th style={{ textAlign: 'left', padding: '0.65rem 0.5rem', borderBottom: '1px solid #d1d5db', background: '#f7efe6', fontWeight: 700 }}>Status</th>
                           <th style={{ textAlign: 'left', padding: '0.65rem 0.5rem', borderBottom: '1px solid #d1d5db', background: '#f7efe6', fontWeight: 700 }}>Aksi</th>
                         </tr>
                       </thead>
@@ -3595,9 +3744,12 @@ export default function AdminPage() {
                         {filteredTransactions.map((item, idx) => (
                           <tr key={item.transaction_id} style={{ backgroundColor: idx % 2 === 0 ? '#ffffff' : '#f7efe6' }}>
                             <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>{item.no_transaction}</td>
+                            <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>{item.member_id || '-'}</td>
                             <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>{item.product}</td>
                             <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>{item.qty}</td>
-                            <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>{item.price}</td>
+                            <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>{item.currency || 'IDR'} {item.price}</td>
+                            <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>{item.method || '-'}</td>
+                            <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>{String(item.status || '-').toUpperCase()}</td>
                             <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>
                               <div className="row-actions" style={{ display: 'flex', gap: '0' }}>
                                 <span
@@ -3613,19 +3765,32 @@ export default function AdminPage() {
                                 >
                                   view
                                 </span>
-                                <span
-                                  role="button"
-                                  tabIndex={0}
-                                  style={{ cursor: 'pointer', background: '#fff', color: '#8f3f1e', border:'1px solid #d9bea0', margin: '2px', padding: '0.2rem 0.45rem', borderRadius: '10px' }}
-                                  onClick={() => setTransactions((prev) => prev.filter((v) => v.transaction_id !== item.transaction_id))}
-                                  onKeyDown={(e) => {
-                                    if (e.key === 'Enter' || e.key === ' ') {
-                                      setTransactions((prev) => prev.filter((v) => v.transaction_id !== item.transaction_id));
-                                    }
-                                  }}
-                                >
-                                  delete
-                                </span>
+                                {String(item.status || '').toLowerCase() === 'pending' ? (
+                                  <>
+                                    <span
+                                      role="button"
+                                      tabIndex={0}
+                                      style={{ cursor: 'pointer', background: '#fff', color: '#8f3f1e', border:'1px solid #d9bea0', margin: '2px', padding: '0.2rem 0.45rem', borderRadius: '10px' }}
+                                      onClick={() => confirmTransaction(item)}
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter' || e.key === ' ') confirmTransaction(item);
+                                      }}
+                                    >
+                                      confirm
+                                    </span>
+                                    <span
+                                      role="button"
+                                      tabIndex={0}
+                                      style={{ cursor: 'pointer', background: '#fff', color: '#8f3f1e', border:'1px solid #d9bea0', margin: '2px', padding: '0.2rem 0.45rem', borderRadius: '10px' }}
+                                      onClick={() => rejectTransaction(item)}
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter' || e.key === ' ') rejectTransaction(item);
+                                      }}
+                                    >
+                                      reject
+                                    </span>
+                                  </>
+                                ) : null}
                               </div>
                             </td>
                           </tr>
@@ -3644,9 +3809,23 @@ export default function AdminPage() {
                   </div>
                   <form className="form" onSubmit={addTransaction}>
                     <label>no_transaction<input value={transactionForm.no_transaction} onChange={(e) => setTransactionForm((p) => ({ ...p, no_transaction: e.target.value }))} /></label>
+                    <label>member_id<input value={transactionForm.member_id} onChange={(e) => setTransactionForm((p) => ({ ...p, member_id: e.target.value }))} /></label>
                     <label>product<input value={transactionForm.product} onChange={(e) => setTransactionForm((p) => ({ ...p, product: e.target.value }))} /></label>
                     <label>qty<input type="number" min="1" value={transactionForm.qty} onChange={(e) => setTransactionForm((p) => ({ ...p, qty: e.target.value }))} /></label>
                     <label>price<input type="number" min="0" value={transactionForm.price} onChange={(e) => setTransactionForm((p) => ({ ...p, price: e.target.value }))} /></label>
+                    <label>currency<select value={transactionForm.currency} onChange={(e) => setTransactionForm((p) => ({ ...p, currency: e.target.value }))}>
+                      <option value="IDR">IDR</option>
+                      <option value="USD">USD</option>
+                    </select></label>
+                    <label>method<select value={transactionForm.method} onChange={(e) => setTransactionForm((p) => ({ ...p, method: e.target.value }))}>
+                      <option value="virtual_account">virtual_account</option>
+                      <option value="bank_transfer">bank_transfer</option>
+                      <option value="qris">qris</option>
+                      <option value="ewallet">ewallet</option>
+                      <option value="cash">cash</option>
+                      <option value="credit_card">credit_card</option>
+                      <option value="debit_card">debit_card</option>
+                    </select></label>
                     <button className="btn" type="submit">Save transaction</button>
                   </form>
                 </>
