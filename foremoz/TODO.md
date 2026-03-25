@@ -195,6 +195,7 @@ Last audited terhadap isi folder: **2026-03-25** (`foremoz/apps/api`, `foremoz/a
 
 ### Passport
 - [x] Signup -> signin -> registration
+  - Remark: halaman Passport signup/signin/onboarding sekarang sudah lebih jelas secara funnel dan value proposition.
 - [~] Dashboard
   - Remark: dashboard sudah jalan + tab upcoming/history; member operational flow sudah bisa transaksi nyata (membership, PT package, class booking payment), termasuk status `subscription_end`, `remaining PT session`, plan aktif, dan `payment_id` terkait dari read model. Aktivasi membership, PT assignment, dan class booking juga sudah bisa menyimpan `payment_id` dengan guard backend, dan relasi itu sekarang ikut diproyeksikan ke read model utama. History payment member sekarang tampil label entity yang lebih terbaca dan status operasional refresh setelah aksi. Beberapa data lain masih campuran API + local storage.
 - [~] Public

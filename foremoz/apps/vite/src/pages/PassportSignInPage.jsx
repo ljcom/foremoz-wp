@@ -206,6 +206,19 @@ export default function PassportSignInPage() {
       <section className="card wide">
         <p className="eyebrow">Passport Sign in</p>
         <h1>Masuk ke Foremoz Passport</h1>
+        <p className="sub">
+          Akses identity layer kamu untuk profile publik, event history, achievement, dan dashboard passport.
+        </p>
+        <div className="ops-grid" style={{ marginBottom: '1rem' }}>
+          <article className="card">
+            <p className="eyebrow">What You Get</p>
+            <p className="sub">Public profile, event timeline, activity feed dasar, dan visibility controls untuk profile publik.</p>
+          </article>
+          <article className="card">
+            <p className="eyebrow">Bridge Ready</p>
+            <p className="sub">Kalau akun kamu baru ada di member tenant, sign in ini tetap mencoba bridge ke Passport secara otomatis.</p>
+          </article>
+        </div>
         <form className="form" onSubmit={onSubmit}>
           <label>
             Email
@@ -234,6 +247,9 @@ export default function PassportSignInPage() {
               Create account
             </Link>
           </div>
+          <p className="mini-note" style={{ marginTop: '0.75rem' }}>
+            Next step setelah sign in: lengkapi onboarding lalu atur public visibility profile kamu.
+          </p>
         </form>
       </section>
     </main>

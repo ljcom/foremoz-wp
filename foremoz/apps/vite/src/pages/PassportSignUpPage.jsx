@@ -69,6 +69,19 @@ export default function PassportSignUpPage() {
       <section className="card wide">
         <p className="eyebrow">Passport Sign up</p>
         <h1>Create Passport Account</h1>
+        <p className="sub">
+          Bangun identity publik kamu sejak awal supaya event history, capability, dan profile publik terkumpul di satu tempat.
+        </p>
+        <div className="ops-grid" style={{ marginBottom: '1rem' }}>
+          <article className="card">
+            <p className="eyebrow">Identity Layer</p>
+            <p className="sub">Passport dipakai untuk public profile, event participation record, dan social proof dasar lintas account.</p>
+          </article>
+          <article className="card">
+            <p className="eyebrow">After Sign Up</p>
+            <p className="sub">Kamu akan lanjut ke onboarding untuk pilih goal, interest, dan privacy preset sebelum masuk dashboard.</p>
+          </article>
+        </div>
         <form className="form" onSubmit={onSubmit}>
           <label>
             Full name
@@ -105,6 +118,9 @@ export default function PassportSignUpPage() {
               Already have account
             </Link>
           </div>
+          <p className="mini-note" style={{ marginTop: '0.75rem' }}>
+            Cocok dipakai oleh creator maupun participant yang ingin punya profile publik di Foremoz.
+          </p>
         </form>
       </section>
     </main>

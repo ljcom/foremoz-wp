@@ -85,6 +85,19 @@ export default function PassportOnboardingPage() {
       <section className="card wide">
         <p className="eyebrow">Passport Onboarding</p>
         <h1>Setup Awal Passport</h1>
+        <p className="sub">
+          Lengkapi context awal supaya dashboard dan public profile punya baseline yang lebih relevan sejak hari pertama.
+        </p>
+        <div className="ops-grid" style={{ marginBottom: '1rem' }}>
+          <article className="card">
+            <p className="eyebrow">Primary Goal</p>
+            <p className="sub">Dipakai sebagai sinyal awal interest dan positioning profile di dashboard passport.</p>
+          </article>
+          <article className="card">
+            <p className="eyebrow">Privacy Preset</p>
+            <p className="sub">Preset ini mempengaruhi plan awal dan akan jadi baseline sebelum kamu atur visibility lebih detail di dashboard.</p>
+          </article>
+        </div>
         <form className="form" onSubmit={onSubmit}>
           <label>
             Primary goal
@@ -116,6 +129,16 @@ export default function PassportOnboardingPage() {
               <option value="open">Open</option>
             </select>
           </label>
+          <div className="card" style={{ borderStyle: 'dashed' }}>
+            <p className="eyebrow">Preset Preview</p>
+            <p className="sub">
+              {form.privacyPreset === 'strict'
+                ? 'Strict: mulai dari exposure minimal dengan plan free.'
+                : form.privacyPreset === 'open'
+                  ? 'Open: cocok untuk profile yang ingin cepat tampil dan dipakai publik.'
+                  : 'Balanced: mulai dari visibility yang lebih aktif tanpa terlalu terbuka.'}
+            </p>
+          </div>
           {error ? <p className="error">{error}</p> : null}
           <div className="hero-actions">
             <button className="btn" type="submit" disabled={loading}>
