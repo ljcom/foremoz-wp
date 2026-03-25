@@ -133,6 +133,7 @@ export default function WebOwnerPage() {
   const [userForm, setUserForm] = useState(createEmptyUserForm);
   const [users, setUsers] = useState([]);
   const [branches, setBranches] = useState([]);
+  const [branchStatusFilter, setBranchStatusFilter] = useState('active');
   const [branchMode, setBranchMode] = useState('list');
   const [editingBranchId, setEditingBranchId] = useState('');
   const [branchForm, setBranchForm] = useState({
@@ -188,7 +189,9 @@ export default function WebOwnerPage() {
       apiJson(`/v1/owner/setup?tenant_id=${encodeURIComponent(activeTenant)}`),
       apiJson(`/v1/owner/saas?tenant_id=${encodeURIComponent(activeTenant)}`),
       apiJson(`/v1/owner/users?tenant_id=${encodeURIComponent(activeTenant)}&status=active`),
-      apiJson(`/v1/owner/branches?tenant_id=${encodeURIComponent(activeTenant)}`)
+      apiJson(
+        `/v1/owner/branches?tenant_id=${encodeURIComponent(activeTenant)}&status=${encodeURIComponent(branchStatusFilter)}`
+      )
     ]);
 
     setSetupRow(setupRes.row || null);
@@ -242,7 +245,7 @@ export default function WebOwnerPage() {
   useEffect(() => {
     refreshOwnerData(tenantSeed).catch((error) => setFeedback(error.message));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tenantSeed]);
+  }, [tenantSeed, branchStatusFilter]);
 
   useEffect(() => {
     if (!(IS_MOCK_MODE && IS_MOCKUP_OPEN_ACCESS)) return;
@@ -487,6 +490,48 @@ export default function WebOwnerPage() {
       setEditingBranchId('');
       await refreshOwnerData(setupForm.tenant_id || tenantSeed);
       setFeedback(`owner.branch.updated ${branchId}`);
+    } catch (error) {
+      setFeedback(error.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function deactivateBranch(row) {
+    const branchId = String(row?.branch_id || '').trim().toLowerCase();
+    if (!branchId) return;
+    const confirmed = window.confirm(`Deactivate branch "${branchId}"? Branch tidak akan muncul di URL publik.`);
+    if (!confirmed) return;
+    try {
+      setLoading(true);
+      await apiJson(`/v1/owner/branches/${encodeURIComponent(branchId)}/deactivate`, {
+        method: 'POST',
+        body: JSON.stringify({
+          tenant_id: setupForm.tenant_id || tenantSeed
+        })
+      });
+      await refreshOwnerData(setupForm.tenant_id || tenantSeed);
+      setFeedback(`owner.branch.deactivated ${branchId}`);
+    } catch (error) {
+      setFeedback(error.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function reactivateBranch(row) {
+    const branchId = String(row?.branch_id || '').trim().toLowerCase();
+    if (!branchId) return;
+    try {
+      setLoading(true);
+      await apiJson(`/v1/owner/branches/${encodeURIComponent(branchId)}/reactivate`, {
+        method: 'POST',
+        body: JSON.stringify({
+          tenant_id: setupForm.tenant_id || tenantSeed
+        })
+      });
+      await refreshOwnerData(setupForm.tenant_id || tenantSeed);
+      setFeedback(`owner.branch.reactivated ${branchId}`);
     } catch (error) {
       setFeedback(error.message);
     } finally {
@@ -1028,9 +1073,21 @@ export default function WebOwnerPage() {
                   <>
                     <div className="panel-head">
                       <h2>Branch list</h2>
-                      <button className="btn" type="button" onClick={openAddBranchForm} disabled={loading}>
-                        Add branch
-                      </button>
+                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <select
+                          value={branchStatusFilter}
+                          onChange={(e) => setBranchStatusFilter(String(e.target.value || 'active'))}
+                          disabled={loading}
+                          aria-label="branch status filter"
+                        >
+                          <option value="active">Status: Active</option>
+                          <option value="all">Status: All</option>
+                          <option value="inactive">Status: Inactive</option>
+                        </select>
+                        <button className="btn" type="button" onClick={openAddBranchForm} disabled={loading}>
+                          Add branch
+                        </button>
+                      </div>
                     </div>
                     <p className="mini-note">Setiap branch punya URL sendiri: /a/&lt;branch-account&gt;</p>
                     {!canAddBranch ? (
@@ -1042,13 +1099,23 @@ export default function WebOwnerPage() {
                           <div>
                             <strong>{row.branch_name || row.branch_id}</strong>
                             <p>
-                              {row.branch_id} - /a/{row.account_slug} {row.is_primary ? '(Primary)' : ''}
+                              {row.branch_id} - /a/{row.account_slug} {row.is_primary ? '(Primary)' : ''} [{row.status || 'active'}]
                             </p>
                           </div>
                           <div style={{ display: 'flex', gap: '0.5rem' }}>
                             {!row.is_primary ? (
                               <button className="btn ghost" type="button" onClick={() => openEditBranchForm(row)} disabled={loading}>
                                 Edit
+                              </button>
+                            ) : null}
+                            {!row.is_primary && String(row.status || '').toLowerCase() === 'active' ? (
+                              <button className="btn ghost" type="button" onClick={() => deactivateBranch(row)} disabled={loading}>
+                                Deactivate
+                              </button>
+                            ) : null}
+                            {!row.is_primary && String(row.status || '').toLowerCase() === 'inactive' ? (
+                              <button className="btn ghost" type="button" onClick={() => reactivateBranch(row)} disabled={loading}>
+                                Reactivate
                               </button>
                             ) : null}
                             <a className="btn ghost" href={`/a/${row.account_slug}`} target="_blank" rel="noreferrer">

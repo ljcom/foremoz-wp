@@ -70,6 +70,11 @@ EMAIL_SMTP_IGNORE_TLS_ERRORS=false
 - `DELETE /v1/owner/users/:userId`
 - `GET /v1/owner/saas`
 - `POST /v1/owner/saas/extend`
+- `GET /v1/owner/branches`
+- `POST /v1/owner/branches`
+- `PATCH /v1/owner/branches/:branchId`
+- `POST /v1/owner/branches/:branchId/deactivate`
+- `POST /v1/owner/branches/:branchId/reactivate`
 - `POST /v1/members/register`
 - `POST /v1/events/create`
 - `POST /v1/events/register`

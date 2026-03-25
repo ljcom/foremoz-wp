@@ -26,6 +26,8 @@ Last audited terhadap isi folder: **2026-03-25** (`foremoz/apps/api`, `foremoz/a
   - Endpoint: `GET /v1/owner/branches`
   - Endpoint: `POST /v1/owner/branches`
   - Endpoint: `PATCH /v1/owner/branches/:branchId`
+  - Endpoint: `POST /v1/owner/branches/:branchId/deactivate`
+  - Endpoint: `POST /v1/owner/branches/:branchId/reactivate`
   - Resolve account publik (`/a/:account`) sudah bisa baca branch slug via `GET /v1/public/account/resolve`.
 
 ## Event & Participant (74%)
@@ -201,7 +203,7 @@ Last audited terhadap isi folder: **2026-03-25** (`foremoz/apps/api`, `foremoz/a
   - [x] add branch (gated by package multi-branch/enterprise)
   - [x] edit branch
   - [x] data branch (name, slug, address, city, photo_url) dipakai di halaman `/a/:branch`
-  - [ ] delete/deactivate branch
+  - [x] delete/deactivate branch (soft delete via status `inactive`) + reactivate
   - [ ] branch-level policy/access control per user
 
 ### Tenant
