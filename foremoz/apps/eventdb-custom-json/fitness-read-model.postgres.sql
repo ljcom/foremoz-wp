@@ -318,8 +318,11 @@ CREATE TABLE IF NOT EXISTS read.rm_dashboard (
 CREATE INDEX IF NOT EXISTS idx_rm_member_branch ON read.rm_member (tenant_id, branch_id, status);
 CREATE INDEX IF NOT EXISTS idx_rm_member_auth_email ON read.rm_member_auth (tenant_id, email);
 CREATE INDEX IF NOT EXISTS idx_rm_subscription_member ON read.rm_subscription_active (tenant_id, member_id, status, end_date);
+CREATE INDEX IF NOT EXISTS idx_rm_subscription_payment ON read.rm_subscription_active (tenant_id, payment_id);
 CREATE INDEX IF NOT EXISTS idx_rm_booking_class ON read.rm_booking_list (tenant_id, class_id, status, booked_at);
+CREATE INDEX IF NOT EXISTS idx_rm_booking_payment ON read.rm_booking_list (tenant_id, payment_id);
 CREATE INDEX IF NOT EXISTS idx_rm_payment_status ON read.rm_payment_queue (tenant_id, status, recorded_at);
+CREATE INDEX IF NOT EXISTS idx_rm_pt_balance_payment ON read.rm_pt_balance (tenant_id, payment_id);
 CREATE INDEX IF NOT EXISTS idx_rm_sales_stage ON read.rm_sales_prospect (tenant_id, stage, updated_at DESC);
 CREATE INDEX IF NOT EXISTS idx_rm_pt_activity_member ON read.rm_pt_activity_log (tenant_id, member_id, session_at DESC);
 CREATE INDEX IF NOT EXISTS idx_rm_invitation_status ON read.rm_invitation_queue (tenant_id, status, updated_at DESC);

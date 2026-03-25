@@ -90,6 +90,7 @@ Last audited terhadap isi folder: **2026-03-25** (`foremoz/apps/api`, `foremoz/a
   - [x] Endpoint read operasional sudah bisa difilter dengan `payment_id` untuk audit lanjutan.
   - [x] View transaksi admin menampilkan `linked_operation` terpisah dari label product/reference.
   - [x] Mode view transaksi admin menarik detail artefak operasional langsung via query `payment_id`.
+  - [x] Read model menambahkan index `payment_id` untuk query audit operasional.
 
 ## QA / Hardening (28%)
 - [ ] Tambah test otomatis untuk flow penting:

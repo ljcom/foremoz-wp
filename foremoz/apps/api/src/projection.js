@@ -40,6 +40,18 @@ export async function runFitnessProjection({ tenantId, branchId }) {
       `alter table if exists read.rm_pt_balance
          add column if not exists payment_id text`
     );
+    await client.query(
+      `create index if not exists idx_rm_subscription_payment
+       on read.rm_subscription_active (tenant_id, payment_id)`
+    );
+    await client.query(
+      `create index if not exists idx_rm_booking_payment
+       on read.rm_booking_list (tenant_id, payment_id)`
+    );
+    await client.query(
+      `create index if not exists idx_rm_pt_balance_payment
+       on read.rm_pt_balance (tenant_id, payment_id)`
+    );
 
     await client.query(
       `insert into read.rm_checkpoint (projector_name, namespace_id, chain_id, last_sequence)
