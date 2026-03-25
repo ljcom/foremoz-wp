@@ -166,6 +166,42 @@ export default function MemberPage() {
   }
   const memberData = memberRow;
 
+  async function refreshMemberOperationalData() {
+    await apiJson('/v1/projections/run', {
+      method: 'POST',
+      body: JSON.stringify({
+        tenant_id: tenantId,
+        branch_id: branchId
+      })
+    }).catch(() => {});
+
+    const [paymentsRes, bookingsRes, subscriptionsRes, ptBalanceRes] = await Promise.all([
+      apiJson(`/v1/read/payments/history?tenant_id=${encodeURIComponent(tenantId)}&member_id=${encodeURIComponent(memberId || '')}`).catch(() => ({ rows: [] })),
+      apiJson(`/v1/read/bookings?tenant_id=${encodeURIComponent(tenantId)}`).catch(() => ({ rows: [] })),
+      apiJson(`/v1/read/subscriptions/active?tenant_id=${encodeURIComponent(tenantId)}&member_id=${encodeURIComponent(memberId || '')}`).catch(() => ({ rows: [] })),
+      apiJson(`/v1/read/pt-balance?tenant_id=${encodeURIComponent(tenantId)}&member_id=${encodeURIComponent(memberId || '')}`).catch(() => ({ rows: [] }))
+    ]);
+
+    setPaymentHistory(Array.isArray(paymentsRes.rows) ? paymentsRes.rows : []);
+    const allBookings = Array.isArray(bookingsRes.rows) ? bookingsRes.rows : [];
+    setMemberBookings(allBookings.filter((row) => String(row.member_id || '') === String(memberId || '')));
+
+    const activeSubscriptions = Array.isArray(subscriptionsRes.rows) ? subscriptionsRes.rows : [];
+    const latestSubscriptionEnd = activeSubscriptions
+      .map((row) => String(row?.end_date || '').trim())
+      .filter(Boolean)
+      .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0] || '-';
+    setSubscriptionEndDate(latestSubscriptionEnd);
+
+    const ptBalances = Array.isArray(ptBalanceRes.rows) ? ptBalanceRes.rows : [];
+    if (ptBalances.length > 0) {
+      const totalRemaining = ptBalances.reduce((sum, row) => sum + Number(row?.remaining_sessions || 0), 0);
+      setRemainingPtSessions(String(totalRemaining));
+    } else {
+      setRemainingPtSessions('-');
+    }
+  }
+
   async function submitPtPurchase() {
     if (!memberData?.member_id) return;
     if (!ptForm.package_id) {
@@ -219,10 +255,7 @@ export default function MemberPage() {
           payment_id: paymentId
         })
       });
-      const paymentsRes = await apiJson(
-        `/v1/read/payments/history?tenant_id=${encodeURIComponent(tenantId)}&member_id=${encodeURIComponent(memberId || '')}`
-      ).catch(() => ({ rows: [] }));
-      setPaymentHistory(paymentsRes.rows || []);
+      await refreshMemberOperationalData();
       setFeedback(`pt.package.assigned: ${assignedId} (${totalSessions} sesi)`);
     } catch (error) {
       setFeedback(error.message || 'Gagal proses PT package.');
@@ -395,9 +428,8 @@ export default function MemberPage() {
           payment_id: paymentId
         })
       });
+      await refreshMemberOperationalData();
       setFeedback(`membership.activated: ${subscriptionId} (${months} bulan)`);
-      const paymentsRes = await apiJson(`/v1/read/payments/history?tenant_id=${encodeURIComponent(tenantId)}&member_id=${encodeURIComponent(memberId || '')}`);
-      setPaymentHistory(paymentsRes.rows || []);
     } catch (error) {
       setFeedback(error.message || 'Gagal proses membership.');
     } finally {
@@ -465,13 +497,7 @@ export default function MemberPage() {
           branch_id: branchId
         })
       }).catch(() => {});
-      const bookingsRes = await apiJson(`/v1/read/bookings?tenant_id=${encodeURIComponent(tenantId)}`);
-      const allBookings = Array.isArray(bookingsRes.rows) ? bookingsRes.rows : [];
-      setMemberBookings(allBookings.filter((row) => String(row.member_id || '') === String(memberId || '')));
-      const paymentsRes = await apiJson(
-        `/v1/read/payments/history?tenant_id=${encodeURIComponent(tenantId)}&member_id=${encodeURIComponent(memberId || '')}`
-      ).catch(() => ({ rows: [] }));
-      setPaymentHistory(paymentsRes.rows || []);
+      await refreshMemberOperationalData();
       setFeedback(`class.booking.created: ${memberData.member_id} -> ${bookingForm.class_id}${paymentId ? ` (payment ${paymentId})` : ''}`);
     } catch (error) {
       setFeedback(error.message || 'Gagal booking class.');
