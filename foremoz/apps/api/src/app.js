@@ -3879,7 +3879,7 @@ app.post('/v1/bookings/classes/create', async (req, res, next) => {
         status,
         booked_at: data.booked_at || new Date().toISOString()
       },
-      refs: { subscription_id: data.subscription_id || null },
+      refs: { subscription_id: data.subscription_id || null, payment_id: data.payment_id || null },
       uniqueIds: [{ scope: 'booking.booking_id', value: bookingId }]
     });
     return created(res, {

@@ -22,7 +22,11 @@ export default function MemberPage() {
   const [loadError, setLoadError] = useState('');
   const [activeMenu, setActiveMenu] = useState('checkin');
   const [feedback, setFeedback] = useState('');
-  const [bookingForm, setBookingForm] = useState({ class_id: '' });
+  const [bookingForm, setBookingForm] = useState({
+    class_id: '',
+    amount: '0',
+    method: 'virtual_account'
+  });
   const [membershipForm, setMembershipForm] = useState({
     plan_id: 'membership_monthly',
     months: '1',
@@ -269,19 +273,51 @@ export default function MemberPage() {
       setFeedback('Pilih class terlebih dulu.');
       return;
     }
+    const amount = Math.max(0, Number(bookingForm.amount || 0));
+    if (!Number.isFinite(amount) || amount < 0) {
+      setFeedback('Nominal payment class tidak valid.');
+      return;
+    }
     try {
       setBookingSaving(true);
+      const bookingId = `book_${Date.now()}`;
+      let paymentId = null;
+      if (amount > 0) {
+        paymentId = `pay_class_${Date.now()}`;
+        await apiJson('/v1/payments/record', {
+          method: 'POST',
+          body: JSON.stringify({
+            tenant_id: tenantId,
+            branch_id: branchId,
+            payment_id: paymentId,
+            member_id: memberData.member_id,
+            amount,
+            currency: 'IDR',
+            method: bookingForm.method || 'virtual_account',
+            reference_type: 'class_booking',
+            reference_id: bookingForm.class_id
+          })
+        });
+        await apiJson(`/v1/payments/${encodeURIComponent(paymentId)}/confirm`, {
+          method: 'POST',
+          body: JSON.stringify({
+            tenant_id: tenantId,
+            branch_id: branchId
+          })
+        });
+      }
       await apiJson('/v1/bookings/classes/create', {
         method: 'POST',
         body: JSON.stringify({
           tenant_id: tenantId,
           branch_id: branchId,
-          booking_id: `book_${Date.now()}`,
+          booking_id: bookingId,
           class_id: bookingForm.class_id,
           booking_kind: 'member',
           member_id: memberData.member_id,
           guest_name: memberData.full_name || null,
-          status: 'booked'
+          status: 'booked',
+          payment_id: paymentId
         })
       });
       await apiJson('/v1/projections/run', {
@@ -294,7 +330,11 @@ export default function MemberPage() {
       const bookingsRes = await apiJson(`/v1/read/bookings?tenant_id=${encodeURIComponent(tenantId)}`);
       const allBookings = Array.isArray(bookingsRes.rows) ? bookingsRes.rows : [];
       setMemberBookings(allBookings.filter((row) => String(row.member_id || '') === String(memberId || '')));
-      setFeedback(`class.booking.created: ${memberData.member_id} -> ${bookingForm.class_id}`);
+      const paymentsRes = await apiJson(
+        `/v1/read/payments/history?tenant_id=${encodeURIComponent(tenantId)}&member_id=${encodeURIComponent(memberId || '')}`
+      ).catch(() => ({ rows: [] }));
+      setPaymentHistory(paymentsRes.rows || []);
+      setFeedback(`class.booking.created: ${memberData.member_id} -> ${bookingForm.class_id}${paymentId ? ` (payment ${paymentId})` : ''}`);
     } catch (error) {
       setFeedback(error.message || 'Gagal booking class.');
     } finally {
@@ -466,6 +506,28 @@ export default function MemberPage() {
                         {item.class_name || item.class_id}
                       </option>
                     ))}
+                  </select>
+                </label>
+                <label>
+                  amount
+                  <input
+                    type="number"
+                    min="0"
+                    value={bookingForm.amount}
+                    onChange={(e) => setBookingForm((prev) => ({ ...prev, amount: e.target.value }))}
+                  />
+                </label>
+                <label>
+                  method
+                  <select
+                    value={bookingForm.method}
+                    onChange={(e) => setBookingForm((prev) => ({ ...prev, method: e.target.value }))}
+                  >
+                    <option value="virtual_account">virtual_account</option>
+                    <option value="bank_transfer">bank_transfer</option>
+                    <option value="qris">qris</option>
+                    <option value="ewallet">ewallet</option>
+                    <option value="cash">cash</option>
                   </select>
                 </label>
                 <button className="btn" type="button" disabled={bookingSaving} onClick={submitClassBooking}>
