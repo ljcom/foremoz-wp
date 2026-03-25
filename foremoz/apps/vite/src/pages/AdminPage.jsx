@@ -2478,6 +2478,9 @@ export default function AdminPage() {
         })
       });
       await loadTransactions();
+      if (transactionMode === 'detail' && transactionDetail?.no_transaction === item.no_transaction) {
+        await refreshTransactionDetail(item.no_transaction);
+      }
       setFeedback(`payment.confirmed: ${item.no_transaction}`);
     } catch (error) {
       setFeedback(error.message);
@@ -2499,6 +2502,9 @@ export default function AdminPage() {
         })
       });
       await loadTransactions();
+      if (transactionMode === 'detail' && transactionDetail?.no_transaction === item.no_transaction) {
+        await refreshTransactionDetail(item.no_transaction);
+      }
       setFeedback(`payment.rejected: ${item.no_transaction}`);
     } catch (error) {
       setFeedback(error.message);
@@ -2543,6 +2549,36 @@ export default function AdminPage() {
       detail_note: detailNote
     });
     setTransactionMode('detail');
+  }
+
+  async function refreshTransactionDetail(paymentId) {
+    const targetPaymentId = String(paymentId || '').trim();
+    if (!targetPaymentId) return;
+    await loadTransactions();
+    const paymentsRes = await apiJson(
+      `/v1/read/payments/queue?tenant_id=${encodeURIComponent(tenantId)}&status=all`
+    ).catch(() => ({ rows: [] }));
+    const rows = Array.isArray(paymentsRes.rows) ? paymentsRes.rows : [];
+    const paymentRow = rows.find((row) => String(row?.payment_id || '') === targetPaymentId) || null;
+    if (!paymentRow) {
+      setTransactionDetail(null);
+      setTransactionMode('list');
+      return;
+    }
+    await viewTransaction({
+      no_transaction: paymentRow.payment_id || '',
+      member_id: paymentRow.member_id || '',
+      product: transactionDetail?.product || '',
+      operation_link: transactionDetail?.operation_link || '',
+      qty: '1',
+      price: String(paymentRow.amount ?? ''),
+      currency: paymentRow.currency || 'IDR',
+      method: paymentRow.method || 'virtual_account',
+      status: paymentRow.status || '-',
+      review_note: paymentRow.review_note || '',
+      recorded_at: paymentRow.recorded_at || '',
+      reviewed_at: paymentRow.reviewed_at || ''
+    });
   }
 
   function extendSaas(e) {
@@ -4113,6 +4149,24 @@ export default function AdminPage() {
                   <div className="panel-head">
                     <h2>Transaction detail</h2>
                     <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      {String(transactionDetail?.status || '').toLowerCase() === 'pending' ? (
+                        <>
+                          <button
+                            className="btn"
+                            type="button"
+                            onClick={() => confirmTransaction(transactionDetail)}
+                          >
+                            Confirm
+                          </button>
+                          <button
+                            className="btn ghost"
+                            type="button"
+                            onClick={() => rejectTransaction(transactionDetail)}
+                          >
+                            Reject
+                          </button>
+                        </>
+                      ) : null}
                       <button
                         className="btn ghost"
                         type="button"

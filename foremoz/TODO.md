@@ -94,6 +94,7 @@ Last audited terhadap isi folder: **2026-03-25** (`foremoz/apps/api`, `foremoz/a
   - [x] Agregasi backend `GET /v1/read/payments/:paymentId/links` sudah tersedia untuk review transaksi.
   - [x] Filter linked operation (`subscription/booking/pt_package/unlinked`) tersedia di tabel transaksi admin.
   - [x] Review transaksi sudah dipisah ke mode detail read-only, tidak reuse form add transaction.
+  - [x] Aksi confirm/reject tetap tersedia langsung dari mode detail transaksi.
 
 ## QA / Hardening (28%)
 - [ ] Tambah test otomatis untuk flow penting:
