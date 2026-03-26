@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import AuthLayout from '../components/AuthLayout.jsx';
-import { apiJson, requireField, setOwnerSetup, setSession } from '../lib.js';
+import { apiJson, requireField } from '../lib.js';
 import { listVerticalConfigs } from '../industry-jargon.js';
 
 function generateTenantId(email) {
@@ -53,34 +53,15 @@ export default function SignUpPage() {
           role: 'owner'
         })
       });
-
-      // New signup starts a fresh tenant onboarding flow with selected industry seed.
-      setOwnerSetup({ tenant_id: tenantId, industry_slug: industrySlug });
-      setSession({
-        isAuthenticated: true,
-        isOnboarded: false,
-        role: 'owner',
-        user: {
-          fullName: result.user?.full_name || fullName,
-          email: result.user?.email || email,
-          userId: result.user?.user_id || null
-        },
-        tenant: {
-          id: tenantId,
-          account_slug: '',
-          namespace: `foremoz:${tenantId}`,
-          gym_name: '',
-          industry_slug: result.user?.industry_slug || industrySlug
-        },
-        branch: { id: '', chain: '' },
-        auth: {
-          tokenType: result.auth?.token_type || 'Bearer',
-          accessToken: result.auth?.access_token || null,
-          expiresIn: result.auth?.expires_in || null
-        }
+      const verifyParams = new URLSearchParams({
+        email: result.user?.email || email,
+        tenant_id: tenantId,
+        email_sent: result.email_delivery?.sent ? '1' : '0'
       });
-
-      navigate('/web/owner', { replace: true });
+      if (result.activation?.activation_url) {
+        verifyParams.set('activation_url', result.activation.activation_url);
+      }
+      navigate(`/verify-password?${verifyParams.toString()}`, { replace: true });
     } catch (err) {
       setError(err.message);
     } finally {
@@ -120,7 +101,7 @@ export default function SignUpPage() {
         </label>
         {error ? <p className="error">{error}</p> : null}
         <button className="btn" type="submit" disabled={loading}>
-          {loading ? 'Creating account...' : 'Continue to onboarding'}
+          {loading ? 'Creating account...' : 'Create account'}
         </button>
       </form>
     </AuthLayout>

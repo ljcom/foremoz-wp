@@ -11,7 +11,7 @@ import {
   setOwnerSetup,
   setSession
 } from '../lib.js';
-import { listVerticalConfigs } from '../industry-jargon.js';
+import { getVerticalConfig, listVerticalConfigs } from '../industry-jargon.js';
 
 const PLANS = [
   {
@@ -81,9 +81,9 @@ function createEmptyUserForm() {
   return { full_name: '', email: '', role: '', password: '' };
 }
 
-function formatAddUserRoleLabel(role) {
+function formatAddUserRoleLabel(role, industrySlug = 'active') {
   const normalized = String(role || '').trim().toLowerCase();
-  if (normalized === 'pt') return 'Coach';
+  if (normalized === 'pt') return getVerticalConfig(industrySlug)?.vocabulary?.creator || 'Coach';
   if (normalized === 'sales') return 'Influencer/Sales';
   if (normalized === 'cs') return 'CS';
   return 'User';
@@ -160,6 +160,7 @@ export default function WebOwnerPage() {
 
   const selectedPlanMonthlyPrice = PLAN_PRICE[setupForm.package_plan] || 0;
   const verticalOptions = listVerticalConfigs();
+  const creatorLabel = getVerticalConfig(setupForm.industry_slug)?.vocabulary?.creator || 'Coach';
   const selectedMonths = Number(saasForm.months || 1);
   const extendTotalPrice = selectedPlanMonthlyPrice * selectedMonths;
   const isGrowthOrAbove = useMemo(
@@ -175,8 +176,8 @@ export default function WebOwnerPage() {
     [setupForm.package_plan]
   );
   const addUserRoleLabel = useMemo(
-    () => formatAddUserRoleLabel(userForm.role || newUserRolePreset),
-    [userForm.role, newUserRolePreset]
+    () => formatAddUserRoleLabel(userForm.role || newUserRolePreset, setupForm.industry_slug),
+    [userForm.role, newUserRolePreset, setupForm.industry_slug]
   );
 
   const isSetupReady = Boolean(
@@ -685,10 +686,10 @@ export default function WebOwnerPage() {
       return;
     }
     if (!isGrowthOrAbove) {
-      setFeedback('Silahkan upgrade ke Growth untuk menambah Coach atau Influencer/Sales.');
+      setFeedback(`Silahkan upgrade ke Growth untuk menambah ${creatorLabel} atau Influencer/Sales.`);
       return;
     }
-    if (normalized === 'coach') {
+    if (normalized === 'coach' || normalized === 'pt') {
       await openAddUserForm('pt');
       return;
     }
@@ -1381,10 +1382,10 @@ export default function WebOwnerPage() {
                         <button
                           className="btn ghost"
                           type="button"
-                          onClick={() => openPresetAddUser('coach')}
+                          onClick={() => openPresetAddUser('pt')}
                           disabled={loading}
                         >
-                          Add Coach
+                          {`Add ${creatorLabel}`}
                         </button>
                         <button
                           className="btn ghost"

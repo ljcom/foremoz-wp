@@ -26,6 +26,7 @@ const DEFAULT_EVENTS = [
     location: 'Main Hall',
     image_url: 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?auto=format&fit=crop&w=1200&q=80',
     start_at: '2026-03-10 07:00',
+    price: '0',
     duration_minutes: '60',
     status: 'scheduled'
   }
@@ -37,11 +38,13 @@ function createEmptyEventForm() {
     image_url: '',
     description: '',
     categories_text: '',
+    award_enabled: true,
     award_scopes: ['overall'],
     award_top_n: '1',
     gallery_images_text: '',
     schedule_items_text: '',
     start_at: '',
+    price: '0',
     duration_minutes: '60',
     registration_fields: []
   };
@@ -72,6 +75,16 @@ function serializeEventForm(value) {
     duration_minutes: String(form.duration_minutes || '60'),
     registration_fields: registrationFields
   });
+}
+
+function createEmptyEventWalkinForm(eventId = '') {
+  return {
+    event_id: eventId,
+    full_name: '',
+    email: '',
+    registration_answers: {},
+    error: ''
+  };
 }
 const DEFAULT_TRAINERS = [
   { trainer_id: 'tr_001', trainer_name: 'Raka', phone: '081234555500', specialization: 'HIIT' }
@@ -350,6 +363,15 @@ function formatEventAwardScopes(value) {
   if (scopes.includes('overall')) labels.push('Overall');
   if (scopes.includes('category')) labels.push('Per kategori');
   return labels.join(', ') || 'Overall';
+}
+
+function isAwardEnabled(value, fallback = true) {
+  if (value === undefined || value === null || value === '') return fallback;
+  if (typeof value === 'boolean') return value;
+  const normalized = String(value).trim().toLowerCase();
+  if (normalized === 'true' || normalized === 'yes' || normalized === '1') return true;
+  if (normalized === 'false' || normalized === 'no' || normalized === '0') return false;
+  return fallback;
 }
 
 function normalizeAwardTopN(value, fallback = 1) {
@@ -649,14 +671,7 @@ export default function AdminPage() {
   const [eventCheckoutRankMap, setEventCheckoutRankMap] = useState({});
   const [eventCheckoutSavingMap, setEventCheckoutSavingMap] = useState({});
   const [eventWalkinSavingMap, setEventWalkinSavingMap] = useState({});
-  const [eventWalkinForm, setEventWalkinForm] = useState({
-    event_id: '',
-    full_name: '',
-    email: '',
-    passport_id: '',
-    registration_answers: {},
-    error: ''
-  });
+  const [eventWalkinForm, setEventWalkinForm] = useState(() => createEmptyEventWalkinForm());
   const [eventCheckinSearch, setEventCheckinSearch] = useState('');
   const [eventCheckinBarcode, setEventCheckinBarcode] = useState('');
   const [eventCheckinCustomFieldsText, setEventCheckinCustomFieldsText] = useState('');
@@ -708,6 +723,9 @@ export default function AdminPage() {
   const [salesMemberLoading, setSalesMemberLoading] = useState(false);
   const [memberUploadRelations, setMemberUploadRelations] = useState([]);
   const [memberUploadDraft, setMemberUploadDraft] = useState('');
+  const [memberUploadModalOpen, setMemberUploadModalOpen] = useState(false);
+  const [memberUploadMode, setMemberUploadMode] = useState('template');
+  const [memberUploadText, setMemberUploadText] = useState('email,member_name,phone\n');
   const memberUploadInputRef = useRef(null);
 
   useEffect(() => {
@@ -783,11 +801,13 @@ export default function AdminPage() {
           image_url: item.image_url || '',
           description: item.description || '',
           event_categories: Array.isArray(item.event_categories) ? item.event_categories : [],
+          award_enabled: isAwardEnabled(item.award_enabled, true),
           award_scopes: normalizeEventAwardScopes(item.award_scopes ?? item.award_scope, ['overall']),
           award_top_n: String(normalizeAwardTopN(item.award_top_n, 1)),
           gallery_images: Array.isArray(item.gallery_images) ? item.gallery_images : [],
           schedule_items: Array.isArray(item.schedule_items) ? item.schedule_items : [],
           start_at: item.start_at || '',
+          price: String(item.price || '0'),
           duration_minutes: String(item.duration_minutes || '60'),
           status: item.status || 'scheduled',
           participant_count: Number(item.participant_count || 0),
@@ -1763,18 +1783,67 @@ export default function AdminPage() {
     setMemberMode('add');
   }
 
-  function openMemberUploadPicker() {
-    memberUploadInputRef.current?.click();
+  function openMemberUploadModal() {
+    setMemberUploadMode('template');
+    setMemberUploadText('email,member_name,phone\n');
+    setMemberUploadModalOpen(true);
+  }
+
+  function closeMemberUploadModal() {
+    setMemberUploadModalOpen(false);
+  }
+
+  function downloadMemberUploadTemplate() {
+    const csvText = 'email,member_name,phone\nmember1@example.com,Member Satu,081234567890\nmember2@example.com,Member Dua,081234567891\n';
+    const blob = new Blob([csvText], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'member-upload-template.csv';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    setFeedback('Template CSV berhasil diunduh.');
+  }
+
+  async function processMemberUploadText(text, sourceLabel = 'upload') {
+    if (memberUploadRelations.length === 0) {
+      throw new Error('Pilih minimal satu class/event untuk upload member.');
+    }
+
+    const rows = parseMemberCsv(text).filter((item) => normalizeEmailValue(item.email));
+    if (rows.length === 0) {
+      throw new Error('Data upload tidak memiliki baris member yang valid.');
+    }
+
+    let successCount = 0;
+    const errors = [];
+    for (let i = 0; i < rows.length; i += 1) {
+      const row = rows[i];
+      try {
+        await saveMemberWithRelations({
+          ...row,
+          relations: memberUploadRelations
+        });
+        successCount += 1;
+      } catch (error) {
+        errors.push(`baris ${row.row_number}: ${error.message}`);
+      }
+    }
+
+    await loadMembers();
+    if (errors.length > 0) {
+      setFeedback(`member.${sourceLabel}: ${successCount}/${rows.length} berhasil. ${errors[0]}`);
+    } else {
+      setFeedback(`member.${sourceLabel}: ${successCount}/${rows.length} berhasil.`);
+    }
   }
 
   async function handleMemberUploadChange(event) {
     const file = event.target.files?.[0];
     event.target.value = '';
     if (!file) return;
-    if (memberUploadRelations.length === 0) {
-      setFeedback('Pilih minimal satu class/event untuk upload member.');
-      return;
-    }
     if (!String(file.name || '').toLowerCase().endsWith('.csv')) {
       setFeedback('Upload member saat ini mendukung file CSV.');
       return;
@@ -1783,32 +1852,21 @@ export default function AdminPage() {
     try {
       setMemberSaving(true);
       const text = await file.text();
-      const rows = parseMemberCsv(text).filter((item) => normalizeEmailValue(item.email));
-      if (rows.length === 0) {
-        throw new Error('File CSV tidak memiliki baris member yang valid.');
-      }
+      await processMemberUploadText(text, 'upload_file');
+      closeMemberUploadModal();
+    } catch (error) {
+      setFeedback(error.message);
+    } finally {
+      setMemberSaving(false);
+    }
+  }
 
-      let successCount = 0;
-      const errors = [];
-      for (let i = 0; i < rows.length; i += 1) {
-        const row = rows[i];
-        try {
-          await saveMemberWithRelations({
-            ...row,
-            relations: memberUploadRelations
-          });
-          successCount += 1;
-        } catch (error) {
-          errors.push(`baris ${row.row_number}: ${error.message}`);
-        }
-      }
-
-      await loadMembers();
-      if (errors.length > 0) {
-        setFeedback(`member.upload: ${successCount}/${rows.length} berhasil. ${errors[0]}`);
-      } else {
-        setFeedback(`member.upload: ${successCount}/${rows.length} berhasil.`);
-      }
+  async function submitMemberUploadText(event) {
+    event.preventDefault();
+    try {
+      setMemberSaving(true);
+      await processMemberUploadText(memberUploadText, 'upload_paste');
+      closeMemberUploadModal();
     } catch (error) {
       setFeedback(error.message);
     } finally {
@@ -1831,10 +1889,13 @@ export default function AdminPage() {
     }
     try {
       setEventSaving(true);
+      const awardEnabled = isFreePlan ? true : isAwardEnabled(eventForm.award_enabled, true);
       const awardScopes = isFreePlan
         ? ['overall']
-        : normalizeEventAwardScopes(eventForm.award_scopes, ['overall']);
-      const awardTopN = isFreePlan ? 1 : normalizeAwardTopN(eventForm.award_top_n, 1);
+        : awardEnabled
+          ? normalizeEventAwardScopes(eventForm.award_scopes, ['overall'])
+          : [];
+      const awardTopN = isFreePlan ? 1 : awardEnabled ? normalizeAwardTopN(eventForm.award_top_n, 1) : 0;
       const method = editingEventId ? 'PATCH' : 'POST';
       const endpoint = editingEventId
         ? `/v1/admin/events/${encodeURIComponent(editingEventId)}`
@@ -1849,12 +1910,14 @@ export default function AdminPage() {
           image_url: eventForm.image_url || null,
           description: eventForm.description || null,
           event_categories: normalizeEventCategoriesForPayload(eventForm.categories_text),
+          award_enabled: awardEnabled,
           award_scopes: awardScopes,
-          award_scope: awardScopes[0] || 'overall',
+          award_scope: awardEnabled ? (awardScopes[0] || 'overall') : null,
           award_top_n: awardTopN,
           gallery_images: normalizeGalleryImagesForPayload(eventForm.gallery_images_text),
           schedule_items: normalizeScheduleItemsForPayload(eventForm.schedule_items_text),
           start_at: startAtIso,
+          price: Number(eventForm.price || 0),
           duration_minutes: durationMinutes,
           registration_fields: normalizeRegistrationFieldsForPayload(eventForm.registration_fields),
           status: editingEventId ? (editingEvent?.status || 'scheduled') : 'scheduled'
@@ -1882,14 +1945,17 @@ export default function AdminPage() {
       image_url: item.image_url || '',
       description: item.description || '',
       categories_text: Array.isArray(item.event_categories) ? item.event_categories.join(', ') : '',
+      award_enabled: isAwardEnabled(item.award_enabled, true),
       award_scopes: normalizeEventAwardScopes(item.award_scopes ?? item.award_scope, ['overall']),
       award_top_n: String(normalizeAwardTopN(item.award_top_n, 1)),
       gallery_images_text: Array.isArray(item.gallery_images) ? item.gallery_images.join('\n') : '',
       schedule_items_text: scheduleItemsToText(item.schedule_items),
       start_at: toInputDatetime(item.start_at || ''),
+      price: String(item.price || '0'),
       duration_minutes: String(item.duration_minutes || '60'),
       registration_fields: (Array.isArray(item.registration_fields) ? item.registration_fields : []).map(toRegistrationFieldForm)
     };
+    setEventWalkinForm(createEmptyEventWalkinForm());
     setEventForm(nextForm);
     setEventFormBaseline(serializeEventForm(nextForm));
     setEventPostQuote(null);
@@ -1917,6 +1983,7 @@ export default function AdminPage() {
     const emptyForm = createEmptyEventForm();
     setEventForm(emptyForm);
     setEventFormBaseline(serializeEventForm(emptyForm));
+    setEventWalkinForm(createEmptyEventWalkinForm());
     setEventPostQuote(null);
     setEditingEventId('');
     setEventParticipants([]);
@@ -2044,25 +2111,13 @@ export default function AdminPage() {
   function openEventWalkinForm(item) {
     const eventId = String(item?.event_id || '').trim();
     if (!eventId) return;
-    if (eventWalkinForm.event_id === eventId) {
-      setEventWalkinForm({
-        event_id: '',
-        full_name: '',
-        email: '',
-        passport_id: '',
-        registration_answers: {},
-        error: ''
-      });
+    if (eventWalkinForm.event_id === eventId && eventMode === 'walkin') {
+      setEventWalkinForm(createEmptyEventWalkinForm());
+      setEventMode('list');
       return;
     }
-    setEventWalkinForm({
-      event_id: eventId,
-      full_name: '',
-      email: '',
-      passport_id: '',
-      registration_answers: {},
-      error: ''
-    });
+    setEventWalkinForm(createEmptyEventWalkinForm(eventId));
+    setEventMode('walkin');
   }
 
   async function submitEventWalkinForm(e) {
@@ -2070,13 +2125,12 @@ export default function AdminPage() {
     const eventId = String(eventWalkinForm.event_id || '').trim();
     if (!eventId) return;
     const email = normalizeEmailValue(eventWalkinForm.email);
-    const passportId = String(eventWalkinForm.passport_id || '').trim();
     const fullName = String(eventWalkinForm.full_name || '').trim();
     const registrationFields = Array.isArray(selectedWalkinEvent?.registration_fields)
       ? selectedWalkinEvent.registration_fields
       : [];
-    if (!email && !passportId) {
-      setEventWalkinForm((prev) => ({ ...prev, error: 'Isi minimal email atau passport ID.' }));
+    if (!email) {
+      setEventWalkinForm((prev) => ({ ...prev, error: 'Email wajib diisi.' }));
       return;
     }
     for (let i = 0; i < registrationFields.length; i += 1) {
@@ -2108,19 +2162,12 @@ export default function AdminPage() {
           branch_id: branchId,
           full_name: fullName || null,
           email: email || null,
-          passport_id: passportId || null,
           registration_answers: answersByLabel
         })
       });
-      setFeedback(`walkin.registered: ${fullName || email || passportId}`);
-      setEventWalkinForm((prev) => ({
-        ...prev,
-        full_name: '',
-        email: '',
-        passport_id: '',
-        registration_answers: {},
-        error: ''
-      }));
+      setFeedback(`walkin.registered: ${fullName || email}`);
+      setEventWalkinForm(createEmptyEventWalkinForm());
+      setEventMode('list');
       await loadEvents();
       if (editingEventId && editingEventId === eventId) {
         await loadEventParticipants(eventId);
@@ -2231,6 +2278,11 @@ export default function AdminPage() {
     const key = row?.key;
     const participant = row?.participant || {};
     if (!key) return;
+    const awardEnabled = isAwardEnabled(eventForm.award_enabled, true);
+    if (!awardEnabled) {
+      setFeedback('Award tidak aktif untuk event ini.');
+      return;
+    }
     const topN = normalizeAwardTopN(eventForm.award_top_n, 1);
     const rankRaw = String(eventCheckoutRankMap[key] || '').trim();
     const rank = rankRaw ? normalizeAwardTopN(rankRaw, 1) : null;
@@ -2370,10 +2422,13 @@ export default function AdminPage() {
     if (!editingEventId || !eventPostQuote) return;
     try {
       setEventSaving(true);
+      const awardEnabled = isFreePlan ? true : isAwardEnabled(eventForm.award_enabled, true);
       const awardScopes = isFreePlan
         ? ['overall']
-        : normalizeEventAwardScopes(eventForm.award_scopes, ['overall']);
-      const awardTopN = isFreePlan ? 1 : normalizeAwardTopN(eventForm.award_top_n, 1);
+        : awardEnabled
+          ? normalizeEventAwardScopes(eventForm.award_scopes, ['overall'])
+          : [];
+      const awardTopN = isFreePlan ? 1 : awardEnabled ? normalizeAwardTopN(eventForm.award_top_n, 1) : 0;
       await apiJson(`/v1/admin/events/${encodeURIComponent(editingEventId)}`, {
         method: 'PATCH',
         body: JSON.stringify({
@@ -2384,12 +2439,14 @@ export default function AdminPage() {
           image_url: eventForm.image_url || null,
           description: eventForm.description || null,
           event_categories: normalizeEventCategoriesForPayload(eventForm.categories_text),
+          award_enabled: awardEnabled,
           award_scopes: awardScopes,
-          award_scope: awardScopes[0] || 'overall',
+          award_scope: awardEnabled ? (awardScopes[0] || 'overall') : null,
           award_top_n: awardTopN,
           gallery_images: normalizeGalleryImagesForPayload(eventForm.gallery_images_text),
           schedule_items: normalizeScheduleItemsForPayload(eventForm.schedule_items_text),
           start_at: eventPostQuote.start_at,
+          price: Number(eventForm.price || 0),
           duration_minutes: eventPostQuote.duration_minutes,
           registration_fields: normalizeRegistrationFieldsForPayload(eventForm.registration_fields),
           status: 'published'
@@ -2686,6 +2743,7 @@ export default function AdminPage() {
                   setEventPostQuote(null);
                   setEventParticipants([]);
                   setEventEditTab('general');
+                  setEventWalkinForm(createEmptyEventWalkinForm());
                   setEventMode('list');
                 }
                 if (tab.id === 'user') {
@@ -2740,129 +2798,6 @@ export default function AdminPage() {
                     </div>
                   </div>
                   {eventLoading ? <p className="feedback">Loading event list...</p> : null}
-                  {selectedWalkinEvent ? (
-                    <form className="card" style={{ borderStyle: 'dashed', marginBottom: '0.8rem' }} onSubmit={submitEventWalkinForm}>
-                      <p className="eyebrow">Walk-in Registration</p>
-                      <p className="feedback" style={{ marginBottom: '0.6rem' }}>
-                        Event: <strong>{selectedWalkinEvent.event_name || selectedWalkinEvent.event_id}</strong>
-                      </p>
-                      <label>
-                        Nama
-                        <input
-                          value={eventWalkinForm.full_name}
-                          onChange={(e) => setEventWalkinForm((prev) => ({ ...prev, full_name: e.target.value }))}
-                        />
-                      </label>
-                      <label>
-                        Email
-                        <input
-                          type="email"
-                          value={eventWalkinForm.email}
-                          onChange={(e) => setEventWalkinForm((prev) => ({ ...prev, email: e.target.value }))}
-                        />
-                      </label>
-                      <label>
-                        Passport ID
-                        <input
-                          value={eventWalkinForm.passport_id}
-                          onChange={(e) => setEventWalkinForm((prev) => ({ ...prev, passport_id: e.target.value }))}
-                        />
-                      </label>
-                      {Array.isArray(selectedWalkinEvent.registration_fields) && selectedWalkinEvent.registration_fields.length > 0 ? (
-                        <>
-                          <p className="eyebrow">Informasi untuk penyelenggara</p>
-                          {selectedWalkinEvent.registration_fields.map((field, index) => {
-                            const fieldId = String(field?.field_id || `field_${index}`);
-                            const type = String(field?.type || 'free_type');
-                            const label = String(field?.label || `Field ${index + 1}`);
-                            const isRequired = field?.required !== false;
-                            const value = String(eventWalkinForm.registration_answers[fieldId] || '');
-                            if (type === 'date') {
-                              return (
-                                <label key={fieldId}>
-                                  {label}{isRequired ? ' *' : ''}
-                                  <input
-                                    type="date"
-                                    value={value}
-                                    onChange={(e) =>
-                                      setEventWalkinForm((prev) => ({
-                                        ...prev,
-                                        registration_answers: { ...prev.registration_answers, [fieldId]: e.target.value }
-                                      }))
-                                    }
-                                  />
-                                </label>
-                              );
-                            }
-                            if (type === 'lookup') {
-                              const options = Array.isArray(field?.options) ? field.options : [];
-                              return (
-                                <label key={fieldId}>
-                                  {label}{isRequired ? ' *' : ''}
-                                  <select
-                                    value={value}
-                                    onChange={(e) =>
-                                      setEventWalkinForm((prev) => ({
-                                        ...prev,
-                                        registration_answers: { ...prev.registration_answers, [fieldId]: e.target.value }
-                                      }))
-                                    }
-                                  >
-                                    <option value="">Pilih</option>
-                                    {options.map((opt, optIndex) => (
-                                      <option key={`${fieldId}-${optIndex}`} value={String(opt)}>
-                                        {String(opt)}
-                                      </option>
-                                    ))}
-                                  </select>
-                                </label>
-                              );
-                            }
-                            return (
-                              <label key={fieldId}>
-                                {label}{isRequired ? ' *' : ''}
-                                <input
-                                  value={value}
-                                  onChange={(e) =>
-                                    setEventWalkinForm((prev) => ({
-                                      ...prev,
-                                      registration_answers: { ...prev.registration_answers, [fieldId]: e.target.value }
-                                    }))
-                                  }
-                                />
-                              </label>
-                            );
-                          })}
-                        </>
-                      ) : null}
-                      {eventWalkinForm.error ? <p className="error">{eventWalkinForm.error}</p> : null}
-                      <div className="row-actions">
-                        <button
-                          className="btn"
-                          type="submit"
-                          disabled={Boolean(eventWalkinSavingMap[selectedWalkinEvent.event_id])}
-                        >
-                          {eventWalkinSavingMap[selectedWalkinEvent.event_id] ? 'Registering...' : 'Simpan Walk-in'}
-                        </button>
-                        <button
-                          className="btn ghost"
-                          type="button"
-                          onClick={() =>
-                            setEventWalkinForm({
-                              event_id: '',
-                              full_name: '',
-                              email: '',
-                              passport_id: '',
-                              registration_answers: {},
-                              error: ''
-                            })
-                          }
-                        >
-                          Batal
-                        </button>
-                      </div>
-                    </form>
-                  ) : null}
                   <div className="event-card-grid">
                     {filteredEvents.map((item) => (
                       <article key={item.event_id} className="event-admin-card">
@@ -2879,10 +2814,11 @@ export default function AdminPage() {
                           <p>{item.location || '-'}</p>
                           <p>Category: {Array.isArray(item.event_categories) && item.event_categories.length > 0 ? item.event_categories.join(', ') : '-'}</p>
                           {!isFreePlan ? (
-                            <p>Award: {formatEventAwardScopes(item.award_scopes ?? item.award_scope)}</p>
+                            <p>Award: {isAwardEnabled(item.award_enabled, true) ? formatEventAwardScopes(item.award_scopes ?? item.award_scope) : 'No'}</p>
                           ) : null}
-                          {!isFreePlan ? <p>Top N: {normalizeAwardTopN(item.award_top_n, 1)}</p> : null}
+                          {!isFreePlan && isAwardEnabled(item.award_enabled, true) ? <p>Top N: {normalizeAwardTopN(item.award_top_n, 1)}</p> : null}
                           <p>Start: {formatClassDatetime(item.start_at)}</p>
+                          <p>Price: {formatIdr(item.price || 0)}</p>
                           <p>Duration: {item.duration_minutes || '60'} minutes</p>
                           <p>Participants: {Number(item.participant_count || 0)}</p>
                           <div className="row-actions">
@@ -2891,7 +2827,7 @@ export default function AdminPage() {
                               type="button"
                               onClick={() => openEventWalkinForm(item)}
                             >
-                              {eventWalkinForm.event_id === item.event_id ? 'Close' : 'Walk-in'}
+                              Walk-in
                             </button>
                             <ParticipantsButton onClick={() => openEventParticipants(item)} />
                             <ShareButton onClick={() => shareEvent(item)} />
@@ -2902,10 +2838,136 @@ export default function AdminPage() {
                     ))}
                   </div>
                 </>
+              ) : eventMode === 'walkin' && selectedWalkinEvent ? (
+                <>
+                  <div className="panel-head">
+                    <h2>Walk-in Registration</h2>
+                    <button
+                      className="btn ghost"
+                      type="button"
+                      onClick={() => {
+                        setEventWalkinForm(createEmptyEventWalkinForm());
+                        setEventMode('list');
+                      }}
+                    >
+                      Back to list
+                    </button>
+                  </div>
+                  <form className="card" style={{ borderStyle: 'dashed', marginBottom: '0.8rem' }} onSubmit={submitEventWalkinForm}>
+                    <p className="feedback" style={{ marginBottom: '0.6rem' }}>
+                      Event: <strong>{selectedWalkinEvent.event_name || selectedWalkinEvent.event_id}</strong>
+                    </p>
+                    <p className="feedback" style={{ marginBottom: '0.6rem' }}>
+                      Harga: <strong>{formatIdr(selectedWalkinEvent.price || 0)}</strong>
+                    </p>
+                    <label>
+                      Nama
+                      <input
+                        value={eventWalkinForm.full_name}
+                        onChange={(e) => setEventWalkinForm((prev) => ({ ...prev, full_name: e.target.value }))}
+                      />
+                    </label>
+                    <label>
+                      Email
+                      <input
+                        type="email"
+                        value={eventWalkinForm.email}
+                        onChange={(e) => setEventWalkinForm((prev) => ({ ...prev, email: e.target.value }))}
+                      />
+                    </label>
+                    {Array.isArray(selectedWalkinEvent.registration_fields) && selectedWalkinEvent.registration_fields.length > 0 ? (
+                      <>
+                        <p className="eyebrow">Informasi untuk penyelenggara</p>
+                        {selectedWalkinEvent.registration_fields.map((field, index) => {
+                          const fieldId = String(field?.field_id || `field_${index}`);
+                          const type = String(field?.type || 'free_type');
+                          const label = String(field?.label || `Field ${index + 1}`);
+                          const isRequired = field?.required !== false;
+                          const value = String(eventWalkinForm.registration_answers[fieldId] || '');
+                          if (type === 'date') {
+                            return (
+                              <label key={fieldId}>
+                                {label}{isRequired ? ' *' : ''}
+                                <input
+                                  type="date"
+                                  value={value}
+                                  onChange={(e) =>
+                                    setEventWalkinForm((prev) => ({
+                                      ...prev,
+                                      registration_answers: { ...prev.registration_answers, [fieldId]: e.target.value }
+                                    }))
+                                  }
+                                />
+                              </label>
+                            );
+                          }
+                          if (type === 'lookup') {
+                            const options = Array.isArray(field?.options) ? field.options : [];
+                            return (
+                              <label key={fieldId}>
+                                {label}{isRequired ? ' *' : ''}
+                                <select
+                                  value={value}
+                                  onChange={(e) =>
+                                    setEventWalkinForm((prev) => ({
+                                      ...prev,
+                                      registration_answers: { ...prev.registration_answers, [fieldId]: e.target.value }
+                                    }))
+                                  }
+                                >
+                                  <option value="">Pilih</option>
+                                  {options.map((opt, optIndex) => (
+                                    <option key={`${fieldId}-${optIndex}`} value={String(opt)}>
+                                      {String(opt)}
+                                    </option>
+                                  ))}
+                                </select>
+                              </label>
+                            );
+                          }
+                          return (
+                            <label key={fieldId}>
+                              {label}{isRequired ? ' *' : ''}
+                              <input
+                                value={value}
+                                onChange={(e) =>
+                                  setEventWalkinForm((prev) => ({
+                                    ...prev,
+                                    registration_answers: { ...prev.registration_answers, [fieldId]: e.target.value }
+                                  }))
+                                }
+                              />
+                            </label>
+                          );
+                        })}
+                      </>
+                    ) : null}
+                    {eventWalkinForm.error ? <p className="error">{eventWalkinForm.error}</p> : null}
+                    <div className="row-actions">
+                      <button
+                        className="btn"
+                        type="submit"
+                        disabled={Boolean(eventWalkinSavingMap[selectedWalkinEvent.event_id])}
+                      >
+                        {eventWalkinSavingMap[selectedWalkinEvent.event_id] ? 'Registering...' : 'Simpan Walk-in'}
+                      </button>
+                      <button
+                        className="btn ghost"
+                        type="button"
+                        onClick={() => {
+                          setEventWalkinForm(createEmptyEventWalkinForm());
+                          setEventMode('list');
+                        }}
+                      >
+                        Batal
+                      </button>
+                    </div>
+                  </form>
+                </>
               ) : (
                 <>
                   <div className="panel-head">
-                    <h2>{editingEventId ? 'Edit event' : 'Add event'}</h2>
+                    <h2>{editingEventId ? `Edit event ${eventForm.event_name || ''}`.trim() : 'Add event'}</h2>
                     <button
                       className="btn ghost"
                       type="button"
@@ -2983,6 +3045,7 @@ export default function AdminPage() {
                           />
                         </label>
                         <label>start_at<input type="datetime-local" value={eventForm.start_at} onChange={(e) => setEventForm((p) => ({ ...p, start_at: e.target.value }))} /></label>
+                        <label>price<input type="number" min="0" value={eventForm.price} onChange={(e) => setEventForm((p) => ({ ...p, price: e.target.value }))} /></label>
                         <label>duration_minutes<input type="number" min="1" value={eventForm.duration_minutes} onChange={(e) => setEventForm((p) => ({ ...p, duration_minutes: e.target.value }))} /></label>
                       </>
                     ) : null}
@@ -3000,41 +3063,27 @@ export default function AdminPage() {
                           Preview: {normalizeEventCategoriesForPayload(eventForm.categories_text).join(' | ') || '-'}
                         </p>
                         <div>
-                          <p style={{ margin: 0, fontWeight: 600 }}>Award scope</p>
+                          <p style={{ margin: 0, fontWeight: 600 }}>Award applicable?</p>
                           <div style={{ display: 'grid', gap: '0.35rem', marginTop: '0.35rem' }}>
                             <label style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', margin: 0 }}>
                               <input
-                                type="checkbox"
-                                checked={normalizeEventAwardScopes(eventForm.award_scopes, ['overall']).includes('overall')}
+                                type="radio"
+                                name="award_enabled"
+                                checked={isFreePlan ? true : isAwardEnabled(eventForm.award_enabled, true)}
                                 disabled={isFreePlan}
-                                onChange={(e) =>
-                                  setEventForm((p) => {
-                                    const current = normalizeEventAwardScopes(p.award_scopes, ['overall']);
-                                    const next = e.target.checked
-                                      ? [...new Set([...current, 'overall'])]
-                                      : current.filter((scope) => scope !== 'overall');
-                                    return { ...p, award_scopes: normalizeEventAwardScopes(next, ['overall']) };
-                                  })
-                                }
+                                onChange={() => setEventForm((p) => ({ ...p, award_enabled: true }))}
                               />
-                              <span>Overall</span>
+                              <span>Yes</span>
                             </label>
                             <label style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', margin: 0 }}>
                               <input
-                                type="checkbox"
-                                checked={normalizeEventAwardScopes(eventForm.award_scopes, ['overall']).includes('category')}
+                                type="radio"
+                                name="award_enabled"
+                                checked={!isFreePlan && !isAwardEnabled(eventForm.award_enabled, true)}
                                 disabled={isFreePlan}
-                                onChange={(e) =>
-                                  setEventForm((p) => {
-                                    const current = normalizeEventAwardScopes(p.award_scopes, ['overall']);
-                                    const next = e.target.checked
-                                      ? [...new Set([...current, 'category'])]
-                                      : current.filter((scope) => scope !== 'category');
-                                    return { ...p, award_scopes: normalizeEventAwardScopes(next, ['overall']) };
-                                  })
-                                }
+                                onChange={() => setEventForm((p) => ({ ...p, award_enabled: false }))}
                               />
-                              <span>Per kategori</span>
+                              <span>No</span>
                             </label>
                           </div>
                         </div>
@@ -3042,21 +3091,66 @@ export default function AdminPage() {
                           <p className="feedback">Award scope tersedia untuk paket Starter ke atas.</p>
                         ) : (
                           <p className="feedback">
-                            Setting saat ini: {formatEventAwardScopes(eventForm.award_scopes)}
+                            Setting saat ini: {isAwardEnabled(eventForm.award_enabled, true) ? formatEventAwardScopes(eventForm.award_scopes) : 'No award'}
                           </p>
                         )}
-                        <label>
-                          Top N
-                          <input
-                            type="number"
-                            min="1"
-                            step="1"
-                            value={isFreePlan ? '1' : eventForm.award_top_n || '1'}
-                            disabled={isFreePlan}
-                            onChange={(e) => setEventForm((p) => ({ ...p, award_top_n: e.target.value }))}
-                          />
-                        </label>
-                        {isFreePlan ? <p className="feedback">Top N award tersedia untuk paket Starter ke atas.</p> : null}
+                        {isFreePlan || isAwardEnabled(eventForm.award_enabled, true) ? (
+                          <>
+                            <div>
+                              <p style={{ margin: 0, fontWeight: 600 }}>Award scope</p>
+                              <div style={{ display: 'grid', gap: '0.35rem', marginTop: '0.35rem' }}>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', margin: 0 }}>
+                                  <input
+                                    type="checkbox"
+                                    checked={normalizeEventAwardScopes(eventForm.award_scopes, ['overall']).includes('overall')}
+                                    disabled={isFreePlan}
+                                    onChange={(e) =>
+                                      setEventForm((p) => {
+                                        const current = normalizeEventAwardScopes(p.award_scopes, ['overall']);
+                                        const next = e.target.checked
+                                          ? [...new Set([...current, 'overall'])]
+                                          : current.filter((scope) => scope !== 'overall');
+                                        return { ...p, award_scopes: normalizeEventAwardScopes(next, ['overall']) };
+                                      })
+                                    }
+                                  />
+                                  <span>Overall</span>
+                                </label>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', margin: 0 }}>
+                                  <input
+                                    type="checkbox"
+                                    checked={normalizeEventAwardScopes(eventForm.award_scopes, ['overall']).includes('category')}
+                                    disabled={isFreePlan}
+                                    onChange={(e) =>
+                                      setEventForm((p) => {
+                                        const current = normalizeEventAwardScopes(p.award_scopes, ['overall']);
+                                        const next = e.target.checked
+                                          ? [...new Set([...current, 'category'])]
+                                          : current.filter((scope) => scope !== 'category');
+                                        return { ...p, award_scopes: normalizeEventAwardScopes(next, ['overall']) };
+                                      })
+                                    }
+                                  />
+                                  <span>Per kategori</span>
+                                </label>
+                              </div>
+                            </div>
+                            <label>
+                              Top N
+                              <input
+                                type="number"
+                                min="1"
+                                step="1"
+                                value={isFreePlan ? '1' : eventForm.award_top_n || '1'}
+                                disabled={isFreePlan}
+                                onChange={(e) => setEventForm((p) => ({ ...p, award_top_n: e.target.value }))}
+                              />
+                            </label>
+                            {isFreePlan ? <p className="feedback">Top N award tersedia untuk paket Starter ke atas.</p> : null}
+                          </>
+                        ) : (
+                          <p className="feedback">Award dinonaktifkan untuk event ini.</p>
+                        )}
                       </div>
                     ) : null}
                     {eventEditTab === 'custom_fields' ? (
@@ -3944,7 +4038,7 @@ export default function AdminPage() {
                         onChange={handleMemberUploadChange}
                         style={{ display: 'none' }}
                       />
-                      <button className="btn ghost" type="button" onClick={openMemberUploadPicker} disabled={memberSaving}>
+                      <button className="btn ghost" type="button" onClick={openMemberUploadModal} disabled={memberSaving}>
                         Upload
                       </button>
                     </div>
@@ -3988,6 +4082,79 @@ export default function AdminPage() {
                       Format CSV: `email,member_name,phone`
                     </p>
                   </div>
+                  {memberUploadModalOpen ? (
+                    <div className="modal-overlay" onClick={closeMemberUploadModal}>
+                      <div className="modal-card" onClick={(event) => event.stopPropagation()}>
+                        <div className="panel-head">
+                          <div>
+                            <p className="eyebrow">Upload Member</p>
+                            <h3 style={{ margin: 0 }}>Pilih metode upload</h3>
+                          </div>
+                          <button className="btn ghost small" type="button" onClick={closeMemberUploadModal}>
+                            Close
+                          </button>
+                        </div>
+                        <div className="row-actions" style={{ marginBottom: '0.75rem', flexWrap: 'wrap' }}>
+                          <button
+                            className={`btn ghost small ${memberUploadMode === 'template' ? 'active' : ''}`}
+                            type="button"
+                            onClick={() => setMemberUploadMode('template')}
+                          >
+                            Download template
+                          </button>
+                          <button
+                            className={`btn ghost small ${memberUploadMode === 'paste' ? 'active' : ''}`}
+                            type="button"
+                            onClick={() => setMemberUploadMode('paste')}
+                          >
+                            Copy paste
+                          </button>
+                          <button
+                            className={`btn ghost small ${memberUploadMode === 'file' ? 'active' : ''}`}
+                            type="button"
+                            onClick={() => setMemberUploadMode('file')}
+                          >
+                            Upload file
+                          </button>
+                        </div>
+                        {memberUploadMode === 'template' ? (
+                          <div className="card" style={{ borderStyle: 'dashed' }}>
+                            <p className="feedback">Unduh template CSV lalu isi sesuai format standar upload member.</p>
+                            <p className="sub">Kolom wajib: `email`. Kolom lain: `member_name`, `phone`.</p>
+                            <button className="btn" type="button" onClick={downloadMemberUploadTemplate}>
+                              Download template CSV
+                            </button>
+                          </div>
+                        ) : null}
+                        {memberUploadMode === 'paste' ? (
+                          <form className="form" onSubmit={submitMemberUploadText}>
+                            <label>
+                              Paste CSV
+                              <textarea
+                                rows={10}
+                                value={memberUploadText}
+                                onChange={(event) => setMemberUploadText(event.target.value)}
+                                placeholder={'email,member_name,phone\nmember1@example.com,Member Satu,081234567890'}
+                              />
+                            </label>
+                            <p className="sub">Format: `email,member_name,phone`</p>
+                            <button className="btn" type="submit" disabled={memberSaving}>
+                              {memberSaving ? 'Uploading...' : 'Upload dari paste'}
+                            </button>
+                          </form>
+                        ) : null}
+                        {memberUploadMode === 'file' ? (
+                          <div className="card" style={{ borderStyle: 'dashed' }}>
+                            <p className="feedback">Pilih file CSV untuk upload massal member.</p>
+                            <p className="sub">Format: `email,member_name,phone`</p>
+                            <button className="btn" type="button" onClick={() => memberUploadInputRef.current?.click()} disabled={memberSaving}>
+                              {memberSaving ? 'Uploading...' : 'Pilih file CSV'}
+                            </button>
+                          </div>
+                        ) : null}
+                      </div>
+                    </div>
+                  ) : null}
                   <div className="entity-list">
                     <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                       <thead>

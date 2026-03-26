@@ -110,6 +110,7 @@ export function signMemberJwt({ tenantId, memberId, email }) {
     tenant_id: tenantId,
     role: 'member',
     email,
+    token_use: 'access',
     iss: config.jwtIssuer,
     aud: config.jwtAudience,
     iat: now,
@@ -125,10 +126,27 @@ export function signTenantJwt({ tenantId, userId, email, role }) {
     tenant_id: tenantId,
     role,
     email,
+    token_use: 'access',
     iss: config.jwtIssuer,
     aud: config.jwtAudience,
     iat: now,
     exp: now + config.jwtExpiresInSec
+  };
+  return { token: signJwt(payload), payload };
+}
+
+export function signTenantActivationToken({ tenantId, userId, email, role }) {
+  const now = Math.floor(Date.now() / 1000);
+  const payload = {
+    sub: userId,
+    tenant_id: tenantId,
+    role,
+    email,
+    token_use: 'activation',
+    iss: config.jwtIssuer,
+    aud: config.jwtAudience,
+    iat: now,
+    exp: now + config.activationTokenExpiresInSec
   };
   return { token: signJwt(payload), payload };
 }
@@ -140,6 +158,10 @@ export function verifyMemberJwt(token) {
     throw new Error('JWT payload is incomplete');
   }
 
+  if (payload.token_use && payload.token_use !== 'access') {
+    throw new Error('JWT payload is incomplete');
+  }
+
   return payload;
 }
 
@@ -147,6 +169,20 @@ export function verifyTenantJwt(token) {
   const payload = verifyJwt(token);
   if (!payload.sub || !payload.tenant_id || !payload.role || payload.role === 'member') {
     throw new Error('JWT payload is incomplete');
+  }
+  if (payload.token_use && payload.token_use !== 'access') {
+    throw new Error('JWT payload is incomplete');
+  }
+  return payload;
+}
+
+export function verifyTenantActivationToken(token) {
+  const payload = verifyJwt(token);
+  if (!payload.sub || !payload.tenant_id || !payload.role || payload.role === 'member') {
+    throw new Error('activation token payload is incomplete');
+  }
+  if (payload.token_use !== 'activation') {
+    throw new Error('activation token is invalid');
   }
   return payload;
 }

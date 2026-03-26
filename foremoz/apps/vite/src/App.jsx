@@ -12,6 +12,8 @@ import WebOwnerPage from './pages/WebOwnerPage.jsx';
 import AccountPublicPage from './pages/AccountPublicPage.jsx';
 import SignUpPage from './pages/SignUpPage.jsx';
 import SignInPage from './pages/SignInPage.jsx';
+import ActivateAccountPage from './pages/ActivateAccountPage.jsx';
+import VerifyPasswordPage from './pages/VerifyPasswordPage.jsx';
 import MemberSignUpPage from './pages/MemberSignUpPage.jsx';
 import MemberSignInPage from './pages/MemberSignInPage.jsx';
 import DashboardPage from './pages/DashboardPage.jsx';
@@ -213,6 +215,8 @@ export default function App() {
       <Route path="/web/owner" element={<WebOwnerPage />} />
       <Route path="/a/:account" element={<AccountPublicPage />} />
       <Route path="/signup" element={<SignUpPage />} />
+      <Route path="/verify-password" element={<VerifyPasswordPage />} />
+      <Route path="/activate" element={<ActivateAccountPage />} />
       <Route path="/a/:account/member/signup" element={<MemberSignUpPage />} />
       <Route path="/member/signup" element={<Navigate to="/a/tn_001/member/signup" replace />} />
       <Route path="/a/:account/member/signin" element={<MemberSignInPage />} />

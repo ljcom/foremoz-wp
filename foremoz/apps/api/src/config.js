@@ -13,6 +13,12 @@ function parseNumber(value, fallback) {
   return parsed;
 }
 
+function normalizeBaseUrl(value, fallback) {
+  const raw = String(value || '').trim();
+  if (!raw) return fallback;
+  return raw.replace(/\/+$/, '');
+}
+
 export const config = {
   port: Number(process.env.PORT || 3300),
   databaseUrl: process.env.DATABASE_URL || '',
@@ -25,7 +31,9 @@ export const config = {
   jwtIssuer: process.env.JWT_ISSUER || 'foremoz-fitness-api',
   jwtAudience: process.env.JWT_AUDIENCE || 'foremoz-fitness-member',
   jwtExpiresInSec: parseNumber(process.env.JWT_EXPIRES_IN_SEC, 86400),
+  activationTokenExpiresInSec: parseNumber(process.env.ACTIVATION_TOKEN_EXPIRES_IN_SEC, 259200),
   corsOrigin: process.env.CORS_ORIGIN || '*',
+  appOrigin: normalizeBaseUrl(process.env.APP_ORIGIN, 'http://localhost:5173'),
   emailEnabled: parseBoolean(process.env.EMAIL_ENABLED, false),
   emailFromAddress: String(process.env.EMAIL_FROM_ADDRESS || '').trim(),
   emailFromName: String(process.env.EMAIL_FROM_NAME || 'Foremoz').trim() || 'Foremoz',

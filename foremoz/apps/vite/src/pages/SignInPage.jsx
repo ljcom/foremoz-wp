@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import AuthLayout from '../components/AuthLayout.jsx';
 import {
   apiJson,
@@ -16,7 +16,9 @@ import {
 export default function SignInPage() {
   const navigate = useNavigate();
   const { account } = useParams();
+  const [searchParams] = useSearchParams();
   const isAccountSignin = Boolean(account);
+  const activationNotice = String(searchParams.get('activated') || '').trim() === '1';
   const [form, setForm] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -183,6 +185,7 @@ export default function SignInPage() {
       alternateText={isAccountSignin ? '' : 'Need owner account? Create one'}
     >
       <form className="card form" onSubmit={submit}>
+        {activationNotice ? <p className="feedback">Akun sudah aktif. Silakan sign in.</p> : null}
         <label>
           Email
           <input name="email" type="email" value={form.email} onChange={handleChange} />

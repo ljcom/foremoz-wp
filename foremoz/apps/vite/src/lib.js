@@ -121,10 +121,13 @@ export function accountPath(session, suffix) {
 }
 
 export async function apiJson(path, options = {}) {
+  const session = getSession();
+  const authToken = String(session?.auth?.accessToken || '').trim();
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...options,
     headers: {
       'content-type': 'application/json',
+      ...(authToken ? { authorization: `Bearer ${authToken}` } : {}),
       ...(options.headers || {})
     }
   });

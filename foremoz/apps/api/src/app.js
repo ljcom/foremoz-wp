@@ -1,5 +1,5 @@
 import express from 'express';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomInt, randomUUID } from 'node:crypto';
 import { query, pool, withTx } from './db.js';
 import { appendDomainEvent, resolveNamespaceId } from './event-store.js';
 import { runFitnessProjection } from './projection.js';
@@ -7,15 +7,19 @@ import { config } from './config.js';
 import {
   sendEventRegistrationEmail,
   sendMemberSignupEmail,
-  sendTenantSignupEmail
+  sendPassportWelcomeEmail,
+  sendTenantActivationEmail
 } from './email.js';
 import {
   hashPassword,
   normalizeEmail,
   readBearerToken,
+  signTenantActivationToken,
   signMemberJwt,
   signTenantJwt,
   verifyMemberJwt,
+  verifyTenantActivationToken,
+  verifyTenantJwt,
   verifyPassword
 } from './auth.js';
 
@@ -269,6 +273,15 @@ function normalizeCustomFields(rawValue, fieldName = 'custom_fields') {
   return normalized;
 }
 
+function normalizeBoolean(value, fallback = true) {
+  if (value === undefined || value === null || value === '') return fallback;
+  if (typeof value === 'boolean') return value;
+  const normalized = String(value).trim().toLowerCase();
+  if (normalized === 'true' || normalized === 'yes' || normalized === '1') return true;
+  if (normalized === 'false' || normalized === 'no' || normalized === '0') return false;
+  return fallback;
+}
+
 function participantIdentityKey(data) {
   const passportId = String(data?.passport_id || '').trim();
   if (passportId) return `passport:${passportId}`;
@@ -334,6 +347,170 @@ function buildParticipantNumber(eventId) {
     .slice(-8) || 'EVENT';
   const token = randomUUID().replace(/-/g, '').slice(0, 6).toUpperCase();
   return `EVR-${compactEventId}-${token}`;
+}
+
+function buildTenantActivationUrl(token) {
+  return `${config.appOrigin}/activate?token=${encodeURIComponent(String(token || '').trim())}`;
+}
+
+function normalizeActivationCode(value) {
+  return String(value || '').replace(/\D/g, '').slice(0, 6);
+}
+
+function buildActivationCode() {
+  return String(randomInt(0, 1000000)).padStart(6, '0');
+}
+
+function hashActivationCode(code) {
+  return createHash('sha256').update(String(code || '')).digest('hex');
+}
+
+async function getTenantUserByEmail({ email, tenantId = null }) {
+  const normalizedEmail = normalizeEmail(required(email, 'email'));
+  const params = [normalizedEmail];
+  let sql = `select tenant_id, user_id, full_name, email, role, status
+     from read.rm_tenant_user_auth
+     where lower(email) = lower($1)`;
+  if (tenantId) {
+    params.push(String(tenantId || '').trim());
+    sql += ` and tenant_id = $2`;
+  }
+  sql += ` order by updated_at desc limit 1`;
+  const result = await query(sql, params);
+  return result.rows[0] || null;
+}
+
+async function getLatestActivationRequest({ tenantId, userId }) {
+  const namespaceId = resolveNamespaceId(tenantId);
+  const result = await query(
+    `select payload->'data' as data
+     from eventdb_event
+     where namespace_id = $1
+       and event_type = 'owner.user.activation.requested'
+       and payload->'data'->>'user_id' = $2
+     order by sequence desc
+     limit 1`,
+    [namespaceId, userId]
+  );
+  return result.rows[0]?.data || null;
+}
+
+async function issueTenantActivation({ tenantId, userId, fullName, email, role }) {
+  const activationCode = buildActivationCode();
+  const activationSigned = signTenantActivationToken({ tenantId, userId, email, role });
+  const activationUrl = buildTenantActivationUrl(activationSigned.token);
+  const requestedAt = new Date().toISOString();
+  const expiresAt = new Date(Date.now() + config.activationTokenExpiresInSec * 1000).toISOString();
+
+  await appendDomainEvent({
+    tenantId,
+    branchId: null,
+    actorId: userId,
+    actorKind: 'owner',
+    eventType: 'owner.user.activation.requested',
+    subjectKind: 'tenant_user_activation',
+    subjectId: `activation_${userId}_${Date.now()}`,
+    data: {
+      tenant_id: tenantId,
+      user_id: userId,
+      email,
+      role,
+      activation_code_hash: hashActivationCode(activationCode),
+      requested_at: requestedAt,
+      expires_at: expiresAt,
+      activation_url: activationUrl
+    },
+    refs: {},
+    ts: requestedAt
+  });
+
+  const emailDelivery = await sendTenantActivationEmail({
+    email,
+    fullName,
+    role,
+    tenantId,
+    activationUrl,
+    activationCode,
+    expiresAt
+  });
+  warnEmailDelivery('tenant_activation', emailDelivery);
+
+  return {
+    activationCode,
+    activationUrl,
+    expiresAt,
+    emailDelivery
+  };
+}
+
+async function activateTenantUser({ tenantId, userId, authRow }) {
+  const ts = new Date().toISOString();
+  const event = await appendDomainEvent({
+    tenantId,
+    branchId: null,
+    actorId: userId,
+    actorKind: 'owner',
+    eventType: 'owner.user.updated',
+    subjectKind: 'tenant_user',
+    subjectId: userId,
+    data: {
+      tenant_id: tenantId,
+      user_id: userId,
+      status: 'active',
+      updated_at: ts
+    },
+    refs: {},
+    ts
+  });
+
+  await runFitnessProjection({ tenantId, branchId: null });
+
+  return {
+    user: {
+      tenant_id: authRow.tenant_id,
+      user_id: authRow.user_id,
+      full_name: authRow.full_name,
+      email: authRow.email,
+      role: authRow.role,
+      status: 'active'
+    },
+    event
+  };
+}
+
+async function requireActiveTenantUser(req, tenantId) {
+  const token = readBearerToken(req);
+  if (!token) {
+    throw fail(401, 'AUTH_REQUIRED', 'login required');
+  }
+
+  let payload;
+  try {
+    payload = verifyTenantJwt(token);
+  } catch (error) {
+    throw fail(401, 'AUTH_INVALID_TOKEN', String(error?.message || 'invalid token'));
+  }
+
+  if (String(payload.tenant_id || '').trim() !== String(tenantId || '').trim()) {
+    throw fail(403, 'AUTH_TENANT_MISMATCH', 'token tenant_id mismatch');
+  }
+
+  const authResult = await query(
+    `select tenant_id, user_id, full_name, email, role, status
+     from read.rm_tenant_user_auth
+     where tenant_id = $1 and user_id = $2
+     limit 1`,
+    [tenantId, payload.sub]
+  );
+  const authRow = authResult.rows[0] || null;
+  if (!authRow) {
+    throw fail(401, 'AUTH_INVALID_TOKEN', 'account not found');
+  }
+  if (authRow.status !== 'active') {
+    throw fail(403, 'AUTH_ACCOUNT_NOT_ACTIVATED', 'akun belum diaktivasi. Cek email aktivasi terlebih dulu.');
+  }
+
+  return authRow;
 }
 
 function normalizePassportPublicVisibility(raw) {
@@ -985,7 +1162,7 @@ app.post('/v1/tenant/auth/signup', async (req, res, next) => {
         role,
         industry_slug: industrySlug,
         password_hash: passwordHash,
-        status: 'active',
+        status: 'pending_activation',
         created_at: ts
       },
       refs: {},
@@ -996,15 +1173,14 @@ app.post('/v1/tenant/auth/signup', async (req, res, next) => {
       ts
     });
 
-    await runFitnessProjection({ tenantId, branchId: null });
-    const tokenSigned = signTenantJwt({ tenantId, userId, email, role });
-    const signupEmailDelivery = await sendTenantSignupEmail({
-      email,
+    const activation = await issueTenantActivation({
+      tenantId,
+      userId,
       fullName,
-      role,
-      tenantId
+      email,
+      role
     });
-    warnEmailDelivery('tenant_signup', signupEmailDelivery);
+    await runFitnessProjection({ tenantId, branchId: null });
 
     return created(res, {
       user: {
@@ -1014,15 +1190,148 @@ app.post('/v1/tenant/auth/signup', async (req, res, next) => {
         email,
         role,
         industry_slug: industrySlug,
-        status: 'active'
+        status: 'pending_activation'
       },
-      auth: {
-        access_token: tokenSigned.token,
-        token_type: 'Bearer',
-        expires_in: config.jwtExpiresInSec
+      activation: {
+        required: true,
+        activation_url: activation.activationUrl,
+        expires_in: config.activationTokenExpiresInSec
       },
-      email_delivery: signupEmailDelivery,
+      email_delivery: activation.emailDelivery,
       event
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.post('/v1/tenant/auth/activate', async (req, res, next) => {
+  try {
+    const data = req.body || {};
+    const token = String(data.token || '').trim();
+    let authRow = null;
+    let tenantId = '';
+    let userId = '';
+
+    if (token) {
+      let payload;
+      try {
+        payload = verifyTenantActivationToken(token);
+      } catch (error) {
+        throw fail(400, 'AUTH_INVALID_ACTIVATION_TOKEN', String(error?.message || 'invalid activation token'));
+      }
+      tenantId = String(payload.tenant_id || '').trim();
+      userId = String(payload.sub || '').trim();
+      const authResult = await query(
+        `select tenant_id, user_id, full_name, email, role, status
+         from read.rm_tenant_user_auth
+         where tenant_id = $1 and user_id = $2
+         limit 1`,
+        [tenantId, userId]
+      );
+      authRow = authResult.rows[0] || null;
+    } else {
+      const email = normalizeEmail(required(data.email, 'email'));
+      const activationCode = normalizeActivationCode(required(data.code, 'code'));
+      tenantId = String(data.tenant_id || '').trim();
+      authRow = await getTenantUserByEmail({ email, tenantId: tenantId || null });
+      if (authRow) {
+        tenantId = authRow.tenant_id;
+        userId = authRow.user_id;
+      }
+      if (!authRow) {
+        throw fail(404, 'AUTH_ACCOUNT_NOT_FOUND', 'account not found');
+      }
+      const latestActivation = await getLatestActivationRequest({ tenantId, userId });
+      if (!latestActivation) {
+        throw fail(400, 'AUTH_ACTIVATION_CODE_NOT_FOUND', 'kode verifikasi belum tersedia. Coba resend.');
+      }
+      const expiresAt = new Date(latestActivation.expires_at || '');
+      if (Number.isNaN(expiresAt.getTime()) || Date.now() > expiresAt.getTime()) {
+        throw fail(400, 'AUTH_ACTIVATION_CODE_EXPIRED', 'kode verifikasi sudah expired. Coba resend.');
+      }
+      if (hashActivationCode(activationCode) !== String(latestActivation.activation_code_hash || '')) {
+        throw fail(400, 'AUTH_ACTIVATION_CODE_INVALID', 'kode verifikasi tidak valid.');
+      }
+    }
+
+    if (!authRow) {
+      throw fail(404, 'AUTH_ACCOUNT_NOT_FOUND', 'account not found');
+    }
+
+    if (authRow.status === 'active') {
+      return ok(res, {
+        user: {
+          tenant_id: authRow.tenant_id,
+          user_id: authRow.user_id,
+          full_name: authRow.full_name,
+          email: authRow.email,
+          role: authRow.role,
+          status: authRow.status
+        },
+        already_active: true
+      });
+    }
+
+    const activated = await activateTenantUser({ tenantId, userId, authRow });
+
+    return ok(res, {
+      user: activated.user,
+      already_active: false,
+      event: activated.event
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.post('/v1/tenant/auth/activation/resend', async (req, res, next) => {
+  try {
+    const data = req.body || {};
+    const email = normalizeEmail(required(data.email, 'email'));
+    const tenantId = String(data.tenant_id || '').trim();
+    const authRow = await getTenantUserByEmail({ email, tenantId: tenantId || null });
+    if (!authRow) {
+      throw fail(404, 'AUTH_ACCOUNT_NOT_FOUND', 'account not found');
+    }
+    if (authRow.status === 'active') {
+      return ok(res, {
+        user: {
+          tenant_id: authRow.tenant_id,
+          user_id: authRow.user_id,
+          full_name: authRow.full_name,
+          email: authRow.email,
+          role: authRow.role,
+          status: authRow.status
+        },
+        already_active: true
+      });
+    }
+
+    const activation = await issueTenantActivation({
+      tenantId: authRow.tenant_id,
+      userId: authRow.user_id,
+      fullName: authRow.full_name,
+      email: authRow.email,
+      role: authRow.role
+    });
+
+    return ok(res, {
+      user: {
+        tenant_id: authRow.tenant_id,
+        user_id: authRow.user_id,
+        full_name: authRow.full_name,
+        email: authRow.email,
+        role: authRow.role,
+        status: authRow.status
+      },
+      already_active: false,
+      activation: {
+        required: true,
+        activation_url: activation.activationUrl,
+        expires_in: config.activationTokenExpiresInSec
+      },
+      email_delivery: activation.emailDelivery
     });
   } catch (error) {
     return next(error);
@@ -1079,6 +1388,9 @@ app.post('/v1/tenant/auth/signin', async (req, res, next) => {
     }
 
     if (authRow.status !== 'active') {
+      if (authRow.status === 'pending_activation') {
+        throw fail(403, 'AUTH_ACCOUNT_NOT_ACTIVATED', 'akun belum diaktivasi. Cek email aktivasi terlebih dulu.');
+      }
       throw fail(403, 'AUTH_ACCOUNT_INACTIVE', 'account is not active');
     }
 
@@ -2809,6 +3121,7 @@ app.post('/v1/admin/classes', async (req, res, next) => {
   try {
     const data = req.body || {};
     const tenantId = data.tenant_id || config.defaultTenantId;
+    await requireActiveTenantUser(req, tenantId);
     const branchId = required(data.branch_id, 'branch_id');
     const classId = data.class_id || `class_${Date.now()}_${randomUUID().slice(0, 8)}`;
     const startAt = new Date(required(data.start_at, 'start_at'));
@@ -2851,6 +3164,7 @@ app.patch('/v1/admin/classes/:classId', async (req, res, next) => {
   try {
     const data = req.body || {};
     const tenantId = data.tenant_id || config.defaultTenantId;
+    await requireActiveTenantUser(req, tenantId);
     const classId = required(req.params.classId, 'classId');
     const existing = await query(
       `select tenant_id, branch_id, class_id, class_name, start_at, end_at, capacity
@@ -2905,6 +3219,7 @@ app.delete('/v1/admin/classes/:classId', async (req, res, next) => {
   try {
     const data = req.body || {};
     const tenantId = data.tenant_id || req.query.tenant_id || config.defaultTenantId;
+    await requireActiveTenantUser(req, tenantId);
     const classId = required(req.params.classId, 'classId');
     const existing = await query(
       `select branch_id
@@ -3012,6 +3327,7 @@ app.post('/v1/admin/events', async (req, res, next) => {
   try {
     const data = req.body || {};
     const tenantId = data.tenant_id || config.defaultTenantId;
+    await requireActiveTenantUser(req, tenantId);
     const branchId = required(data.branch_id, 'branch_id');
     const eventId = data.event_id || `evt_${Date.now()}_${randomUUID().slice(0, 8)}`;
     const startAt = new Date(required(data.start_at, 'start_at'));
@@ -3023,9 +3339,13 @@ app.post('/v1/admin/events', async (req, res, next) => {
     const galleryImages = normalizeEventGalleryImages(data.gallery_images, []);
     const scheduleItems = normalizeEventScheduleItems(data.schedule_items, []);
     const eventCategories = normalizeEventCategories(data.event_categories, []);
-    const awardScopes = normalizeEventAwardScopes(data.award_scopes ?? data.award_scope, ['overall']);
-    const awardScope = toPrimaryAwardScope(awardScopes, ['overall']);
-    const awardTopN = asPositiveInteger(data.award_top_n, 'award_top_n', 1);
+    const awardEnabled = normalizeBoolean(data.award_enabled, true);
+    const awardScopes = awardEnabled
+      ? normalizeEventAwardScopes(data.award_scopes ?? data.award_scope, ['overall'])
+      : [];
+    const awardScope = awardEnabled ? toPrimaryAwardScope(awardScopes, ['overall']) : null;
+    const awardTopN = awardEnabled ? asPositiveInteger(data.award_top_n, 'award_top_n', 1) : 0;
+    const price = asNonNegativeInteger(data.price, 'price', 0);
 
     const event = await appendDomainEvent({
       tenantId,
@@ -3045,9 +3365,11 @@ app.post('/v1/admin/events', async (req, res, next) => {
         gallery_images: galleryImages,
         schedule_items: scheduleItems,
         event_categories: eventCategories,
+        award_enabled: awardEnabled,
         award_scopes: awardScopes,
         award_scope: awardScope,
         award_top_n: awardTopN,
+        price,
         start_at: startAt.toISOString(),
         duration_minutes: durationMinutes,
         registration_fields: registrationFields,
@@ -3068,6 +3390,7 @@ app.patch('/v1/admin/events/:eventId', async (req, res, next) => {
   try {
     const data = req.body || {};
     const tenantId = data.tenant_id || config.defaultTenantId;
+    await requireActiveTenantUser(req, tenantId);
     const eventId = required(req.params.eventId, 'eventId');
     const latest = await getLatestEntityDataByEventTypes(
       tenantId,
@@ -3105,10 +3428,14 @@ app.patch('/v1/admin/events/:eventId', async (req, res, next) => {
       data.event_categories,
       Array.isArray(latest.event_categories) ? latest.event_categories : []
     );
+    const awardEnabled = normalizeBoolean(data.award_enabled, normalizeBoolean(latest.award_enabled, true));
     const existingAwardScopes = normalizeEventAwardScopes(latest.award_scopes ?? latest.award_scope, ['overall']);
-    const awardScopes = normalizeEventAwardScopes(data.award_scopes ?? data.award_scope, existingAwardScopes);
-    const awardScope = toPrimaryAwardScope(awardScopes, existingAwardScopes);
-    const awardTopN = asPositiveInteger(data.award_top_n, 'award_top_n', Number(latest.award_top_n || 1));
+    const awardScopes = awardEnabled
+      ? normalizeEventAwardScopes(data.award_scopes ?? data.award_scope, existingAwardScopes)
+      : [];
+    const awardScope = awardEnabled ? toPrimaryAwardScope(awardScopes, existingAwardScopes) : null;
+    const awardTopN = awardEnabled ? asPositiveInteger(data.award_top_n, 'award_top_n', Number(latest.award_top_n || 1)) : 0;
+    const price = asNonNegativeInteger(data.price, 'price', Number(latest.price || 0));
 
     const event = await appendDomainEvent({
       tenantId,
@@ -3128,9 +3455,11 @@ app.patch('/v1/admin/events/:eventId', async (req, res, next) => {
         gallery_images: galleryImages,
         schedule_items: scheduleItems,
         event_categories: eventCategories,
+        award_enabled: awardEnabled,
         award_scopes: awardScopes,
         award_scope: awardScope,
         award_top_n: awardTopN,
+        price,
         start_at: startAt.toISOString(),
         duration_minutes: durationMinutes,
         registration_fields: registrationFields,
@@ -3150,6 +3479,7 @@ app.delete('/v1/admin/events/:eventId', async (req, res, next) => {
   try {
     const data = req.body || {};
     const tenantId = data.tenant_id || req.query.tenant_id || config.defaultTenantId;
+    await requireActiveTenantUser(req, tenantId);
     const eventId = required(req.params.eventId, 'eventId');
     const latest = await getLatestEntityDataByEventTypes(
       tenantId,
@@ -3444,10 +3774,14 @@ app.post('/v1/admin/events/:eventId/participants/checkout', async (req, res, nex
       throw fail(400, 'PARTICIPANT_NOT_CHECKED_IN', 'participant must be checked in before checkout');
     }
 
-    const awardTopN = asPositiveInteger(latestEvent.award_top_n, 'award_top_n', 1);
+    const awardEnabled = normalizeBoolean(latestEvent.award_enabled, true);
+    const awardTopN = awardEnabled ? asPositiveInteger(latestEvent.award_top_n, 'award_top_n', 1) : 0;
     const rank = data.rank === undefined || data.rank === null || data.rank === ''
       ? null
       : asPositiveInteger(data.rank, 'rank', null);
+    if (!awardEnabled && rank !== null) {
+      throw fail(400, 'BAD_REQUEST', 'award is not enabled for this event');
+    }
     if (rank !== null && rank > awardTopN) {
       throw fail(400, 'BAD_REQUEST', `rank must be between 1 and ${awardTopN}`);
     }
@@ -3506,6 +3840,7 @@ app.post('/v1/admin/events/:eventId/participants/checkout', async (req, res, nex
         rank,
         score_points: scorePoints,
         award_top_n: awardTopN,
+        award_enabled: awardEnabled,
         custom_fields: customFields
       },
       refs: {}
@@ -3612,11 +3947,18 @@ app.post('/v1/events/:eventId/register', async (req, res, next) => {
       registeredAt
     });
     warnEmailDelivery('event_registration', registrationEmailDelivery);
+    const passportWelcomeEmailDelivery = await sendPassportWelcomeEmail({
+      email: email || null,
+      fullName: fullName || null,
+      eventName: latest.event_name || latest.name || eventId
+    });
+    warnEmailDelivery('passport_welcome', passportWelcomeEmailDelivery);
     return created(res, {
       event,
       registration_id: registrationId,
       event_id: eventId,
-      email_delivery: registrationEmailDelivery
+      email_delivery: registrationEmailDelivery,
+      passport_email_delivery: passportWelcomeEmailDelivery
     });
   } catch (error) {
     return next(error);

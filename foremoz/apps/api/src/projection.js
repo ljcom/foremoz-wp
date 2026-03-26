@@ -232,9 +232,10 @@ export async function runFitnessProjection({ tenantId, branchId }) {
           `update read.rm_tenant_user_auth
            set full_name = coalesce($3, full_name),
                role = coalesce($4, role),
-               updated_at = $5
+               status = coalesce($5, status),
+               updated_at = $6
            where tenant_id = $1 and user_id = $2`,
-          [tenant, data.user_id, data.full_name || null, data.role || null, data.updated_at || eventTs]
+          [tenant, data.user_id, data.full_name || null, data.role || null, data.status || null, data.updated_at || eventTs]
         );
         applied += 1;
         continue;

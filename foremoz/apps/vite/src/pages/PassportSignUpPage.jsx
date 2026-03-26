@@ -9,14 +9,16 @@ export default function PassportSignUpPage() {
   const params = new URLSearchParams(location.search || '');
   const nextPath = params.get('next') || '';
   const eventId = params.get('event') || '';
+  const initialEmail = params.get('email') || '';
   const signinHref = useMemo(() => {
     const nextParams = new URLSearchParams();
     if (eventId) nextParams.set('event', eventId);
     if (nextPath) nextParams.set('next', nextPath);
+    if (initialEmail) nextParams.set('email', initialEmail);
     const query = nextParams.toString();
     return `${authBase}/signin${query ? `?${query}` : ''}`;
-  }, [authBase, eventId, nextPath]);
-  const [form, setForm] = useState({ fullName: '', email: '', password: '' });
+  }, [authBase, eventId, initialEmail, nextPath]);
+  const [form, setForm] = useState({ fullName: '', email: initialEmail, password: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
