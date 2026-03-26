@@ -238,6 +238,11 @@ Last audited terhadap isi folder: **2026-03-25** (`foremoz/apps/api`, `foremoz/a
   - Remark: overview portal sesudah sign in sekarang sudah menampilkan subscription/PT status, payment activity, booking summary, dan shortcut ke event/account/member ops.
 - [~] Member auth funnel
   - Remark: halaman member signup/signin sekarang sudah membawa context account dan value proposition yang nyambung ke portal member.
+- [ ] Forgot password di semua sign-in
+  - [ ] Owner/Tenant sign-in (`/signin`, `/a/:account/signin`)
+    - Requirement: untuk host, forgot password bisa reset dengan menuliskan `account name` (account slug) sebagai langkah verifikasi tenant scope.
+  - [ ] Member sign-in (`/a/:account/member/signin`)
+  - [ ] Passport/Event sign-in (`/events/signin`, `/passport/signin`)
 - [~] Auth clarity `/web` vs `/events`
   - Remark: landing + sign-in sekarang sudah menampilkan penjelasan route auth agar user tahu `/web` untuk owner/tenant ops dan `/events` untuk passport/member participant.
   - Remark tambahan: default route kini diarahkan ke `/events` (Foremoz Events), dan di footer events ada CTA creator untuk pindah ke `/web`.
