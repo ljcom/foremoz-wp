@@ -64,7 +64,7 @@ export default function WebLandingPage() {
         <nav>
           <Link to="/events">Events</Link>
           {topNavVerticals.map((item) => (
-            <Link key={item.slug} to={`/${item.slug}`}>
+            <Link key={item.slug} className="topbar-industry-link" to={`/${item.slug}`}>
               {item.label}
             </Link>
           ))}

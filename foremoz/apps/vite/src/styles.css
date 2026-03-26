@@ -1954,6 +1954,10 @@ code {
 }
 
 @media (max-width: 560px) {
+  .topbar-industry-link {
+    display: none;
+  }
+
   .passport-context-strip,
   .passport-dash-tabbar {
     grid-template-columns: 1fr;
