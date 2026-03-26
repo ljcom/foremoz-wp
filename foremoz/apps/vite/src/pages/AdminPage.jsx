@@ -429,24 +429,40 @@ function generateDraftFromBrief(brief, currentStartAt = '') {
   };
 }
 
-function buildCatchyTitle(baseText, mode = 'rewrite', categories = []) {
+function pickRandom(items = [], fallback = '') {
+  const list = Array.isArray(items) ? items.filter(Boolean) : [];
+  if (list.length === 0) return fallback;
+  const index = Math.floor(Math.random() * list.length);
+  return list[index] || fallback;
+}
+
+function buildCatchyTitle(baseText, categories = [], location = '') {
   const clean = sentenceCase(
     stripTicketPriceTerms(String(baseText || ''))
       .replace(/\s+/g, ' ')
       .replace(/[|]+/g, '-')
       .trim()
   );
-  const primary = String(categories?.[0] || 'Experience').trim();
   if (!clean) return '';
-  if (mode === 'premium') {
-    const premiumSuffix = primary.toLowerCase().includes('art')
-      ? 'Collector Edition'
-      : 'Premium Experience';
-    return `${clean} | ${premiumSuffix}`;
-  }
-  const hasSession = /\bsession\b/i.test(clean);
-  if (hasSession) return clean;
-  return `${clean} - ${primary} Session`;
+  const category = String(categories?.[0] || '').trim();
+  const locationToken = titleCaseWords(String(location || '').split(',')[0] || '').trim();
+  const isArt = /art|lukis|lukisan|pameran|gallery|exhibition|museum/i.test(`${clean} ${category}`);
+
+  const artPrefix = ['Warna', 'Jejak', 'Ruang', 'Kanvas', 'Narasi', 'Spektrum'];
+  const artSuffix = ['Nusantara', 'Warisan', 'Majapahit', 'Peradaban', 'Budaya Indonesia'];
+  const genericPrefix = ['Momentum', 'Ritme', 'Puncak', 'Arah', 'Forum', 'Eksplorasi'];
+  const genericSuffix = ['Komunitas', 'Kreatif', 'Inovasi', 'Kolaborasi', 'Pengalaman'];
+
+  const withMarker = `${pickRandom(isArt ? artPrefix : genericPrefix, clean)} ${pickRandom(isArt ? artSuffix : genericSuffix, category || 'Event')}`.trim();
+  const options = [
+    clean,
+    `${clean}: ${withMarker}`,
+    `${withMarker} | ${clean}`,
+    `${clean} - ${category || (isArt ? 'Art Experience' : 'Community Session')}`.trim(),
+    locationToken ? `${withMarker} @ ${locationToken}` : '',
+    locationToken ? `${clean} @ ${locationToken}` : ''
+  ].filter(Boolean);
+  return pickRandom(options, clean).slice(0, 110).trim();
 }
 
 function createEmptyEventForm() {
@@ -1904,32 +1920,13 @@ export default function AdminPage() {
       return;
     }
     const categories = suggestCategoriesFromText(`${eventForm.categories_text} ${source}`);
-    const next = buildCatchyTitle(source, 'rewrite', categories);
+    const next = buildCatchyTitle(source, categories, eventForm.location);
     if (!next) {
       setFeedback('ai.assist: Gagal rewrite title.');
       return;
     }
     setEventForm((prev) => ({ ...prev, event_name: next }));
     setFeedback(`ai.assist: Judul event diperbarui -> ${next}`);
-  }
-
-  function aiMakePremiumTitle() {
-    const current = String(eventForm.event_name || '').trim();
-    const source = current || (typeof window !== 'undefined'
-      ? String(window.prompt('Event Name masih kosong. Masukkan brief/judul awal:', '') || '').trim()
-      : '');
-    if (!source) {
-      setFeedback('Isi Event Name dulu atau masukkan brief saat diminta.');
-      return;
-    }
-    const categories = suggestCategoriesFromText(`${eventForm.categories_text} ${source}`);
-    const next = buildCatchyTitle(source, 'premium', categories);
-    if (!next) {
-      setFeedback('ai.assist: Gagal membuat premium title.');
-      return;
-    }
-    setEventForm((prev) => ({ ...prev, event_name: next }));
-    setFeedback(`ai.assist: Judul event premium -> ${next}`);
   }
 
   function aiGenerateDescription() {
@@ -3734,6 +3731,16 @@ export default function AdminPage() {
                     {eventEditTab === 'general' ? (
                       <>
                         <label>Event Name<input value={eventForm.event_name} onChange={(e) => setEventForm((p) => ({ ...p, event_name: e.target.value }))} /></label>
+                        <div className="row-actions" style={{ marginTop: '-0.2rem' }}>
+                          <button
+                            className="btn ghost small"
+                            type="button"
+                            disabled={eventAiWorking}
+                            onClick={aiRewriteTitle}
+                          >
+                            AI Rewrite Title
+                          </button>
+                        </div>
                         <div className="card" style={{ borderStyle: 'dashed' }}>
                           <p className="eyebrow">{creatorLabel} Name (token input)</p>
                           <div className="row-actions" style={{ marginBottom: '0.5rem' }}>
@@ -3785,24 +3792,6 @@ export default function AdminPage() {
                             />
                           </label>
                           <p className="feedback">Tersimpan sebagai: {eventForm.trainer_name || '-'}</p>
-                        </div>
-                        <div className="row-actions" style={{ marginTop: '-0.2rem' }}>
-                          <button
-                            className="btn ghost small"
-                            type="button"
-                            disabled={eventAiWorking}
-                            onClick={aiRewriteTitle}
-                          >
-                            AI Rewrite Title
-                          </button>
-                          <button
-                            className="btn ghost small"
-                            type="button"
-                            disabled={eventAiWorking}
-                            onClick={aiMakePremiumTitle}
-                          >
-                            AI Make It Premium
-                          </button>
                         </div>
                         <label>Location<input value={eventForm.location} onChange={(e) => setEventForm((p) => ({ ...p, location: e.target.value }))} /></label>
                         <label>Image URL<input value={eventForm.image_url} onChange={(e) => setEventForm((p) => ({ ...p, image_url: e.target.value }))} /></label>
