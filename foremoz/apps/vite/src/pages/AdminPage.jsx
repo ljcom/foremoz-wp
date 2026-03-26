@@ -149,6 +149,26 @@ function generateDraftFromBrief(brief, currentStartAt = '') {
   };
 }
 
+function buildCatchyTitle(baseText, mode = 'rewrite', categories = []) {
+  const clean = sentenceCase(
+    String(baseText || '')
+      .replace(/\s+/g, ' ')
+      .replace(/[|]+/g, '-')
+      .trim()
+  );
+  const primary = String(categories?.[0] || 'Experience').trim();
+  if (!clean) return '';
+  if (mode === 'premium') {
+    const premiumSuffix = primary.toLowerCase().includes('art')
+      ? 'Collector Edition'
+      : 'Premium Experience';
+    return `${clean} | ${premiumSuffix}`;
+  }
+  const hasSession = /\bsession\b/i.test(clean);
+  if (hasSession) return clean;
+  return `${clean} - ${primary} Session`;
+}
+
 function createEmptyEventForm() {
   return {
     event_name: '',
@@ -1584,25 +1604,40 @@ export default function AdminPage() {
 
   function aiRewriteTitle() {
     const current = String(eventForm.event_name || '').trim();
-    if (!current) {
-      setFeedback('Isi Event Name dulu.');
+    const source = current || (typeof window !== 'undefined'
+      ? String(window.prompt('Event Name masih kosong. Masukkan brief/judul awal:', '') || '').trim()
+      : '');
+    if (!source) {
+      setFeedback('Isi Event Name dulu atau masukkan brief saat diminta.');
       return;
     }
-    const categories = suggestCategoriesFromText(`${eventForm.categories_text} ${current}`);
-    const next = `${sentenceCase(current)} - ${categories[0]} Session`;
+    const categories = suggestCategoriesFromText(`${eventForm.categories_text} ${source}`);
+    const next = buildCatchyTitle(source, 'rewrite', categories);
+    if (!next) {
+      setFeedback('ai.assist: Gagal rewrite title.');
+      return;
+    }
     setEventForm((prev) => ({ ...prev, event_name: next }));
-    setFeedback('ai.assist: Judul event diperbarui.');
+    setFeedback(`ai.assist: Judul event diperbarui -> ${next}`);
   }
 
   function aiMakePremiumTitle() {
     const current = String(eventForm.event_name || '').trim();
-    if (!current) {
-      setFeedback('Isi Event Name dulu.');
+    const source = current || (typeof window !== 'undefined'
+      ? String(window.prompt('Event Name masih kosong. Masukkan brief/judul awal:', '') || '').trim()
+      : '');
+    if (!source) {
+      setFeedback('Isi Event Name dulu atau masukkan brief saat diminta.');
       return;
     }
-    const next = `${sentenceCase(current)} | Premium Experience`;
+    const categories = suggestCategoriesFromText(`${eventForm.categories_text} ${source}`);
+    const next = buildCatchyTitle(source, 'premium', categories);
+    if (!next) {
+      setFeedback('ai.assist: Gagal membuat premium title.');
+      return;
+    }
     setEventForm((prev) => ({ ...prev, event_name: next }));
-    setFeedback('ai.assist: Judul event dibuat versi premium.');
+    setFeedback(`ai.assist: Judul event premium -> ${next}`);
   }
 
   function aiGenerateDescription() {
