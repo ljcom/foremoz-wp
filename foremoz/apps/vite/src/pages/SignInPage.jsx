@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import AuthLayout from '../components/AuthLayout.jsx';
 import {
@@ -178,8 +179,8 @@ export default function SignInPage() {
       title={isAccountSignin ? `Tenant sign in - ${account}` : 'Owner sign in'}
       subtitle={
         isAccountSignin
-          ? 'Sign in as tenant user (admin, CS, sales, PT).'
-          : 'Sign in as owner to manage tenant setup and access.'
+          ? 'Sign in as tenant user (admin, CS, sales, PT). Halaman ini bukan untuk passport event.'
+          : 'Sign in as owner untuk operasional tenant. Untuk event participant gunakan Passport login.'
       }
       alternateHref={isAccountSignin ? '' : '/signup'}
       alternateText={isAccountSignin ? '' : 'Need owner account? Create one'}
@@ -199,6 +200,17 @@ export default function SignInPage() {
           {loading ? 'Signing in...' : 'Sign in'}
         </button>
       </form>
+      <div className="card" style={{ marginTop: '0.75rem', borderStyle: 'dashed' }}>
+        <p className="eyebrow">Need different login?</p>
+        <div className="hero-actions">
+          <Link className="btn ghost small" to="/events/signin">
+            Passport/Event Login
+          </Link>
+          <Link className="btn ghost small" to={isAccountSignin && account ? `/a/${account}/member/signin` : '/a/tn_001/member/signin'}>
+            Member Portal Login
+          </Link>
+        </div>
+      </div>
     </AuthLayout>
   );
 }

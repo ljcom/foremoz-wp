@@ -64,7 +64,7 @@ export default function WebLandingPage() {
             </Link>
           ))}
           <Link className="btn small" to="/signin">
-            Sign In
+            Owner Sign In
           </Link>
         </nav>
       </header>
@@ -85,6 +85,14 @@ export default function WebLandingPage() {
                 Mulai Gratis
               </Link>
             ) : null}
+          </div>
+          <div className="card" style={{ marginTop: '1rem', borderStyle: 'dashed' }}>
+            <p className="eyebrow">Auth Route</p>
+            <p style={{ marginTop: 0 }}>`/web` untuk owner/tenant operation. Untuk participant event gunakan login Passport di `/events`.</p>
+            <div className="hero-actions">
+              <Link className="btn ghost small" to="/signin">Owner/Tenant Login</Link>
+              <Link className="btn ghost small" to="/events/signin">Passport/Event Login</Link>
+            </div>
           </div>
         </div>
 
@@ -165,7 +173,7 @@ export default function WebLandingPage() {
             Browse Events
           </Link>
           <Link className="btn ghost" to="/signin">
-            Sign In
+            Owner Sign In
           </Link>
         </div>
       </section>
