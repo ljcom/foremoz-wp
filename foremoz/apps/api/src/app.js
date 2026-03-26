@@ -458,8 +458,14 @@ function buildParticipantNumber(eventId) {
   return `EVR-${compactEventId}-${token}`;
 }
 
-function buildTenantActivationUrl(token) {
-  return `${config.appOrigin}/activate?token=${encodeURIComponent(String(token || '').trim())}`;
+function buildTenantActivationUrl(token, accountSlug = '') {
+  const params = new URLSearchParams();
+  params.set('token', String(token || '').trim());
+  const normalizedAccountSlug = String(accountSlug || '').trim().toLowerCase();
+  if (normalizedAccountSlug) {
+    params.set('account', normalizedAccountSlug);
+  }
+  return `${config.appOrigin}/activate?${params.toString()}`;
 }
 
 function normalizeActivationCode(value) {
@@ -494,6 +500,30 @@ async function resolveTenantIdByAccountName(accountName) {
     [normalized]
   );
   return result.rows[0]?.tenant_id || null;
+}
+
+async function getTenantSigninContext(tenantId) {
+  const normalizedTenantId = String(tenantId || '').trim();
+  if (!normalizedTenantId) {
+    return {
+      tenant_id: '',
+      account_slug: null,
+      sign_in_path: '/signin'
+    };
+  }
+  const result = await query(
+    `select tenant_id, account_slug
+     from read.rm_owner_setup
+     where tenant_id = $1 and status = 'active'
+     limit 1`,
+    [normalizedTenantId]
+  );
+  const accountSlug = String(result.rows[0]?.account_slug || '').trim().toLowerCase() || null;
+  return {
+    tenant_id: normalizedTenantId,
+    account_slug: accountSlug,
+    sign_in_path: accountSlug ? `/a/${accountSlug}/signin` : '/signin'
+  };
 }
 
 async function getTenantUserByEmail({ email, tenantId = null }) {
@@ -630,10 +660,10 @@ async function issueMemberPasswordReset({ tenantId, memberId, email, fullName })
   return { resetCode, expiresAt, emailDelivery };
 }
 
-async function issueTenantActivation({ tenantId, userId, fullName, email, role }) {
+async function issueTenantActivation({ tenantId, userId, fullName, email, role, accountSlug = '' }) {
   const activationCode = buildActivationCode();
   const activationSigned = signTenantActivationToken({ tenantId, userId, email, role });
-  const activationUrl = buildTenantActivationUrl(activationSigned.token);
+  const activationUrl = buildTenantActivationUrl(activationSigned.token, accountSlug);
   const requestedAt = new Date().toISOString();
   const expiresAt = new Date(Date.now() + config.activationTokenExpiresInSec * 1000).toISOString();
 
@@ -1365,6 +1395,7 @@ app.post('/v1/tenant/auth/signup', async (req, res, next) => {
     const industrySlug = normalizeIndustrySlug(data.industry_slug, 'active');
     const userId = data.user_id || `usr_${Date.now()}_${randomUUID().slice(0, 8)}`;
     const ts = new Date().toISOString();
+    const signinContext = await getTenantSigninContext(tenantId);
 
     if (password.length < 8) {
       throw fail(400, 'AUTH_WEAK_PASSWORD', 'password min length is 8 characters');
@@ -1414,7 +1445,8 @@ app.post('/v1/tenant/auth/signup', async (req, res, next) => {
       userId,
       fullName,
       email,
-      role
+      role,
+      accountSlug: signinContext.account_slug
     });
     await runFitnessProjection({ tenantId, branchId: null });
 
@@ -1430,6 +1462,9 @@ app.post('/v1/tenant/auth/signup', async (req, res, next) => {
       },
       activation: {
         required: true,
+        tenant_id: tenantId,
+        account_slug: signinContext.account_slug,
+        sign_in_path: signinContext.sign_in_path,
         activation_url: activation.activationUrl,
         expires_in: config.activationTokenExpiresInSec
       },
@@ -1495,6 +1530,8 @@ app.post('/v1/tenant/auth/activate', async (req, res, next) => {
       throw fail(404, 'AUTH_ACCOUNT_NOT_FOUND', 'account not found');
     }
 
+    const signinContext = await getTenantSigninContext(tenantId);
+
     if (authRow.status === 'active') {
       return ok(res, {
         user: {
@@ -1505,7 +1542,9 @@ app.post('/v1/tenant/auth/activate', async (req, res, next) => {
           role: authRow.role,
           status: authRow.status
         },
-        already_active: true
+        already_active: true,
+        sign_in_path: signinContext.sign_in_path,
+        account_slug: signinContext.account_slug
       });
     }
 
@@ -1514,6 +1553,8 @@ app.post('/v1/tenant/auth/activate', async (req, res, next) => {
     return ok(res, {
       user: activated.user,
       already_active: false,
+      sign_in_path: signinContext.sign_in_path,
+      account_slug: signinContext.account_slug,
       event: activated.event
     });
   } catch (error) {
@@ -1531,6 +1572,7 @@ app.post('/v1/tenant/auth/activation/resend', async (req, res, next) => {
       throw fail(404, 'AUTH_ACCOUNT_NOT_FOUND', 'account not found');
     }
     if (authRow.status === 'active') {
+      const signinContext = await getTenantSigninContext(authRow.tenant_id);
       return ok(res, {
         user: {
           tenant_id: authRow.tenant_id,
@@ -1540,16 +1582,20 @@ app.post('/v1/tenant/auth/activation/resend', async (req, res, next) => {
           role: authRow.role,
           status: authRow.status
         },
-        already_active: true
+        already_active: true,
+        sign_in_path: signinContext.sign_in_path,
+        account_slug: signinContext.account_slug
       });
     }
 
+    const signinContext = await getTenantSigninContext(authRow.tenant_id);
     const activation = await issueTenantActivation({
       tenantId: authRow.tenant_id,
       userId: authRow.user_id,
       fullName: authRow.full_name,
       email: authRow.email,
-      role: authRow.role
+      role: authRow.role,
+      accountSlug: signinContext.account_slug
     });
 
     return ok(res, {
@@ -1564,6 +1610,9 @@ app.post('/v1/tenant/auth/activation/resend', async (req, res, next) => {
       already_active: false,
       activation: {
         required: true,
+        tenant_id: authRow.tenant_id,
+        account_slug: signinContext.account_slug,
+        sign_in_path: signinContext.sign_in_path,
         activation_url: activation.activationUrl,
         expires_in: config.activationTokenExpiresInSec
       },
@@ -1626,7 +1675,19 @@ app.post('/v1/tenant/auth/signin', async (req, res, next) => {
 
     if (authRow.status !== 'active') {
       if (authRow.status === 'pending_activation') {
-        throw fail(403, 'AUTH_ACCOUNT_NOT_ACTIVATED', 'akun belum diaktivasi. Cek email aktivasi terlebih dulu.');
+        const signinContext = await getTenantSigninContext(authRow.tenant_id);
+        return res.status(403).json({
+          status: 'FAIL',
+          error_code: 'AUTH_ACCOUNT_NOT_ACTIVATED',
+          message: 'akun belum diaktivasi. Cek email aktivasi terlebih dulu.',
+          activation: {
+            required: true,
+            tenant_id: authRow.tenant_id,
+            email: authRow.email,
+            account_slug: signinContext.account_slug,
+            sign_in_path: signinContext.sign_in_path
+          }
+        });
       }
       throw fail(403, 'AUTH_ACCOUNT_INACTIVE', 'account is not active');
     }
@@ -2625,13 +2686,19 @@ app.post('/v1/owner/account/delete', async (req, res, next) => {
 app.get('/v1/owner/users', async (req, res, next) => {
   try {
     const tenantId = req.query.tenant_id || config.defaultTenantId;
-    const status = req.query.status || 'active';
+    const status = String(req.query.status || 'active').trim().toLowerCase();
+    const params = [tenantId];
+    let statusFilter = '';
+    if (status !== 'all') {
+      params.push(status);
+      statusFilter = ` and status = $2`;
+    }
     const { rows } = await query(
       `select tenant_id, user_id, full_name, email, role, status, created_at, updated_at
        from read.rm_tenant_user_auth
-       where tenant_id = $1 and status = $2
+       where tenant_id = $1${statusFilter}
        order by updated_at desc`,
-      [tenantId, status]
+      params
     );
     return ok(res, { rows });
   } catch (error) {
@@ -2649,9 +2716,21 @@ app.post('/v1/owner/users', async (req, res, next) => {
     const fullName = required(data.full_name, 'full_name');
     const userId = data.user_id || `usr_${Date.now()}_${randomUUID().slice(0, 8)}`;
     const ts = new Date().toISOString();
+    const signinContext = await getTenantSigninContext(tenantId);
 
     if (password.length < 8) {
       throw fail(400, 'AUTH_WEAK_PASSWORD', 'password min length is 8 characters');
+    }
+
+    const existing = await query(
+      `select user_id
+       from read.rm_tenant_user_auth
+       where tenant_id = $1 and email = $2
+       limit 1`,
+      [tenantId, email]
+    );
+    if (existing.rows[0]) {
+      throw fail(409, 'AUTH_EMAIL_EXISTS', 'email already registered');
     }
 
     const passwordHash = await hashPassword(password);
@@ -2670,7 +2749,7 @@ app.post('/v1/owner/users', async (req, res, next) => {
         email,
         role,
         password_hash: passwordHash,
-        status: 'active',
+        status: 'pending_activation',
         created_at: ts
       },
       refs: {},
@@ -2681,8 +2760,35 @@ app.post('/v1/owner/users', async (req, res, next) => {
       ts
     });
 
+    const activation = await issueTenantActivation({
+      tenantId,
+      userId,
+      fullName,
+      email,
+      role,
+      accountSlug: signinContext.account_slug
+    });
     await runFitnessProjection({ tenantId, branchId: null });
-    return created(res, { event });
+    return created(res, {
+      user: {
+        tenant_id: tenantId,
+        user_id: userId,
+        full_name: fullName,
+        email,
+        role,
+        status: 'pending_activation'
+      },
+      activation: {
+        required: true,
+        tenant_id: tenantId,
+        account_slug: signinContext.account_slug,
+        sign_in_path: signinContext.sign_in_path,
+        activation_url: activation.activationUrl,
+        expires_in: config.activationTokenExpiresInSec
+      },
+      email_delivery: activation.emailDelivery,
+      event
+    });
   } catch (error) {
     return next(error);
   }

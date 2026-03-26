@@ -103,6 +103,17 @@ function openDashboardInNewTab(accountSlug) {
   window.open(targetUrl, '_blank', 'noopener,noreferrer');
 }
 
+function formatActivationFeedback(result, fullName) {
+  const safeName = String(fullName || '').trim() || 'user';
+  if (result?.email_delivery?.sent) {
+    return `owner.user.created ${safeName}. Activation email sent.`;
+  }
+  if (result?.activation?.activation_url) {
+    return `owner.user.created ${safeName}. Email not sent from this server, gunakan activation link manual: ${result.activation.activation_url}`;
+  }
+  return `owner.user.created ${safeName}. Pending activation.`;
+}
+
 export default function WebOwnerPage() {
   const navigate = useNavigate();
   const session = getSession();
@@ -189,7 +200,7 @@ export default function WebOwnerPage() {
     const [setupRes, saasRes, usersRes, branchesRes] = await Promise.all([
       apiJson(`/v1/owner/setup?tenant_id=${encodeURIComponent(activeTenant)}`),
       apiJson(`/v1/owner/saas?tenant_id=${encodeURIComponent(activeTenant)}`),
-      apiJson(`/v1/owner/users?tenant_id=${encodeURIComponent(activeTenant)}&status=active`),
+      apiJson(`/v1/owner/users?tenant_id=${encodeURIComponent(activeTenant)}&status=all`),
       apiJson(
         `/v1/owner/branches?tenant_id=${encodeURIComponent(activeTenant)}&status=${encodeURIComponent(branchStatusFilter)}`
       )
@@ -715,7 +726,7 @@ export default function WebOwnerPage() {
         return;
       }
 
-      await apiJson('/v1/owner/users', {
+      const result = await apiJson('/v1/owner/users', {
         method: 'POST',
         body: JSON.stringify({
           tenant_id: setupForm.tenant_id || tenantSeed,
@@ -725,7 +736,7 @@ export default function WebOwnerPage() {
           password: userForm.password
         })
       });
-      setFeedback(`owner.user.created ${userForm.full_name}`);
+      setFeedback(formatActivationFeedback(result, userForm.full_name));
       setUserForm(createEmptyUserForm());
       setUserMode('list');
       await refreshOwnerData(setupForm.tenant_id || tenantSeed);
@@ -791,6 +802,35 @@ export default function WebOwnerPage() {
         method: 'DELETE'
       });
       setFeedback(`owner.user.deleted ${userId}`);
+      await refreshOwnerData(setupForm.tenant_id || tenantSeed);
+    } catch (error) {
+      setFeedback(error.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function resendUserActivation(user) {
+    try {
+      setLoading(true);
+      const result = await apiJson('/v1/tenant/auth/activation/resend', {
+        method: 'POST',
+        body: JSON.stringify({
+          tenant_id: setupForm.tenant_id || tenantSeed,
+          email: user.email
+        })
+      });
+      if (result.already_active) {
+        setFeedback(`Akun ${user.email} sudah aktif.`);
+      } else {
+        if (result?.email_delivery?.sent) {
+          setFeedback(`Activation email dikirim ulang ke ${user.email}.`);
+        } else if (result?.activation?.activation_url) {
+          setFeedback(`Email belum terkirim dari server ini. Gunakan activation link manual: ${result.activation.activation_url}`);
+        } else {
+          setFeedback(`Activation user ${user.email} sudah di-refresh.`);
+        }
+      }
       await refreshOwnerData(setupForm.tenant_id || tenantSeed);
     } catch (error) {
       setFeedback(error.message);
@@ -1417,11 +1457,16 @@ export default function WebOwnerPage() {
                             ) : (
                               <>
                                 <strong>{u.full_name}</strong>
-                                <p>{u.email} - {u.role}</p>
+                                <p>{u.email} - {u.role} [{u.status || 'active'}]</p>
                               </>
                             )}
                           </div>
                           <div style={{ display: 'flex', gap: '0.5rem' }}>
+                            {editingUserId !== u.user_id && String(u.status || '').trim().toLowerCase() === 'pending_activation' ? (
+                              <button className="btn ghost" onClick={() => resendUserActivation(u)} disabled={loading}>
+                                Resend activation
+                              </button>
+                            ) : null}
                             {editingUserId === u.user_id ? (
                               <button className="btn" onClick={() => saveEditUser(u.user_id)} disabled={loading}>Save</button>
                             ) : (
@@ -1449,6 +1494,7 @@ export default function WebOwnerPage() {
                       </button>
                     </div>
                     <form className="form" autoComplete="off" onSubmit={submitUser}>
+                      <p className="mini-note">User baru akan masuk status pending activation sampai verifikasi email selesai.</p>
                       <label>
                         full_name
                         <input value={userForm.full_name} onChange={(e) => setUserForm((p) => ({ ...p, full_name: e.target.value }))} />

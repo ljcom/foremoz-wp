@@ -5,7 +5,15 @@ import { apiJson } from '../lib.js';
 
 export default function ActivateAccountPage() {
   const [searchParams] = useSearchParams();
-  const [state, setState] = useState({ loading: true, error: '', success: false, alreadyActive: false });
+  const account = String(searchParams.get('account') || '').trim();
+  const fallbackSignInPath = account ? `/a/${account}/signin` : '/signin';
+  const [state, setState] = useState({
+    loading: true,
+    error: '',
+    success: false,
+    alreadyActive: false,
+    signInPath: fallbackSignInPath
+  });
 
   useEffect(() => {
     const token = String(searchParams.get('token') || '').trim();
@@ -26,7 +34,8 @@ export default function ActivateAccountPage() {
           loading: false,
           error: '',
           success: true,
-          alreadyActive: Boolean(result.already_active)
+          alreadyActive: Boolean(result.already_active),
+          signInPath: result.sign_in_path || fallbackSignInPath
         });
       } catch (error) {
         if (cancelled) return;
@@ -34,7 +43,8 @@ export default function ActivateAccountPage() {
           loading: false,
           error: error.message,
           success: false,
-          alreadyActive: false
+          alreadyActive: false,
+          signInPath: fallbackSignInPath
         });
       }
     }
@@ -43,13 +53,13 @@ export default function ActivateAccountPage() {
     return () => {
       cancelled = true;
     };
-  }, [searchParams]);
+  }, [fallbackSignInPath, searchParams]);
 
   return (
     <AuthLayout
-      title="Aktivasi owner account"
-      subtitle="Konfirmasi email owner sebelum mulai setup tenant."
-      alternateHref="/signin"
+      title="Aktivasi akun tenant"
+      subtitle="Konfirmasi email user tenant sebelum sign in ke workspace."
+      alternateHref={state.signInPath}
       alternateText="Kembali ke sign in"
     >
       <section className="card form">
@@ -59,8 +69,8 @@ export default function ActivateAccountPage() {
             <p className="feedback">
               {state.alreadyActive ? 'Akun ini sudah aktif.' : 'Akun berhasil diaktivasi.'}
             </p>
-            <p className="feedback">Sekarang kamu bisa sign in dan membuat event/class.</p>
-            <Link className="btn" to="/signin?activated=1">
+            <p className="feedback">Sekarang kamu bisa sign in ke workspace tenant.</p>
+            <Link className="btn" to={`${state.signInPath}?activated=1`}>
               Lanjut ke sign in
             </Link>
           </>
@@ -68,7 +78,7 @@ export default function ActivateAccountPage() {
         {!state.loading && state.error ? (
           <>
             <p className="error">{state.error}</p>
-            <Link className="btn" to="/signin">
+            <Link className="btn" to={state.signInPath}>
               Ke sign in
             </Link>
           </>

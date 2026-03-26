@@ -8,12 +8,15 @@ export default function VerifyPasswordPage() {
   const [searchParams] = useSearchParams();
   const initialEmail = String(searchParams.get('email') || '').trim();
   const tenantId = String(searchParams.get('tenant_id') || '').trim();
+  const account = String(searchParams.get('account') || '').trim();
   const emailSent = String(searchParams.get('email_sent') || '').trim() === '1';
   const initialActivationUrl = String(searchParams.get('activation_url') || '').trim();
+  const initialSignInPath = account ? `/a/${account}/signin` : '/signin';
   const [form, setForm] = useState({ email: initialEmail, code: '' });
   const [feedback, setFeedback] = useState('');
   const [error, setError] = useState('');
   const [activationUrl, setActivationUrl] = useState(initialActivationUrl);
+  const [signInPath, setSignInPath] = useState(initialSignInPath);
   const [isEmailSent, setIsEmailSent] = useState(emailSent);
   const [verifying, setVerifying] = useState(false);
   const [resending, setResending] = useState(false);
@@ -34,7 +37,7 @@ export default function VerifyPasswordPage() {
       setVerifying(true);
       const email = requireField(form.email, 'email');
       const code = requireField(form.code, 'verification code');
-      await apiJson('/v1/tenant/auth/activate', {
+      const result = await apiJson('/v1/tenant/auth/activate', {
         method: 'POST',
         body: JSON.stringify({
           tenant_id: tenantId || undefined,
@@ -42,7 +45,7 @@ export default function VerifyPasswordPage() {
           code
         })
       });
-      navigate('/signin?activated=1', { replace: true });
+      navigate(`${result.sign_in_path || signInPath}?activated=1`, { replace: true });
     } catch (err) {
       setError(err.message);
     } finally {
@@ -65,6 +68,7 @@ export default function VerifyPasswordPage() {
       });
       setIsEmailSent(Boolean(result.email_delivery?.sent));
       setActivationUrl(result.activation?.activation_url || activationUrl);
+      setSignInPath(result.activation?.sign_in_path || result.sign_in_path || signInPath);
       setFeedback(result.already_active ? 'Akun ini sudah aktif. Silakan sign in.' : 'Kode verifikasi baru sudah dikirim.');
     } catch (err) {
       setError(err.message);
@@ -75,20 +79,20 @@ export default function VerifyPasswordPage() {
 
   return (
     <AuthLayout
-      title="Verify password"
-      subtitle="Aktivasi owner account sebelum mulai setup tenant."
-      alternateHref="/signin"
+      title="Verify account"
+      subtitle="Aktivasi akun tenant sebelum mulai sign in ke workspace."
+      alternateHref={signInPath}
       alternateText="Kembali ke sign in"
     >
       <section className="card form">
         <p className="feedback">
-          Akun owner{tenantId ? ` untuk tenant ${tenantId}` : ''} sudah dibuat.
+          Akun tenant{tenantId ? ` untuk tenant ${tenantId}` : ''} sudah dibuat.
         </p>
         <p className="feedback">
           Cek email {form.email ? <strong>{form.email}</strong> : 'kamu'} untuk aktivasi akun.
         </p>
         <p className="feedback">
-          Sebelum aktivasi, akun belum bisa login dan belum bisa membuat event/class.
+          Sebelum aktivasi, akun belum bisa login ke dashboard tenant.
         </p>
         <form onSubmit={submitVerification}>
           <label>
@@ -122,7 +126,7 @@ export default function VerifyPasswordPage() {
             <a href={activationUrl}>aktivasi akun</a>
           </p>
         ) : null}
-        <Link className="btn ghost" to="/signin">
+        <Link className="btn ghost" to={signInPath}>
           Ke halaman sign in
         </Link>
       </section>

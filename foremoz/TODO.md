@@ -249,6 +249,8 @@ Last audited terhadap isi folder: **2026-03-26** (`foremoz/apps/api`, `foremoz/a
   - [x] events browse: card (ecommerce-like)
   - [x] member signup -> signin
   - [x] tenant signin
+  - [x] tenant user email activation / verification
+    - Remark: owner signup dan user tenant tambahan (`admin/cs/sales/pt`) sekarang masuk `pending_activation`, bisa resend activation, dan redirect balik ke sign-in tenant yang sesuai sesudah verifikasi.
 - [~] Public: event detail -> see events
   - [x] Account scoped event page `/a/:account/events` (tidak lari ke `/events` global)
   - [x] Pada `/a/:account/events`, `Sign in` diarahkan ke `/a/:account/member/signin`

@@ -134,7 +134,10 @@ export async function apiJson(path, options = {}) {
 
   const payload = await response.json().catch(() => ({}));
   if (!response.ok || payload.status === 'FAIL') {
-    throw new Error(payload.message || `request failed: ${response.status}`);
+    const error = new Error(payload.message || `request failed: ${response.status}`);
+    error.errorCode = payload.error_code || null;
+    error.payload = payload;
+    throw error;
   }
 
   return payload;

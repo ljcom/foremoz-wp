@@ -173,6 +173,19 @@ export default function SignInPage() {
       navigate(`/a/${nextSession.tenant.account_slug}/admin/dashboard`, { replace: true });
       return;
     } catch (err) {
+      if (err?.errorCode === 'AUTH_ACCOUNT_NOT_ACTIVATED') {
+        const activation = err?.payload?.activation || {};
+        const verifyParams = new URLSearchParams();
+        verifyParams.set('email', activation.email || String(form.email || '').trim());
+        if (activation.tenant_id) {
+          verifyParams.set('tenant_id', activation.tenant_id);
+        }
+        if (activation.account_slug || account) {
+          verifyParams.set('account', activation.account_slug || account);
+        }
+        navigate(`/verify-password?${verifyParams.toString()}`, { replace: true });
+        return;
+      }
       setError(err.message);
       setTurnstileResetSignal((value) => value + 1);
     } finally {
