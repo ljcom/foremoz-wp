@@ -1073,13 +1073,21 @@ select:focus-visible {
 }
 
 input,
-select {
+select,
+textarea {
   border: 1px solid var(--line);
   background: #fff;
   border-radius: 10px;
   padding: 0.7rem;
   font-family: var(--font-main);
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+textarea {
+  width: 100%;
+  min-height: 5.6rem;
+  line-height: 1.45;
+  resize: vertical;
 }
 
 .error {
@@ -1599,14 +1607,16 @@ code {
 }
 
 .dashboard input,
-.dashboard select {
+.dashboard select,
+.dashboard textarea {
   border: 1px solid #d1deef;
   border-radius: 12px;
   background: #fff;
 }
 
 .dashboard input:focus-visible,
-.dashboard select:focus-visible {
+.dashboard select:focus-visible,
+.dashboard textarea:focus-visible {
   outline: 2px solid #7ba9de;
   outline-offset: 1px;
   box-shadow: 0 0 0 4px #dceaf9;
