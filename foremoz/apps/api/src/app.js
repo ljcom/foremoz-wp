@@ -3723,6 +3723,8 @@ app.get('/v1/admin/classes', async (req, res, next) => {
     let coachSharesByClassId = {};
     let periodEndByClassId = {};
     let maxMeetingsByClassId = {};
+    let categoryByClassId = {};
+    let customFieldsByClassId = {};
     if (classIds.length > 0) {
       const namespaceId = resolveNamespaceId(tenantId);
       const { rows: trainerRows } = await query(
@@ -3756,6 +3758,16 @@ app.get('/v1/admin/classes', async (req, res, next) => {
           .map((row) => [row.data?.class_id, Number(row.data?.max_meetings || 0)])
           .filter(([classId]) => Boolean(classId))
       );
+      categoryByClassId = Object.fromEntries(
+        trainerRows
+          .map((row) => [row.data?.class_id, row.data?.category || ''])
+          .filter(([classId]) => Boolean(classId))
+      );
+      customFieldsByClassId = Object.fromEntries(
+        trainerRows
+          .map((row) => [row.data?.class_id, row.data?.custom_fields || {}])
+          .filter(([classId]) => Boolean(classId))
+      );
     }
 
     return ok(res, {
@@ -3765,7 +3777,9 @@ app.get('/v1/admin/classes', async (req, res, next) => {
         price: priceByClassId[row.class_id] || 0,
         coach_shares: coachSharesByClassId[row.class_id] || [],
         period_end_at: periodEndByClassId[row.class_id] || null,
-        max_meetings: maxMeetingsByClassId[row.class_id] || 0
+        max_meetings: maxMeetingsByClassId[row.class_id] || 0,
+        category: categoryByClassId[row.class_id] || '',
+        custom_fields: customFieldsByClassId[row.class_id] || {}
       }))
     });
   } catch (error) {
@@ -3792,6 +3806,7 @@ app.post('/v1/admin/classes', async (req, res, next) => {
     if (periodEndAt && new Date(periodEndAt).getTime() < startAt.getTime()) {
       throw fail(400, 'BAD_REQUEST', 'period_end_at must be after start_at');
     }
+    const customFields = normalizeCustomFields(data.custom_fields);
 
     const event = await appendDomainEvent({
       tenantId,
@@ -3812,7 +3827,9 @@ app.post('/v1/admin/classes', async (req, res, next) => {
         start_at: startAt.toISOString(),
         end_at: endAt.toISOString(),
         period_end_at: periodEndAt,
-        max_meetings: asNonNegativeInteger(data.max_meetings, 'max_meetings', 0)
+        max_meetings: asNonNegativeInteger(data.max_meetings, 'max_meetings', 0),
+        category: String(data.category || '').trim(),
+        custom_fields: customFields
       },
       refs: {},
       uniqueIds: [{ scope: 'class.class_id', value: classId }]
@@ -3860,6 +3877,9 @@ app.patch('/v1/admin/classes/:classId', async (req, res, next) => {
     if (periodEndAt && new Date(periodEndAt).getTime() < startAt.getTime()) {
       throw fail(400, 'BAD_REQUEST', 'period_end_at must be after start_at');
     }
+    const customFields = data.custom_fields === undefined
+      ? latestScheduledData?.custom_fields || {}
+      : normalizeCustomFields(data.custom_fields);
 
     const event = await appendDomainEvent({
       tenantId,
@@ -3883,7 +3903,9 @@ app.patch('/v1/admin/classes/:classId', async (req, res, next) => {
         start_at: startAt.toISOString(),
         end_at: endAt.toISOString(),
         period_end_at: periodEndAt,
-        max_meetings: asNonNegativeInteger(data.max_meetings, 'max_meetings', Number(latestScheduledData?.max_meetings || 0))
+        max_meetings: asNonNegativeInteger(data.max_meetings, 'max_meetings', Number(latestScheduledData?.max_meetings || 0)),
+        category: data.category === undefined ? String(latestScheduledData?.category || '') : String(data.category || '').trim(),
+        custom_fields: customFields
       },
       refs: {}
     });
