@@ -18,7 +18,7 @@ const ADMIN_TABS = [
 ];
 
 const DEFAULT_CLASSES = [
-  { class_id: 'class_001', class_name: 'HIIT Morning', trainer_name: 'Raka', capacity: '20', start_at: '2026-03-03 07:00' }
+  { class_id: 'class_001', class_name: 'HIIT Morning', trainer_name: 'Raka', capacity: '20', price: '150000', start_at: '2026-03-03 07:00' }
 ];
 const DEFAULT_EVENTS = [
   {
@@ -729,7 +729,7 @@ export default function AdminPage() {
   const [eventForm, setEventForm] = useState(() => createEmptyEventForm());
   const [eventFormBaseline, setEventFormBaseline] = useState(() => serializeEventForm(createEmptyEventForm()));
   const [eventTrainerDraft, setEventTrainerDraft] = useState('');
-  const [classForm, setClassForm] = useState({ class_name: '', trainer_name: '', capacity: '20', start_at: '' });
+  const [classForm, setClassForm] = useState({ class_name: '', trainer_name: '', capacity: '20', price: '0', start_at: '' });
   const [classTrainerDraft, setClassTrainerDraft] = useState('');
   const [memberRelationDraft, setMemberRelationDraft] = useState('');
   const [trainerForm, setTrainerForm] = useState({ trainer_name: '', phone: '', specialization: '' });
@@ -890,6 +890,7 @@ export default function AdminPage() {
           class_name: item.class_name || '',
           trainer_name: item.trainer_name || '',
           capacity: String(item.capacity || '20'),
+          price: String(item.price || '0'),
           start_at: item.start_at || ''
         }))
       );
@@ -1173,6 +1174,7 @@ export default function AdminPage() {
   const filteredClasses = classes.filter((item) =>
     String(item.class_name || '').toLowerCase().includes(classQuery.toLowerCase()) ||
     String(item.trainer_name || '').toLowerCase().includes(classQuery.toLowerCase()) ||
+    String(item.price || '').toLowerCase().includes(classQuery.toLowerCase()) ||
     String(item.start_at || '').toLowerCase().includes(classQuery.toLowerCase())
   );
   const filteredTrainers = trainers.filter((item) =>
@@ -1384,12 +1386,13 @@ export default function AdminPage() {
           class_name: classForm.class_name,
           trainer_name: classForm.trainer_name,
           capacity: Number(classForm.capacity || 20),
+          price: Number(classForm.price || 0),
           start_at: startAtIso
         })
       });
 
       setFeedback(editingClassId ? `class.updated: ${classForm.class_name}` : `class.scheduled: ${classForm.class_name}`);
-      setClassForm({ class_name: '', trainer_name: '', capacity: '20', start_at: '' });
+      setClassForm({ class_name: '', trainer_name: '', capacity: '20', price: '0', start_at: '' });
       setClassTrainerDraft('');
       setEditingClassId('');
       setClassMode('list');
@@ -1407,6 +1410,7 @@ export default function AdminPage() {
       class_name: item.class_name || '',
       trainer_name: item.trainer_name || '',
       capacity: item.capacity || '20',
+      price: String(item.price || '0'),
       start_at: normalizedStartAt || ''
     });
     setClassTrainerDraft('');
@@ -1415,7 +1419,7 @@ export default function AdminPage() {
   }
 
   function startAddClass() {
-    setClassForm({ class_name: '', trainer_name: '', capacity: '20', start_at: '' });
+    setClassForm({ class_name: '', trainer_name: '', capacity: '20', price: '0', start_at: '' });
     setClassTrainerDraft('');
     setEditingClassId('');
     setClassMode('add');
@@ -2783,7 +2787,7 @@ export default function AdminPage() {
                 setActiveTab(tab.id);
                 if (tab.id === 'class') {
                   setEditingClassId('');
-                  setClassForm({ class_name: '', trainer_name: '', capacity: '20', start_at: '' });
+                  setClassForm({ class_name: '', trainer_name: '', capacity: '20', price: '0', start_at: '' });
                   setClassTrainerDraft('');
                   setClassMode('list');
                 }
@@ -3728,6 +3732,7 @@ export default function AdminPage() {
                           <th style={{ textAlign: 'left', padding: '0.65rem 0.5rem', borderBottom: '1px solid #d1d5db', background: '#f7efe6', fontWeight: 700 }}>Class Name</th>
                           <th style={{ textAlign: 'left', padding: '0.65rem 0.5rem', borderBottom: '1px solid #d1d5db', background: '#f7efe6', fontWeight: 700 }}>Trainer</th>
                           <th style={{ textAlign: 'left', padding: '0.65rem 0.5rem', borderBottom: '1px solid #d1d5db', background: '#f7efe6', fontWeight: 700 }}>Capacity</th>
+                          <th style={{ textAlign: 'left', padding: '0.65rem 0.5rem', borderBottom: '1px solid #d1d5db', background: '#f7efe6', fontWeight: 700 }}>Price</th>
                           <th style={{ textAlign: 'left', padding: '0.65rem 0.5rem', borderBottom: '1px solid #d1d5db', background: '#f7efe6', fontWeight: 700 }}>Start At</th>
                           <th style={{ textAlign: 'left', padding: '0.65rem 0.5rem', borderBottom: '1px solid #d1d5db', background: '#f7efe6', fontWeight: 700 }}>Aksi</th>
                         </tr>
@@ -3738,6 +3743,7 @@ export default function AdminPage() {
                             <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>{item.class_name}</td>
                             <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>{item.trainer_name}</td>
                             <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>{item.capacity}</td>
+                            <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>{formatIdr(item.price || 0)}</td>
                             <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>{formatClassDatetime(item.start_at)}</td>
                             <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>
                               <div className="row-actions">
@@ -3760,7 +3766,7 @@ export default function AdminPage() {
                     </button>
                   </div>
                   <form className="form" onSubmit={addClass}>
-                    <label>class_name<input value={classForm.class_name} onChange={(e) => setClassForm((p) => ({ ...p, class_name: e.target.value }))} /></label>
+                    <label>Class Name<input value={classForm.class_name} onChange={(e) => setClassForm((p) => ({ ...p, class_name: e.target.value }))} /></label>
                     <div className="card" style={{ borderStyle: 'dashed' }}>
                       <p className="eyebrow">trainer_name (token input)</p>
                       <div className="row-actions" style={{ marginBottom: '0.5rem' }}>
@@ -3813,8 +3819,9 @@ export default function AdminPage() {
                       </label>
                       <p className="feedback">Tersimpan sebagai: {classForm.trainer_name || '-'}</p>
                     </div>
-                    <label>capacity<input type="number" min="1" value={classForm.capacity} onChange={(e) => setClassForm((p) => ({ ...p, capacity: e.target.value }))} /></label>
-                    <label>start_at<input type="datetime-local" value={classForm.start_at} onChange={(e) => setClassForm((p) => ({ ...p, start_at: e.target.value }))} /></label>
+                    <label>Capacity<input type="number" min="1" value={classForm.capacity} onChange={(e) => setClassForm((p) => ({ ...p, capacity: e.target.value }))} /></label>
+                    <label>Price<input type="number" min="0" value={classForm.price} onChange={(e) => setClassForm((p) => ({ ...p, price: e.target.value }))} /></label>
+                    <label>Start At<input type="datetime-local" value={classForm.start_at} onChange={(e) => setClassForm((p) => ({ ...p, start_at: e.target.value }))} /></label>
                     <button className="btn" type="submit" disabled={classSaving}>{classSaving ? 'Saving...' : 'Save class'}</button>
                   </form>
                 </>

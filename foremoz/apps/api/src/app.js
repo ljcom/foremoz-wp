@@ -3483,12 +3483,14 @@ app.get('/v1/admin/classes', async (req, res, next) => {
 
     const classIds = rows.map((row) => row.class_id).filter(Boolean);
     let trainerByClassId = {};
+    let priceByClassId = {};
     if (classIds.length > 0) {
       const namespaceId = resolveNamespaceId(tenantId);
       const { rows: trainerRows } = await query(
         `select distinct on (payload->'data'->>'class_id')
             payload->'data'->>'class_id' as class_id,
-            payload->'data'->>'trainer_name' as trainer_name
+            payload->'data'->>'trainer_name' as trainer_name,
+            payload->'data'->>'price' as price
          from eventdb_event
          where namespace_id = $1
            and event_type = 'class.scheduled'
@@ -3499,12 +3501,16 @@ app.get('/v1/admin/classes', async (req, res, next) => {
       trainerByClassId = Object.fromEntries(
         trainerRows.map((row) => [row.class_id, row.trainer_name || ''])
       );
+      priceByClassId = Object.fromEntries(
+        trainerRows.map((row) => [row.class_id, Number(row.price || 0)])
+      );
     }
 
     return ok(res, {
       rows: rows.map((row) => ({
         ...row,
-        trainer_name: trainerByClassId[row.class_id] || ''
+        trainer_name: trainerByClassId[row.class_id] || '',
+        price: priceByClassId[row.class_id] || 0
       }))
     });
   } catch (error) {
@@ -3541,6 +3547,7 @@ app.post('/v1/admin/classes', async (req, res, next) => {
         class_id: classId,
         class_name: required(data.class_name, 'class_name'),
         trainer_name: data.trainer_name || null,
+        price: asNonNegativeInteger(data.price, 'price', 0),
         capacity: asPositiveInteger(data.capacity, 'capacity', 20),
         start_at: startAt.toISOString(),
         end_at: endAt.toISOString()
@@ -3597,6 +3604,7 @@ app.patch('/v1/admin/classes/:classId', async (req, res, next) => {
         class_id: classId,
         class_name: data.class_name || current.class_name || latestScheduledData?.class_name,
         trainer_name: data.trainer_name ?? latestScheduledData?.trainer_name ?? null,
+        price: asNonNegativeInteger(data.price, 'price', Number(latestScheduledData?.price || 0)),
         capacity: asPositiveInteger(data.capacity, 'capacity', current.capacity || latestScheduledData?.capacity || 20),
         start_at: startAt.toISOString(),
         end_at: endAt.toISOString()
