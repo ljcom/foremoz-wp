@@ -382,6 +382,51 @@ function normalizeCustomFields(rawValue, fieldName = 'custom_fields') {
   return normalized;
 }
 
+function normalizeCoachShares(value, fallback = []) {
+  const normalizeFallback = () => normalizeCoachShares(Array.isArray(fallback) ? fallback : []);
+  if (value === undefined || value === null) return normalizeFallback();
+  if (!Array.isArray(value)) {
+    throw fail(400, 'BAD_REQUEST', 'coach_shares must be an array');
+  }
+  if (value.length > 20) {
+    throw fail(400, 'BAD_REQUEST', 'coach_shares max length is 20');
+  }
+
+  const normalized = [];
+  const seen = new Set();
+  let total = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    const item = value[index];
+    if (!item || typeof item !== 'object') {
+      throw fail(400, 'BAD_REQUEST', `coach_shares[${index}] must be an object`);
+    }
+    const coachName = String(item.coach_name || item.trainer_name || item.name || '').trim();
+    if (!coachName) {
+      throw fail(400, 'BAD_REQUEST', `coach_shares[${index}].coach_name is required`);
+    }
+    const dedupeKey = coachName.toLowerCase();
+    if (seen.has(dedupeKey)) {
+      throw fail(400, 'BAD_REQUEST', `coach_shares[${index}].coach_name must be unique`);
+    }
+    const sharePercent = Number(item.share_percent);
+    if (!Number.isFinite(sharePercent) || sharePercent <= 0 || sharePercent > 100) {
+      throw fail(400, 'BAD_REQUEST', `coach_shares[${index}].share_percent must be between 0 and 100`);
+    }
+    total += sharePercent;
+    seen.add(dedupeKey);
+    normalized.push({
+      coach_name: coachName,
+      share_percent: Number(sharePercent.toFixed(2))
+    });
+  }
+
+  if (total > 100.000001) {
+    throw fail(400, 'BAD_REQUEST', 'coach_shares total must not exceed 100');
+  }
+
+  return normalized;
+}
+
 function normalizeBoolean(value, fallback = true) {
   if (value === undefined || value === null || value === '') return fallback;
   if (typeof value === 'boolean') return value;
@@ -3666,13 +3711,12 @@ app.get('/v1/admin/classes', async (req, res, next) => {
     const classIds = rows.map((row) => row.class_id).filter(Boolean);
     let trainerByClassId = {};
     let priceByClassId = {};
+    let coachSharesByClassId = {};
     if (classIds.length > 0) {
       const namespaceId = resolveNamespaceId(tenantId);
       const { rows: trainerRows } = await query(
         `select distinct on (payload->'data'->>'class_id')
-            payload->'data'->>'class_id' as class_id,
-            payload->'data'->>'trainer_name' as trainer_name,
-            payload->'data'->>'price' as price
+            payload->'data' as data
          from eventdb_event
          where namespace_id = $1
            and event_type = 'class.scheduled'
@@ -3681,10 +3725,15 @@ app.get('/v1/admin/classes', async (req, res, next) => {
         [namespaceId, classIds]
       );
       trainerByClassId = Object.fromEntries(
-        trainerRows.map((row) => [row.class_id, row.trainer_name || ''])
+        trainerRows.map((row) => [row.data?.class_id, row.data?.trainer_name || '']).filter(([classId]) => Boolean(classId))
       );
       priceByClassId = Object.fromEntries(
-        trainerRows.map((row) => [row.class_id, Number(row.price || 0)])
+        trainerRows.map((row) => [row.data?.class_id, Number(row.data?.price || 0)]).filter(([classId]) => Boolean(classId))
+      );
+      coachSharesByClassId = Object.fromEntries(
+        trainerRows
+          .map((row) => [row.data?.class_id, normalizeCoachShares(row.data?.coach_shares, [])])
+          .filter(([classId]) => Boolean(classId))
       );
     }
 
@@ -3692,7 +3741,8 @@ app.get('/v1/admin/classes', async (req, res, next) => {
       rows: rows.map((row) => ({
         ...row,
         trainer_name: trainerByClassId[row.class_id] || '',
-        price: priceByClassId[row.class_id] || 0
+        price: priceByClassId[row.class_id] || 0,
+        coach_shares: coachSharesByClassId[row.class_id] || []
       }))
     });
   } catch (error) {
@@ -3729,6 +3779,7 @@ app.post('/v1/admin/classes', async (req, res, next) => {
         class_id: classId,
         class_name: required(data.class_name, 'class_name'),
         trainer_name: data.trainer_name || null,
+        coach_shares: normalizeCoachShares(data.coach_shares, []),
         price: asNonNegativeInteger(data.price, 'price', 0),
         capacity: asPositiveInteger(data.capacity, 'capacity', 20),
         start_at: startAt.toISOString(),
@@ -3786,6 +3837,10 @@ app.patch('/v1/admin/classes/:classId', async (req, res, next) => {
         class_id: classId,
         class_name: data.class_name || current.class_name || latestScheduledData?.class_name,
         trainer_name: data.trainer_name ?? latestScheduledData?.trainer_name ?? null,
+        coach_shares: normalizeCoachShares(
+          data.coach_shares,
+          Array.isArray(latestScheduledData?.coach_shares) ? latestScheduledData.coach_shares : []
+        ),
         price: asNonNegativeInteger(data.price, 'price', Number(latestScheduledData?.price || 0)),
         capacity: asPositiveInteger(data.capacity, 'capacity', current.capacity || latestScheduledData?.capacity || 20),
         start_at: startAt.toISOString(),
@@ -4023,6 +4078,7 @@ app.post('/v1/admin/events', async (req, res, next) => {
         brief_event: data.brief_event || null,
         event_name: required(data.event_name, 'event_name'),
         trainer_name: data.trainer_name || null,
+        coach_shares: normalizeCoachShares(data.coach_shares, []),
         location: data.location || null,
         image_url: data.image_url || null,
         description: data.description || null,
@@ -4121,6 +4177,10 @@ app.patch('/v1/admin/events/:eventId', async (req, res, next) => {
         brief_event: data.brief_event ?? latest.brief_event ?? null,
         event_name: data.event_name || latest.event_name,
         trainer_name: data.trainer_name ?? latest.trainer_name ?? null,
+        coach_shares: normalizeCoachShares(
+          data.coach_shares,
+          Array.isArray(latest.coach_shares) ? latest.coach_shares : []
+        ),
         location: data.location ?? latest.location ?? null,
         image_url: data.image_url ?? latest.image_url ?? null,
         description: data.description ?? latest.description ?? null,

@@ -470,6 +470,7 @@ function createEmptyEventForm() {
     brief_event: '',
     event_name: '',
     trainer_name: '',
+    coach_shares: [],
     location: '',
     image_url: '',
     description: '',
@@ -503,6 +504,10 @@ function serializeEventForm(value) {
     brief_event: String(form.brief_event || ''),
     event_name: String(form.event_name || ''),
     trainer_name: String(form.trainer_name || ''),
+    coach_shares: (Array.isArray(form.coach_shares) ? form.coach_shares : []).map((item) => ({
+      coach_name: String(item?.coach_name || ''),
+      share_percent: String(item?.share_percent || '')
+    })),
     location: String(form.location || ''),
     image_url: String(form.image_url || ''),
     description: String(form.description || ''),
@@ -517,6 +522,93 @@ function serializeEventForm(value) {
     duration_unit: String(form.duration_unit || 'hours'),
     registration_fields: registrationFields
   });
+}
+
+function createEmptyClassForm() {
+  return {
+    class_name: '',
+    trainer_name: '',
+    coach_shares: [],
+    capacity: '20',
+    price: '0',
+    start_at: ''
+  };
+}
+
+function toCoachShareFormRows(value) {
+  const items = Array.isArray(value) ? value : [];
+  return items
+    .map((item) => ({
+      coach_name: String(item?.coach_name || item?.trainer_name || item?.name || '').trim(),
+      share_percent: item?.share_percent === undefined || item?.share_percent === null || item?.share_percent === ''
+        ? ''
+        : String(item.share_percent)
+    }))
+    .filter((item) => item.coach_name);
+}
+
+function syncCoachSharesWithTrainerNames(trainerNameValue, coachSharesValue) {
+  const trainerNames = parseTrainerTokens(trainerNameValue);
+  const currentRows = toCoachShareFormRows(coachSharesValue);
+  const currentMap = new Map(
+    currentRows.map((item) => [String(item.coach_name || '').trim().toLowerCase(), item])
+  );
+  return trainerNames.map((name) => {
+    const current = currentMap.get(String(name || '').trim().toLowerCase());
+    return {
+      coach_name: name,
+      share_percent: String(current?.share_percent || '')
+    };
+  });
+}
+
+function sumCoachSharePercent(value) {
+  return toCoachShareFormRows(value).reduce((total, item) => total + (Number(item.share_percent || 0) || 0), 0);
+}
+
+function normalizeCoachSharesForPayload(value, label = 'coach') {
+  const rows = toCoachShareFormRows(value);
+  const normalized = [];
+  let total = 0;
+  for (let index = 0; index < rows.length; index += 1) {
+    const row = rows[index];
+    const percentRaw = String(row.share_percent || '').trim();
+    if (!percentRaw) continue;
+    const sharePercent = Number(percentRaw);
+    if (!Number.isFinite(sharePercent) || sharePercent <= 0 || sharePercent > 100) {
+      throw new Error(`${label} share untuk "${row.coach_name}" harus di antara 0 dan 100`);
+    }
+    total += sharePercent;
+    normalized.push({
+      coach_name: row.coach_name,
+      share_percent: Number(sharePercent.toFixed(2))
+    });
+  }
+  if (total > 100.000001) {
+    throw new Error(`Total ${label} share tidak boleh lebih dari 100%`);
+  }
+  return normalized;
+}
+
+function upsertCoachShareValue(coachSharesValue, coachName, sharePercent) {
+  const rows = toCoachShareFormRows(coachSharesValue);
+  const normalizedCoachName = String(coachName || '').trim();
+  let matched = false;
+  const nextRows = rows.map((item) => {
+    if (item.coach_name !== normalizedCoachName) return item;
+    matched = true;
+    return {
+      ...item,
+      share_percent: sharePercent
+    };
+  });
+  if (!matched && normalizedCoachName) {
+    nextRows.push({
+      coach_name: normalizedCoachName,
+      share_percent: sharePercent
+    });
+  }
+  return nextRows;
 }
 
 function createEmptyEventWalkinForm(eventId = '') {
@@ -1134,7 +1226,7 @@ export default function AdminPage() {
   const [eventTrainerDraft, setEventTrainerDraft] = useState('');
   const [eventAiWorking, setEventAiWorking] = useState(false);
   const eventImageFileInputRef = useRef(null);
-  const [classForm, setClassForm] = useState({ class_name: '', trainer_name: '', capacity: '20', price: '0', start_at: '' });
+  const [classForm, setClassForm] = useState(() => createEmptyClassForm());
   const [classTrainerDraft, setClassTrainerDraft] = useState('');
   const [memberRelationDraft, setMemberRelationDraft] = useState('');
   const [trainerForm, setTrainerForm] = useState({ trainer_name: '', phone: '', specialization: '' });
@@ -1629,11 +1721,13 @@ export default function AdminPage() {
     [memberRelationOptions, selectedMemberUploadRelationKeys]
   );
   const selectedClassTrainerTokens = useMemo(() => parseTrainerTokens(classForm.trainer_name), [classForm.trainer_name]);
+  const totalClassCoachShare = useMemo(() => sumCoachSharePercent(classForm.coach_shares), [classForm.coach_shares]);
   const availableClassTrainerOptions = useMemo(
     () => trainerNameOptions.filter((name) => !selectedClassTrainerTokens.includes(name)),
     [trainerNameOptions, selectedClassTrainerTokens]
   );
   const selectedEventTrainerTokens = useMemo(() => parseTrainerTokens(eventForm.trainer_name), [eventForm.trainer_name]);
+  const totalEventCoachShare = useMemo(() => sumCoachSharePercent(eventForm.coach_shares), [eventForm.coach_shares]);
   const availableEventTrainerOptions = useMemo(
     () => trainerNameOptions.filter((name) => !selectedEventTrainerTokens.includes(name)),
     [trainerNameOptions, selectedEventTrainerTokens]
@@ -1795,6 +1889,7 @@ export default function AdminPage() {
           branch_id: branchId,
           class_name: classForm.class_name,
           trainer_name: classForm.trainer_name,
+          coach_shares: normalizeCoachSharesForPayload(classForm.coach_shares, 'coach'),
           capacity: Number(classForm.capacity || 20),
           price: Number(classForm.price || 0),
           start_at: startAtIso
@@ -1802,7 +1897,7 @@ export default function AdminPage() {
       });
 
       setFeedback(editingClassId ? `class.updated: ${classForm.class_name}` : `class.scheduled: ${classForm.class_name}`);
-      setClassForm({ class_name: '', trainer_name: '', capacity: '20', price: '0', start_at: '' });
+      setClassForm(createEmptyClassForm());
       setClassTrainerDraft('');
       setEditingClassId('');
       setClassMode('list');
@@ -1816,9 +1911,11 @@ export default function AdminPage() {
 
   function viewClass(item) {
     const normalizedStartAt = toInputDatetime(item.start_at);
+    const trainerName = item.trainer_name || '';
     setClassForm({
       class_name: item.class_name || '',
-      trainer_name: item.trainer_name || '',
+      trainer_name: trainerName,
+      coach_shares: syncCoachSharesWithTrainerNames(trainerName, item.coach_shares),
       capacity: item.capacity || '20',
       price: String(item.price || '0'),
       start_at: normalizedStartAt || ''
@@ -1829,7 +1926,7 @@ export default function AdminPage() {
   }
 
   function startAddClass() {
-    setClassForm({ class_name: '', trainer_name: '', capacity: '20', price: '0', start_at: '' });
+    setClassForm(createEmptyClassForm());
     setClassTrainerDraft('');
     setEditingClassId('');
     setClassMode('add');
@@ -1839,26 +1936,54 @@ export default function AdminPage() {
     const token = String(name || '').trim();
     if (!token) return;
     const nextTokens = [...new Set([...selectedClassTrainerTokens, token])];
-    setClassForm((prev) => ({ ...prev, trainer_name: nextTokens.join(', ') }));
+    setClassForm((prev) => {
+      const trainerName = nextTokens.join(', ');
+      return {
+        ...prev,
+        trainer_name: trainerName,
+        coach_shares: syncCoachSharesWithTrainerNames(trainerName, prev.coach_shares)
+      };
+    });
     setClassTrainerDraft('');
   }
 
   function removeClassTrainerToken(name) {
     const nextTokens = selectedClassTrainerTokens.filter((item) => item !== name);
-    setClassForm((prev) => ({ ...prev, trainer_name: nextTokens.join(', ') }));
+    setClassForm((prev) => {
+      const trainerName = nextTokens.join(', ');
+      return {
+        ...prev,
+        trainer_name: trainerName,
+        coach_shares: syncCoachSharesWithTrainerNames(trainerName, prev.coach_shares)
+      };
+    });
   }
 
   function addEventTrainerToken(name) {
     const token = String(name || '').trim();
     if (!token) return;
     const nextTokens = [...new Set([...selectedEventTrainerTokens, token])];
-    setEventForm((prev) => ({ ...prev, trainer_name: nextTokens.join(', ') }));
+    setEventForm((prev) => {
+      const trainerName = nextTokens.join(', ');
+      return {
+        ...prev,
+        trainer_name: trainerName,
+        coach_shares: syncCoachSharesWithTrainerNames(trainerName, prev.coach_shares)
+      };
+    });
     setEventTrainerDraft('');
   }
 
   function removeEventTrainerToken(name) {
     const nextTokens = selectedEventTrainerTokens.filter((item) => item !== name);
-    setEventForm((prev) => ({ ...prev, trainer_name: nextTokens.join(', ') }));
+    setEventForm((prev) => {
+      const trainerName = nextTokens.join(', ');
+      return {
+        ...prev,
+        trainer_name: trainerName,
+        coach_shares: syncCoachSharesWithTrainerNames(trainerName, prev.coach_shares)
+      };
+    });
   }
 
   function buildEventImageKeywords() {
@@ -2617,6 +2742,7 @@ export default function AdminPage() {
           brief_event: eventForm.brief_event || null,
           event_name: eventForm.event_name,
           trainer_name: eventForm.trainer_name || null,
+          coach_shares: normalizeCoachSharesForPayload(eventForm.coach_shares, 'coach'),
           location: eventForm.location || null,
           image_url: eventForm.image_url || null,
           description: eventForm.description || null,
@@ -2657,6 +2783,7 @@ export default function AdminPage() {
       brief_event: item.brief_event || '',
       event_name: item.event_name || '',
       trainer_name: item.trainer_name || '',
+      coach_shares: syncCoachSharesWithTrainerNames(item.trainer_name || '', item.coach_shares),
       location: item.location || '',
       image_url: item.image_url || '',
       description: item.description || '',
@@ -3423,7 +3550,7 @@ export default function AdminPage() {
                 setActiveTab(tab.id);
                 if (tab.id === 'class') {
                   setEditingClassId('');
-                  setClassForm({ class_name: '', trainer_name: '', capacity: '20', price: '0', start_at: '' });
+                  setClassForm(createEmptyClassForm());
                   setClassTrainerDraft('');
                   setClassMode('list');
                 }
@@ -3796,6 +3923,43 @@ export default function AdminPage() {
                             />
                           </label>
                           <p className="feedback">Tersimpan sebagai: {eventForm.trainer_name || '-'}</p>
+                          {selectedEventTrainerTokens.length > 0 ? (
+                            <div className="card" style={{ borderStyle: 'dashed' }}>
+                              <p className="eyebrow">{creatorLabel} Share</p>
+                              <p className="feedback">Masukkan % komisi/share per coach yang terlibat. Total boleh kurang dari atau sama dengan 100%.</p>
+                              <div className="entity-list">
+                                {selectedEventTrainerTokens.map((coachName) => {
+                                  const currentRow = (eventForm.coach_shares || []).find((item) => item.coach_name === coachName) || { coach_name: coachName, share_percent: '' };
+                                  return (
+                                    <div key={`event-share-${coachName}`} className="entity-row">
+                                      <div>
+                                        <strong>{coachName}</strong>
+                                        <p>% dari event</p>
+                                      </div>
+                                      <input
+                                        type="number"
+                                        min="0"
+                                        max="100"
+                                        step="0.01"
+                                        value={currentRow.share_percent || ''}
+                                        placeholder="contoh: 25"
+                                        onChange={(e) =>
+                                          setEventForm((prev) => ({
+                                            ...prev,
+                                            coach_shares: syncCoachSharesWithTrainerNames(
+                                              prev.trainer_name,
+                                              upsertCoachShareValue(prev.coach_shares, coachName, e.target.value)
+                                            )
+                                          }))
+                                        }
+                                      />
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                              <p className="feedback">Total share terisi: {Number(totalEventCoachShare || 0).toFixed(2)}%</p>
+                            </div>
+                          ) : null}
                         </div>
                         <label>Location<input value={eventForm.location} onChange={(e) => setEventForm((p) => ({ ...p, location: e.target.value }))} /></label>
                         <label>Image URL<input value={eventForm.image_url} onChange={(e) => setEventForm((p) => ({ ...p, image_url: e.target.value }))} /></label>
@@ -4488,6 +4652,43 @@ export default function AdminPage() {
                         />
                       </label>
                       <p className="feedback">Tersimpan sebagai: {classForm.trainer_name || '-'}</p>
+                      {selectedClassTrainerTokens.length > 0 ? (
+                        <div className="card" style={{ borderStyle: 'dashed' }}>
+                          <p className="eyebrow">{creatorLabel} Share</p>
+                          <p className="feedback">Masukkan % komisi/share per coach yang terlibat. Total boleh kurang dari atau sama dengan 100%.</p>
+                          <div className="entity-list">
+                            {selectedClassTrainerTokens.map((coachName) => {
+                              const currentRow = (classForm.coach_shares || []).find((item) => item.coach_name === coachName) || { coach_name: coachName, share_percent: '' };
+                              return (
+                                <div key={`class-share-${coachName}`} className="entity-row">
+                                  <div>
+                                    <strong>{coachName}</strong>
+                                    <p>% dari class</p>
+                                  </div>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    max="100"
+                                    step="0.01"
+                                    value={currentRow.share_percent || ''}
+                                    placeholder="contoh: 25"
+                                    onChange={(e) =>
+                                      setClassForm((prev) => ({
+                                        ...prev,
+                                        coach_shares: syncCoachSharesWithTrainerNames(
+                                          prev.trainer_name,
+                                          upsertCoachShareValue(prev.coach_shares, coachName, e.target.value)
+                                        )
+                                      }))
+                                    }
+                                  />
+                                </div>
+                              );
+                            })}
+                          </div>
+                          <p className="feedback">Total share terisi: {Number(totalClassCoachShare || 0).toFixed(2)}%</p>
+                        </div>
+                      ) : null}
                     </div>
                     <label>Capacity<input type="number" min="1" value={classForm.capacity} onChange={(e) => setClassForm((p) => ({ ...p, capacity: e.target.value }))} /></label>
                     <label>Price<input type="number" min="0" value={classForm.price} onChange={(e) => setClassForm((p) => ({ ...p, price: e.target.value }))} /></label>
