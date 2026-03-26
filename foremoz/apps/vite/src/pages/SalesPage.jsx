@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { apiJson, clearSession, getAccountSlug, getAllowedEnvironments, getEnvironmentLabel, getSession } from '../lib.js';
+import WorkspaceHeader from '../components/WorkspaceHeader.jsx';
 
 function Stat({ label, value, iconClass, tone, hint }) {
   return (
@@ -412,52 +413,19 @@ export default function SalesPage() {
 
   return (
     <main className="dashboard">
-      <header className="dash-head card">
-        <div>
-          <p className="eyebrow">Sales Workspace</p>
-          <h1>{session?.user?.fullName || 'Sales'}</h1>
-          <p>Prospect pipeline with follow-up and conversion</p>
-        </div>
-        <div className="meta">
-          {allowedEnv.length > 0 ? (
-            <div className="env-switcher">
-              <label className="env-lookup">
-                Environment
-                <select
-                  value={targetEnv}
-                  onChange={(e) => {
-                    const next = e.target.value;
-                    setTargetEnv(next);
-                    goToEnv(next);
-                  }}
-                >
-                  {allowedEnv.map((env) => (
-                    <option key={env} value={env}>
-                      {getEnvironmentLabel(env)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <div className="env-buttons" role="group" aria-label="Environment">
-                {allowedEnv.map((env) => (
-                  <button
-                    key={env}
-                    type="button"
-                    className={`btn ghost small ${targetEnv === env ? 'active' : ''}`}
-                    onClick={() => {
-                      setTargetEnv(env);
-                      goToEnv(env);
-                    }}
-                  >
-                    {getEnvironmentLabel(env)}
-                  </button>
-                ))}
-              </div>
-            </div>
-          ) : null}
-          <button className="btn ghost" onClick={signOut}>Sign out</button>
-        </div>
-      </header>
+      <WorkspaceHeader
+        eyebrow="Sales Workspace"
+        title={session?.user?.fullName || 'Sales'}
+        subtitle="Prospect pipeline with follow-up and conversion"
+        allowedEnv={allowedEnv}
+        targetEnv={targetEnv}
+        getEnvironmentLabel={getEnvironmentLabel}
+        onSelectEnv={(env) => {
+          setTargetEnv(env);
+          goToEnv(env);
+        }}
+        onSignOut={signOut}
+      />
 
       <section style={{ marginTop: '1rem' }}>
         <p className="eyebrow">Insight</p>

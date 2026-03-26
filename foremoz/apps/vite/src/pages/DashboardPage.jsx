@@ -5,12 +5,12 @@ import {
   apiJson,
   clearSession,
   getAccountSlug,
-  getEnvironmentLabel,
   getSession,
   getAllowedEnvironments,
   getSessionPackagePlan
 } from '../lib.js';
 import { getVerticalLabel, guessVerticalSlugByText } from '../industry-jargon.js';
+import WorkspaceHeader from '../components/WorkspaceHeader.jsx';
 
 function Stat({ label, value, iconClass, tone, hint }) {
   return (
@@ -934,54 +934,23 @@ export default function DashboardPage() {
 
   return (
     <main className="dashboard">
-      <header className="dash-head card">
-        <div>
-          <p className="eyebrow">Operational</p>
-          <h1>{session?.tenant?.gym_name || `Foremoz ${inferredVerticalLabel} Tenant`}</h1>
-          <p>Selamat datang, {fullName}</p>
-        </div>
-        <div className="meta">
-          {allowedEnv.length > 0 ? (
-            <div className="env-switcher">
-              <label className="env-lookup">
-                Environment
-                <select
-                  value={targetEnv}
-                  onChange={(e) => {
-                    const next = e.target.value;
-                    setTargetEnv(next);
-                    goToEnv(next);
-                  }}
-                >
-                  {allowedEnv.map((env) => (
-                    <option key={env} value={env}>
-                      {getEnvironmentLabel(env)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <div className="env-buttons" role="group" aria-label="Environment">
-                {allowedEnv.map((env) => (
-                  <button
-                    key={env}
-                    type="button"
-                    className={`btn ghost small ${targetEnv === env ? 'active' : ''}`}
-                    onClick={() => {
-                      setTargetEnv(env);
-                      goToEnv(env);
-                    }}
-                  >
-                    {getEnvironmentLabel(env)}
-                  </button>
-                ))}
-              </div>
-            </div>
-          ) : null}
-          <button className="btn ghost" onClick={signOut}>
-            Keluar
-          </button>
-        </div>
-      </header>
+      <WorkspaceHeader
+        eyebrow="Operational"
+        title={session?.tenant?.gym_name || `Foremoz ${inferredVerticalLabel} Tenant`}
+        subtitle={`Selamat datang, ${fullName}`}
+        allowedEnv={allowedEnv}
+        targetEnv={targetEnv}
+        getEnvironmentLabel={(env) => {
+          if (env === 'admin') return 'settings';
+          if (env === 'cs') return 'customer service';
+          return env;
+        }}
+        onSelectEnv={(env) => {
+          setTargetEnv(env);
+          goToEnv(env);
+        }}
+        onSignOut={signOut}
+      />
 
       <section className="stats-grid">
         {stats.map((s) => (
