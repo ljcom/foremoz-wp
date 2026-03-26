@@ -86,14 +86,7 @@ export default function WebLandingPage() {
               </Link>
             ) : null}
           </div>
-          <div className="card" style={{ marginTop: '1rem', borderStyle: 'dashed' }}>
-            <p className="eyebrow">Auth Route</p>
-            <p style={{ marginTop: 0 }}>`/web` untuk owner/tenant operation. Untuk participant event gunakan login Passport di `/events`.</p>
-          <div className="hero-actions">
-              <Link className="btn ghost small" to="/signin">Owner/Tenant Login</Link>
-              <Link className="btn ghost small" to="/events/signin">Passport/Event Login</Link>
-            </div>
-          </div>
+          
         </div>
 
         <div className="web-hero-gallery" aria-label="Foremoz highlights">
