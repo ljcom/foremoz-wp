@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import AuthLayout from '../components/AuthLayout.jsx';
+import TurnstileWidget from '../components/TurnstileWidget.jsx';
 import { apiJson, IS_MOCK_MODE, IS_MOCKUP_OPEN_ACCESS, requireField, setSession } from '../lib.js';
 import { passportApiJson } from '../passport-client.js';
 
@@ -12,6 +13,8 @@ export default function MemberSignInPage() {
   const [form, setForm] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState('');
+  const [turnstileResetSignal, setTurnstileResetSignal] = useState(0);
 
   async function resolveTenantId(accountOrTenant) {
     const raw = String(accountOrTenant || '').trim();
@@ -70,7 +73,8 @@ export default function MemberSignInPage() {
           body: JSON.stringify({
             tenant_id: tenantId,
             email,
-            password
+            password,
+            turnstile_token: turnstileToken || undefined
           })
         });
       } catch (memberSigninError) {
@@ -104,7 +108,8 @@ export default function MemberSignInPage() {
               tenant_id: tenantId,
               full_name: passportAuth.user?.full_name || email.split('@')[0],
               email,
-              password
+              password,
+              turnstile_token: turnstileToken || undefined
             })
           });
         } catch (signupError) {
@@ -119,7 +124,8 @@ export default function MemberSignInPage() {
           body: JSON.stringify({
             tenant_id: tenantId,
             email,
-            password
+            password,
+            turnstile_token: turnstileToken || undefined
           })
         });
       }
@@ -151,6 +157,7 @@ export default function MemberSignInPage() {
       navigate(`/a/${account || tenantId}/member/portal`, { replace: true });
     } catch (err) {
       setError(err.message);
+      setTurnstileResetSignal((value) => value + 1);
     } finally {
       setLoading(false);
     }
@@ -181,6 +188,7 @@ export default function MemberSignInPage() {
         <button className="btn" type="submit" disabled={loading}>
           {loading ? 'Signing in...' : 'Sign in as member'}
         </button>
+        <TurnstileWidget onToken={setTurnstileToken} resetSignal={turnstileResetSignal} />
         <p style={{ margin: '0.25rem 0 0' }}>
           <Link className="link-inline" to={`/a/${account || 'tn_001'}/signin`}>
             Staff sign in

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import AuthLayout from '../components/AuthLayout.jsx';
+import TurnstileWidget from '../components/TurnstileWidget.jsx';
 import { apiJson, requireField } from '../lib.js';
 import { listVerticalConfigs } from '../industry-jargon.js';
 
@@ -26,6 +27,8 @@ export default function SignUpPage() {
   const [form, setForm] = useState({ fullName: '', email: '', password: '', industrySlug: defaultIndustry });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState('');
+  const [turnstileResetSignal, setTurnstileResetSignal] = useState(0);
 
   function handleChange(e) {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -50,7 +53,8 @@ export default function SignUpPage() {
           email,
           password,
           industry_slug: industrySlug,
-          role: 'owner'
+          role: 'owner',
+          turnstile_token: turnstileToken || undefined
         })
       });
       const verifyParams = new URLSearchParams({
@@ -64,6 +68,7 @@ export default function SignUpPage() {
       navigate(`/verify-password?${verifyParams.toString()}`, { replace: true });
     } catch (err) {
       setError(err.message);
+      setTurnstileResetSignal((value) => value + 1);
     } finally {
       setLoading(false);
     }
@@ -103,6 +108,7 @@ export default function SignUpPage() {
         <button className="btn" type="submit" disabled={loading}>
           {loading ? 'Creating account...' : 'Create account'}
         </button>
+        <TurnstileWidget onToken={setTurnstileToken} resetSignal={turnstileResetSignal} />
       </form>
     </AuthLayout>
   );

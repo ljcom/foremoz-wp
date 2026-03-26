@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import TurnstileWidget from '../components/TurnstileWidget.jsx';
 import { getSession as getForemozSession } from '../lib.js';
 import {
   foremozApiJson,
@@ -30,8 +31,10 @@ export default function PassportSignInPage() {
   const [form, setForm] = useState({ email: initialEmail, password: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState('');
+  const [turnstileResetSignal, setTurnstileResetSignal] = useState(0);
 
-  async function bridgeFromForemozMember({ email, password }) {
+  async function bridgeFromForemozMember({ email, password, turnstileToken: token }) {
     const params = new URLSearchParams(location.search || '');
     const hintedTenantId = params.get('tenant') || params.get('account') || '';
     const foremozSession = getForemozSession();
@@ -45,7 +48,8 @@ export default function PassportSignInPage() {
           body: JSON.stringify({
             tenant_id: tenantId,
             email,
-            password
+            password,
+            turnstile_token: token || undefined
           })
         });
         if (foremozAuth?.member?.member_id) break;
@@ -69,7 +73,8 @@ export default function PassportSignInPage() {
           tenant_id: tenantId,
           full_name: fullName,
           email,
-          password
+          password,
+          turnstile_token: token || undefined
         })
       });
     } catch {
@@ -80,12 +85,12 @@ export default function PassportSignInPage() {
     try {
       auth = await passportApiJson('/v1/tenant/auth/signin', {
         method: 'POST',
-        body: JSON.stringify({ tenant_id: tenantId, email, password })
+        body: JSON.stringify({ tenant_id: tenantId, email, password, turnstile_token: token || undefined })
       });
     } catch {
       auth = await passportApiJson('/v1/tenant/auth/signin', {
         method: 'POST',
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify({ email, password, turnstile_token: token || undefined })
       });
     }
 
@@ -148,10 +153,10 @@ export default function PassportSignInPage() {
       try {
         auth = await passportApiJson('/v1/tenant/auth/signin', {
           method: 'POST',
-          body: JSON.stringify({ email, password })
+          body: JSON.stringify({ email, password, turnstile_token: turnstileToken || undefined })
         });
       } catch {
-        auth = await bridgeFromForemozMember({ email, password });
+        auth = await bridgeFromForemozMember({ email, password, turnstileToken });
       }
 
       const tenantId = auth.user?.tenant_id || 'ps_001';
@@ -199,6 +204,7 @@ export default function PassportSignInPage() {
       }
     } catch (err) {
       setError(err.message);
+      setTurnstileResetSignal((value) => value + 1);
     } finally {
       setLoading(false);
     }
@@ -251,6 +257,7 @@ export default function PassportSignInPage() {
               Create account
             </Link>
           </div>
+          <TurnstileWidget onToken={setTurnstileToken} resetSignal={turnstileResetSignal} />
           <p className="mini-note" style={{ marginTop: '0.75rem' }}>
             Next step setelah sign in: lengkapi onboarding lalu atur public visibility profile kamu.
           </p>

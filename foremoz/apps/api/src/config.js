@@ -43,9 +43,15 @@ export const config = {
   emailSmtpSecure: parseBoolean(process.env.EMAIL_SMTP_SECURE, false),
   emailSmtpUser: String(process.env.EMAIL_SMTP_USER || '').trim(),
   emailSmtpPass: String(process.env.EMAIL_SMTP_PASS || '').trim(),
-  emailSmtpIgnoreTlsErrors: parseBoolean(process.env.EMAIL_SMTP_IGNORE_TLS_ERRORS, false)
+  emailSmtpIgnoreTlsErrors: parseBoolean(process.env.EMAIL_SMTP_IGNORE_TLS_ERRORS, false),
+  turnstileEnabled: parseBoolean(process.env.TURNSTILE_ENABLED, false),
+  turnstileSecretKey: String(process.env.TURNSTILE_SECRET_KEY || '').trim()
 };
 
 if (!config.databaseUrl) {
   throw new Error('DATABASE_URL is required');
+}
+
+if (config.turnstileEnabled && !config.turnstileSecretKey) {
+  throw new Error('TURNSTILE_SECRET_KEY is required when TURNSTILE_ENABLED=true');
 }

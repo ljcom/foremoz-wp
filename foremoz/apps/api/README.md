@@ -53,6 +53,13 @@ EMAIL_SMTP_PASS=your_smtp_password
 EMAIL_SMTP_IGNORE_TLS_ERRORS=false
 ```
 
+Aktifkan Cloudflare Turnstile verification di `.env`:
+
+```bash
+TURNSTILE_ENABLED=true
+TURNSTILE_SECRET_KEY=your_turnstile_secret_key
+```
+
 ## Endpoint utama
 
 - `POST /v1/auth/signup`
@@ -167,6 +174,9 @@ Catatan:
   "role": "owner"
 }
 ```
+
+Catatan Turnstile:
+- Saat `TURNSTILE_ENABLED=true`, endpoint auth (`signup/signin/password forgot/password reset`) mewajibkan field `turnstile_token`.
 
 `POST /v1/auth/password/forgot`
 

@@ -66,6 +66,40 @@ function warnEmailDelivery(context, result) {
   console.warn(`[email] ${context} not sent: ${reason}`);
 }
 
+async function verifyTurnstileToken({ token, remoteIp }) {
+  const body = new URLSearchParams();
+  body.set('secret', config.turnstileSecretKey);
+  body.set('response', token);
+  if (remoteIp) body.set('remoteip', remoteIp);
+  const response = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/x-www-form-urlencoded'
+    },
+    body
+  });
+  const payload = await response.json().catch(() => ({}));
+  return payload;
+}
+
+async function enforceTurnstile(req, data = {}) {
+  if (!config.turnstileEnabled) return;
+  const token = String(data.turnstile_token || req.headers['cf-turnstile-response'] || '').trim();
+  if (!token) {
+    throw fail(400, 'TURNSTILE_TOKEN_REQUIRED', 'human verification token is required');
+  }
+  const remoteIp = String(req.ip || req.headers['x-forwarded-for'] || '').split(',')[0].trim();
+  let verification;
+  try {
+    verification = await verifyTurnstileToken({ token, remoteIp });
+  } catch {
+    throw fail(400, 'TURNSTILE_VERIFY_FAILED', 'human verification failed');
+  }
+  if (!verification?.success) {
+    throw fail(400, 'TURNSTILE_VERIFY_FAILED', 'human verification failed');
+  }
+}
+
 function asPositiveInteger(value, fieldName, fallback = null) {
   if (value === undefined || value === null || value === '') {
     if (fallback !== null) return fallback;
@@ -1248,6 +1282,7 @@ app.get('/health', async (_req, res) => {
 app.post('/v1/tenant/auth/signup', async (req, res, next) => {
   try {
     const data = req.body || {};
+    await enforceTurnstile(req, data);
     const tenantId = data.tenant_id || config.defaultTenantId;
     const role = data.role || 'owner';
     const email = normalizeEmail(required(data.email, 'email'));
@@ -1468,6 +1503,7 @@ app.post('/v1/tenant/auth/activation/resend', async (req, res, next) => {
 app.post('/v1/tenant/auth/signin', async (req, res, next) => {
   try {
     const data = req.body || {};
+    await enforceTurnstile(req, data);
     const requestedTenantId = data.tenant_id ? String(data.tenant_id).trim() : null;
     const email = normalizeEmail(required(data.email, 'email'));
     const password = String(required(data.password, 'password'));
@@ -1561,6 +1597,7 @@ app.post('/v1/tenant/auth/signin', async (req, res, next) => {
 app.post('/v1/tenant/auth/password/forgot', async (req, res, next) => {
   try {
     const data = req.body || {};
+    await enforceTurnstile(req, data);
     const email = normalizeEmail(required(data.email, 'email'));
     const tenantIdInput = String(data.tenant_id || '').trim();
     const accountNameInput = String(data.account_name || data.account_slug || '').trim();
@@ -1612,6 +1649,7 @@ app.post('/v1/tenant/auth/password/forgot', async (req, res, next) => {
 app.post('/v1/tenant/auth/password/reset', async (req, res, next) => {
   try {
     const data = req.body || {};
+    await enforceTurnstile(req, data);
     const email = normalizeEmail(required(data.email, 'email'));
     const resetCode = normalizeActivationCode(required(data.code, 'code'));
     const nextPassword = String(required(data.new_password, 'new_password'));
@@ -2721,6 +2759,7 @@ app.post('/v1/owner/saas/extend', async (req, res, next) => {
 app.post('/v1/auth/signup', async (req, res, next) => {
   try {
     const data = req.body || {};
+    await enforceTurnstile(req, data);
     const tenantId = data.tenant_id || config.defaultTenantId;
     const email = normalizeEmail(required(data.email, 'email'));
     const password = String(required(data.password, 'password'));
@@ -2838,6 +2877,7 @@ app.post('/v1/auth/signup', async (req, res, next) => {
 app.post('/v1/auth/signin', async (req, res, next) => {
   try {
     const data = req.body || {};
+    await enforceTurnstile(req, data);
     const tenantId = data.tenant_id || config.defaultTenantId;
     const email = normalizeEmail(required(data.email, 'email'));
     const password = String(required(data.password, 'password'));
@@ -2902,6 +2942,7 @@ app.post('/v1/auth/signin', async (req, res, next) => {
 app.post('/v1/auth/password/forgot', async (req, res, next) => {
   try {
     const data = req.body || {};
+    await enforceTurnstile(req, data);
     const tenantId = String(data.tenant_id || config.defaultTenantId).trim() || config.defaultTenantId;
     const email = normalizeEmail(required(data.email, 'email'));
     const authRow = await getMemberAuthByEmail({ email, tenantId });
@@ -2936,6 +2977,7 @@ app.post('/v1/auth/password/forgot', async (req, res, next) => {
 app.post('/v1/auth/password/reset', async (req, res, next) => {
   try {
     const data = req.body || {};
+    await enforceTurnstile(req, data);
     const tenantId = String(data.tenant_id || config.defaultTenantId).trim() || config.defaultTenantId;
     const email = normalizeEmail(required(data.email, 'email'));
     const resetCode = normalizeActivationCode(required(data.code, 'code'));

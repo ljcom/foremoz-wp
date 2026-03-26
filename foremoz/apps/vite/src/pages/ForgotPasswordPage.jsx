@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import AuthLayout from '../components/AuthLayout.jsx';
+import TurnstileWidget from '../components/TurnstileWidget.jsx';
 import { apiJson, requireField } from '../lib.js';
 import { passportApiJson } from '../passport-client.js';
 
@@ -42,6 +43,8 @@ export default function ForgotPasswordPage() {
   const [sending, setSending] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [codeRequested, setCodeRequested] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState('');
+  const [turnstileResetSignal, setTurnstileResetSignal] = useState(0);
 
   const signinHref = useMemo(() => {
     if (mode === 'passport') return `${authBase}/signin`;
@@ -64,7 +67,10 @@ export default function ForgotPasswordPage() {
         if (form.accountName) payload.account_name = String(form.accountName).trim();
         await apiJson('/v1/tenant/auth/password/forgot', {
           method: 'POST',
-          body: JSON.stringify(payload)
+          body: JSON.stringify({
+            ...payload,
+            turnstile_token: turnstileToken || undefined
+          })
         });
       } else if (mode === 'member') {
         const tenantId = await resolveTenantIdFromAccount(account || 'tn_001');
@@ -72,13 +78,17 @@ export default function ForgotPasswordPage() {
           method: 'POST',
           body: JSON.stringify({
             tenant_id: tenantId,
-            email
+            email,
+            turnstile_token: turnstileToken || undefined
           })
         });
       } else {
         await passportApiJson('/v1/tenant/auth/password/forgot', {
           method: 'POST',
-          body: JSON.stringify({ email })
+          body: JSON.stringify({
+            email,
+            turnstile_token: turnstileToken || undefined
+          })
         });
       }
 
@@ -88,6 +98,7 @@ export default function ForgotPasswordPage() {
       setError(err.message);
     } finally {
       setSending(false);
+      setTurnstileResetSignal((value) => value + 1);
     }
   }
 
@@ -110,7 +121,10 @@ export default function ForgotPasswordPage() {
         if (form.accountName) payload.account_name = String(form.accountName).trim();
         await apiJson('/v1/tenant/auth/password/reset', {
           method: 'POST',
-          body: JSON.stringify(payload)
+          body: JSON.stringify({
+            ...payload,
+            turnstile_token: turnstileToken || undefined
+          })
         });
       } else if (mode === 'member') {
         const tenantId = await resolveTenantIdFromAccount(account || 'tn_001');
@@ -120,7 +134,8 @@ export default function ForgotPasswordPage() {
             tenant_id: tenantId,
             email,
             code,
-            new_password: newPassword
+            new_password: newPassword,
+            turnstile_token: turnstileToken || undefined
           })
         });
       } else {
@@ -129,7 +144,8 @@ export default function ForgotPasswordPage() {
           body: JSON.stringify({
             email,
             code,
-            new_password: newPassword
+            new_password: newPassword,
+            turnstile_token: turnstileToken || undefined
           })
         });
       }
@@ -139,6 +155,7 @@ export default function ForgotPasswordPage() {
       setError(err.message);
     } finally {
       setResetting(false);
+      setTurnstileResetSignal((value) => value + 1);
     }
   }
 
@@ -210,6 +227,7 @@ export default function ForgotPasswordPage() {
             {resetting ? 'Resetting...' : 'Reset password'}
           </button>
         </form>
+        <TurnstileWidget onToken={setTurnstileToken} resetSignal={turnstileResetSignal} />
         <Link className="link-inline" to={signinHref}>
           Kembali ke sign in
         </Link>

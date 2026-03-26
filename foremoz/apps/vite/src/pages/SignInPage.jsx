@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import AuthLayout from '../components/AuthLayout.jsx';
+import TurnstileWidget from '../components/TurnstileWidget.jsx';
 import {
   apiJson,
   getOwnerSetup,
@@ -24,6 +25,8 @@ export default function SignInPage() {
   const [form, setForm] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState('');
+  const [turnstileResetSignal, setTurnstileResetSignal] = useState(0);
 
   function handleChange(e) {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -89,7 +92,8 @@ export default function SignInPage() {
           tenant_id: requestedTenantId,
           email,
           password,
-          role: requestedRole
+          role: requestedRole,
+          turnstile_token: turnstileToken || undefined
         })
       });
       if (!isAccountSignin && (result.user?.role || requestedRole) !== 'owner') {
@@ -170,6 +174,7 @@ export default function SignInPage() {
       return;
     } catch (err) {
       setError(err.message);
+      setTurnstileResetSignal((value) => value + 1);
     } finally {
       setLoading(false);
     }
@@ -201,6 +206,7 @@ export default function SignInPage() {
         <button className="btn" type="submit" disabled={loading}>
           {loading ? 'Signing in...' : 'Sign in'}
         </button>
+        <TurnstileWidget onToken={setTurnstileToken} resetSignal={turnstileResetSignal} />
         <p style={{ margin: '0.35rem 0 0' }}>
           <Link className="link-inline" to={isAccountSignin && account ? `/a/${account}/forgot-password` : '/forgot-password'}>
             Forgot password

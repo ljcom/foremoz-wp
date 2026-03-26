@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useParams } from 'react-router-dom';
 import AuthLayout from '../components/AuthLayout.jsx';
+import TurnstileWidget from '../components/TurnstileWidget.jsx';
 import { apiJson, requireField, setSession } from '../lib.js';
 
 export default function MemberSignUpPage() {
@@ -10,6 +11,8 @@ export default function MemberSignUpPage() {
   const [form, setForm] = useState({ fullName: '', phone: '', email: '', password: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState('');
+  const [turnstileResetSignal, setTurnstileResetSignal] = useState(0);
 
   async function resolveTenantId(accountOrTenant) {
     const raw = String(accountOrTenant || '').trim();
@@ -43,7 +46,8 @@ export default function MemberSignUpPage() {
           full_name: fullName,
           phone,
           email,
-          password
+          password,
+          turnstile_token: turnstileToken || undefined
         })
       });
 
@@ -74,6 +78,7 @@ export default function MemberSignUpPage() {
       navigate(`/a/${account || tenantId}/member/portal`, { replace: true });
     } catch (err) {
       setError(err.message);
+      setTurnstileResetSignal((value) => value + 1);
     } finally {
       setLoading(false);
     }
@@ -111,6 +116,7 @@ export default function MemberSignUpPage() {
         <button className="btn" type="submit" disabled={loading}>
           {loading ? 'Creating account...' : 'Create member account'}
         </button>
+        <TurnstileWidget onToken={setTurnstileToken} resetSignal={turnstileResetSignal} />
         {account ? (
           <p style={{ margin: '0.25rem 0 0' }}>
             <Link className="link-inline" to={`/a/${account}`}>

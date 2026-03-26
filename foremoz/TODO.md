@@ -252,9 +252,10 @@ Last audited terhadap isi folder: **2026-03-25** (`foremoz/apps/api`, `foremoz/a
   - [x] Member sign-in (`/a/:account/member/signin`)
   - [x] Passport/Event sign-in (`/events/signin`, `/passport/signin`)
     - Remark: UI + route forgot/reset sudah disiapkan, bergantung endpoint reset di service Passport.
-  - [ ] Security guard auth:
-    - [ ] Integrasi Cloudflare Turnstile untuk sign-in + forgot password.
-    - [ ] Backend wajib verifikasi token Turnstile.
+  - [~] Security guard auth:
+    - [x] Integrasi Cloudflare Turnstile untuk sign-in + forgot password.
+    - [x] Backend verifikasi token Turnstile sudah aktif untuk endpoint auth di Foremoz API (signup/signin/forgot/reset).
+    - [ ] Sinkronisasi enforcement Turnstile di service Passport API (di repo/service terpisah).
     - [ ] Rate limiting per IP + per email/account slug pada endpoint auth.
 - [~] Auth clarity `/web` vs `/events`
   - Remark: landing + sign-in sekarang sudah menampilkan penjelasan route auth agar user tahu `/web` untuk owner/tenant ops dan `/events` untuk passport/member participant.

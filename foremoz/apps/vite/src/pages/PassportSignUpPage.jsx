@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import TurnstileWidget from '../components/TurnstileWidget.jsx';
 import { normalizeEmail, passportApiJson, requirePassportField, setPassportSession } from '../passport-client.js';
 
 export default function PassportSignUpPage() {
@@ -21,6 +22,8 @@ export default function PassportSignUpPage() {
   const [form, setForm] = useState({ fullName: '', email: initialEmail, password: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState('');
+  const [turnstileResetSignal, setTurnstileResetSignal] = useState(0);
 
   async function onSubmit(event) {
     event.preventDefault();
@@ -37,7 +40,8 @@ export default function PassportSignUpPage() {
         body: JSON.stringify({
           full_name: fullName,
           email,
-          password
+          password,
+          turnstile_token: turnstileToken || undefined
         })
       });
 
@@ -61,6 +65,7 @@ export default function PassportSignUpPage() {
       navigate(nextPath || `${authBase}/onboarding`, { replace: true });
     } catch (err) {
       setError(err.message);
+      setTurnstileResetSignal((value) => value + 1);
     } finally {
       setLoading(false);
     }
@@ -120,6 +125,7 @@ export default function PassportSignUpPage() {
               Already have account
             </Link>
           </div>
+          <TurnstileWidget onToken={setTurnstileToken} resetSignal={turnstileResetSignal} />
           <p className="mini-note" style={{ marginTop: '0.75rem' }}>
             Cocok dipakai oleh creator maupun participant yang ingin punya profile publik di Foremoz.
           </p>
