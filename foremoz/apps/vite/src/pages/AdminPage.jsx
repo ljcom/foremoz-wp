@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { accountPath, apiJson, clearSession, getAccountSlug, getEnvironmentLabel, getSession, getAdminTabsByPlan, getAllowedEnvironments, getSessionPackagePlan } from '../lib.js';
-import { getVerticalLabel, guessVerticalSlugByText } from '../industry-jargon.js';
+import { getVerticalConfig, getVerticalLabel, guessVerticalSlugByText } from '../industry-jargon.js';
 import WorkspaceHeader from '../components/WorkspaceHeader.jsx';
 
 const ADMIN_TABS = [
@@ -1433,6 +1433,9 @@ export default function AdminPage() {
   const isFreePlan = packagePlan === 'free';
   const resolvedVerticalSlug = String(session?.tenant?.industry_slug || '').trim().toLowerCase()
     || guessVerticalSlugByText(`${session?.tenant?.gym_name || ''} ${accountSlug}`, 'active');
+  const resolvedVerticalConfig = getVerticalConfig(resolvedVerticalSlug) || null;
+  const creatorLabel = String(resolvedVerticalConfig?.vocabulary?.creator || 'Trainer').trim() || 'Trainer';
+  const creatorLabelLower = creatorLabel.toLowerCase();
   const inferredVerticalLabel = getVerticalLabel(resolvedVerticalSlug, 'Active');
   const eventCategoryExamples = useMemo(
     () => getEventCategoryExamplesByIndustry(resolvedVerticalSlug),
@@ -1827,7 +1830,7 @@ export default function AdminPage() {
   function aiCheckPublishReadiness() {
     const checks = [
       { ok: Boolean(String(eventForm.event_name || '').trim()), label: 'Event Name' },
-      { ok: Boolean(String(eventForm.trainer_name || '').trim()), label: 'Trainer Name' },
+      { ok: Boolean(String(eventForm.trainer_name || '').trim()), label: `${creatorLabel} Name` },
       { ok: Boolean(String(eventForm.location || '').trim()), label: 'Location' },
       { ok: Boolean(String(eventForm.description || '').trim()), label: 'Description' },
       { ok: Boolean(String(eventForm.categories_text || '').trim()), label: 'Category' },
@@ -1884,7 +1887,7 @@ export default function AdminPage() {
   function aiGenerateDescription() {
     const eventName = sentenceCase(eventForm.event_name || 'Community Event');
     const categories = suggestCategoriesFromText(`${eventForm.categories_text} ${eventName}`);
-    const trainer = String(eventForm.trainer_name || '').trim() || 'tim trainer';
+    const trainer = String(eventForm.trainer_name || '').trim() || `tim ${creatorLabelLower}`;
     const description = [
       `${eventName} adalah sesi ${categories[0]} dengan pendekatan praktis dan terstruktur.`,
       `Dipandu oleh ${trainer}, event ini menekankan pengalaman aman, progresif, dan tetap fun untuk berbagai level peserta.`,
@@ -3673,9 +3676,9 @@ export default function AdminPage() {
                       <>
                         <label>Event Name<input value={eventForm.event_name} onChange={(e) => setEventForm((p) => ({ ...p, event_name: e.target.value }))} /></label>
                         <div className="card" style={{ borderStyle: 'dashed' }}>
-                          <p className="eyebrow">Trainer Name (token input)</p>
+                          <p className="eyebrow">{creatorLabel} Name (token input)</p>
                           <div className="row-actions" style={{ marginBottom: '0.5rem' }}>
-                            {selectedEventTrainerTokens.length === 0 ? <span className="feedback">Belum ada trainer dipilih.</span> : null}
+                            {selectedEventTrainerTokens.length === 0 ? <span className="feedback">Belum ada {creatorLabelLower} dipilih.</span> : null}
                             {selectedEventTrainerTokens.map((name) => (
                               <span key={name} className="passport-chip">
                                 {name}
@@ -3692,14 +3695,14 @@ export default function AdminPage() {
                           </div>
                           {availableEventTrainerOptions.length > 0 ? (
                             <label>
-                              Pilih dari trainer
+                              Pilih dari {creatorLabelLower}
                               <select
                                 value=""
                                 onChange={(e) => {
                                   if (e.target.value) addEventTrainerToken(e.target.value);
                                 }}
                               >
-                                <option value="">Pilih trainer...</option>
+                                <option value="">Pilih {creatorLabelLower}...</option>
                                 {availableEventTrainerOptions.map((name) => (
                                   <option key={name} value={name}>
                                     {name}
@@ -3712,7 +3715,7 @@ export default function AdminPage() {
                             Tambah manual
                             <input
                               value={eventTrainerDraft}
-                              placeholder="Ketik nama trainer lalu Enter"
+                              placeholder={`Ketik nama ${creatorLabelLower} lalu Enter`}
                               onChange={(e) => setEventTrainerDraft(e.target.value)}
                               onKeyDown={(e) => {
                                 if (e.key === 'Enter') {
@@ -4382,9 +4385,9 @@ export default function AdminPage() {
                   <form className="form" onSubmit={addClass}>
                     <label>Class Name<input value={classForm.class_name} onChange={(e) => setClassForm((p) => ({ ...p, class_name: e.target.value }))} /></label>
                     <div className="card" style={{ borderStyle: 'dashed' }}>
-                      <p className="eyebrow">Trainer Name (token input)</p>
+                      <p className="eyebrow">{creatorLabel} Name (token input)</p>
                       <div className="row-actions" style={{ marginBottom: '0.5rem' }}>
-                        {selectedClassTrainerTokens.length === 0 ? <span className="feedback">Belum ada trainer dipilih.</span> : null}
+                        {selectedClassTrainerTokens.length === 0 ? <span className="feedback">Belum ada {creatorLabelLower} dipilih.</span> : null}
                         {selectedClassTrainerTokens.map((name) => (
                           <span key={name} className="passport-chip">
                             {name}
@@ -4401,14 +4404,14 @@ export default function AdminPage() {
                       </div>
                       {availableClassTrainerOptions.length > 0 ? (
                         <label>
-                          Pilih dari trainer
+                          Pilih dari {creatorLabelLower}
                           <select
                             value=""
                             onChange={(e) => {
                               if (e.target.value) addClassTrainerToken(e.target.value);
                             }}
                           >
-                            <option value="">Pilih trainer...</option>
+                            <option value="">Pilih {creatorLabelLower}...</option>
                             {availableClassTrainerOptions.map((name) => (
                               <option key={name} value={name}>
                                 {name}
@@ -4421,7 +4424,7 @@ export default function AdminPage() {
                         Tambah manual
                         <input
                           value={classTrainerDraft}
-                          placeholder="Ketik nama trainer lalu Enter"
+                          placeholder={`Ketik nama ${creatorLabelLower} lalu Enter`}
                           onChange={(e) => setClassTrainerDraft(e.target.value)}
                           onKeyDown={(e) => {
                             if (e.key === 'Enter') {
