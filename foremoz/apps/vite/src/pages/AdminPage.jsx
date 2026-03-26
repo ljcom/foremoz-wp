@@ -18,7 +18,17 @@ const ADMIN_TABS = [
 ];
 
 const DEFAULT_CLASSES = [
-  { class_id: 'class_001', class_name: 'HIIT Morning', trainer_name: 'Raka', capacity: '20', price: '150000', start_at: '2026-03-03 07:00' }
+  {
+    class_id: 'class_001',
+    class_name: 'HIIT Morning',
+    trainer_name: 'Raka',
+    capacity: '20',
+    price: '150000',
+    start_at: '2026-03-03 07:00',
+    schedule_mode: 'weekly',
+    weekly_schedule: { weekdays: ['mon', 'wed', 'fri'], start_time: '07:00', end_time: '08:00' },
+    manual_schedule: []
+  }
 ];
 const DEFAULT_EVENTS = [
   {
@@ -42,6 +52,20 @@ const EVENT_DURATION_UNITS = [
   { value: 'months', label: 'Months (30 days)', minutes: 60 * 24 * 30 },
   { value: 'years', label: 'Years (365 days)', minutes: 60 * 24 * 365 }
 ];
+
+const CLASS_WEEKDAYS = [
+  { value: 'sun', label: 'Sun' },
+  { value: 'mon', label: 'Mon' },
+  { value: 'tue', label: 'Tue' },
+  { value: 'wed', label: 'Wed' },
+  { value: 'thu', label: 'Thu' },
+  { value: 'fri', label: 'Fri' },
+  { value: 'sat', label: 'Sat' }
+];
+
+function createEmptyClassManualSession() {
+  return { start_at: '', end_at: '' };
+}
 
 function toDurationMinutes(durationValue, durationUnit) {
   const value = Number(durationValue);
@@ -531,6 +555,11 @@ function createEmptyClassForm() {
     coach_shares: [],
     category: '',
     custom_fields_text: '',
+    schedule_mode: 'weekly',
+    weekly_days: [],
+    weekly_start_time: '',
+    weekly_end_time: '',
+    manual_schedule: [createEmptyClassManualSession()],
     capacity: '20',
     price: '0',
     start_at: '',
@@ -693,6 +722,75 @@ function resolveEventImage(item) {
 
 function formatIdr(value) {
   return `IDR ${Number(value || 0).toLocaleString('id-ID')}`;
+}
+
+function normalizeClassScheduleForPayload(form) {
+  const scheduleMode = String(form?.schedule_mode || 'weekly').trim().toLowerCase();
+  if (!['weekly', 'manual'].includes(scheduleMode)) {
+    throw new Error('schedule_mode class tidak valid');
+  }
+  if (scheduleMode === 'weekly') {
+    const weekdays = [...new Set(
+      (Array.isArray(form?.weekly_days) ? form.weekly_days : [])
+        .map((item) => String(item || '').trim().toLowerCase())
+        .filter((item) => CLASS_WEEKDAYS.some((day) => day.value === item))
+    )];
+    const startTime = String(form?.weekly_start_time || '').trim();
+    const endTime = String(form?.weekly_end_time || '').trim();
+    if (weekdays.length > 0 && (!startTime || !endTime)) {
+      throw new Error('Jam weekly class wajib diisi saat memilih hari');
+    }
+    return {
+      schedule_mode: 'weekly',
+      weekly_schedule: {
+        weekdays,
+        start_time: startTime,
+        end_time: endTime
+      },
+      manual_schedule: []
+    };
+  }
+  const manualSchedule = (Array.isArray(form?.manual_schedule) ? form.manual_schedule : [])
+    .map((item) => ({
+      start_at: toApiDatetime(item?.start_at || ''),
+      end_at: toApiDatetime(item?.end_at || '')
+    }))
+    .filter((item) => item.start_at || item.end_at);
+  manualSchedule.forEach((item, index) => {
+    if (!item.start_at || !item.end_at) {
+      throw new Error(`Manual schedule #${index + 1} harus punya tanggal mulai dan akhir`);
+    }
+    if (new Date(item.end_at).getTime() <= new Date(item.start_at).getTime()) {
+      throw new Error(`Manual schedule #${index + 1} harus berakhir setelah mulai`);
+    }
+  });
+  return {
+    schedule_mode: 'manual',
+    weekly_schedule: {
+      weekdays: [],
+      start_time: '',
+      end_time: ''
+    },
+    manual_schedule: manualSchedule
+  };
+}
+
+function formatClassScheduleSummary(item) {
+  const scheduleMode = String(item?.schedule_mode || 'weekly').trim().toLowerCase();
+  if (scheduleMode === 'manual') {
+    const total = Array.isArray(item?.manual_schedule) ? item.manual_schedule.length : 0;
+    return total > 0 ? `Manual (${total} sesi)` : 'Manual';
+  }
+  const weeklySchedule = item?.weekly_schedule || {};
+  const weekdays = Array.isArray(weeklySchedule.weekdays) ? weeklySchedule.weekdays : [];
+  const labels = weekdays
+    .map((value) => CLASS_WEEKDAYS.find((day) => day.value === value)?.label || String(value || '').toUpperCase())
+    .filter(Boolean);
+  const timeLabel = weeklySchedule.start_time && weeklySchedule.end_time
+    ? `${weeklySchedule.start_time}-${weeklySchedule.end_time}`
+    : '';
+  if (labels.length === 0 && !timeLabel) return '-';
+  return [labels.join(', '), timeLabel].filter(Boolean).join(' | ');
 }
 
 function parseCustomFieldsInput(raw, label) {
@@ -1397,6 +1495,9 @@ export default function AdminPage() {
           trainer_name: item.trainer_name || '',
           category: item.category || '',
           custom_fields: item.custom_fields || {},
+          schedule_mode: item.schedule_mode || 'weekly',
+          weekly_schedule: item.weekly_schedule || { weekdays: [], start_time: '', end_time: '' },
+          manual_schedule: Array.isArray(item.manual_schedule) ? item.manual_schedule : [],
           capacity: String(item.capacity || '20'),
           price: String(item.price || '0'),
           start_at: item.start_at || '',
@@ -1936,6 +2037,14 @@ export default function AdminPage() {
       setFeedback('periode akhir harus setelah periode mulai');
       return;
     }
+    let normalizedSchedule;
+    try {
+      normalizedSchedule = normalizeClassScheduleForPayload(classForm);
+    } catch (error) {
+      setClassEditTab('schedule');
+      setFeedback(error.message);
+      return;
+    }
 
     try {
       setClassSaving(true);
@@ -1953,6 +2062,9 @@ export default function AdminPage() {
           coach_shares: normalizeCoachSharesForPayload(classForm.coach_shares, 'coach'),
           category: classForm.category || '',
           custom_fields: parseCustomFieldsInput(classForm.custom_fields_text, 'class'),
+          schedule_mode: normalizedSchedule.schedule_mode,
+          weekly_schedule: normalizedSchedule.weekly_schedule,
+          manual_schedule: normalizedSchedule.manual_schedule,
           capacity: Number(classForm.capacity || 20),
           price: Number(classForm.price || 0),
           start_at: startAtIso,
@@ -1973,6 +2085,9 @@ export default function AdminPage() {
       if (String(error?.message || '').toLowerCase().includes('custom_fields')) {
         setClassEditTab('custom_fields');
       }
+      if (String(error?.message || '').toLowerCase().includes('schedule')) {
+        setClassEditTab('schedule');
+      }
       setFeedback(error.message);
     } finally {
       setClassSaving(false);
@@ -1988,6 +2103,16 @@ export default function AdminPage() {
       coach_shares: syncCoachSharesWithTrainerNames(trainerName, item.coach_shares),
       category: item.category || '',
       custom_fields_text: item.custom_fields && Object.keys(item.custom_fields).length > 0 ? JSON.stringify(item.custom_fields, null, 2) : '',
+      schedule_mode: item.schedule_mode || 'weekly',
+      weekly_days: Array.isArray(item.weekly_schedule?.weekdays) ? item.weekly_schedule.weekdays : [],
+      weekly_start_time: String(item.weekly_schedule?.start_time || ''),
+      weekly_end_time: String(item.weekly_schedule?.end_time || ''),
+      manual_schedule: Array.isArray(item.manual_schedule) && item.manual_schedule.length > 0
+        ? item.manual_schedule.map((session) => ({
+            start_at: toInputDatetime(session.start_at || ''),
+            end_at: toInputDatetime(session.end_at || '')
+          }))
+        : [createEmptyClassManualSession()],
       capacity: item.capacity || '20',
       price: String(item.price || '0'),
       start_at: normalizedStartAt || '',
@@ -4670,6 +4795,7 @@ export default function AdminPage() {
                           <th className="admin-data-head">Capacity</th>
                           <th className="admin-data-head">Price</th>
                           <th className="admin-data-head">Periode</th>
+                          <th className="admin-data-head">Schedule</th>
                           <th className="admin-data-head">Max Meeting</th>
                           <th className="admin-data-head">Aksi</th>
                         </tr>
@@ -4685,6 +4811,7 @@ export default function AdminPage() {
                               {formatClassDatetime(item.start_at)}
                               {item.period_end_at ? ` - ${formatClassDatetime(item.period_end_at)}` : ''}
                             </td>
+                            <td className="admin-data-cell">{formatClassScheduleSummary(item)}</td>
                             <td className="admin-data-cell">{Number(item.max_meetings || 0) > 0 ? item.max_meetings : '-'}</td>
                             <td className="admin-data-cell">
                               <div className="row-actions">
@@ -4727,6 +4854,13 @@ export default function AdminPage() {
                       onClick={() => setClassEditTab('custom_fields')}
                     >
                       Custom fields
+                    </button>
+                    <button
+                      type="button"
+                      className={`landing-tab ${classEditTab === 'schedule' ? 'active' : ''}`}
+                      onClick={() => setClassEditTab('schedule')}
+                    >
+                      Schedule
                     </button>
                     <button
                       type="button"
@@ -4866,6 +5000,153 @@ export default function AdminPage() {
                           value={classForm.custom_fields_text}
                           onChange={(e) => setClassForm((p) => ({ ...p, custom_fields_text: e.target.value }))}
                         />
+                      </div>
+                    ) : null}
+                    {classEditTab === 'schedule' ? (
+                      <div className="card" style={{ borderStyle: 'dashed' }}>
+                        <p className="eyebrow">Schedule</p>
+                        <div style={{ display: 'grid', gap: '0.35rem', marginBottom: '0.75rem' }}>
+                          <label style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', margin: 0 }}>
+                            <input
+                              type="radio"
+                              name="class_schedule_mode"
+                              checked={classForm.schedule_mode === 'weekly'}
+                              onChange={() => setClassForm((prev) => ({ ...prev, schedule_mode: 'weekly' }))}
+                            />
+                            <span>Day of week + jam</span>
+                          </label>
+                          <label style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', margin: 0 }}>
+                            <input
+                              type="radio"
+                              name="class_schedule_mode"
+                              checked={classForm.schedule_mode === 'manual'}
+                              onChange={() =>
+                                setClassForm((prev) => ({
+                                  ...prev,
+                                  schedule_mode: 'manual',
+                                  manual_schedule: Array.isArray(prev.manual_schedule) && prev.manual_schedule.length > 0
+                                    ? prev.manual_schedule
+                                    : [createEmptyClassManualSession()]
+                                }))
+                              }
+                            />
+                            <span>Manual tanggal + jam</span>
+                          </label>
+                        </div>
+                        {classForm.schedule_mode === 'weekly' ? (
+                          <>
+                            <p className="feedback">Pilih hari yang aktif, lalu isi jam untuk semua hari yang dipilih.</p>
+                            <div className="row-actions" style={{ flexWrap: 'wrap', marginBottom: '0.75rem' }}>
+                              {CLASS_WEEKDAYS.map((day) => {
+                                const isChecked = (classForm.weekly_days || []).includes(day.value);
+                                return (
+                                  <label key={day.value} className="passport-chip" style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                                    <input
+                                      type="checkbox"
+                                      checked={isChecked}
+                                      onChange={(e) =>
+                                        setClassForm((prev) => {
+                                          const current = Array.isArray(prev.weekly_days) ? prev.weekly_days : [];
+                                          const next = e.target.checked
+                                            ? [...new Set([...current, day.value])]
+                                            : current.filter((item) => item !== day.value);
+                                          return { ...prev, weekly_days: next };
+                                        })
+                                      }
+                                    />
+                                    <span>{day.label}</span>
+                                  </label>
+                                );
+                              })}
+                            </div>
+                            <label>
+                              Jam Mulai
+                              <input
+                                type="time"
+                                value={classForm.weekly_start_time}
+                                onChange={(e) => setClassForm((prev) => ({ ...prev, weekly_start_time: e.target.value }))}
+                              />
+                            </label>
+                            <label>
+                              Jam Akhir
+                              <input
+                                type="time"
+                                value={classForm.weekly_end_time}
+                                onChange={(e) => setClassForm((prev) => ({ ...prev, weekly_end_time: e.target.value }))}
+                              />
+                            </label>
+                          </>
+                        ) : (
+                          <>
+                            <p className="feedback">Tambahkan sesi manual satu per satu dengan tanggal dan jam.</p>
+                            <div className="row-actions" style={{ marginBottom: '0.5rem' }}>
+                              <button
+                                className="btn ghost small"
+                                type="button"
+                                onClick={() =>
+                                  setClassForm((prev) => ({
+                                    ...prev,
+                                    manual_schedule: [...(Array.isArray(prev.manual_schedule) ? prev.manual_schedule : []), createEmptyClassManualSession()]
+                                  }))
+                                }
+                              >
+                                + session manual
+                              </button>
+                            </div>
+                            <div className="entity-list">
+                              {(Array.isArray(classForm.manual_schedule) ? classForm.manual_schedule : []).map((session, index) => (
+                                <div key={`class-manual-session-${index}`} className="card" style={{ marginBottom: '0.5rem' }}>
+                                  <label>
+                                    Tanggal + Jam Mulai
+                                    <input
+                                      type="datetime-local"
+                                      value={session.start_at || ''}
+                                      onChange={(e) =>
+                                        setClassForm((prev) => ({
+                                          ...prev,
+                                          manual_schedule: (Array.isArray(prev.manual_schedule) ? prev.manual_schedule : []).map((item, idx) =>
+                                            idx === index ? { ...item, start_at: e.target.value } : item
+                                          )
+                                        }))
+                                      }
+                                    />
+                                  </label>
+                                  <label>
+                                    Tanggal + Jam Akhir
+                                    <input
+                                      type="datetime-local"
+                                      value={session.end_at || ''}
+                                      onChange={(e) =>
+                                        setClassForm((prev) => ({
+                                          ...prev,
+                                          manual_schedule: (Array.isArray(prev.manual_schedule) ? prev.manual_schedule : []).map((item, idx) =>
+                                            idx === index ? { ...item, end_at: e.target.value } : item
+                                          )
+                                        }))
+                                      }
+                                    />
+                                  </label>
+                                  <button
+                                    className="btn ghost small"
+                                    type="button"
+                                    onClick={() =>
+                                      setClassForm((prev) => {
+                                        const current = Array.isArray(prev.manual_schedule) ? prev.manual_schedule : [];
+                                        const next = current.filter((_, idx) => idx !== index);
+                                        return {
+                                          ...prev,
+                                          manual_schedule: next.length > 0 ? next : [createEmptyClassManualSession()]
+                                        };
+                                      })
+                                    }
+                                  >
+                                    Hapus session
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          </>
+                        )}
                       </div>
                     ) : null}
                     {classEditTab === 'participants' ? (

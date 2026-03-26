@@ -436,6 +436,71 @@ function normalizeOptionalDatetime(value, fieldName, fallback = null) {
   return parsed.toISOString();
 }
 
+function normalizeClassSchedule(rawValue, fallback = {}) {
+  const source = rawValue && typeof rawValue === 'object' && !Array.isArray(rawValue)
+    ? rawValue
+    : {};
+  const fallbackSource = fallback && typeof fallback === 'object' && !Array.isArray(fallback)
+    ? fallback
+    : {};
+  const scheduleMode = String(source.schedule_mode ?? fallbackSource.schedule_mode ?? 'weekly').trim().toLowerCase();
+  if (!['weekly', 'manual'].includes(scheduleMode)) {
+    throw fail(400, 'BAD_REQUEST', 'schedule_mode must be either weekly or manual');
+  }
+
+  const weeklyInput = source.weekly_schedule ?? fallbackSource.weekly_schedule ?? {};
+  const weeklySource = weeklyInput && typeof weeklyInput === 'object' && !Array.isArray(weeklyInput)
+    ? weeklyInput
+    : {};
+  const allowedWeekdays = new Set(['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']);
+  const weekdays = [...new Set(
+    (Array.isArray(weeklySource.weekdays) ? weeklySource.weekdays : [])
+      .map((item) => String(item || '').trim().toLowerCase())
+      .filter((item) => allowedWeekdays.has(item))
+  )];
+  const startTime = String(weeklySource.start_time || '').trim();
+  const endTime = String(weeklySource.end_time || '').trim();
+  if ((startTime && !endTime) || (!startTime && endTime)) {
+    throw fail(400, 'BAD_REQUEST', 'weekly_schedule start_time and end_time must be provided together');
+  }
+  if (scheduleMode === 'weekly' && weekdays.length > 0 && (!startTime || !endTime)) {
+    throw fail(400, 'BAD_REQUEST', 'weekly_schedule requires start_time and end_time when weekdays are selected');
+  }
+
+  const manualInput = source.manual_schedule ?? fallbackSource.manual_schedule ?? [];
+  const manualItems = Array.isArray(manualInput) ? manualInput : [];
+  if (manualItems.length > 60) {
+    throw fail(400, 'BAD_REQUEST', 'manual_schedule max length is 60');
+  }
+  const manualSchedule = manualItems.map((item, index) => {
+    if (!item || typeof item !== 'object') {
+      throw fail(400, 'BAD_REQUEST', `manual_schedule[${index}] must be an object`);
+    }
+    const sessionStartAt = normalizeOptionalDatetime(item.start_at, `manual_schedule[${index}].start_at`, null);
+    const sessionEndAt = normalizeOptionalDatetime(item.end_at, `manual_schedule[${index}].end_at`, null);
+    if (!sessionStartAt || !sessionEndAt) {
+      throw fail(400, 'BAD_REQUEST', `manual_schedule[${index}] start_at and end_at are required`);
+    }
+    if (new Date(sessionEndAt).getTime() <= new Date(sessionStartAt).getTime()) {
+      throw fail(400, 'BAD_REQUEST', `manual_schedule[${index}].end_at must be after start_at`);
+    }
+    return {
+      start_at: sessionStartAt,
+      end_at: sessionEndAt
+    };
+  });
+
+  return {
+    schedule_mode: scheduleMode,
+    weekly_schedule: {
+      weekdays,
+      start_time: startTime,
+      end_time: endTime
+    },
+    manual_schedule: manualSchedule
+  };
+}
+
 function normalizeBoolean(value, fallback = true) {
   if (value === undefined || value === null || value === '') return fallback;
   if (typeof value === 'boolean') return value;
@@ -3725,6 +3790,9 @@ app.get('/v1/admin/classes', async (req, res, next) => {
     let maxMeetingsByClassId = {};
     let categoryByClassId = {};
     let customFieldsByClassId = {};
+    let scheduleModeByClassId = {};
+    let weeklyScheduleByClassId = {};
+    let manualScheduleByClassId = {};
     if (classIds.length > 0) {
       const namespaceId = resolveNamespaceId(tenantId);
       const { rows: trainerRows } = await query(
@@ -3768,6 +3836,27 @@ app.get('/v1/admin/classes', async (req, res, next) => {
           .map((row) => [row.data?.class_id, row.data?.custom_fields || {}])
           .filter(([classId]) => Boolean(classId))
       );
+      scheduleModeByClassId = Object.fromEntries(
+        trainerRows
+          .map((row) => [row.data?.class_id, String(row.data?.schedule_mode || 'weekly')])
+          .filter(([classId]) => Boolean(classId))
+      );
+      weeklyScheduleByClassId = Object.fromEntries(
+        trainerRows
+          .map((row) => [row.data?.class_id, normalizeClassSchedule({
+            schedule_mode: 'weekly',
+            weekly_schedule: row.data?.weekly_schedule
+          }).weekly_schedule])
+          .filter(([classId]) => Boolean(classId))
+      );
+      manualScheduleByClassId = Object.fromEntries(
+        trainerRows
+          .map((row) => [row.data?.class_id, normalizeClassSchedule({
+            schedule_mode: 'manual',
+            manual_schedule: row.data?.manual_schedule
+          }).manual_schedule])
+          .filter(([classId]) => Boolean(classId))
+      );
     }
 
     return ok(res, {
@@ -3779,7 +3868,10 @@ app.get('/v1/admin/classes', async (req, res, next) => {
         period_end_at: periodEndByClassId[row.class_id] || null,
         max_meetings: maxMeetingsByClassId[row.class_id] || 0,
         category: categoryByClassId[row.class_id] || '',
-        custom_fields: customFieldsByClassId[row.class_id] || {}
+        custom_fields: customFieldsByClassId[row.class_id] || {},
+        schedule_mode: scheduleModeByClassId[row.class_id] || 'weekly',
+        weekly_schedule: weeklyScheduleByClassId[row.class_id] || { weekdays: [], start_time: '', end_time: '' },
+        manual_schedule: manualScheduleByClassId[row.class_id] || []
       }))
     });
   } catch (error) {
@@ -3807,6 +3899,11 @@ app.post('/v1/admin/classes', async (req, res, next) => {
       throw fail(400, 'BAD_REQUEST', 'period_end_at must be after start_at');
     }
     const customFields = normalizeCustomFields(data.custom_fields);
+    const schedule = normalizeClassSchedule({
+      schedule_mode: data.schedule_mode,
+      weekly_schedule: data.weekly_schedule,
+      manual_schedule: data.manual_schedule
+    });
 
     const event = await appendDomainEvent({
       tenantId,
@@ -3829,7 +3926,10 @@ app.post('/v1/admin/classes', async (req, res, next) => {
         period_end_at: periodEndAt,
         max_meetings: asNonNegativeInteger(data.max_meetings, 'max_meetings', 0),
         category: String(data.category || '').trim(),
-        custom_fields: customFields
+        custom_fields: customFields,
+        schedule_mode: schedule.schedule_mode,
+        weekly_schedule: schedule.weekly_schedule,
+        manual_schedule: schedule.manual_schedule
       },
       refs: {},
       uniqueIds: [{ scope: 'class.class_id', value: classId }]
@@ -3880,6 +3980,15 @@ app.patch('/v1/admin/classes/:classId', async (req, res, next) => {
     const customFields = data.custom_fields === undefined
       ? latestScheduledData?.custom_fields || {}
       : normalizeCustomFields(data.custom_fields);
+    const schedule = normalizeClassSchedule({
+      schedule_mode: data.schedule_mode,
+      weekly_schedule: data.weekly_schedule,
+      manual_schedule: data.manual_schedule
+    }, {
+      schedule_mode: latestScheduledData?.schedule_mode || 'weekly',
+      weekly_schedule: latestScheduledData?.weekly_schedule || {},
+      manual_schedule: latestScheduledData?.manual_schedule || []
+    });
 
     const event = await appendDomainEvent({
       tenantId,
@@ -3905,7 +4014,10 @@ app.patch('/v1/admin/classes/:classId', async (req, res, next) => {
         period_end_at: periodEndAt,
         max_meetings: asNonNegativeInteger(data.max_meetings, 'max_meetings', Number(latestScheduledData?.max_meetings || 0)),
         category: data.category === undefined ? String(latestScheduledData?.category || '') : String(data.category || '').trim(),
-        custom_fields: customFields
+        custom_fields: customFields,
+        schedule_mode: schedule.schedule_mode,
+        weekly_schedule: schedule.weekly_schedule,
+        manual_schedule: schedule.manual_schedule
       },
       refs: {}
     });
