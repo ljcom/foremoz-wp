@@ -45,7 +45,8 @@ export const config = {
   emailSmtpPass: String(process.env.EMAIL_SMTP_PASS || '').trim(),
   emailSmtpIgnoreTlsErrors: parseBoolean(process.env.EMAIL_SMTP_IGNORE_TLS_ERRORS, false),
   turnstileEnabled: parseBoolean(process.env.TURNSTILE_ENABLED, false),
-  turnstileSecretKey: String(process.env.TURNSTILE_SECRET_KEY || '').trim()
+  turnstileSecretKey: String(process.env.TURNSTILE_SECRET_KEY || '').trim(),
+  pexelsApiKey: String(process.env.PEXELS_API_KEY || '').trim()
 };
 
 if (!config.databaseUrl) {

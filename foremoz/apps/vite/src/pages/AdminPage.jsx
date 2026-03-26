@@ -33,7 +33,6 @@ const DEFAULT_EVENTS = [
     status: 'scheduled'
   }
 ];
-const PEXELS_API_KEY = String(import.meta.env.VITE_PEXELS_API_KEY || '').trim();
 
 const EVENT_DURATION_UNITS = [
   { value: 'minutes', label: 'Minutes', minutes: 1 },
@@ -805,6 +804,7 @@ export default function AdminPage() {
   const [eventFormBaseline, setEventFormBaseline] = useState(() => serializeEventForm(createEmptyEventForm()));
   const [eventTrainerDraft, setEventTrainerDraft] = useState('');
   const [eventAiWorking, setEventAiWorking] = useState(false);
+  const [eventImageKeyword, setEventImageKeyword] = useState('');
   const [classForm, setClassForm] = useState({ class_name: '', trainer_name: '', capacity: '20', price: '0', start_at: '' });
   const [classTrainerDraft, setClassTrainerDraft] = useState('');
   const [memberRelationDraft, setMemberRelationDraft] = useState('');
@@ -1540,18 +1540,11 @@ export default function AdminPage() {
   }
 
   async function fetchPexelsPhotos(keyword, perPage = 4) {
-    if (!PEXELS_API_KEY) {
-      throw new Error('VITE_PEXELS_API_KEY belum diisi');
-    }
-    const query = encodeURIComponent(String(keyword || '').trim() || 'fitness event');
-    const response = await fetch(`https://api.pexels.com/v1/search?query=${query}&per_page=${perPage}&orientation=landscape`, {
-      headers: { Authorization: PEXELS_API_KEY }
-    });
-    const payload = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      throw new Error(payload?.error || 'Gagal mengambil gambar dari Pexels');
-    }
-    return Array.isArray(payload?.photos) ? payload.photos : [];
+    const query = String(keyword || '').trim() || 'fitness event';
+    const result = await apiJson(
+      `/v1/ai/pexels/search?tenant_id=${encodeURIComponent(tenantId)}&query=${encodeURIComponent(query)}&per_page=${encodeURIComponent(perPage)}`
+    );
+    return Array.isArray(result.rows) ? result.rows : [];
   }
 
   function aiGenerateDraftFromBrief() {
@@ -1681,6 +1674,7 @@ export default function AdminPage() {
 
   function aiShowImageKeyword() {
     const keyword = buildEventImageKeyword();
+    setEventImageKeyword(keyword);
     setFeedback(`ai.assist: Keyword image -> ${keyword}`);
   }
 
@@ -1694,9 +1688,10 @@ export default function AdminPage() {
         return;
       }
       const urls = photos
-        .map((item) => item?.src?.landscape || item?.src?.large || item?.src?.medium || '')
+        .map((item) => item?.image_url || '')
         .map((item) => String(item || '').trim())
         .filter(Boolean);
+      setEventImageKeyword(keyword);
       setEventForm((prev) => ({
         ...prev,
         image_url: urls[0] || prev.image_url,
@@ -3443,6 +3438,7 @@ export default function AdminPage() {
                             AI Fill Gallery
                           </button>
                         </div>
+                        {eventImageKeyword ? <p className="feedback">Last image keyword: {eventImageKeyword}</p> : null}
                         <label>
                           description
                           <textarea

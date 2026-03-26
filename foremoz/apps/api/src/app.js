@@ -3726,6 +3726,45 @@ app.get('/v1/admin/events', async (req, res, next) => {
   }
 });
 
+app.get('/v1/ai/pexels/search', async (req, res, next) => {
+  try {
+    const tenantId = String(req.query.tenant_id || config.defaultTenantId).trim() || config.defaultTenantId;
+    await requireActiveTenantUser(req, tenantId);
+    const queryText = String(req.query.query || '').trim();
+    const perPage = Math.min(Math.max(Number(req.query.per_page || 4), 1), 10);
+    if (!queryText) {
+      throw fail(400, 'BAD_REQUEST', 'query is required');
+    }
+    if (!config.pexelsApiKey) {
+      throw fail(400, 'PEXELS_NOT_CONFIGURED', 'PEXELS_API_KEY belum diatur di server');
+    }
+
+    const url = `https://api.pexels.com/v1/search?query=${encodeURIComponent(queryText)}&per_page=${perPage}&orientation=landscape`;
+    const response = await fetch(url, {
+      headers: {
+        Authorization: config.pexelsApiKey
+      }
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const errMsg = String(payload?.error || payload?.message || 'failed to fetch pexels');
+      throw fail(502, 'PEXELS_FETCH_FAILED', errMsg);
+    }
+
+    const photos = Array.isArray(payload?.photos) ? payload.photos : [];
+    const rows = photos.map((item) => ({
+      id: item?.id || null,
+      photographer: item?.photographer || null,
+      source_url: item?.url || null,
+      image_url: item?.src?.landscape || item?.src?.large || item?.src?.medium || null
+    })).filter((item) => item.image_url);
+
+    return ok(res, { query: queryText, rows });
+  } catch (error) {
+    return next(error);
+  }
+});
+
 app.post('/v1/admin/events', async (req, res, next) => {
   try {
     const data = req.body || {};
