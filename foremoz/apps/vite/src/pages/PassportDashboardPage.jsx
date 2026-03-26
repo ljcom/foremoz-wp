@@ -456,20 +456,7 @@ export default function PassportDashboardPage() {
         <>
           <section className="card passport-profile-card">
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.9rem', flexWrap: 'wrap' }}>
-              <div
-                style={{
-                  width: '56px',
-                  height: '56px',
-                  borderRadius: '999px',
-                  background: 'linear-gradient(180deg,#ffdcb8,#ffbe87)',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: '#7b3f1a',
-                  fontWeight: 800,
-                  overflow: 'hidden'
-                }}
-              >
+              <div className="passport-avatar-shell">
                 {avatarDataUrl ? (
                   <img src={avatarDataUrl} alt={displayName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 ) : (
@@ -652,10 +639,9 @@ export default function PassportDashboardPage() {
               {orderedSectionPreview.map((item) => (
                 <div
                   key={`preview-${item.key}`}
-                  className="entity-row"
+                  className={`entity-row ${item.isPinned ? 'passport-preview-row-pinned' : ''}`}
                   style={{
-                    opacity: item.isVisibleInMode ? 1 : 0.55,
-                    borderColor: item.isPinned ? '#8f3f1e' : undefined
+                    opacity: item.isVisibleInMode ? 1 : 0.55
                   }}
                 >
                   <div>

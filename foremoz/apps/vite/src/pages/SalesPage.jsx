@@ -505,7 +505,7 @@ export default function SalesPage() {
             items.map((item) => {
               const isSelected = String(selectedProspectId || '') === String(item.prospect_id || '');
               return (
-                <div className="entity-row" key={item.prospect_id} style={isSelected ? { border: '1px solid #d97706' } : undefined}>
+                <div className={`entity-row ${isSelected ? 'sales-prospect-row-selected' : ''}`} key={item.prospect_id}>
                   <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start' }}>
                     <input
                       type="checkbox"

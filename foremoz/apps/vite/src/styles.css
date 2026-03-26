@@ -9,6 +9,17 @@
   --accent-dark: #8f3f1e;
   --accent-soft: #f6e5d9;
   --ok: #187b55;
+  --warning-strong: #d97706;
+  --avatar-top: #ffdcb8;
+  --avatar-bottom: #ffbe87;
+  --avatar-text: #7b3f1a;
+  --table-head-border: #d1d5db;
+  --table-head-bg: #f7efe6;
+  --table-row: #ffffff;
+  --table-row-alt: #f7efe6;
+  --table-row-border: #e5e7eb;
+  --table-muted-text: #6b7280;
+  --chip-border: #d9bea0;
   --font-main: 'Space Grotesk', sans-serif;
   --font-mono: 'IBM Plex Mono', monospace;
 }
@@ -192,6 +203,73 @@ select:focus-visible {
   padding-left: 1.1rem;
   color: var(--muted);
   line-height: 1.8;
+}
+
+.sales-prospect-row-selected {
+  border-color: var(--warning-strong);
+}
+
+.passport-avatar-shell {
+  width: 56px;
+  height: 56px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, var(--avatar-top), var(--avatar-bottom));
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--avatar-text);
+  font-weight: 800;
+  overflow: hidden;
+}
+
+.passport-preview-row-pinned {
+  border-color: var(--accent-dark);
+}
+
+.admin-action-chip {
+  cursor: pointer;
+  background: #fff;
+  color: var(--accent-dark);
+  border: 1px solid var(--chip-border);
+  margin: 2px;
+  padding: 0.2rem 0.45rem;
+  border-radius: 10px;
+}
+
+.admin-data-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.admin-data-head {
+  text-align: left;
+  padding: 0.65rem 0.5rem;
+  border-bottom: 1px solid var(--table-head-border);
+  background: var(--table-head-bg);
+  font-weight: 700;
+}
+
+.admin-data-row {
+  background: var(--table-row);
+}
+
+.admin-data-row-alt {
+  background: var(--table-row-alt);
+}
+
+.admin-data-cell {
+  padding: 0.5rem;
+  border-bottom: 1px solid var(--table-row-border);
+}
+
+.admin-operation-link {
+  margin: 0.2rem 0 0;
+  font-size: 0.85rem;
+  color: var(--table-muted-text);
+}
+
+.admin-action-strip {
+  gap: 0;
 }
 
 .public-hero-image {

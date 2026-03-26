@@ -997,7 +997,7 @@ function DeleteButton({ onClick }) {
     <span
       role="button"
       tabIndex={0}
-      style={{ cursor: 'pointer', background: '#fff', color: '#8f3f1e', border:'1px solid #d9bea0', margin: '2px', padding: '0.2rem 0.45rem', borderRadius: '10px' }}
+      className="admin-action-chip"
       onClick={onClick}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
@@ -1015,7 +1015,7 @@ function ViewButton({ onClick }) {
     <span
       role="button"
       tabIndex={0}
-      style={{ cursor: 'pointer', background: '#fff', color: '#8f3f1e', border:'1px solid #d9bea0', margin: '2px', padding: '0.2rem 0.45rem', borderRadius: '10px' }}
+      className="admin-action-chip"
       onClick={onClick}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
@@ -1033,7 +1033,7 @@ function ShareButton({ onClick }) {
     <span
       role="button"
       tabIndex={0}
-      style={{ cursor: 'pointer', background: '#fff', color: '#8f3f1e', border:'1px solid #d9bea0', margin: '2px', padding: '0.2rem 0.45rem', borderRadius: '10px' }}
+      className="admin-action-chip"
       onClick={onClick}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
@@ -1051,7 +1051,7 @@ function ParticipantsButton({ onClick }) {
     <span
       role="button"
       tabIndex={0}
-      style={{ cursor: 'pointer', background: '#fff', color: '#8f3f1e', border:'1px solid #d9bea0', margin: '2px', padding: '0.2rem 0.45rem', borderRadius: '10px' }}
+      className="admin-action-chip"
       onClick={onClick}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
@@ -4396,26 +4396,26 @@ export default function AdminPage() {
                   </div>
                   {classLoading ? <p className="feedback">Loading class list...</p> : null}
                   <div className="entity-list">
-                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <table className="admin-data-table">
                       <thead>
                         <tr>
-                          <th style={{ textAlign: 'left', padding: '0.65rem 0.5rem', borderBottom: '1px solid #d1d5db', background: '#f7efe6', fontWeight: 700 }}>Class Name</th>
-                          <th style={{ textAlign: 'left', padding: '0.65rem 0.5rem', borderBottom: '1px solid #d1d5db', background: '#f7efe6', fontWeight: 700 }}>Trainer</th>
-                          <th style={{ textAlign: 'left', padding: '0.65rem 0.5rem', borderBottom: '1px solid #d1d5db', background: '#f7efe6', fontWeight: 700 }}>Capacity</th>
-                          <th style={{ textAlign: 'left', padding: '0.65rem 0.5rem', borderBottom: '1px solid #d1d5db', background: '#f7efe6', fontWeight: 700 }}>Price</th>
-                          <th style={{ textAlign: 'left', padding: '0.65rem 0.5rem', borderBottom: '1px solid #d1d5db', background: '#f7efe6', fontWeight: 700 }}>Start At</th>
-                          <th style={{ textAlign: 'left', padding: '0.65rem 0.5rem', borderBottom: '1px solid #d1d5db', background: '#f7efe6', fontWeight: 700 }}>Aksi</th>
+                          <th className="admin-data-head">Class Name</th>
+                          <th className="admin-data-head">Trainer</th>
+                          <th className="admin-data-head">Capacity</th>
+                          <th className="admin-data-head">Price</th>
+                          <th className="admin-data-head">Start At</th>
+                          <th className="admin-data-head">Aksi</th>
                         </tr>
                       </thead>
                       <tbody>
                         {filteredClasses.map((item, idx) => (
-                          <tr key={item.class_id} style={{ backgroundColor: idx % 2 === 0 ? '#ffffff' : '#f7efe6' }}>
-                            <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>{item.class_name}</td>
-                            <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>{item.trainer_name}</td>
-                            <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>{item.capacity}</td>
-                            <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>{formatIdr(item.price || 0)}</td>
-                            <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>{formatClassDatetime(item.start_at)}</td>
-                            <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>
+                          <tr key={item.class_id} className={idx % 2 === 0 ? 'admin-data-row' : 'admin-data-row admin-data-row-alt'}>
+                            <td className="admin-data-cell">{item.class_name}</td>
+                            <td className="admin-data-cell">{item.trainer_name}</td>
+                            <td className="admin-data-cell">{item.capacity}</td>
+                            <td className="admin-data-cell">{formatIdr(item.price || 0)}</td>
+                            <td className="admin-data-cell">{formatClassDatetime(item.start_at)}</td>
+                            <td className="admin-data-cell">
                               <div className="row-actions">
                                 <ViewButton onClick={() => viewClass(item)} />
                                 <DeleteButton onClick={() => deleteClass(item.class_id)} />
@@ -4520,24 +4520,24 @@ export default function AdminPage() {
                   </div>
                   {productLoading ? <p className="feedback">Loading product list...</p> : null}
                   <div className="entity-list">
-                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <table className="admin-data-table">
                       <thead>
                         <tr>
-                          <th style={{ textAlign: 'left', padding: '0.65rem 0.5rem', borderBottom: '1px solid #d1d5db', background: '#f7efe6', fontWeight: 700 }}>Product</th>
-                          <th style={{ textAlign: 'left', padding: '0.65rem 0.5rem', borderBottom: '1px solid #d1d5db', background: '#f7efe6', fontWeight: 700 }}>Category</th>
-                          <th style={{ textAlign: 'left', padding: '0.65rem 0.5rem', borderBottom: '1px solid #d1d5db', background: '#f7efe6', fontWeight: 700 }}>Price</th>
-                          <th style={{ textAlign: 'left', padding: '0.65rem 0.5rem', borderBottom: '1px solid #d1d5db', background: '#f7efe6', fontWeight: 700 }}>Stock</th>
-                          <th style={{ textAlign: 'left', padding: '0.65rem 0.5rem', borderBottom: '1px solid #d1d5db', background: '#f7efe6', fontWeight: 700 }}>Aksi</th>
+                          <th className="admin-data-head">Product</th>
+                          <th className="admin-data-head">Category</th>
+                          <th className="admin-data-head">Price</th>
+                          <th className="admin-data-head">Stock</th>
+                          <th className="admin-data-head">Aksi</th>
                         </tr>
                       </thead>
                       <tbody>
                         {filteredProducts.map((item, idx) => (
-                          <tr key={item.product_id} style={{ backgroundColor: idx % 2 === 0 ? '#ffffff' : '#f7efe6' }}>
-                            <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>{item.product_name}</td>
-                            <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>{item.category}</td>
-                            <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>{item.price}</td>
-                            <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>{item.stock || '-'}</td>
-                            <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>
+                          <tr key={item.product_id} className={idx % 2 === 0 ? 'admin-data-row' : 'admin-data-row admin-data-row-alt'}>
+                            <td className="admin-data-cell">{item.product_name}</td>
+                            <td className="admin-data-cell">{item.category}</td>
+                            <td className="admin-data-cell">{item.price}</td>
+                            <td className="admin-data-cell">{item.stock || '-'}</td>
+                            <td className="admin-data-cell">
                               <div className="row-actions">
                                 <ViewButton onClick={() => viewProduct(item)} />
                                 <DeleteButton onClick={() => deleteProduct(item.product_id)} />
@@ -4590,30 +4590,30 @@ export default function AdminPage() {
                   </div>
                   {packageLoading ? <p className="feedback">Loading package list...</p> : null}
                   <div className="entity-list">
-                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <table className="admin-data-table">
                       <thead>
                         <tr>
-                          <th style={{ textAlign: 'left', padding: '0.65rem 0.5rem', borderBottom: '1px solid #d1d5db', background: '#f7efe6', fontWeight: 700 }}>Package</th>
-                          <th style={{ textAlign: 'left', padding: '0.65rem 0.5rem', borderBottom: '1px solid #d1d5db', background: '#f7efe6', fontWeight: 700 }}>Type</th>
-                          <th style={{ textAlign: 'left', padding: '0.65rem 0.5rem', borderBottom: '1px solid #d1d5db', background: '#f7efe6', fontWeight: 700 }}>PT Trainer</th>
-                          <th style={{ textAlign: 'left', padding: '0.65rem 0.5rem', borderBottom: '1px solid #d1d5db', background: '#f7efe6', fontWeight: 700 }}>Class</th>
-                          <th style={{ textAlign: 'left', padding: '0.65rem 0.5rem', borderBottom: '1px solid #d1d5db', background: '#f7efe6', fontWeight: 700 }}>Max Months</th>
-                          <th style={{ textAlign: 'left', padding: '0.65rem 0.5rem', borderBottom: '1px solid #d1d5db', background: '#f7efe6', fontWeight: 700 }}>Session</th>
-                          <th style={{ textAlign: 'left', padding: '0.65rem 0.5rem', borderBottom: '1px solid #d1d5db', background: '#f7efe6', fontWeight: 700 }}>Price</th>
-                          <th style={{ textAlign: 'left', padding: '0.65rem 0.5rem', borderBottom: '1px solid #d1d5db', background: '#f7efe6', fontWeight: 700 }}>Aksi</th>
+                          <th className="admin-data-head">Package</th>
+                          <th className="admin-data-head">Type</th>
+                          <th className="admin-data-head">PT Trainer</th>
+                          <th className="admin-data-head">Class</th>
+                          <th className="admin-data-head">Max Months</th>
+                          <th className="admin-data-head">Session</th>
+                          <th className="admin-data-head">Price</th>
+                          <th className="admin-data-head">Aksi</th>
                         </tr>
                       </thead>
                       <tbody>
                         {filteredPackages.map((item, idx) => (
-                          <tr key={item.package_id} style={{ backgroundColor: idx % 2 === 0 ? '#ffffff' : '#f7efe6' }}>
-                            <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>{item.package_name}</td>
-                            <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>{item.package_type}</td>
-                            <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>{item.package_type === 'pt' ? (item.trainer_name || '-') : '-'}</td>
-                            <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>{item.package_type === 'class' ? (item.class_name || '-') : '-'}</td>
-                            <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>{item.package_type === 'pt' || item.package_type === 'membership' || item.package_type === 'class' ? `${item.max_months} bulan` : '-'}</td>
-                            <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>{item.package_type === 'pt' || item.package_type === 'class' ? item.session_count : '-'}</td>
-                            <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>{item.price}</td>
-                            <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>
+                          <tr key={item.package_id} className={idx % 2 === 0 ? 'admin-data-row' : 'admin-data-row admin-data-row-alt'}>
+                            <td className="admin-data-cell">{item.package_name}</td>
+                            <td className="admin-data-cell">{item.package_type}</td>
+                            <td className="admin-data-cell">{item.package_type === 'pt' ? (item.trainer_name || '-') : '-'}</td>
+                            <td className="admin-data-cell">{item.package_type === 'class' ? (item.class_name || '-') : '-'}</td>
+                            <td className="admin-data-cell">{item.package_type === 'pt' || item.package_type === 'membership' || item.package_type === 'class' ? `${item.max_months} bulan` : '-'}</td>
+                            <td className="admin-data-cell">{item.package_type === 'pt' || item.package_type === 'class' ? item.session_count : '-'}</td>
+                            <td className="admin-data-cell">{item.price}</td>
+                            <td className="admin-data-cell">
                               <div className="row-actions">
                                 <ViewButton onClick={() => viewPackageCreation(item)} />
                                 <DeleteButton onClick={() => deletePackage(item.package_id)} />
@@ -4692,31 +4692,31 @@ export default function AdminPage() {
                   </div>
                   {trainerPackageLoading ? <p className="feedback">Loading member package list...</p> : null}
                   <div className="entity-list">
-                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <table className="admin-data-table">
                       <thead>
                         <tr>
-                          <th style={{ textAlign: 'left', padding: '0.65rem 0.5rem', borderBottom: '1px solid #d1d5db', background: '#f7efe6', fontWeight: 700 }}>Member</th>
-                          <th style={{ textAlign: 'left', padding: '0.65rem 0.5rem', borderBottom: '1px solid #d1d5db', background: '#f7efe6', fontWeight: 700 }}>Member ID</th>
-                          <th style={{ textAlign: 'left', padding: '0.65rem 0.5rem', borderBottom: '1px solid #d1d5db', background: '#f7efe6', fontWeight: 700 }}>PT Package</th>
-                          <th style={{ textAlign: 'left', padding: '0.65rem 0.5rem', borderBottom: '1px solid #d1d5db', background: '#f7efe6', fontWeight: 700 }}>Total</th>
-                          <th style={{ textAlign: 'left', padding: '0.65rem 0.5rem', borderBottom: '1px solid #d1d5db', background: '#f7efe6', fontWeight: 700 }}>Remaining</th>
-                          <th style={{ textAlign: 'left', padding: '0.65rem 0.5rem', borderBottom: '1px solid #d1d5db', background: '#f7efe6', fontWeight: 700 }}>Updated</th>
+                          <th className="admin-data-head">Member</th>
+                          <th className="admin-data-head">Member ID</th>
+                          <th className="admin-data-head">PT Package</th>
+                          <th className="admin-data-head">Total</th>
+                          <th className="admin-data-head">Remaining</th>
+                          <th className="admin-data-head">Updated</th>
                         </tr>
                       </thead>
                       <tbody>
                         {filteredTrainerPackageRows.map((item, idx) => (
-                          <tr key={`${item.pt_package_id}-${item.member_id}-${idx}`} style={{ backgroundColor: idx % 2 === 0 ? '#ffffff' : '#f7efe6' }}>
-                            <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>{item.member_name}</td>
-                            <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>{item.member_id}</td>
-                            <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>{item.pt_package_id}</td>
-                            <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>{item.total_sessions}</td>
-                            <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>{item.remaining_sessions}</td>
-                            <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>{formatClassDatetime(item.updated_at)}</td>
+                          <tr key={`${item.pt_package_id}-${item.member_id}-${idx}`} className={idx % 2 === 0 ? 'admin-data-row' : 'admin-data-row admin-data-row-alt'}>
+                            <td className="admin-data-cell">{item.member_name}</td>
+                            <td className="admin-data-cell">{item.member_id}</td>
+                            <td className="admin-data-cell">{item.pt_package_id}</td>
+                            <td className="admin-data-cell">{item.total_sessions}</td>
+                            <td className="admin-data-cell">{item.remaining_sessions}</td>
+                            <td className="admin-data-cell">{formatClassDatetime(item.updated_at)}</td>
                           </tr>
                         ))}
                         {filteredTrainerPackageRows.length === 0 ? (
                           <tr>
-                            <td colSpan={6} style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>Belum ada member yang membeli paket trainer ini.</td>
+                            <td colSpan={6} className="admin-data-cell">Belum ada member yang membeli paket trainer ini.</td>
                           </tr>
                         ) : null}
                       </tbody>
@@ -4738,26 +4738,26 @@ export default function AdminPage() {
                   </div>
                   {userLoading ? <p className="feedback">Loading user list...</p> : null}
                   <div className="entity-list">
-                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <table className="admin-data-table">
                       <thead>
                         <tr>
-                          <th style={{ textAlign: 'left', padding: '0.65rem 0.5rem', borderBottom: '1px solid #d1d5db', background: '#f7efe6', fontWeight: 700 }}>Nama</th>
-                          <th style={{ textAlign: 'left', padding: '0.65rem 0.5rem', borderBottom: '1px solid #d1d5db', background: '#f7efe6', fontWeight: 700 }}>Email</th>
-                          <th style={{ textAlign: 'left', padding: '0.65rem 0.5rem', borderBottom: '1px solid #d1d5db', background: '#f7efe6', fontWeight: 700 }}>List</th>
-                          <th style={{ textAlign: 'left', padding: '0.65rem 0.5rem', borderBottom: '1px solid #d1d5db', background: '#f7efe6', fontWeight: 700 }}>Trainer</th>
+                          <th className="admin-data-head">Nama</th>
+                          <th className="admin-data-head">Email</th>
+                          <th className="admin-data-head">List</th>
+                          <th className="admin-data-head">Trainer</th>
                         </tr>
                       </thead>
                       <tbody>
                         {filteredPtUsers.map((item, idx) => (
-                          <tr key={item.user_id} style={{ backgroundColor: idx % 2 === 0 ? '#ffffff' : '#f7efe6' }}>
-                            <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>{item.full_name}</td>
-                            <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>{item.email}</td>
-                            <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>
+                          <tr key={item.user_id} className={idx % 2 === 0 ? 'admin-data-row' : 'admin-data-row admin-data-row-alt'}>
+                            <td className="admin-data-cell">{item.full_name}</td>
+                            <td className="admin-data-cell">{item.email}</td>
+                            <td className="admin-data-cell">
                               <button type="button" className="btn ghost small" onClick={() => openTrainerPackageList(item)}>
                                 list
                               </button>
                             </td>
-                            <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>
+                            <td className="admin-data-cell">
                               <button
                                 type="button"
                                 className={`btn ghost small ${ptTrainerEnabledMap[item.user_id] === false ? '' : 'active'}`}
@@ -4777,7 +4777,7 @@ export default function AdminPage() {
                         ))}
                         {filteredPtUsers.length === 0 ? (
                           <tr>
-                            <td colSpan={4} style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>Belum ada user role pt.</td>
+                            <td colSpan={4} className="admin-data-cell">Belum ada user role pt.</td>
                           </tr>
                         ) : null}
                       </tbody>
@@ -4812,31 +4812,31 @@ export default function AdminPage() {
                   </div>
                   {salesMemberLoading ? <p className="feedback">Loading member purchased list...</p> : null}
                   <div className="entity-list">
-                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <table className="admin-data-table">
                       <thead>
                         <tr>
-                          <th style={{ textAlign: 'left', padding: '0.65rem 0.5rem', borderBottom: '1px solid #d1d5db', background: '#f7efe6', fontWeight: 700 }}>Member</th>
-                          <th style={{ textAlign: 'left', padding: '0.65rem 0.5rem', borderBottom: '1px solid #d1d5db', background: '#f7efe6', fontWeight: 700 }}>Member ID</th>
-                          <th style={{ textAlign: 'left', padding: '0.65rem 0.5rem', borderBottom: '1px solid #d1d5db', background: '#f7efe6', fontWeight: 700 }}>Subscription</th>
-                          <th style={{ textAlign: 'left', padding: '0.65rem 0.5rem', borderBottom: '1px solid #d1d5db', background: '#f7efe6', fontWeight: 700 }}>Plan</th>
-                          <th style={{ textAlign: 'left', padding: '0.65rem 0.5rem', borderBottom: '1px solid #d1d5db', background: '#f7efe6', fontWeight: 700 }}>Prospect</th>
-                          <th style={{ textAlign: 'left', padding: '0.65rem 0.5rem', borderBottom: '1px solid #d1d5db', background: '#f7efe6', fontWeight: 700 }}>Stage</th>
+                          <th className="admin-data-head">Member</th>
+                          <th className="admin-data-head">Member ID</th>
+                          <th className="admin-data-head">Subscription</th>
+                          <th className="admin-data-head">Plan</th>
+                          <th className="admin-data-head">Prospect</th>
+                          <th className="admin-data-head">Stage</th>
                         </tr>
                       </thead>
                       <tbody>
                         {filteredSalesMemberRows.map((item, idx) => (
-                          <tr key={`${item.member_id}-${item.prospect_id}-${idx}`} style={{ backgroundColor: idx % 2 === 0 ? '#ffffff' : '#f7efe6' }}>
-                            <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>{item.member_name}</td>
-                            <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>{item.member_id}</td>
-                            <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>{item.subscription_id}</td>
-                            <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>{item.plan_id}</td>
-                            <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>{item.prospect_id}</td>
-                            <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>{item.stage}</td>
+                          <tr key={`${item.member_id}-${item.prospect_id}-${idx}`} className={idx % 2 === 0 ? 'admin-data-row' : 'admin-data-row admin-data-row-alt'}>
+                            <td className="admin-data-cell">{item.member_name}</td>
+                            <td className="admin-data-cell">{item.member_id}</td>
+                            <td className="admin-data-cell">{item.subscription_id}</td>
+                            <td className="admin-data-cell">{item.plan_id}</td>
+                            <td className="admin-data-cell">{item.prospect_id}</td>
+                            <td className="admin-data-cell">{item.stage}</td>
                           </tr>
                         ))}
                         {filteredSalesMemberRows.length === 0 ? (
                           <tr>
-                            <td colSpan={6} style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>Belum ada member membeli paket dari sales ini.</td>
+                            <td colSpan={6} className="admin-data-cell">Belum ada member membeli paket dari sales ini.</td>
                           </tr>
                         ) : null}
                       </tbody>
@@ -4858,26 +4858,26 @@ export default function AdminPage() {
                   </div>
                   {userLoading ? <p className="feedback">Loading user list...</p> : null}
                   <div className="entity-list">
-                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <table className="admin-data-table">
                       <thead>
                         <tr>
-                          <th style={{ textAlign: 'left', padding: '0.65rem 0.5rem', borderBottom: '1px solid #d1d5db', background: '#f7efe6', fontWeight: 700 }}>Nama</th>
-                          <th style={{ textAlign: 'left', padding: '0.65rem 0.5rem', borderBottom: '1px solid #d1d5db', background: '#f7efe6', fontWeight: 700 }}>Email</th>
-                          <th style={{ textAlign: 'left', padding: '0.65rem 0.5rem', borderBottom: '1px solid #d1d5db', background: '#f7efe6', fontWeight: 700 }}>List</th>
-                          <th style={{ textAlign: 'left', padding: '0.65rem 0.5rem', borderBottom: '1px solid #d1d5db', background: '#f7efe6', fontWeight: 700 }}>Sales</th>
+                          <th className="admin-data-head">Nama</th>
+                          <th className="admin-data-head">Email</th>
+                          <th className="admin-data-head">List</th>
+                          <th className="admin-data-head">Sales</th>
                         </tr>
                       </thead>
                       <tbody>
                         {filteredSalesUsers.map((item, idx) => (
-                          <tr key={item.user_id} style={{ backgroundColor: idx % 2 === 0 ? '#ffffff' : '#f7efe6' }}>
-                            <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>{item.full_name}</td>
-                            <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>{item.email}</td>
-                            <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>
+                          <tr key={item.user_id} className={idx % 2 === 0 ? 'admin-data-row' : 'admin-data-row admin-data-row-alt'}>
+                            <td className="admin-data-cell">{item.full_name}</td>
+                            <td className="admin-data-cell">{item.email}</td>
+                            <td className="admin-data-cell">
                               <button type="button" className="btn ghost small" onClick={() => openSalesMemberList(item)}>
                                 list
                               </button>
                             </td>
-                            <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>
+                            <td className="admin-data-cell">
                               <button
                                 type="button"
                                 className={`btn ghost small ${salesEnabledMap[item.user_id] === false ? '' : 'active'}`}
@@ -4897,7 +4897,7 @@ export default function AdminPage() {
                         ))}
                         {filteredSalesUsers.length === 0 ? (
                           <tr>
-                            <td colSpan={4} style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>Belum ada user role sales.</td>
+                            <td colSpan={4} className="admin-data-cell">Belum ada user role sales.</td>
                           </tr>
                         ) : null}
                       </tbody>
@@ -5058,22 +5058,22 @@ export default function AdminPage() {
                     </div>
                   ) : null}
                   <div className="entity-list">
-                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <table className="admin-data-table">
                       <thead>
                         <tr>
-                          <th style={{ textAlign: 'left', padding: '0.65rem 0.5rem', borderBottom: '1px solid #d1d5db', background: '#f7efe6', fontWeight: 700 }}>Nama Member</th>
-                          <th style={{ textAlign: 'left', padding: '0.65rem 0.5rem', borderBottom: '1px solid #d1d5db', background: '#f7efe6', fontWeight: 700 }}>No. HP</th>
-                          <th style={{ textAlign: 'left', padding: '0.65rem 0.5rem', borderBottom: '1px solid #d1d5db', background: '#f7efe6', fontWeight: 700 }}>Email Aktif</th>
-                          <th style={{ textAlign: 'left', padding: '0.65rem 0.5rem', borderBottom: '1px solid #d1d5db', background: '#f7efe6', fontWeight: 700 }}>Aksi</th>
+                          <th className="admin-data-head">Nama Member</th>
+                          <th className="admin-data-head">No. HP</th>
+                          <th className="admin-data-head">Email Aktif</th>
+                          <th className="admin-data-head">Aksi</th>
                         </tr>
                       </thead>
                       <tbody>
                         {filteredMembers.map((item, idx) => (
-                          <tr key={item.member_id} style={{ backgroundColor: idx % 2 === 0 ? '#ffffff' : '#f7efe6' }}>
-                            <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>{item.member_name}</td>
-                            <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>{item.phone}</td>
-                            <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>{item.email || '-'}</td>
-                            <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>
+                          <tr key={item.member_id} className={idx % 2 === 0 ? 'admin-data-row' : 'admin-data-row admin-data-row-alt'}>
+                            <td className="admin-data-cell">{item.member_name}</td>
+                            <td className="admin-data-cell">{item.phone}</td>
+                            <td className="admin-data-cell">{item.email || '-'}</td>
+                            <td className="admin-data-cell">
                               <div className="row-actions">
                                 <ViewButton onClick={() => viewMember(item)} />
                                 <DeleteButton onClick={() => setMembers((prev) => prev.filter((v) => v.member_id !== item.member_id))} />
@@ -5176,42 +5176,42 @@ export default function AdminPage() {
                   </div>
                   {transactionLoading ? <p className="feedback">Loading payments...</p> : null}
                   <div className="entity-list">
-                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <table className="admin-data-table">
                       <thead>
                         <tr>
-                          <th style={{ textAlign: 'left', padding: '0.65rem 0.5rem', borderBottom: '1px solid #d1d5db', background: '#f7efe6', fontWeight: 700 }}>No Transaction</th>
-                          <th style={{ textAlign: 'left', padding: '0.65rem 0.5rem', borderBottom: '1px solid #d1d5db', background: '#f7efe6', fontWeight: 700 }}>Member</th>
-                          <th style={{ textAlign: 'left', padding: '0.65rem 0.5rem', borderBottom: '1px solid #d1d5db', background: '#f7efe6', fontWeight: 700 }}>Product</th>
-                          <th style={{ textAlign: 'left', padding: '0.65rem 0.5rem', borderBottom: '1px solid #d1d5db', background: '#f7efe6', fontWeight: 700 }}>Qty</th>
-                          <th style={{ textAlign: 'left', padding: '0.65rem 0.5rem', borderBottom: '1px solid #d1d5db', background: '#f7efe6', fontWeight: 700 }}>Price</th>
-                          <th style={{ textAlign: 'left', padding: '0.65rem 0.5rem', borderBottom: '1px solid #d1d5db', background: '#f7efe6', fontWeight: 700 }}>Method</th>
-                          <th style={{ textAlign: 'left', padding: '0.65rem 0.5rem', borderBottom: '1px solid #d1d5db', background: '#f7efe6', fontWeight: 700 }}>Status</th>
-                          <th style={{ textAlign: 'left', padding: '0.65rem 0.5rem', borderBottom: '1px solid #d1d5db', background: '#f7efe6', fontWeight: 700 }}>Review</th>
-                          <th style={{ textAlign: 'left', padding: '0.65rem 0.5rem', borderBottom: '1px solid #d1d5db', background: '#f7efe6', fontWeight: 700 }}>Aksi</th>
+                          <th className="admin-data-head">No Transaction</th>
+                          <th className="admin-data-head">Member</th>
+                          <th className="admin-data-head">Product</th>
+                          <th className="admin-data-head">Qty</th>
+                          <th className="admin-data-head">Price</th>
+                          <th className="admin-data-head">Method</th>
+                          <th className="admin-data-head">Status</th>
+                          <th className="admin-data-head">Review</th>
+                          <th className="admin-data-head">Aksi</th>
                         </tr>
                       </thead>
                       <tbody>
                         {filteredTransactions.map((item, idx) => (
-                          <tr key={item.transaction_id} style={{ backgroundColor: idx % 2 === 0 ? '#ffffff' : '#f7efe6' }}>
-                            <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>{item.no_transaction}</td>
-                            <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>{item.member_id || '-'}</td>
-                            <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>
+                          <tr key={item.transaction_id} className={idx % 2 === 0 ? 'admin-data-row' : 'admin-data-row admin-data-row-alt'}>
+                            <td className="admin-data-cell">{item.no_transaction}</td>
+                            <td className="admin-data-cell">{item.member_id || '-'}</td>
+                            <td className="admin-data-cell">
                               <div>
                                 <strong>{item.product}</strong>
-                                <p style={{ margin: '0.2rem 0 0', fontSize: '0.85rem', color: '#6b7280' }}>{item.operation_link || '-'}</p>
+                                <p className="admin-operation-link">{item.operation_link || '-'}</p>
                               </div>
                             </td>
-                            <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>{item.qty}</td>
-                            <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>{item.currency || 'IDR'} {item.price}</td>
-                            <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>{item.method || '-'}</td>
-                            <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>{String(item.status || '-').toUpperCase()}</td>
-                            <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>{item.review_note || '-'}</td>
-                            <td style={{ padding: '0.5rem', borderBottom: '1px solid #e5e7eb' }}>
-                              <div className="row-actions" style={{ display: 'flex', gap: '0' }}>
+                            <td className="admin-data-cell">{item.qty}</td>
+                            <td className="admin-data-cell">{item.currency || 'IDR'} {item.price}</td>
+                            <td className="admin-data-cell">{item.method || '-'}</td>
+                            <td className="admin-data-cell">{String(item.status || '-').toUpperCase()}</td>
+                            <td className="admin-data-cell">{item.review_note || '-'}</td>
+                            <td className="admin-data-cell">
+                              <div className="row-actions admin-action-strip">
                                 <span
                                   role="button"
                                   tabIndex={0}
-                                  style={{ cursor: 'pointer', background: '#fff', color: '#8f3f1e', border:'1px solid #d9bea0', margin: '2px', padding: '0.2rem 0.45rem', borderRadius: '10px' }}
+                                  className="admin-action-chip"
                                   onClick={() => viewTransaction(item)}
                                   onKeyDown={(e) => {
                                     if (e.key === 'Enter' || e.key === ' ') {
@@ -5226,7 +5226,7 @@ export default function AdminPage() {
                                     <span
                                       role="button"
                                       tabIndex={0}
-                                      style={{ cursor: 'pointer', background: '#fff', color: '#8f3f1e', border:'1px solid #d9bea0', margin: '2px', padding: '0.2rem 0.45rem', borderRadius: '10px' }}
+                                      className="admin-action-chip"
                                       onClick={() => confirmTransaction(item)}
                                       onKeyDown={(e) => {
                                         if (e.key === 'Enter' || e.key === ' ') confirmTransaction(item);
@@ -5237,7 +5237,7 @@ export default function AdminPage() {
                                     <span
                                       role="button"
                                       tabIndex={0}
-                                      style={{ cursor: 'pointer', background: '#fff', color: '#8f3f1e', border:'1px solid #d9bea0', margin: '2px', padding: '0.2rem 0.45rem', borderRadius: '10px' }}
+                                      className="admin-action-chip"
                                       onClick={() => rejectTransaction(item)}
                                       onKeyDown={(e) => {
                                         if (e.key === 'Enter' || e.key === ' ') rejectTransaction(item);
