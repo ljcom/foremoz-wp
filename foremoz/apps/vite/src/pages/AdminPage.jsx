@@ -24,6 +24,7 @@ const DEFAULT_EVENTS = [
   {
     event_id: 'evt_001',
     event_name: 'One-time Bootcamp',
+    trainer_name: 'Coach Rafi',
     location: 'Main Hall',
     image_url: 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?auto=format&fit=crop&w=1200&q=80',
     start_at: '2026-03-10 07:00',
@@ -77,6 +78,7 @@ function formatDurationLabelFromMinutes(durationMinutes) {
 function createEmptyEventForm() {
   return {
     event_name: '',
+    trainer_name: '',
     location: '',
     image_url: '',
     description: '',
@@ -107,6 +109,7 @@ function serializeEventForm(value) {
     : [];
   return JSON.stringify({
     event_name: String(form.event_name || ''),
+    trainer_name: String(form.trainer_name || ''),
     location: String(form.location || ''),
     image_url: String(form.image_url || ''),
     description: String(form.description || ''),
@@ -842,6 +845,7 @@ export default function AdminPage() {
         rows.map((item) => ({
           event_id: item.event_id,
           event_name: item.event_name || '',
+          trainer_name: item.trainer_name || '',
           location: item.location || '',
           image_url: item.image_url || '',
           description: item.description || '',
@@ -1155,6 +1159,7 @@ export default function AdminPage() {
   );
   const filteredEvents = events.filter((item) =>
     String(item.event_name || '').toLowerCase().includes(eventQuery.toLowerCase()) ||
+    String(item.trainer_name || '').toLowerCase().includes(eventQuery.toLowerCase()) ||
     String(item.location || '').toLowerCase().includes(eventQuery.toLowerCase()) ||
     String(item.start_at || '').toLowerCase().includes(eventQuery.toLowerCase()) ||
     String(item.duration_minutes || '').toLowerCase().includes(eventQuery.toLowerCase()) ||
@@ -1956,6 +1961,7 @@ export default function AdminPage() {
           tenant_id: tenantId,
           branch_id: branchId,
           event_name: eventForm.event_name,
+          trainer_name: eventForm.trainer_name || null,
           location: eventForm.location || null,
           image_url: eventForm.image_url || null,
           description: eventForm.description || null,
@@ -1992,6 +1998,7 @@ export default function AdminPage() {
     const durationInput = fromDurationMinutes(item.duration_minutes || '60');
     const nextForm = {
       event_name: item.event_name || '',
+      trainer_name: item.trainer_name || '',
       location: item.location || '',
       image_url: item.image_url || '',
       description: item.description || '',
@@ -2487,6 +2494,7 @@ export default function AdminPage() {
           tenant_id: tenantId,
           branch_id: branchId,
           event_name: eventForm.event_name,
+          trainer_name: eventForm.trainer_name || null,
           location: eventForm.location || null,
           image_url: eventForm.image_url || null,
           description: eventForm.description || null,
@@ -2831,6 +2839,7 @@ export default function AdminPage() {
                             <h3>{item.event_name}</h3>
                             <span className="event-admin-status">{displayEventStatus(item.status)}</span>
                           </div>
+                          <p>Trainer: {item.trainer_name || '-'}</p>
                           <p>{item.location || '-'}</p>
                           <p>Category: {Array.isArray(item.event_categories) && item.event_categories.length > 0 ? item.event_categories.join(', ') : '-'}</p>
                           {!isFreePlan ? (
@@ -3056,6 +3065,7 @@ export default function AdminPage() {
                     {eventEditTab === 'general' ? (
                       <>
                         <label>Event Name<input value={eventForm.event_name} onChange={(e) => setEventForm((p) => ({ ...p, event_name: e.target.value }))} /></label>
+                        <label>Trainer Name<input value={eventForm.trainer_name} onChange={(e) => setEventForm((p) => ({ ...p, trainer_name: e.target.value }))} /></label>
                         <div className="row-actions" style={{ marginTop: '-0.2rem' }}>
                           <button
                             className="btn ghost small"
