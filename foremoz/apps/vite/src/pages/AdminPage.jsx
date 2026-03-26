@@ -33,6 +33,7 @@ const DEFAULT_EVENTS = [
     status: 'scheduled'
   }
 ];
+const PEXELS_API_KEY = String(import.meta.env.VITE_PEXELS_API_KEY || '').trim();
 
 const EVENT_DURATION_UNITS = [
   { value: 'minutes', label: 'Minutes', minutes: 1 },
@@ -73,6 +74,80 @@ function formatDurationLabelFromMinutes(durationMinutes) {
   if (!unit) return `${durationMinutes || 0} minutes`;
   const label = value === 1 ? unit.label.replace(/s\b/, '') : unit.label;
   return `${value} ${label}`;
+}
+
+function sentenceCase(value) {
+  const text = String(value || '').trim();
+  if (!text) return '';
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+function suggestCategoriesFromText(text) {
+  const source = String(text || '').toLowerCase();
+  const categories = new Set();
+  if (/run|marathon|trail|race/.test(source)) categories.add('Running');
+  if (/bike|cycling|ride/.test(source)) categories.add('Cycling');
+  if (/yoga|pilates|mobility/.test(source)) categories.add('Mind & Body');
+  if (/strength|hyrox|bootcamp|hiit|crossfit/.test(source)) categories.add('Strength & Conditioning');
+  if (/boxing|muay|mma|martial/.test(source)) categories.add('Combat');
+  if (/swim|aquatic/.test(source)) categories.add('Aquatic');
+  if (categories.size === 0) categories.add('General Event');
+  return [...categories];
+}
+
+function suggestRegistrationFieldsFromText(text) {
+  const source = String(text || '').toLowerCase();
+  const fields = [
+    createRegistrationField('free_type'),
+    createRegistrationField('lookup')
+  ];
+  fields[0].label = 'Emergency Contact';
+  fields[1].label = 'T-Shirt Size';
+  fields[1].options_text = 'S, M, L, XL';
+
+  if (/trail|mountain|outdoor|tour|trip/.test(source)) {
+    const f = createRegistrationField('free_type');
+    f.label = 'Medical Notes';
+    fields.push(f);
+  }
+  if (/race|timed|competition|marathon/.test(source)) {
+    const f = createRegistrationField('lookup');
+    f.label = 'Category';
+    f.options_text = 'Beginner, Intermediate, Advanced';
+    fields.push(f);
+  }
+  return fields;
+}
+
+function buildScheduleTemplate(startAtValue, title) {
+  const rawStart = String(startAtValue || '').trim();
+  const start = rawStart && rawStart.includes('T') ? rawStart.slice(11, 16) : '08:00';
+  const eventTitle = String(title || 'Main Session').trim() || 'Main Session';
+  return [
+    `${start} | Registrasi peserta | Verifikasi data dan race pack`,
+    `${start} | Opening | Briefing singkat dari trainer`,
+    `${start} | ${eventTitle} | Sesi inti`,
+    `${start} | Cooldown & networking | Penutup dan dokumentasi`
+  ].join('\n');
+}
+
+function generateDraftFromBrief(brief, currentStartAt = '') {
+  const clean = String(brief || '').trim();
+  const topic = clean.split(/[.\n]/)[0] || clean;
+  const normalizedTopic = sentenceCase(topic.replace(/^tema[:\s-]*/i, '')) || 'Community Training Session';
+  const categories = suggestCategoriesFromText(clean);
+  const description = [
+    `${normalizedTopic} dirancang untuk peserta yang ingin latihan terarah dalam suasana komunitas.`,
+    'Format sesi dibuat praktis: briefing singkat, sesi utama, lalu cooldown dan networking.',
+    'Cocok untuk pemula maupun peserta rutin dengan penyesuaian intensitas di lapangan.'
+  ].join(' ');
+  return {
+    eventName: normalizedTopic,
+    description,
+    categories,
+    scheduleText: buildScheduleTemplate(currentStartAt, normalizedTopic),
+    imageKeyword: `${categories[0]} fitness community`
+  };
 }
 
 function createEmptyEventForm() {
@@ -729,6 +804,7 @@ export default function AdminPage() {
   const [eventForm, setEventForm] = useState(() => createEmptyEventForm());
   const [eventFormBaseline, setEventFormBaseline] = useState(() => serializeEventForm(createEmptyEventForm()));
   const [eventTrainerDraft, setEventTrainerDraft] = useState('');
+  const [eventAiWorking, setEventAiWorking] = useState(false);
   const [classForm, setClassForm] = useState({ class_name: '', trainer_name: '', capacity: '20', price: '0', start_at: '' });
   const [classTrainerDraft, setClassTrainerDraft] = useState('');
   const [memberRelationDraft, setMemberRelationDraft] = useState('');
@@ -1449,6 +1525,189 @@ export default function AdminPage() {
   function removeEventTrainerToken(name) {
     const nextTokens = selectedEventTrainerTokens.filter((item) => item !== name);
     setEventForm((prev) => ({ ...prev, trainer_name: nextTokens.join(', ') }));
+  }
+
+  function buildEventImageKeyword() {
+    const source = [
+      eventForm.event_name,
+      eventForm.categories_text,
+      eventForm.location,
+      eventForm.description
+    ].join(' ');
+    const categories = suggestCategoriesFromText(source);
+    const locationToken = String(eventForm.location || '').trim().split(' ')[0] || 'indonesia';
+    return `${categories[0]} ${locationToken} event`;
+  }
+
+  async function fetchPexelsPhotos(keyword, perPage = 4) {
+    if (!PEXELS_API_KEY) {
+      throw new Error('VITE_PEXELS_API_KEY belum diisi');
+    }
+    const query = encodeURIComponent(String(keyword || '').trim() || 'fitness event');
+    const response = await fetch(`https://api.pexels.com/v1/search?query=${query}&per_page=${perPage}&orientation=landscape`, {
+      headers: { Authorization: PEXELS_API_KEY }
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(payload?.error || 'Gagal mengambil gambar dari Pexels');
+    }
+    return Array.isArray(payload?.photos) ? payload.photos : [];
+  }
+
+  function aiGenerateDraftFromBrief() {
+    const brief = typeof window !== 'undefined'
+      ? window.prompt('Masukkan brief event singkat (tema, target peserta, vibe):', '')
+      : '';
+    if (!brief || !String(brief).trim()) return;
+    const draft = generateDraftFromBrief(brief, eventForm.start_at);
+    setEventForm((prev) => ({
+      ...prev,
+      event_name: draft.eventName,
+      description: draft.description,
+      categories_text: draft.categories.join(', '),
+      schedule_items_text: draft.scheduleText
+    }));
+    setFeedback(`ai.assist: Draft event dibuat dari brief. Keyword image: ${draft.imageKeyword}`);
+  }
+
+  function aiCheckPublishReadiness() {
+    const checks = [
+      { ok: Boolean(String(eventForm.event_name || '').trim()), label: 'Event Name' },
+      { ok: Boolean(String(eventForm.trainer_name || '').trim()), label: 'Trainer Name' },
+      { ok: Boolean(String(eventForm.location || '').trim()), label: 'Location' },
+      { ok: Boolean(String(eventForm.description || '').trim()), label: 'Description' },
+      { ok: Boolean(String(eventForm.categories_text || '').trim()), label: 'Category' },
+      { ok: Boolean(String(eventForm.start_at || '').trim()), label: 'Start At' }
+    ];
+    const passed = checks.filter((item) => item.ok).length;
+    const score = Math.round((passed / checks.length) * 100);
+    const missing = checks.filter((item) => !item.ok).map((item) => item.label);
+    if (missing.length === 0) {
+      setFeedback(`ai.assist: Readiness ${score}%. Event siap dipublikasikan.`);
+      return;
+    }
+    setFeedback(`ai.assist: Readiness ${score}%. Lengkapi: ${missing.join(', ')}`);
+  }
+
+  function aiRewriteTitle() {
+    const current = String(eventForm.event_name || '').trim();
+    if (!current) {
+      setFeedback('Isi Event Name dulu.');
+      return;
+    }
+    const categories = suggestCategoriesFromText(`${eventForm.categories_text} ${current}`);
+    const next = `${sentenceCase(current)} - ${categories[0]} Session`;
+    setEventForm((prev) => ({ ...prev, event_name: next }));
+    setFeedback('ai.assist: Judul event diperbarui.');
+  }
+
+  function aiMakePremiumTitle() {
+    const current = String(eventForm.event_name || '').trim();
+    if (!current) {
+      setFeedback('Isi Event Name dulu.');
+      return;
+    }
+    const next = `${sentenceCase(current)} | Premium Experience`;
+    setEventForm((prev) => ({ ...prev, event_name: next }));
+    setFeedback('ai.assist: Judul event dibuat versi premium.');
+  }
+
+  function aiGenerateDescription() {
+    const eventName = sentenceCase(eventForm.event_name || 'Community Event');
+    const categories = suggestCategoriesFromText(`${eventForm.categories_text} ${eventName}`);
+    const trainer = String(eventForm.trainer_name || '').trim() || 'tim trainer';
+    const description = [
+      `${eventName} adalah sesi ${categories[0]} dengan pendekatan praktis dan terstruktur.`,
+      `Dipandu oleh ${trainer}, event ini menekankan pengalaman aman, progresif, dan tetap fun untuk berbagai level peserta.`,
+      'Siapkan outfit nyaman, datang lebih awal untuk registrasi, lalu nikmati sesi utama sampai penutup.'
+    ].join(' ');
+    setEventForm((prev) => ({ ...prev, description }));
+    setFeedback('ai.assist: Description dibuat.');
+  }
+
+  function aiShortenDescription() {
+    const current = String(eventForm.description || '').trim();
+    if (!current) {
+      setFeedback('Isi Description dulu.');
+      return;
+    }
+    const shortened = current.split('.').map((part) => part.trim()).filter(Boolean).slice(0, 2).join('. ');
+    setEventForm((prev) => ({ ...prev, description: `${shortened}.` }));
+    setFeedback('ai.assist: Description dipersingkat.');
+  }
+
+  function aiGenerateRundown() {
+    const title = String(eventForm.event_name || '').trim();
+    const scheduleText = buildScheduleTemplate(eventForm.start_at, title);
+    setEventForm((prev) => ({ ...prev, schedule_items_text: scheduleText }));
+    setFeedback('ai.assist: Rundown dibuat.');
+  }
+
+  function aiImproveRundown() {
+    const source = String(eventForm.schedule_items_text || '').trim();
+    if (!source) {
+      aiGenerateRundown();
+      return;
+    }
+    const improved = source
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => {
+        const [time = '', title = '', note = ''] = line.split('|').map((item) => item.trim());
+        const betterTitle = sentenceCase(title || 'Session');
+        const betterNote = note || 'Detail aktivitas di sesi ini.';
+        return `${time || '08:00'} | ${betterTitle} | ${betterNote}`;
+      })
+      .join('\n');
+    setEventForm((prev) => ({ ...prev, schedule_items_text: improved }));
+    setFeedback('ai.assist: Rundown dirapikan.');
+  }
+
+  function aiSuggestCategory() {
+    const source = [eventForm.event_name, eventForm.description, eventForm.categories_text].join(' ');
+    const categories = suggestCategoriesFromText(source);
+    setEventForm((prev) => ({ ...prev, categories_text: categories.join(', ') }));
+    setFeedback(`ai.assist: Category suggestion -> ${categories.join(', ')}`);
+  }
+
+  function aiSuggestFields() {
+    const fields = suggestRegistrationFieldsFromText(
+      [eventForm.event_name, eventForm.description, eventForm.categories_text].join(' ')
+    );
+    setEventForm((prev) => ({ ...prev, registration_fields: fields }));
+    setFeedback('ai.assist: Custom fields disarankan otomatis.');
+  }
+
+  function aiShowImageKeyword() {
+    const keyword = buildEventImageKeyword();
+    setFeedback(`ai.assist: Keyword image -> ${keyword}`);
+  }
+
+  async function aiFillGalleryFromPexels() {
+    try {
+      setEventAiWorking(true);
+      const keyword = buildEventImageKeyword();
+      const photos = await fetchPexelsPhotos(keyword, 4);
+      if (photos.length === 0) {
+        setFeedback('ai.assist: Pexels tidak menemukan gambar untuk keyword ini.');
+        return;
+      }
+      const urls = photos
+        .map((item) => item?.src?.landscape || item?.src?.large || item?.src?.medium || '')
+        .map((item) => String(item || '').trim())
+        .filter(Boolean);
+      setEventForm((prev) => ({
+        ...prev,
+        image_url: urls[0] || prev.image_url,
+        gallery_images_text: urls.join('\n')
+      }));
+      setFeedback(`ai.assist: Gallery diisi ${urls.length} gambar dari Pexels (${keyword}).`);
+    } catch (error) {
+      setFeedback(error.message || 'ai.assist: Gagal mengambil gambar dari Pexels.');
+    } finally {
+      setEventAiWorking(false);
+    }
   }
 
   async function deleteClass(classId) {
@@ -3068,24 +3327,27 @@ export default function AdminPage() {
                     </button>
                   </div>
                   <div className="card" style={{ marginBottom: '0.8rem', borderStyle: 'dashed' }}>
-                    <p className="eyebrow">AI Assist (Mockup)</p>
-                    <p className="feedback">Tombol ini masih mockup UI untuk eksplorasi flow pembuatan event dengan AI.</p>
+                    <p className="eyebrow">AI Assist</p>
+                    <p className="feedback">Gunakan tombol ini untuk mempercepat drafting event. Pexels akan dipakai jika API key tersedia.</p>
                     <div className="row-actions">
                       <button
                         className="btn ghost small"
                         type="button"
-                        onClick={() => setFeedback('ai.mockup: Generate dari brief (coming soon).')}
+                        disabled={eventAiWorking}
+                        onClick={aiGenerateDraftFromBrief}
                       >
                         Generate Draft From Brief
                       </button>
                       <button
                         className="btn ghost small"
                         type="button"
-                        onClick={() => setFeedback('ai.mockup: Publish readiness check (coming soon).')}
+                        disabled={eventAiWorking}
+                        onClick={aiCheckPublishReadiness}
                       >
                         Check Publish Readiness
                       </button>
                     </div>
+                    {eventAiWorking ? <p className="feedback">AI assist running...</p> : null}
                   </div>
                   <form className="form" onSubmit={addEvent}>
                     {eventEditTab === 'general' ? (
@@ -3147,14 +3409,16 @@ export default function AdminPage() {
                           <button
                             className="btn ghost small"
                             type="button"
-                            onClick={() => setFeedback('ai.mockup: Rewrite judul event (coming soon).')}
+                            disabled={eventAiWorking}
+                            onClick={aiRewriteTitle}
                           >
                             AI Rewrite Title
                           </button>
                           <button
                             className="btn ghost small"
                             type="button"
-                            onClick={() => setFeedback('ai.mockup: Suggest premium title (coming soon).')}
+                            disabled={eventAiWorking}
+                            onClick={aiMakePremiumTitle}
                           >
                             AI Make It Premium
                           </button>
@@ -3165,14 +3429,16 @@ export default function AdminPage() {
                           <button
                             className="btn ghost small"
                             type="button"
-                            onClick={() => setFeedback('ai.mockup: Rekomendasi keyword stock image (coming soon).')}
+                            disabled={eventAiWorking}
+                            onClick={aiShowImageKeyword}
                           >
                             AI Image Keyword
                           </button>
                           <button
                             className="btn ghost small"
                             type="button"
-                            onClick={() => setFeedback('ai.mockup: Auto isi gallery dari stock image (coming soon).')}
+                            disabled={eventAiWorking}
+                            onClick={aiFillGalleryFromPexels}
                           >
                             AI Fill Gallery
                           </button>
@@ -3189,14 +3455,16 @@ export default function AdminPage() {
                           <button
                             className="btn ghost small"
                             type="button"
-                            onClick={() => setFeedback('ai.mockup: Generate deskripsi dari brief (coming soon).')}
+                            disabled={eventAiWorking}
+                            onClick={aiGenerateDescription}
                           >
                             AI Generate Description
                           </button>
                           <button
                             className="btn ghost small"
                             type="button"
-                            onClick={() => setFeedback('ai.mockup: Ringkas deskripsi (coming soon).')}
+                            disabled={eventAiWorking}
+                            onClick={aiShortenDescription}
                           >
                             AI Shorten Description
                           </button>
@@ -3223,14 +3491,16 @@ export default function AdminPage() {
                           <button
                             className="btn ghost small"
                             type="button"
-                            onClick={() => setFeedback('ai.mockup: Generate rundown awal (coming soon).')}
+                            disabled={eventAiWorking}
+                            onClick={aiGenerateRundown}
                           >
                             AI Generate Rundown
                           </button>
                           <button
                             className="btn ghost small"
                             type="button"
-                            onClick={() => setFeedback('ai.mockup: Rapikan rundown existing (coming soon).')}
+                            disabled={eventAiWorking}
+                            onClick={aiImproveRundown}
                           >
                             AI Improve Rundown
                           </button>
@@ -3267,7 +3537,8 @@ export default function AdminPage() {
                           <button
                             className="btn ghost small"
                             type="button"
-                            onClick={() => setFeedback('ai.mockup: Auto suggest category dan tags (coming soon).')}
+                            disabled={eventAiWorking}
+                            onClick={aiSuggestCategory}
                           >
                             AI Suggest Category
                           </button>
@@ -3381,7 +3652,8 @@ export default function AdminPage() {
                         <button
                           className="btn ghost small"
                           type="button"
-                          onClick={() => setFeedback('ai.mockup: Suggest custom fields dari tipe event (coming soon).')}
+                          disabled={eventAiWorking}
+                          onClick={aiSuggestFields}
                         >
                           AI Suggest Fields
                         </button>
@@ -3768,7 +4040,7 @@ export default function AdminPage() {
                   <form className="form" onSubmit={addClass}>
                     <label>Class Name<input value={classForm.class_name} onChange={(e) => setClassForm((p) => ({ ...p, class_name: e.target.value }))} /></label>
                     <div className="card" style={{ borderStyle: 'dashed' }}>
-                      <p className="eyebrow">trainer_name (token input)</p>
+                      <p className="eyebrow">Trainer Name (token input)</p>
                       <div className="row-actions" style={{ marginBottom: '0.5rem' }}>
                         {selectedClassTrainerTokens.length === 0 ? <span className="feedback">Belum ada trainer dipilih.</span> : null}
                         {selectedClassTrainerTokens.map((name) => (
