@@ -3009,7 +3009,7 @@ export default function AdminPage() {
                   <form className="form" onSubmit={addEvent}>
                     {eventEditTab === 'general' ? (
                       <>
-                        <label>event_name<input value={eventForm.event_name} onChange={(e) => setEventForm((p) => ({ ...p, event_name: e.target.value }))} /></label>
+                        <label>Event Name<input value={eventForm.event_name} onChange={(e) => setEventForm((p) => ({ ...p, event_name: e.target.value }))} /></label>
                         <div className="row-actions" style={{ marginTop: '-0.2rem' }}>
                           <button
                             className="btn ghost small"
@@ -3026,8 +3026,8 @@ export default function AdminPage() {
                             AI Make It Premium
                           </button>
                         </div>
-                        <label>location<input value={eventForm.location} onChange={(e) => setEventForm((p) => ({ ...p, location: e.target.value }))} /></label>
-                        <label>image_url<input value={eventForm.image_url} onChange={(e) => setEventForm((p) => ({ ...p, image_url: e.target.value }))} /></label>
+                        <label>Location<input value={eventForm.location} onChange={(e) => setEventForm((p) => ({ ...p, location: e.target.value }))} /></label>
+                        <label>Image URL<input value={eventForm.image_url} onChange={(e) => setEventForm((p) => ({ ...p, image_url: e.target.value }))} /></label>
                         <div className="row-actions" style={{ marginTop: '-0.2rem' }}>
                           <button
                             className="btn ghost small"
@@ -3069,7 +3069,7 @@ export default function AdminPage() {
                           </button>
                         </div>
                         <label>
-                          gallery_images (satu URL per baris)
+                          Gallery Images (satu URL per baris)
                           <textarea
                             rows={4}
                             placeholder={'https://...\nhttps://...'}
@@ -3078,7 +3078,7 @@ export default function AdminPage() {
                           />
                         </label>
                         <label>
-                          schedule_items (format: waktu | judul | catatan)
+                          Schedule Items (format: waktu | judul | catatan)
                           <textarea
                             rows={5}
                             placeholder={'09:00 | Registrasi | Check in peserta\n09:30 | Opening | Sambutan coach'}
@@ -3102,9 +3102,9 @@ export default function AdminPage() {
                             AI Improve Rundown
                           </button>
                         </div>
-                        <label>start_at<input type="datetime-local" value={eventForm.start_at} onChange={(e) => setEventForm((p) => ({ ...p, start_at: e.target.value }))} /></label>
-                        <label>price<input type="number" min="0" value={eventForm.price} onChange={(e) => setEventForm((p) => ({ ...p, price: e.target.value }))} /></label>
-                        <label>duration_minutes<input type="number" min="1" value={eventForm.duration_minutes} onChange={(e) => setEventForm((p) => ({ ...p, duration_minutes: e.target.value }))} /></label>
+                        <label>Start At<input type="datetime-local" value={eventForm.start_at} onChange={(e) => setEventForm((p) => ({ ...p, start_at: e.target.value }))} /></label>
+                        <label>Price<input type="number" min="0" value={eventForm.price} onChange={(e) => setEventForm((p) => ({ ...p, price: e.target.value }))} /></label>
+                        <label>Duration (Minutes)<input type="number" min="1" value={eventForm.duration_minutes} onChange={(e) => setEventForm((p) => ({ ...p, duration_minutes: e.target.value }))} /></label>
                       </>
                     ) : null}
                     {eventEditTab === 'category' ? (
