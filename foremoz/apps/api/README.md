@@ -57,9 +57,13 @@ EMAIL_SMTP_IGNORE_TLS_ERRORS=false
 
 - `POST /v1/auth/signup`
 - `POST /v1/auth/signin`
+- `POST /v1/auth/password/forgot`
+- `POST /v1/auth/password/reset`
 - `GET /v1/auth/me` (Bearer token)
 - `POST /v1/tenant/auth/signup`
 - `POST /v1/tenant/auth/signin`
+- `POST /v1/tenant/auth/password/forgot`
+- `POST /v1/tenant/auth/password/reset`
 - `GET /v1/owner/setup`
 - `POST /v1/owner/setup/save`
 - `DELETE /v1/owner/setup`
@@ -161,5 +165,45 @@ Catatan:
   "email": "admin1@example.com",
   "password": "supersecret123",
   "role": "owner"
+}
+```
+
+`POST /v1/auth/password/forgot`
+
+```json
+{
+  "tenant_id": "tn_001",
+  "email": "member1@example.com"
+}
+```
+
+`POST /v1/auth/password/reset`
+
+```json
+{
+  "tenant_id": "tn_001",
+  "email": "member1@example.com",
+  "code": "123456",
+  "new_password": "new-supersecret123"
+}
+```
+
+`POST /v1/tenant/auth/password/forgot`
+
+```json
+{
+  "email": "admin1@example.com",
+  "account_name": "tourguidesam"
+}
+```
+
+`POST /v1/tenant/auth/password/reset`
+
+```json
+{
+  "email": "admin1@example.com",
+  "account_name": "tourguidesam",
+  "code": "123456",
+  "new_password": "new-supersecret123"
 }
 ```

@@ -20,6 +20,7 @@ export default function SignInPage() {
   const [searchParams] = useSearchParams();
   const isAccountSignin = Boolean(account);
   const activationNotice = String(searchParams.get('activated') || '').trim() === '1';
+  const resetNotice = String(searchParams.get('reset') || '').trim() === '1';
   const [form, setForm] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -187,6 +188,7 @@ export default function SignInPage() {
     >
       <form className="card form" onSubmit={submit}>
         {activationNotice ? <p className="feedback">Akun sudah aktif. Silakan sign in.</p> : null}
+        {resetNotice ? <p className="feedback">Password berhasil direset. Silakan sign in dengan password baru.</p> : null}
         <label>
           Email
           <input name="email" type="email" value={form.email} onChange={handleChange} />
@@ -199,6 +201,11 @@ export default function SignInPage() {
         <button className="btn" type="submit" disabled={loading}>
           {loading ? 'Signing in...' : 'Sign in'}
         </button>
+        <p style={{ margin: '0.35rem 0 0' }}>
+          <Link className="link-inline" to={isAccountSignin && account ? `/a/${account}/forgot-password` : '/forgot-password'}>
+            Forgot password
+          </Link>
+        </p>
       </form>
       <div className="card" style={{ marginTop: '0.75rem', borderStyle: 'dashed' }}>
         <p className="eyebrow">Need different login?</p>

@@ -16,6 +16,7 @@ import ActivateAccountPage from './pages/ActivateAccountPage.jsx';
 import VerifyPasswordPage from './pages/VerifyPasswordPage.jsx';
 import MemberSignUpPage from './pages/MemberSignUpPage.jsx';
 import MemberSignInPage from './pages/MemberSignInPage.jsx';
+import ForgotPasswordPage from './pages/ForgotPasswordPage.jsx';
 import DashboardPage from './pages/DashboardPage.jsx';
 import MemberPage from './pages/MemberPage.jsx';
 import AdminPage from './pages/AdminPage.jsx';
@@ -168,6 +169,8 @@ export default function App() {
       <Route path="/passport/signup" element={<PassportSignUpPage />} />
       <Route path="/events/signin" element={<PassportSignInPage />} />
       <Route path="/passport/signin" element={<PassportSignInPage />} />
+      <Route path="/events/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/passport/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/events/register" element={<EventCheckoutPage />} />
       <Route path="/passport/register" element={<EventCheckoutPage />} />
       <Route path="/e/:eventId" element={<EventCheckoutPage />} />
@@ -225,6 +228,10 @@ export default function App() {
       <Route path="/member/signup" element={<Navigate to="/a/tn_001/member/signup" replace />} />
       <Route path="/a/:account/member/signin" element={<MemberSignInPage />} />
       <Route path="/member/signin" element={<Navigate to="/a/tn_001/member/signin" replace />} />
+      <Route path="/a/:account/member/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/member/forgot-password" element={<Navigate to="/a/tn_001/member/forgot-password" replace />} />
+      <Route path="/a/:account/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/a/:account/signin" element={<SignInPage />} />
       <Route path="/signin" element={<SignInPage />} />
       <Route path="/onboarding" element={<OnboardingOnly />} />

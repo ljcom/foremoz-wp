@@ -7,6 +7,7 @@ import { config } from './config.js';
 import {
   sendEventRegistrationEmail,
   sendMemberSignupEmail,
+  sendPasswordResetEmail,
   sendPassportWelcomeEmail,
   sendTenantActivationEmail
 } from './email.js';
@@ -365,11 +366,48 @@ function hashActivationCode(code) {
   return createHash('sha256').update(String(code || '')).digest('hex');
 }
 
+async function resolveTenantIdByAccountName(accountName) {
+  const normalized = String(accountName || '').trim().toLowerCase();
+  if (!normalized) return null;
+  const result = await query(
+    `with candidates as (
+       select tenant_id, updated_at
+       from read.rm_owner_setup
+       where lower(account_slug) = $1 and status = 'active'
+       union all
+       select tenant_id, updated_at
+       from read.rm_owner_branch
+       where lower(account_slug) = $1 and status = 'active'
+     )
+     select tenant_id
+     from candidates
+     order by updated_at desc
+     limit 1`,
+    [normalized]
+  );
+  return result.rows[0]?.tenant_id || null;
+}
+
 async function getTenantUserByEmail({ email, tenantId = null }) {
   const normalizedEmail = normalizeEmail(required(email, 'email'));
   const params = [normalizedEmail];
   let sql = `select tenant_id, user_id, full_name, email, role, status
      from read.rm_tenant_user_auth
+     where lower(email) = lower($1)`;
+  if (tenantId) {
+    params.push(String(tenantId || '').trim());
+    sql += ` and tenant_id = $2`;
+  }
+  sql += ` order by updated_at desc limit 1`;
+  const result = await query(sql, params);
+  return result.rows[0] || null;
+}
+
+async function getMemberAuthByEmail({ email, tenantId = null }) {
+  const normalizedEmail = normalizeEmail(required(email, 'email'));
+  const params = [normalizedEmail];
+  let sql = `select tenant_id, member_id, email, status
+     from read.rm_member_auth
      where lower(email) = lower($1)`;
   if (tenantId) {
     params.push(String(tenantId || '').trim());
@@ -393,6 +431,95 @@ async function getLatestActivationRequest({ tenantId, userId }) {
     [namespaceId, userId]
   );
   return result.rows[0]?.data || null;
+}
+
+async function getLatestPasswordResetRequest({ tenantId, principalField, principalValue, eventType }) {
+  const namespaceId = resolveNamespaceId(tenantId);
+  const result = await query(
+    `select payload->'data' as data
+     from eventdb_event
+     where namespace_id = $1
+       and event_type = $2
+       and payload->'data'->>$3 = $4
+     order by sequence desc
+     limit 1`,
+    [namespaceId, eventType, principalField, principalValue]
+  );
+  return result.rows[0]?.data || null;
+}
+
+async function issueTenantPasswordReset({ tenantId, userId, fullName, email }) {
+  const resetCode = buildActivationCode();
+  const requestedAt = new Date().toISOString();
+  const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+
+  await appendDomainEvent({
+    tenantId,
+    branchId: null,
+    actorId: userId,
+    actorKind: 'owner',
+    eventType: 'owner.user.password.reset.requested',
+    subjectKind: 'tenant_user_reset',
+    subjectId: `reset_${userId}_${Date.now()}`,
+    data: {
+      tenant_id: tenantId,
+      user_id: userId,
+      email,
+      reset_code_hash: hashActivationCode(resetCode),
+      requested_at: requestedAt,
+      expires_at: expiresAt
+    },
+    refs: {},
+    ts: requestedAt
+  });
+
+  const emailDelivery = await sendPasswordResetEmail({
+    email,
+    fullName,
+    resetCode,
+    tenantId,
+    audience: 'host',
+    expiresAt
+  });
+  warnEmailDelivery('tenant_password_reset', emailDelivery);
+  return { resetCode, expiresAt, emailDelivery };
+}
+
+async function issueMemberPasswordReset({ tenantId, memberId, email, fullName }) {
+  const resetCode = buildActivationCode();
+  const requestedAt = new Date().toISOString();
+  const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+
+  await appendDomainEvent({
+    tenantId,
+    branchId: null,
+    actorId: memberId,
+    actorKind: 'member',
+    eventType: 'member.password.reset.requested',
+    subjectKind: 'member_reset',
+    subjectId: `reset_${memberId}_${Date.now()}`,
+    data: {
+      tenant_id: tenantId,
+      member_id: memberId,
+      email,
+      reset_code_hash: hashActivationCode(resetCode),
+      requested_at: requestedAt,
+      expires_at: expiresAt
+    },
+    refs: {},
+    ts: requestedAt
+  });
+
+  const emailDelivery = await sendPasswordResetEmail({
+    email,
+    fullName,
+    resetCode,
+    tenantId,
+    audience: 'member',
+    expiresAt
+  });
+  warnEmailDelivery('member_password_reset', emailDelivery);
+  return { resetCode, expiresAt, emailDelivery };
 }
 
 async function issueTenantActivation({ tenantId, userId, fullName, email, role }) {
@@ -1425,6 +1552,129 @@ app.post('/v1/tenant/auth/signin', async (req, res, next) => {
         token_type: 'Bearer',
         expires_in: config.jwtExpiresInSec
       }
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.post('/v1/tenant/auth/password/forgot', async (req, res, next) => {
+  try {
+    const data = req.body || {};
+    const email = normalizeEmail(required(data.email, 'email'));
+    const tenantIdInput = String(data.tenant_id || '').trim();
+    const accountNameInput = String(data.account_name || data.account_slug || '').trim();
+    const resolvedTenantId = tenantIdInput || await resolveTenantIdByAccountName(accountNameInput);
+
+    let authRow = null;
+    if (resolvedTenantId) {
+      const authResult = await query(
+        `select tenant_id, user_id, full_name, email, role, status
+         from read.rm_tenant_user_auth
+         where tenant_id = $1 and lower(email) = lower($2)
+         order by updated_at desc
+         limit 1`,
+        [resolvedTenantId, email]
+      );
+      authRow = authResult.rows[0] || null;
+    } else {
+      const authResult = await query(
+        `select tenant_id, user_id, full_name, email, role, status
+         from read.rm_tenant_user_auth
+         where lower(email) = lower($1) and role = 'owner'
+         order by updated_at desc
+         limit 1`,
+        [email]
+      );
+      authRow = authResult.rows[0] || null;
+    }
+
+    let emailDelivery = { sent: false, skipped: true, reason: 'account_not_found_or_inactive' };
+    if (authRow && authRow.status !== 'deleted') {
+      const issued = await issueTenantPasswordReset({
+        tenantId: authRow.tenant_id,
+        userId: authRow.user_id,
+        fullName: authRow.full_name,
+        email: authRow.email
+      });
+      emailDelivery = issued.emailDelivery;
+    }
+
+    return ok(res, {
+      requested: true,
+      email_delivery: emailDelivery
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.post('/v1/tenant/auth/password/reset', async (req, res, next) => {
+  try {
+    const data = req.body || {};
+    const email = normalizeEmail(required(data.email, 'email'));
+    const resetCode = normalizeActivationCode(required(data.code, 'code'));
+    const nextPassword = String(required(data.new_password, 'new_password'));
+    const tenantIdInput = String(data.tenant_id || '').trim();
+    const accountNameInput = String(data.account_name || data.account_slug || '').trim();
+    const resolvedTenantId = tenantIdInput || await resolveTenantIdByAccountName(accountNameInput);
+    if (nextPassword.length < 8) {
+      throw fail(400, 'AUTH_WEAK_PASSWORD', 'password min length is 8 characters');
+    }
+
+    let authRow = null;
+    if (resolvedTenantId) {
+      authRow = await getTenantUserByEmail({ email, tenantId: resolvedTenantId });
+    } else {
+      authRow = await getTenantUserByEmail({ email, tenantId: null });
+      if (authRow?.role !== 'owner') {
+        throw fail(400, 'AUTH_PASSWORD_RESET_SCOPE_REQUIRED', 'account_name/tenant_id is required for non-owner reset');
+      }
+    }
+    if (!authRow) {
+      throw fail(400, 'AUTH_PASSWORD_RESET_INVALID', 'kode reset tidak valid atau sudah expired');
+    }
+
+    const latestReset = await getLatestPasswordResetRequest({
+      tenantId: authRow.tenant_id,
+      principalField: 'user_id',
+      principalValue: authRow.user_id,
+      eventType: 'owner.user.password.reset.requested'
+    });
+    if (!latestReset) {
+      throw fail(400, 'AUTH_PASSWORD_RESET_CODE_NOT_FOUND', 'kode reset belum tersedia. Coba forgot password.');
+    }
+    const expiresAt = new Date(latestReset.expires_at || '');
+    if (Number.isNaN(expiresAt.getTime()) || Date.now() > expiresAt.getTime()) {
+      throw fail(400, 'AUTH_PASSWORD_RESET_CODE_EXPIRED', 'kode reset sudah expired. Coba request ulang.');
+    }
+    if (hashActivationCode(resetCode) !== String(latestReset.reset_code_hash || '')) {
+      throw fail(400, 'AUTH_PASSWORD_RESET_CODE_INVALID', 'kode reset tidak valid.');
+    }
+
+    const ts = new Date().toISOString();
+    const passwordHash = await hashPassword(nextPassword);
+    await appendDomainEvent({
+      tenantId: authRow.tenant_id,
+      branchId: null,
+      actorId: authRow.user_id,
+      actorKind: 'owner',
+      eventType: 'owner.user.password.changed',
+      subjectKind: 'tenant_user',
+      subjectId: authRow.user_id,
+      data: {
+        tenant_id: authRow.tenant_id,
+        user_id: authRow.user_id,
+        password_hash: passwordHash,
+        changed_at: ts
+      },
+      refs: {},
+      ts
+    });
+    await runFitnessProjection({ tenantId: authRow.tenant_id, branchId: null });
+
+    return ok(res, {
+      reset: true
     });
   } catch (error) {
     return next(error);
@@ -2643,6 +2893,109 @@ app.post('/v1/auth/signin', async (req, res, next) => {
         token_type: 'Bearer',
         expires_in: config.jwtExpiresInSec
       }
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.post('/v1/auth/password/forgot', async (req, res, next) => {
+  try {
+    const data = req.body || {};
+    const tenantId = String(data.tenant_id || config.defaultTenantId).trim() || config.defaultTenantId;
+    const email = normalizeEmail(required(data.email, 'email'));
+    const authRow = await getMemberAuthByEmail({ email, tenantId });
+
+    let emailDelivery = { sent: false, skipped: true, reason: 'account_not_found_or_inactive' };
+    if (authRow && authRow.status === 'active') {
+      const memberResult = await query(
+        `select full_name
+         from read.rm_member
+         where tenant_id = $1 and member_id = $2
+         limit 1`,
+        [authRow.tenant_id, authRow.member_id]
+      );
+      const issued = await issueMemberPasswordReset({
+        tenantId: authRow.tenant_id,
+        memberId: authRow.member_id,
+        email: authRow.email,
+        fullName: memberResult.rows[0]?.full_name || authRow.email
+      });
+      emailDelivery = issued.emailDelivery;
+    }
+
+    return ok(res, {
+      requested: true,
+      email_delivery: emailDelivery
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.post('/v1/auth/password/reset', async (req, res, next) => {
+  try {
+    const data = req.body || {};
+    const tenantId = String(data.tenant_id || config.defaultTenantId).trim() || config.defaultTenantId;
+    const email = normalizeEmail(required(data.email, 'email'));
+    const resetCode = normalizeActivationCode(required(data.code, 'code'));
+    const nextPassword = String(required(data.new_password, 'new_password'));
+    if (nextPassword.length < 8) {
+      throw fail(400, 'AUTH_WEAK_PASSWORD', 'password min length is 8 characters');
+    }
+
+    const authResult = await query(
+      `select tenant_id, member_id, email, status
+       from read.rm_member_auth
+       where tenant_id = $1 and lower(email) = lower($2)
+       limit 1`,
+      [tenantId, email]
+    );
+    const authRow = authResult.rows[0] || null;
+    if (!authRow) {
+      throw fail(400, 'AUTH_PASSWORD_RESET_INVALID', 'kode reset tidak valid atau sudah expired');
+    }
+
+    const latestReset = await getLatestPasswordResetRequest({
+      tenantId: authRow.tenant_id,
+      principalField: 'member_id',
+      principalValue: authRow.member_id,
+      eventType: 'member.password.reset.requested'
+    });
+    if (!latestReset) {
+      throw fail(400, 'AUTH_PASSWORD_RESET_CODE_NOT_FOUND', 'kode reset belum tersedia. Coba forgot password.');
+    }
+    const expiresAt = new Date(latestReset.expires_at || '');
+    if (Number.isNaN(expiresAt.getTime()) || Date.now() > expiresAt.getTime()) {
+      throw fail(400, 'AUTH_PASSWORD_RESET_CODE_EXPIRED', 'kode reset sudah expired. Coba request ulang.');
+    }
+    if (hashActivationCode(resetCode) !== String(latestReset.reset_code_hash || '')) {
+      throw fail(400, 'AUTH_PASSWORD_RESET_CODE_INVALID', 'kode reset tidak valid.');
+    }
+
+    const ts = new Date().toISOString();
+    const passwordHash = await hashPassword(nextPassword);
+    await appendDomainEvent({
+      tenantId: authRow.tenant_id,
+      branchId: null,
+      actorId: authRow.member_id,
+      actorKind: 'member',
+      eventType: 'member.auth.password.changed',
+      subjectKind: 'member_auth',
+      subjectId: authRow.member_id,
+      data: {
+        tenant_id: authRow.tenant_id,
+        member_id: authRow.member_id,
+        password_hash: passwordHash,
+        changed_at: ts
+      },
+      refs: {},
+      ts
+    });
+    await runFitnessProjection({ tenantId: authRow.tenant_id, branchId: null });
+
+    return ok(res, {
+      reset: true
     });
   } catch (error) {
     return next(error);

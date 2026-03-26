@@ -296,3 +296,46 @@ export async function sendPassportWelcomeEmail({
   `;
   return sendEmail({ to: email, subject, text, html });
 }
+
+export async function sendPasswordResetEmail({
+  email,
+  fullName,
+  resetCode,
+  tenantId,
+  audience = 'member',
+  expiresAt
+}) {
+  const safeName = String(fullName || '').trim() || 'User';
+  const safeCode = String(resetCode || '').trim() || '-';
+  const safeTenantId = String(tenantId || '').trim() || '-';
+  const safeAudience = String(audience || 'member').trim().toLowerCase();
+  const scopeLabel = safeAudience === 'host' ? 'Host/Tenant' : 'Member/Participant';
+  const subject = `Kode reset password Foremoz (${scopeLabel})`;
+  const text = [
+    `Hi ${safeName},`,
+    '',
+    `Kami menerima permintaan reset password untuk akun ${scopeLabel}.`,
+    `Tenant ID: ${safeTenantId}`,
+    `Kode verifikasi: ${safeCode}`,
+    `Berlaku sampai: ${formatDateTime(expiresAt)}`,
+    '',
+    'Masukkan kode ini di halaman reset password Foremoz.',
+    '',
+    'Jika kamu tidak meminta reset password, abaikan email ini.',
+    '',
+    'Foremoz Team'
+  ].join('\n');
+  const html = `
+    <p>Hi ${escapeHtml(safeName)},</p>
+    <p>Kami menerima permintaan reset password untuk akun <strong>${escapeHtml(scopeLabel)}</strong>.</p>
+    <p>
+      <strong>Tenant ID:</strong> ${escapeHtml(safeTenantId)}<br />
+      <strong>Kode verifikasi:</strong> ${escapeHtml(safeCode)}<br />
+      <strong>Berlaku sampai:</strong> ${escapeHtml(formatDateTime(expiresAt))}
+    </p>
+    <p>Masukkan kode ini di halaman reset password Foremoz.</p>
+    <p>Jika kamu tidak meminta reset password, abaikan email ini.</p>
+    <p>Foremoz Team</p>
+  `;
+  return sendEmail({ to: email, subject, text, html });
+}

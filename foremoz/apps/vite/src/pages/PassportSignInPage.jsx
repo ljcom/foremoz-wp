@@ -18,6 +18,7 @@ export default function PassportSignInPage() {
   const nextPath = params.get('next') || '';
   const eventId = params.get('event') || '';
   const initialEmail = params.get('email') || '';
+  const resetNotice = String(params.get('reset') || '').trim() === '1';
   const signupHref = useMemo(() => {
     const nextParams = new URLSearchParams();
     if (eventId) nextParams.set('event', eventId);
@@ -222,6 +223,7 @@ export default function PassportSignInPage() {
           </article>
         </div>
         <form className="form" onSubmit={onSubmit}>
+          {resetNotice ? <p className="feedback">Password berhasil direset. Silakan sign in dengan password baru.</p> : null}
           <label>
             Email
             <input
@@ -251,6 +253,11 @@ export default function PassportSignInPage() {
           </div>
           <p className="mini-note" style={{ marginTop: '0.75rem' }}>
             Next step setelah sign in: lengkapi onboarding lalu atur public visibility profile kamu.
+          </p>
+          <p style={{ margin: '0.35rem 0 0' }}>
+            <Link className="link-inline" to={`${authBase}/forgot-password${initialEmail ? `?email=${encodeURIComponent(initialEmail)}` : ''}`}>
+              Forgot password
+            </Link>
           </p>
         </form>
       </section>

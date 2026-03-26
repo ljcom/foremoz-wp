@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import AuthLayout from '../components/AuthLayout.jsx';
 import { apiJson, IS_MOCK_MODE, IS_MOCKUP_OPEN_ACCESS, requireField, setSession } from '../lib.js';
 import { passportApiJson } from '../passport-client.js';
@@ -7,6 +7,8 @@ import { passportApiJson } from '../passport-client.js';
 export default function MemberSignInPage() {
   const navigate = useNavigate();
   const { account } = useParams();
+  const [searchParams] = useSearchParams();
+  const resetNotice = String(searchParams.get('reset') || '').trim() === '1';
   const [form, setForm] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -162,6 +164,7 @@ export default function MemberSignInPage() {
       alternateText="New member? Sign up"
     >
       <form className="card form" onSubmit={submit}>
+        {resetNotice ? <p className="feedback">Password berhasil direset. Silakan sign in dengan password baru.</p> : null}
         <div className="card" style={{ marginBottom: '1rem', borderStyle: 'dashed' }}>
           <p className="eyebrow">After Sign In</p>
           <p className="sub">Portal member akan menampilkan event yang sudah kamu join, status subscription, PT balance, booking class, dan payment activity.</p>
@@ -181,6 +184,11 @@ export default function MemberSignInPage() {
         <p style={{ margin: '0.25rem 0 0' }}>
           <Link className="link-inline" to={`/a/${account || 'tn_001'}/signin`}>
             Staff sign in
+          </Link>
+        </p>
+        <p style={{ margin: '0.25rem 0 0' }}>
+          <Link className="link-inline" to={`/a/${account || 'tn_001'}/member/forgot-password`}>
+            Forgot password
           </Link>
         </p>
         {account ? (

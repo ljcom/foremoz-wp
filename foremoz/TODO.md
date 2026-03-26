@@ -246,11 +246,12 @@ Last audited terhadap isi folder: **2026-03-25** (`foremoz/apps/api`, `foremoz/a
   - Remark: overview portal sesudah sign in sekarang sudah menampilkan subscription/PT status, payment activity, booking summary, dan shortcut ke event/account/member ops.
 - [~] Member auth funnel
   - Remark: halaman member signup/signin sekarang sudah membawa context account dan value proposition yang nyambung ke portal member.
-- [ ] Forgot password di semua sign-in
-  - [ ] Owner/Tenant sign-in (`/signin`, `/a/:account/signin`)
-    - Requirement: untuk host, forgot password bisa reset dengan menuliskan `account name` (account slug) sebagai langkah verifikasi tenant scope.
-  - [ ] Member sign-in (`/a/:account/member/signin`)
-  - [ ] Passport/Event sign-in (`/events/signin`, `/passport/signin`)
+- [~] Forgot password di semua sign-in
+  - [x] Owner/Tenant sign-in (`/signin`, `/a/:account/signin`)
+    - Reset endpoint mendukung `account_name/account_slug` untuk verifikasi tenant scope host.
+  - [x] Member sign-in (`/a/:account/member/signin`)
+  - [x] Passport/Event sign-in (`/events/signin`, `/passport/signin`)
+    - Remark: UI + route forgot/reset sudah disiapkan, bergantung endpoint reset di service Passport.
   - [ ] Security guard auth:
     - [ ] Integrasi Cloudflare Turnstile untuk sign-in + forgot password.
     - [ ] Backend wajib verifikasi token Turnstile.
