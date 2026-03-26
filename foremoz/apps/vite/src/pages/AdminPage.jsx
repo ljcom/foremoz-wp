@@ -2001,8 +2001,21 @@ export default function AdminPage() {
       if (!dataUrl) {
         throw new Error('Gagal memproses gambar.');
       }
-      setEventForm((prev) => ({ ...prev, image_url: dataUrl }));
-      setFeedback('event.image.uploaded: Cover image berhasil diunggah dari perangkat.');
+      const uploadRes = await apiJson('/v1/admin/uploads/image', {
+        method: 'POST',
+        body: JSON.stringify({
+          tenant_id: tenantId,
+          folder: 'events',
+          filename: selected.name || 'cover-image',
+          data_url: dataUrl
+        })
+      });
+      const imageUrl = String(uploadRes?.url || '').trim();
+      if (!imageUrl) {
+        throw new Error('Upload berhasil tapi URL gambar tidak tersedia.');
+      }
+      setEventForm((prev) => ({ ...prev, image_url: imageUrl }));
+      setFeedback('event.image.uploaded: Cover image berhasil diunggah ke S3.');
     } catch (error) {
       setFeedback(error.message || 'Gagal upload cover image.');
     }
@@ -3626,7 +3639,6 @@ export default function AdminPage() {
                   </div>
                   <div className="card" style={{ marginBottom: '0.8rem', borderStyle: 'dashed' }}>
                     <p className="eyebrow">AI Assist</p>
-                    <p className="feedback">Gunakan tombol ini untuk mempercepat drafting event. Pexels akan dipakai jika API key tersedia.</p>
                     <label>
                       Brief Event
                       <textarea

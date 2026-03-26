@@ -10,6 +10,7 @@
     "db:read-model": "node scripts/apply-read-model.js"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.888.0",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "nodemailer": "^6.10.1",

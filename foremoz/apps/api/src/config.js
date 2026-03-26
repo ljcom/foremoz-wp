@@ -46,7 +46,15 @@ export const config = {
   emailSmtpIgnoreTlsErrors: parseBoolean(process.env.EMAIL_SMTP_IGNORE_TLS_ERRORS, false),
   turnstileEnabled: parseBoolean(process.env.TURNSTILE_ENABLED, false),
   turnstileSecretKey: String(process.env.TURNSTILE_SECRET_KEY || '').trim(),
-  pexelsApiKey: String(process.env.PEXELS_API_KEY || '').trim()
+  pexelsApiKey: String(process.env.PEXELS_API_KEY || '').trim(),
+  s3UploadEnabled: parseBoolean(process.env.S3_UPLOAD_ENABLED, false),
+  s3Region: String(process.env.S3_REGION || '').trim(),
+  s3Bucket: String(process.env.S3_BUCKET || '').trim(),
+  s3AccessKeyId: String(process.env.S3_ACCESS_KEY_ID || '').trim(),
+  s3SecretAccessKey: String(process.env.S3_SECRET_ACCESS_KEY || '').trim(),
+  s3Endpoint: String(process.env.S3_ENDPOINT || '').trim(),
+  s3PublicBaseUrl: normalizeBaseUrl(process.env.S3_PUBLIC_BASE_URL, ''),
+  s3ForcePathStyle: parseBoolean(process.env.S3_FORCE_PATH_STYLE, false)
 };
 
 if (!config.databaseUrl) {
@@ -55,4 +63,11 @@ if (!config.databaseUrl) {
 
 if (config.turnstileEnabled && !config.turnstileSecretKey) {
   throw new Error('TURNSTILE_SECRET_KEY is required when TURNSTILE_ENABLED=true');
+}
+
+if (config.s3UploadEnabled) {
+  if (!config.s3Region) throw new Error('S3_REGION is required when S3_UPLOAD_ENABLED=true');
+  if (!config.s3Bucket) throw new Error('S3_BUCKET is required when S3_UPLOAD_ENABLED=true');
+  if (!config.s3AccessKeyId) throw new Error('S3_ACCESS_KEY_ID is required when S3_UPLOAD_ENABLED=true');
+  if (!config.s3SecretAccessKey) throw new Error('S3_SECRET_ACCESS_KEY is required when S3_UPLOAD_ENABLED=true');
 }

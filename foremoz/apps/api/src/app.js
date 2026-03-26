@@ -1,5 +1,6 @@
 import express from 'express';
 import { createHash, randomInt, randomUUID } from 'node:crypto';
+import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { query, pool, withTx } from './db.js';
 import { appendDomainEvent, resolveNamespaceId } from './event-store.js';
 import { runFitnessProjection } from './projection.js';
@@ -36,7 +37,7 @@ app.use((req, res, next) => {
   }
   return next();
 });
-app.use(express.json({ limit: '1mb' }));
+app.use(express.json({ limit: '10mb' }));
 
 function required(value, name) {
   if (value === undefined || value === null || value === '') {
@@ -98,6 +99,79 @@ async function enforceTurnstile(req, data = {}) {
   if (!verification?.success) {
     throw fail(400, 'TURNSTILE_VERIFY_FAILED', 'human verification failed');
   }
+}
+
+const IMAGE_MIME_TO_EXT = {
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+  'image/gif': 'gif'
+};
+
+let s3Client = null;
+
+function getS3Client() {
+  if (s3Client) return s3Client;
+  s3Client = new S3Client({
+    region: config.s3Region,
+    endpoint: config.s3Endpoint || undefined,
+    forcePathStyle: config.s3ForcePathStyle,
+    credentials: {
+      accessKeyId: config.s3AccessKeyId,
+      secretAccessKey: config.s3SecretAccessKey
+    }
+  });
+  return s3Client;
+}
+
+function sanitizeObjectKeySegment(value, fallback = 'file') {
+  const normalized = String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 80);
+  return normalized || fallback;
+}
+
+function parseImageDataUrl(dataUrl) {
+  const raw = String(dataUrl || '').trim();
+  if (!raw) {
+    throw fail(400, 'BAD_REQUEST', 'data_url is required');
+  }
+  const match = raw.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,([a-zA-Z0-9+/=\s]+)$/i);
+  if (!match) {
+    throw fail(400, 'BAD_REQUEST', 'data_url must be a valid base64 image data URL');
+  }
+  const mimeType = String(match[1] || '').toLowerCase();
+  const fileExt = IMAGE_MIME_TO_EXT[mimeType];
+  if (!fileExt) {
+    throw fail(400, 'BAD_REQUEST', 'unsupported image type. allowed: jpg, png, webp, gif');
+  }
+  const payload = String(match[2] || '').replace(/\s+/g, '');
+  const buffer = Buffer.from(payload, 'base64');
+  if (!buffer.length) {
+    throw fail(400, 'BAD_REQUEST', 'image data is empty');
+  }
+  const maxBytes = 5 * 1024 * 1024;
+  if (buffer.length > maxBytes) {
+    throw fail(400, 'BAD_REQUEST', 'image size must be 5MB or less');
+  }
+  return { mimeType, fileExt, buffer };
+}
+
+function buildS3PublicUrl(objectKey) {
+  const encodedKey = String(objectKey || '')
+    .split('/')
+    .map((segment) => encodeURIComponent(segment))
+    .join('/');
+  if (config.s3PublicBaseUrl) {
+    return `${config.s3PublicBaseUrl}/${encodedKey}`;
+  }
+  if (config.s3Region) {
+    return `https://s3.${config.s3Region}.amazonaws.com/${config.s3Bucket}/${encodedKey}`;
+  }
+  return `https://${config.s3Bucket}.s3.amazonaws.com/${encodedKey}`;
 }
 
 function asPositiveInteger(value, fieldName, fallback = null) {
@@ -3760,6 +3834,43 @@ app.get('/v1/ai/pexels/search', async (req, res, next) => {
     })).filter((item) => item.image_url);
 
     return ok(res, { query: queryText, rows });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.post('/v1/admin/uploads/image', async (req, res, next) => {
+  try {
+    const data = req.body || {};
+    const tenantId = String(data.tenant_id || config.defaultTenantId).trim() || config.defaultTenantId;
+    await requireActiveTenantUser(req, tenantId);
+    if (!config.s3UploadEnabled) {
+      throw fail(503, 'S3_UPLOAD_DISABLED', 'S3 upload belum diaktifkan di server');
+    }
+
+    const { mimeType, fileExt, buffer } = parseImageDataUrl(data.data_url);
+    const folder = sanitizeObjectKeySegment(data.folder || 'events', 'events');
+    const tenantSegment = sanitizeObjectKeySegment(tenantId, 'tenant');
+    const basename = sanitizeObjectKeySegment(data.filename || 'cover-image', 'cover-image');
+    const objectKey = `${folder}/${tenantSegment}/${Date.now()}-${randomUUID().slice(0, 8)}-${basename}.${fileExt}`;
+    const contentDisposition = `inline; filename="${basename}.${fileExt}"`;
+
+    await getS3Client().send(new PutObjectCommand({
+      Bucket: config.s3Bucket,
+      Key: objectKey,
+      Body: buffer,
+      ContentType: mimeType,
+      ContentDisposition: contentDisposition,
+      CacheControl: 'public, max-age=31536000, immutable'
+    }));
+
+    return created(res, {
+      url: buildS3PublicUrl(objectKey),
+      key: objectKey,
+      bucket: config.s3Bucket,
+      content_type: mimeType,
+      size_bytes: buffer.length
+    });
   } catch (error) {
     return next(error);
   }
