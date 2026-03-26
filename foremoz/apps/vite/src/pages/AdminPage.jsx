@@ -1844,25 +1844,6 @@ export default function AdminPage() {
     setFeedback(`ai.assist: Draft event dibuat. Harga rekomendasi ${formatIdr(draft.suggestedPrice || 0)}.`);
   }
 
-  function aiCheckPublishReadiness() {
-    const checks = [
-      { ok: Boolean(String(eventForm.event_name || '').trim()), label: 'Event Name' },
-      { ok: Boolean(String(eventForm.trainer_name || '').trim()), label: `${creatorLabel} Name` },
-      { ok: Boolean(String(eventForm.location || '').trim()), label: 'Location' },
-      { ok: Boolean(String(eventForm.description || '').trim()), label: 'Description' },
-      { ok: Boolean(String(eventForm.categories_text || '').trim()), label: 'Category' },
-      { ok: Boolean(String(eventForm.start_at || '').trim()), label: 'Start At' }
-    ];
-    const passed = checks.filter((item) => item.ok).length;
-    const score = Math.round((passed / checks.length) * 100);
-    const missing = checks.filter((item) => !item.ok).map((item) => item.label);
-    if (missing.length === 0) {
-      setFeedback(`ai.assist: Readiness ${score}%. Event siap dipublikasikan.`);
-      return;
-    }
-    setFeedback(`ai.assist: Readiness ${score}%. Lengkapi: ${missing.join(', ')}`);
-  }
-
   function aiRewriteTitle() {
     const current = String(eventForm.event_name || '').trim();
     const source = current || (typeof window !== 'undefined'
@@ -3663,37 +3644,31 @@ export default function AdminPage() {
                       Participants
                     </button>
                   </div>
-                  <div className="card" style={{ marginBottom: '0.8rem', borderStyle: 'dashed' }}>
-                    <p className="eyebrow">AI Assist</p>
-                    <label>
-                      Brief Event
-                      <textarea
-                        rows={3}
-                        placeholder="Contoh: Saya mau mengadakan pameran lukisan di Artpreneur Jakarta tgl 1 April 2026, 8 pagi - 20 sore, topiknya budaya Indonesia."
-                        value={eventAiBriefDraft}
-                        onChange={(e) => setEventAiBriefDraft(e.target.value)}
-                      />
-                    </label>
-                    <div className="row-actions">
-                      <button
-                        className="btn ghost small"
-                        type="button"
-                        disabled={eventAiWorking}
-                        onClick={aiGenerateDraftFromBrief}
-                      >
-                        Generate Draft From Brief
-                      </button>
-                      <button
-                        className="btn ghost small"
-                        type="button"
-                        disabled={eventAiWorking}
-                        onClick={aiCheckPublishReadiness}
-                      >
-                        Check Publish Readiness
-                      </button>
+                  {eventEditTab === 'general' ? (
+                    <div className="card" style={{ marginBottom: '0.8rem', borderStyle: 'dashed' }}>
+                      <p className="eyebrow">AI Assist</p>
+                      <label>
+                        Brief Event
+                        <textarea
+                          rows={3}
+                          placeholder="Contoh: Saya mau mengadakan pameran lukisan di Artpreneur Jakarta tgl 1 April 2026, 8 pagi - 20 sore, topiknya budaya Indonesia."
+                          value={eventAiBriefDraft}
+                          onChange={(e) => setEventAiBriefDraft(e.target.value)}
+                        />
+                      </label>
+                      <div className="row-actions">
+                        <button
+                          className="btn ghost small"
+                          type="button"
+                          disabled={eventAiWorking}
+                          onClick={aiGenerateDraftFromBrief}
+                        >
+                          Generate Draft From Brief
+                        </button>
+                      </div>
+                      {eventAiWorking ? <p className="feedback">AI assist running...</p> : null}
                     </div>
-                    {eventAiWorking ? <p className="feedback">AI assist running...</p> : null}
-                  </div>
+                  ) : null}
                   <form className="form" onSubmit={addEvent}>
                     {eventEditTab === 'general' ? (
                       <>
