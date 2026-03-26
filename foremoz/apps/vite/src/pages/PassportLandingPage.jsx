@@ -71,6 +71,7 @@ export default function PassportLandingPage() {
   const normalizedAccount = String(accountParam || '').trim().toLowerCase();
   const isAccountSurface = location.pathname.startsWith('/a/') && location.pathname.endsWith('/events') && Boolean(normalizedAccount);
   const isPassportSurface = location.pathname.startsWith('/passport') || location.pathname.startsWith('/p/');
+  const isGlobalEventsSurface = !isPassportSurface && !isAccountSurface;
   const registerBase = isPassportSurface ? '/passport/register' : '/events/register';
   const profileHref = '/passport/dashboard';
   const [events, setEvents] = useState(fallbackEvents);
@@ -78,6 +79,7 @@ export default function PassportLandingPage() {
   const [accountInfo, setAccountInfo] = useState(null);
   const [joinedEventIds, setJoinedEventIds] = useState([]);
   const [activeTab, setActiveTab] = useState('events');
+  const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const verticalLabels = listVerticalConfigs().map((item) => item.label);
@@ -103,6 +105,10 @@ export default function PassportLandingPage() {
   const highlightedEventId = useMemo(() => {
     const params = new URLSearchParams(location.search);
     return params.get('event') || '';
+  }, [location.search]);
+  const isExploreAllMode = useMemo(() => {
+    const params = new URLSearchParams(location.search);
+    return params.get('explore') === '1';
   }, [location.search]);
   const passportSession = getPassportSession();
   const isAuthenticated = Boolean(passportSession?.isAuthenticated);
@@ -214,6 +220,32 @@ export default function PassportLandingPage() {
     });
     return list;
   }, [events, highlightedEventId]);
+
+  const premiumEvents = useMemo(
+    () => orderedEvents.filter((item) => String(item.status || '').trim().toUpperCase() === 'POSTED'),
+    [orderedEvents]
+  );
+
+  const searchableEvents = useMemo(() => {
+    if (!isGlobalEventsSurface || !isExploreAllMode) {
+      return isGlobalEventsSurface ? premiumEvents : orderedEvents;
+    }
+    const keyword = String(searchQuery || '').trim().toLowerCase();
+    if (!keyword) return orderedEvents;
+    return orderedEvents.filter((event) => {
+      const haystack = [
+        event.title,
+        event.category,
+        event.vertical,
+        event.host,
+        event.organizer,
+        event.account_slug
+      ]
+        .map((item) => String(item || '').toLowerCase())
+        .join(' ');
+      return haystack.includes(keyword);
+    });
+  }, [isGlobalEventsSurface, isExploreAllMode, orderedEvents, premiumEvents, searchQuery]);
 
   const joinedEvents = useMemo(() => {
     if (!joinedEventIds.length) return [];
@@ -339,9 +371,14 @@ export default function PassportLandingPage() {
             <Link className="btn" to={isPassportSurface ? '/passport/signin' : accountMemberSigninHref || '/events/signin'}>
               {isPassportSurface ? 'Masuk ke Passport' : 'Ikut Event Sekarang'}
             </Link>
-            {!isPassportSurface && !isAccountSurface ? (
-              <Link className="btn ghost" to="/events">
+            {!isPassportSurface && !isAccountSurface && !isExploreAllMode ? (
+              <Link className="btn ghost" to="/events?explore=1">
                 Explore Semua Event
+              </Link>
+            ) : null}
+            {!isPassportSurface && !isAccountSurface && isExploreAllMode ? (
+              <Link className="btn ghost" to="/events">
+                Kembali ke Premium Events
               </Link>
             ) : null}
           </div>
@@ -382,11 +419,31 @@ export default function PassportLandingPage() {
         {activeTab === 'events' ? (
           <>
             <p className="eyebrow">Events</p>
-            <h2 className="landing-title">Upcoming events</h2>
+            <h2 className="landing-title">
+              {isGlobalEventsSurface
+                ? (isExploreAllMode ? 'Explore semua event' : 'Premium events')
+                : 'Upcoming events'}
+            </h2>
+            {isGlobalEventsSurface && isExploreAllMode ? (
+              <div className="card form" style={{ marginBottom: '1rem' }}>
+                <label>
+                  Cari event
+                  <input
+                    type="search"
+                    placeholder="judul, kategori, organizer..."
+                    value={searchQuery}
+                    onChange={(event) => setSearchQuery(event.target.value)}
+                  />
+                </label>
+              </div>
+            ) : null}
             {loading ? <p className="feedback">Loading events...</p> : null}
             {error ? <p className="feedback">{error}</p> : null}
+            {isGlobalEventsSurface && !isExploreAllMode ? (
+              <p className="feedback">Menampilkan event premium yang sudah diposting.</p>
+            ) : null}
             <div className="passport-live-grid">
-              {orderedEvents.map((event, idx) => (
+              {searchableEvents.map((event, idx) => (
                 <article className="passport-live-card" key={event.event_id || `${event.title}-${idx}`}>
                   <img className="passport-live-image" src={event.image} alt={event.title} />
                   <div className="passport-live-head">
@@ -414,10 +471,14 @@ export default function PassportLandingPage() {
                   )}
                 </article>
               ))}
-              {!loading && orderedEvents.length === 0 ? (
+              {!loading && searchableEvents.length === 0 ? (
                 <article className="passport-live-card">
-                  <h3>Belum ada event published</h3>
-                  <p className="passport-live-time">Coba lagi sebentar lagi, event baru akan segera hadir.</p>
+                  <h3>{isGlobalEventsSurface && !isExploreAllMode ? 'Belum ada premium event' : 'Belum ada event published'}</h3>
+                  <p className="passport-live-time">
+                    {isGlobalEventsSurface && !isExploreAllMode
+                      ? 'Coba Explore Semua Event atau tunggu premium event berikutnya.'
+                      : 'Coba lagi sebentar lagi, event baru akan segera hadir.'}
+                  </p>
                 </article>
               ) : null}
             </div>
