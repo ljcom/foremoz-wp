@@ -1,14 +1,14 @@
 # TODO Foremoz
 
 ## Progress Snapshot (Estimated)
-- Overall delivery progress: **76%**
+- Overall delivery progress: **79%**
 - Platform stability & routing: **88%**
 - Passport dashboard/public experience: **76%**
-- Admin operational workflow: **78%**
+- Admin operational workflow: **83%**
 - QA automation & hardening: **30%**
 - Experience Network whitepaper scope: **36%**
 
-Last audited terhadap isi folder: **2026-03-25** (`foremoz/apps/api`, `foremoz/apps/vite`, `foremoz/apps/eventdb-custom-json`)
+Last audited terhadap isi folder: **2026-03-26** (`foremoz/apps/api`, `foremoz/apps/vite`, `foremoz/apps/eventdb-custom-json`)
 
 ## High Priority (90%)
 - [~] Passport public page `/p/:account` sudah pakai real data inti.
@@ -31,6 +31,10 @@ Last audited terhadap isi folder: **2026-03-25** (`foremoz/apps/api`, `foremoz/a
   - Resolve account publik (`/a/:account`) sudah bisa baca branch slug via `GET /v1/public/account/resolve`.
 
 ## Event & Participant (74%)
+- [x] Event capacity / max participant sudah ada di flow event.
+  - Field `max_participants` sudah tersedia di Event Edit (`0 = unlimited`).
+  - Register event guard backend reject `EVENT_FULL` jika kuota terisi penuh.
+  - Card event admin sudah menampilkan `Participants: X / N` atau `unlimited`.
 - [x] Unique number participant sudah jadi field resmi di backend.
   - Field `participant_no` dibuat server-side saat `event.participant.registered`.
   - Frontend admin scan/check-in menggunakan `participant_no` sebagai prioritas.
@@ -75,9 +79,17 @@ Last audited terhadap isi folder: **2026-03-25** (`foremoz/apps/api`, `foremoz/a
   - Wording publish flow sudah dirapikan (preview/biaya/publish sekarang).
 - [~] Event Edit tabs sudah dipisah, tapi perlu validasi UX lanjut:
   - Disable submit saat bukan tab `General` (sudah), warning unsaved changes saat pindah tab/menu utama juga sudah ada.
+  - AI Assist sekarang hanya tampil di tab `General`.
   - Empty-state participants + guide publish flow untuk event draft sudah ada; panduan check-in lanjutan masih bisa diperdalam.
 - [~] Field `trainer_name` token input class sudah jalan.
   - Perlu opsi multi-trainer sebagai struktur data resmi (array) di backend class.
+- [~] Event edit AI/media assist sudah usable, tapi masih bisa diperdalam.
+  - [x] Brief textbox inline + `Generate Draft From Brief`.
+  - [x] `AI Rewrite Title` sudah dipindah tepat di bawah judul dan copy lebih variatif.
+  - [x] Suggestion `Custom fields` sudah baca context `Event Name + Description`.
+  - [x] Upload cover image sendiri sudah simpan ke S3 via backend upload endpoint.
+  - [x] `AI Fill Gallery` pakai Pexels dengan fallback multi-keyword.
+  - [ ] Perlu peningkatan lagi untuk parsing brief kompleks (tanggal/jam/topik/lokasi) agar hasil draft lebih presisi.
 - [x] API admin core sudah mencakup workflow utama lintas modul.
   - Event/Class CRUD + participant check-in/check-out.
   - Product & Package CRUD.
@@ -193,13 +205,15 @@ Last audited terhadap isi folder: **2026-03-25** (`foremoz/apps/api`, `foremoz/a
 - [~] Detail -> passport access -> payment
   - Remark: checkout sekarang merekam `payment.recorded` lalu `payment.confirmed` sebelum `event.participant.registered`, dan register menerima verifikasi `payment_id`; enrichment detail event masih bisa diperdalam.
 - [~] Event creator assist (AI)
-  - [ ] Generate draft event copy dari brief singkat (title, description, category, schedule starter).
-  - [ ] Regenerate per section (judul/deskripsi/rundown) sebelum save.
+  - [x] Generate draft event copy dari brief singkat (title, description, category, schedule starter).
+  - [~] Regenerate per section (judul/deskripsi/rundown) sebelum save.
+    - Remark: rewrite title, generate/shorten description, generate/improve rundown sudah ada; kualitas promptless heuristic masih perlu diperdalam.
   - [ ] Simpan metadata draft AI (`generated_by_ai`, `prompt_snapshot`) untuk audit/editability.
   - [~] Image strategy
-    - [ ] Tahap 1: gunakan stock image gratis (Pexels/Unsplash) via rekomendasi keyword.
+    - [x] Tahap 1: gunakan stock image gratis (Pexels) untuk isi gallery event.
+    - [x] Upload manual image host -> S3 object URL.
     - [ ] Tahap 2: AI generated image sebagai opsi berbayar/quota.
-    - Remark: cost-aware default = stock gratis dulu, AI image menyusul jika usage sudah justify.
+    - Remark: cost-aware default sekarang stock gratis + upload manual dulu, AI image menyusul jika usage sudah justify.
 
 ### Passport
 - [x] Signup -> signin -> registration
@@ -258,8 +272,8 @@ Last audited terhadap isi folder: **2026-03-25** (`foremoz/apps/api`, `foremoz/a
     - [ ] Sinkronisasi enforcement Turnstile di service Passport API (di repo/service terpisah).
     - [ ] Rate limiting per IP + per email/account slug pada endpoint auth.
 - [~] Auth clarity `/web` vs `/events`
-  - Remark: landing + sign-in sekarang sudah menampilkan penjelasan route auth agar user tahu `/web` untuk owner/tenant ops dan `/events` untuk passport/member participant.
-  - Remark tambahan: default route kini diarahkan ke `/events` (Foremoz Events), dan di footer events ada CTA creator untuk pindah ke `/web`.
+  - Remark: route creator/host sekarang dipusatkan ke `/host` (dengan redirect legacy dari `/web` dan `/newevent`), sedangkan participant/member tetap di `/events`.
+  - Remark tambahan: default route diarahkan ke `/events` (Foremoz Events), dan di landing events ada CTA `New Host` untuk pindah ke `/host`.
 - [~] PT workspace
   - Remark: PT dashboard sekarang sudah pakai flow nyata (book session, complete session, log activity) + read model `pt-balance` dan `pt-activity` dengan filter trainer, tidak lagi log local dummy. Form PT + checkin/checkout event kini mendukung `custom_fields` JSON untuk metadata operasional.
 - [~] Sales workspace
