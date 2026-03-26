@@ -260,6 +260,13 @@ Last audited terhadap isi folder: **2026-03-26** (`foremoz/apps/api`, `foremoz/a
   - Remark: overview portal sesudah sign in sekarang sudah menampilkan subscription/PT status, payment activity, booking summary, dan shortcut ke event/account/member ops.
 - [~] Member auth funnel
   - Remark: halaman member signup/signin sekarang sudah membawa context account dan value proposition yang nyambung ke portal member.
+- [~] Identity strategy: email tetap primary, phone untuk trust/activation
+  - [x] Keputusan produk: login utama tetap berbasis email/password.
+  - [ ] Nomor HP wajib dan unique sebagai identifier verifikasi.
+  - [ ] Verifikasi aktivasi akun via SMS OTP (bukan ganti primary login).
+  - [ ] Flow change phone + re-verify OTP.
+  - [ ] Normalisasi phone ke format baku (`E.164`) + unique constraint di backend/read model.
+  - [ ] Tentukan scope unique phone lintas owner/member/passport, default yang dipilih: global unique.
 - [~] Forgot password di semua sign-in
   - [x] Owner/Tenant sign-in (`/signin`, `/a/:account/signin`)
     - Reset endpoint mendukung `account_name/account_slug` untuk verifikasi tenant scope host.
@@ -271,6 +278,7 @@ Last audited terhadap isi folder: **2026-03-26** (`foremoz/apps/api`, `foremoz/a
     - [x] Backend verifikasi token Turnstile sudah aktif untuk endpoint auth di Foremoz API (signup/signin/forgot/reset).
     - [ ] Sinkronisasi enforcement Turnstile di service Passport API (di repo/service terpisah).
     - [ ] Rate limiting per IP + per email/account slug pada endpoint auth.
+    - [ ] Tambah rate limiting + resend cooldown khusus OTP SMS.
 - [~] Auth clarity `/web` vs `/events`
   - Remark: route creator/host sekarang dipusatkan ke `/host` (dengan redirect legacy dari `/web` dan `/newevent`), sedangkan participant/member tetap di `/events`.
   - Remark tambahan: default route diarahkan ke `/events` (Foremoz Events), dan di landing events ada CTA `New Host` untuk pindah ke `/host`.
