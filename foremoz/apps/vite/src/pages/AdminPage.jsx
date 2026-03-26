@@ -728,6 +728,7 @@ export default function AdminPage() {
   const [userForm, setUserForm] = useState({ full_name: '', email: '', role: 'staff' });
   const [eventForm, setEventForm] = useState(() => createEmptyEventForm());
   const [eventFormBaseline, setEventFormBaseline] = useState(() => serializeEventForm(createEmptyEventForm()));
+  const [eventTrainerDraft, setEventTrainerDraft] = useState('');
   const [classForm, setClassForm] = useState({ class_name: '', trainer_name: '', capacity: '20', start_at: '' });
   const [classTrainerDraft, setClassTrainerDraft] = useState('');
   const [memberRelationDraft, setMemberRelationDraft] = useState('');
@@ -1220,6 +1221,11 @@ export default function AdminPage() {
     () => trainerNameOptions.filter((name) => !selectedClassTrainerTokens.includes(name)),
     [trainerNameOptions, selectedClassTrainerTokens]
   );
+  const selectedEventTrainerTokens = useMemo(() => parseTrainerTokens(eventForm.trainer_name), [eventForm.trainer_name]);
+  const availableEventTrainerOptions = useMemo(
+    () => trainerNameOptions.filter((name) => !selectedEventTrainerTokens.includes(name)),
+    [trainerNameOptions, selectedEventTrainerTokens]
+  );
   const filteredProducts = products.filter((item) =>
     String(item.product_name || '').toLowerCase().includes(productQuery.toLowerCase()) ||
     String(item.category || '').toLowerCase().includes(productQuery.toLowerCase()) ||
@@ -1426,6 +1432,19 @@ export default function AdminPage() {
   function removeClassTrainerToken(name) {
     const nextTokens = selectedClassTrainerTokens.filter((item) => item !== name);
     setClassForm((prev) => ({ ...prev, trainer_name: nextTokens.join(', ') }));
+  }
+
+  function addEventTrainerToken(name) {
+    const token = String(name || '').trim();
+    if (!token) return;
+    const nextTokens = [...new Set([...selectedEventTrainerTokens, token])];
+    setEventForm((prev) => ({ ...prev, trainer_name: nextTokens.join(', ') }));
+    setEventTrainerDraft('');
+  }
+
+  function removeEventTrainerToken(name) {
+    const nextTokens = selectedEventTrainerTokens.filter((item) => item !== name);
+    setEventForm((prev) => ({ ...prev, trainer_name: nextTokens.join(', ') }));
   }
 
   async function deleteClass(classId) {
@@ -1983,6 +2002,7 @@ export default function AdminPage() {
       const emptyForm = createEmptyEventForm();
       setEventForm(emptyForm);
       setEventFormBaseline(serializeEventForm(emptyForm));
+      setEventTrainerDraft('');
       setEventPostQuote(null);
       setEditingEventId('');
       setEventMode('list');
@@ -2017,6 +2037,7 @@ export default function AdminPage() {
     setEventWalkinForm(createEmptyEventWalkinForm());
     setEventForm(nextForm);
     setEventFormBaseline(serializeEventForm(nextForm));
+    setEventTrainerDraft('');
     setEventPostQuote(null);
     setEditingEventId(item.event_id || '');
     setEventEditTab('general');
@@ -2042,6 +2063,7 @@ export default function AdminPage() {
     const emptyForm = createEmptyEventForm();
     setEventForm(emptyForm);
     setEventFormBaseline(serializeEventForm(emptyForm));
+    setEventTrainerDraft('');
     setEventWalkinForm(createEmptyEventWalkinForm());
     setEventPostQuote(null);
     setEditingEventId('');
@@ -3065,7 +3087,58 @@ export default function AdminPage() {
                     {eventEditTab === 'general' ? (
                       <>
                         <label>Event Name<input value={eventForm.event_name} onChange={(e) => setEventForm((p) => ({ ...p, event_name: e.target.value }))} /></label>
-                        <label>Trainer Name<input value={eventForm.trainer_name} onChange={(e) => setEventForm((p) => ({ ...p, trainer_name: e.target.value }))} /></label>
+                        <div className="card" style={{ borderStyle: 'dashed' }}>
+                          <p className="eyebrow">Trainer Name (token input)</p>
+                          <div className="row-actions" style={{ marginBottom: '0.5rem' }}>
+                            {selectedEventTrainerTokens.length === 0 ? <span className="feedback">Belum ada trainer dipilih.</span> : null}
+                            {selectedEventTrainerTokens.map((name) => (
+                              <span key={name} className="passport-chip">
+                                {name}
+                                <button
+                                  type="button"
+                                  className="btn ghost small"
+                                  style={{ marginLeft: '0.35rem' }}
+                                  onClick={() => removeEventTrainerToken(name)}
+                                >
+                                  x
+                                </button>
+                              </span>
+                            ))}
+                          </div>
+                          {availableEventTrainerOptions.length > 0 ? (
+                            <label>
+                              Pilih dari trainer
+                              <select
+                                value=""
+                                onChange={(e) => {
+                                  if (e.target.value) addEventTrainerToken(e.target.value);
+                                }}
+                              >
+                                <option value="">Pilih trainer...</option>
+                                {availableEventTrainerOptions.map((name) => (
+                                  <option key={name} value={name}>
+                                    {name}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+                          ) : null}
+                          <label>
+                            Tambah manual
+                            <input
+                              value={eventTrainerDraft}
+                              placeholder="Ketik nama trainer lalu Enter"
+                              onChange={(e) => setEventTrainerDraft(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  addEventTrainerToken(eventTrainerDraft);
+                                }
+                              }}
+                            />
+                          </label>
+                          <p className="feedback">Tersimpan sebagai: {eventForm.trainer_name || '-'}</p>
+                        </div>
                         <div className="row-actions" style={{ marginTop: '-0.2rem' }}>
                           <button
                             className="btn ghost small"
