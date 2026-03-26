@@ -2986,12 +2986,64 @@ export default function AdminPage() {
                       Participants
                     </button>
                   </div>
+                  <div className="card" style={{ marginBottom: '0.8rem', borderStyle: 'dashed' }}>
+                    <p className="eyebrow">AI Assist (Mockup)</p>
+                    <p className="feedback">Tombol ini masih mockup UI untuk eksplorasi flow pembuatan event dengan AI.</p>
+                    <div className="row-actions">
+                      <button
+                        className="btn ghost small"
+                        type="button"
+                        onClick={() => setFeedback('ai.mockup: Generate dari brief (coming soon).')}
+                      >
+                        Generate Draft From Brief
+                      </button>
+                      <button
+                        className="btn ghost small"
+                        type="button"
+                        onClick={() => setFeedback('ai.mockup: Publish readiness check (coming soon).')}
+                      >
+                        Check Publish Readiness
+                      </button>
+                    </div>
+                  </div>
                   <form className="form" onSubmit={addEvent}>
                     {eventEditTab === 'general' ? (
                       <>
                         <label>event_name<input value={eventForm.event_name} onChange={(e) => setEventForm((p) => ({ ...p, event_name: e.target.value }))} /></label>
+                        <div className="row-actions" style={{ marginTop: '-0.2rem' }}>
+                          <button
+                            className="btn ghost small"
+                            type="button"
+                            onClick={() => setFeedback('ai.mockup: Rewrite judul event (coming soon).')}
+                          >
+                            AI Rewrite Title
+                          </button>
+                          <button
+                            className="btn ghost small"
+                            type="button"
+                            onClick={() => setFeedback('ai.mockup: Suggest premium title (coming soon).')}
+                          >
+                            AI Make It Premium
+                          </button>
+                        </div>
                         <label>location<input value={eventForm.location} onChange={(e) => setEventForm((p) => ({ ...p, location: e.target.value }))} /></label>
                         <label>image_url<input value={eventForm.image_url} onChange={(e) => setEventForm((p) => ({ ...p, image_url: e.target.value }))} /></label>
+                        <div className="row-actions" style={{ marginTop: '-0.2rem' }}>
+                          <button
+                            className="btn ghost small"
+                            type="button"
+                            onClick={() => setFeedback('ai.mockup: Rekomendasi keyword stock image (coming soon).')}
+                          >
+                            AI Image Keyword
+                          </button>
+                          <button
+                            className="btn ghost small"
+                            type="button"
+                            onClick={() => setFeedback('ai.mockup: Auto isi gallery dari stock image (coming soon).')}
+                          >
+                            AI Fill Gallery
+                          </button>
+                        </div>
                         <label>
                           description
                           <textarea
@@ -3000,6 +3052,22 @@ export default function AdminPage() {
                             onChange={(e) => setEventForm((p) => ({ ...p, description: e.target.value }))}
                           />
                         </label>
+                        <div className="row-actions" style={{ marginTop: '-0.2rem' }}>
+                          <button
+                            className="btn ghost small"
+                            type="button"
+                            onClick={() => setFeedback('ai.mockup: Generate deskripsi dari brief (coming soon).')}
+                          >
+                            AI Generate Description
+                          </button>
+                          <button
+                            className="btn ghost small"
+                            type="button"
+                            onClick={() => setFeedback('ai.mockup: Ringkas deskripsi (coming soon).')}
+                          >
+                            AI Shorten Description
+                          </button>
+                        </div>
                         <label>
                           gallery_images (satu URL per baris)
                           <textarea
@@ -3018,6 +3086,22 @@ export default function AdminPage() {
                             onChange={(e) => setEventForm((p) => ({ ...p, schedule_items_text: e.target.value }))}
                           />
                         </label>
+                        <div className="row-actions" style={{ marginTop: '-0.2rem' }}>
+                          <button
+                            className="btn ghost small"
+                            type="button"
+                            onClick={() => setFeedback('ai.mockup: Generate rundown awal (coming soon).')}
+                          >
+                            AI Generate Rundown
+                          </button>
+                          <button
+                            className="btn ghost small"
+                            type="button"
+                            onClick={() => setFeedback('ai.mockup: Rapikan rundown existing (coming soon).')}
+                          >
+                            AI Improve Rundown
+                          </button>
+                        </div>
                         <label>start_at<input type="datetime-local" value={eventForm.start_at} onChange={(e) => setEventForm((p) => ({ ...p, start_at: e.target.value }))} /></label>
                         <label>price<input type="number" min="0" value={eventForm.price} onChange={(e) => setEventForm((p) => ({ ...p, price: e.target.value }))} /></label>
                         <label>duration_minutes<input type="number" min="1" value={eventForm.duration_minutes} onChange={(e) => setEventForm((p) => ({ ...p, duration_minutes: e.target.value }))} /></label>
@@ -3026,6 +3110,15 @@ export default function AdminPage() {
                     {eventEditTab === 'category' ? (
                       <div className="card" style={{ borderStyle: 'dashed' }}>
                         <p className="eyebrow">Event category</p>
+                        <div className="row-actions" style={{ marginBottom: '0.5rem' }}>
+                          <button
+                            className="btn ghost small"
+                            type="button"
+                            onClick={() => setFeedback('ai.mockup: Auto suggest category dan tags (coming soon).')}
+                          >
+                            AI Suggest Category
+                          </button>
+                        </div>
                         <p className="feedback">{eventCategoryInstruction}</p>
                         <textarea
                           rows={4}
@@ -3131,6 +3224,15 @@ export default function AdminPage() {
                       <div className="card" style={{ borderStyle: 'dashed' }}>
                       <p className="eyebrow">Registration fields</p>
                       <p className="feedback">Informasi yang dikumpulkan saat member register event.</p>
+                      <div className="row-actions" style={{ marginBottom: '0.5rem' }}>
+                        <button
+                          className="btn ghost small"
+                          type="button"
+                          onClick={() => setFeedback('ai.mockup: Suggest custom fields dari tipe event (coming soon).')}
+                        >
+                          AI Suggest Fields
+                        </button>
+                      </div>
                       <div className="row-actions" style={{ marginBottom: '0.5rem' }}>
                         <button
                           className="btn ghost small"
