@@ -56,7 +56,6 @@ export default function WebLandingPage() {
       <header className="topbar">
         <div className="brand">Foremoz</div>
         <nav>
-          <Link to="/host">Home</Link>
           <Link to="/events">Events</Link>
           {topNavVerticals.map((item) => (
             <Link key={item.slug} to={`/${item.slug}`}>

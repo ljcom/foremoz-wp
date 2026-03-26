@@ -82,7 +82,6 @@ export default function PassportLandingPage() {
   const [error, setError] = useState('');
   const verticalLabels = listVerticalConfigs().map((item) => item.label);
   const verticalListText = verticalLabels.join(', ');
-  const homeHref = isAccountSurface ? `/a/${encodeURIComponent(normalizedAccount)}` : '/host';
   const accountMemberSigninHref = isAccountSurface
     ? `/a/${encodeURIComponent(normalizedAccount)}/member/signin`
     : null;
@@ -297,7 +296,7 @@ export default function PassportLandingPage() {
       <header className="topbar">
         <div className="brand">{brandLabel}</div>
         <nav>
-          <Link to={homeHref}>Home</Link>
+          {!isAccountSurface ? <Link to="/host">New Host</Link> : null}
           {isAuthenticated ? (
             <>
               <span>Welcome {welcomeName}</span>
