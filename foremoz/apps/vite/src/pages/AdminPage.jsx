@@ -408,6 +408,7 @@ function createEmptyEventForm() {
     schedule_items_text: '',
     start_at: '',
     price: '0',
+    max_participants: '0',
     duration_value: '1',
     duration_unit: 'hours',
     registration_fields: []
@@ -437,6 +438,7 @@ function serializeEventForm(value) {
     gallery_images_text: String(form.gallery_images_text || ''),
     schedule_items_text: String(form.schedule_items_text || ''),
     start_at: String(form.start_at || ''),
+    max_participants: String(form.max_participants || '0'),
     duration_value: String(form.duration_value || '1'),
     duration_unit: String(form.duration_unit || 'hours'),
     registration_fields: registrationFields
@@ -1189,6 +1191,7 @@ export default function AdminPage() {
           schedule_items: Array.isArray(item.schedule_items) ? item.schedule_items : [],
           start_at: item.start_at || '',
           price: String(item.price || '0'),
+          max_participants: String(item.max_participants || '0'),
           duration_minutes: String(item.duration_minutes || '60'),
           status: item.status || 'scheduled',
           participant_count: Number(item.participant_count || 0),
@@ -2570,6 +2573,7 @@ export default function AdminPage() {
           schedule_items: normalizeScheduleItemsForPayload(eventForm.schedule_items_text),
           start_at: startAtIso,
           price: Number(eventForm.price || 0),
+          max_participants: Math.max(0, Number(eventForm.max_participants || 0)),
           duration_minutes: durationMinutes,
           registration_fields: normalizeRegistrationFieldsForPayload(eventForm.registration_fields),
           status: editingEventId ? (editingEvent?.status || 'scheduled') : 'scheduled'
@@ -2607,6 +2611,7 @@ export default function AdminPage() {
       schedule_items_text: scheduleItemsToText(item.schedule_items),
       start_at: toInputDatetime(item.start_at || ''),
       price: String(item.price || '0'),
+      max_participants: String(item.max_participants || '0'),
       duration_value: durationInput.duration_value,
       duration_unit: durationInput.duration_unit,
       registration_fields: (Array.isArray(item.registration_fields) ? item.registration_fields : []).map(toRegistrationFieldForm)
@@ -3106,6 +3111,7 @@ export default function AdminPage() {
           schedule_items: normalizeScheduleItemsForPayload(eventForm.schedule_items_text),
           start_at: eventPostQuote.start_at,
           price: Number(eventForm.price || 0),
+          max_participants: Math.max(0, Number(eventForm.max_participants || 0)),
           duration_minutes: eventPostQuote.duration_minutes,
           registration_fields: normalizeRegistrationFieldsForPayload(eventForm.registration_fields),
           status: 'published'
@@ -3448,7 +3454,10 @@ export default function AdminPage() {
                           <p>Start: {formatClassDatetime(item.start_at)}</p>
                           <p>Price: {formatIdr(item.price || 0)}</p>
                           <p>Duration: {formatDurationLabelFromMinutes(item.duration_minutes || '60')}</p>
-                          <p>Participants: {Number(item.participant_count || 0)}</p>
+                          <p>
+                            Participants: {Number(item.participant_count || 0)}
+                            {Number(item.max_participants || 0) > 0 ? ` / ${Number(item.max_participants || 0)}` : ' / unlimited'}
+                          </p>
                           <div className="row-actions">
                             <button
                               className="btn ghost small"
@@ -3852,6 +3861,16 @@ export default function AdminPage() {
                         </div>
                         <label>Start At<input type="datetime-local" value={eventForm.start_at} onChange={(e) => setEventForm((p) => ({ ...p, start_at: e.target.value }))} /></label>
                         <label>Price<input type="number" min="0" value={eventForm.price} onChange={(e) => setEventForm((p) => ({ ...p, price: e.target.value }))} /></label>
+                        <label>
+                          Max Peserta (0 = unlimited)
+                          <input
+                            type="number"
+                            min="0"
+                            step="1"
+                            value={eventForm.max_participants}
+                            onChange={(e) => setEventForm((p) => ({ ...p, max_participants: e.target.value }))}
+                          />
+                        </label>
                         <label>
                           Duration Value
                           <input

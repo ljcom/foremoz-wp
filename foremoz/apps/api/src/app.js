@@ -3899,6 +3899,7 @@ app.post('/v1/admin/events', async (req, res, next) => {
     const awardScope = awardEnabled ? toPrimaryAwardScope(awardScopes, ['overall']) : null;
     const awardTopN = awardEnabled ? asPositiveInteger(data.award_top_n, 'award_top_n', 1) : 0;
     const price = asNonNegativeInteger(data.price, 'price', 0);
+    const maxParticipants = asNonNegativeInteger(data.max_participants, 'max_participants', 0);
 
     const event = await appendDomainEvent({
       tenantId,
@@ -3924,6 +3925,7 @@ app.post('/v1/admin/events', async (req, res, next) => {
         award_scope: awardScope,
         award_top_n: awardTopN,
         price,
+        max_participants: maxParticipants,
         start_at: startAt.toISOString(),
         duration_minutes: durationMinutes,
         registration_fields: registrationFields,
@@ -3990,6 +3992,11 @@ app.patch('/v1/admin/events/:eventId', async (req, res, next) => {
     const awardScope = awardEnabled ? toPrimaryAwardScope(awardScopes, existingAwardScopes) : null;
     const awardTopN = awardEnabled ? asPositiveInteger(data.award_top_n, 'award_top_n', Number(latest.award_top_n || 1)) : 0;
     const price = asNonNegativeInteger(data.price, 'price', Number(latest.price || 0));
+    const maxParticipants = asNonNegativeInteger(
+      data.max_participants,
+      'max_participants',
+      Number(latest.max_participants || 0)
+    );
 
     const event = await appendDomainEvent({
       tenantId,
@@ -4015,6 +4022,7 @@ app.patch('/v1/admin/events/:eventId', async (req, res, next) => {
         award_scope: awardScope,
         award_top_n: awardTopN,
         price,
+        max_participants: maxParticipants,
         start_at: startAt.toISOString(),
         duration_minutes: durationMinutes,
         registration_fields: registrationFields,
@@ -4436,6 +4444,7 @@ app.post('/v1/events/:eventId/register', async (req, res, next) => {
     const passportId = String(data.passport_id || '').trim();
     const email = String(data.email || '').trim().toLowerCase();
     const fullName = String(data.full_name || '').trim();
+    const maxParticipants = Math.max(0, Number(latest.max_participants || 0));
     if (!passportId && !email) {
       throw fail(400, 'BAD_REQUEST', 'passport_id or email is required');
     }
@@ -4462,6 +4471,27 @@ app.post('/v1/events/:eventId/register', async (req, res, next) => {
         .filter(Boolean);
       if (paymentMemberId && identityCandidates.length > 0 && !identityCandidates.includes(paymentMemberId)) {
         throw fail(409, 'PAYMENT_MEMBER_MISMATCH', `payment ${paymentId} belongs to another member`);
+      }
+    }
+    if (maxParticipants > 0) {
+      const params = [resolveNamespaceId(tenantId), eventId];
+      let branchFilter = '';
+      if (branchId) {
+        params.push(branchId);
+        branchFilter = ` and payload->'data'->>'branch_id' = $${params.length}`;
+      }
+      const participantCountRes = await query(
+        `select count(distinct nullif(coalesce(payload->'data'->>'passport_id', lower(payload->'data'->>'email'), payload->'data'->>'registration_id'), ''))::int as participant_count
+         from eventdb_event
+         where namespace_id = $1
+           and event_type = 'event.participant.registered'
+           and payload->'data'->>'event_id' = $2
+           ${branchFilter}`,
+        params
+      );
+      const participantCount = Number(participantCountRes.rows?.[0]?.participant_count || 0);
+      if (participantCount >= maxParticipants) {
+        throw fail(409, 'EVENT_FULL', `event ${eventId} is full`);
       }
     }
 
