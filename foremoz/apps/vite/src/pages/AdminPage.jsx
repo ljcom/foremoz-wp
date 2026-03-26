@@ -1684,13 +1684,33 @@ export default function AdminPage() {
     item.phone.toLowerCase().includes(trainerQuery.toLowerCase()) ||
     item.specialization.toLowerCase().includes(trainerQuery.toLowerCase())
   );
-  const trainerNameOptions = useMemo(
-    () =>
-      [...new Set((trainers || []).map((item) => String(item.trainer_name || '').trim()).filter(Boolean))].sort((a, b) =>
-        a.localeCompare(b)
-      ),
-    [trainers]
-  );
+  const ptLookupOptions = users.filter((item) => {
+    const itemRole = String(item.role || '').toLowerCase();
+    if (itemRole !== 'pt') return false;
+    return ptTrainerEnabledMap[item.user_id] !== false;
+  });
+  const trainerNameOptions = useMemo(() => {
+    const names = new Set();
+    ptLookupOptions.forEach((item) => {
+      const fullName = String(item.full_name || '').trim();
+      if (fullName) names.add(fullName);
+    });
+    (events || []).forEach((item) => {
+      parseTrainerTokens(item.trainer_name).forEach((name) => names.add(name));
+    });
+    (classes || []).forEach((item) => {
+      parseTrainerTokens(item.trainer_name).forEach((name) => names.add(name));
+    });
+    (packages || []).forEach((item) => {
+      const trainerName = String(item.trainer_name || '').trim();
+      if (trainerName) names.add(trainerName);
+    });
+    (trainers || []).forEach((item) => {
+      const trainerName = String(item.trainer_name || '').trim();
+      if (trainerName) names.add(trainerName);
+    });
+    return [...names].sort((a, b) => a.localeCompare(b));
+  }, [ptLookupOptions, events, classes, packages, trainers]);
   const memberRelationOptions = useMemo(() => {
     const eventOptions = (events || []).map((item) => ({
       kind: 'event',
@@ -1745,11 +1765,6 @@ export default function AdminPage() {
     String(item.trainer_name || '').toLowerCase().includes(packageQuery.toLowerCase()) ||
     String(item.class_name || '').toLowerCase().includes(packageQuery.toLowerCase())
   );
-  const ptLookupOptions = users.filter((item) => {
-    const itemRole = String(item.role || '').toLowerCase();
-    if (itemRole !== 'pt') return false;
-    return ptTrainerEnabledMap[item.user_id] !== false;
-  });
   const classLookupOptions = classes.filter((item) => String(item.class_id || '').trim() && String(item.class_name || '').trim());
   const filteredSales = sales.filter((item) =>
     item.sales_name.toLowerCase().includes(salesQuery.toLowerCase()) ||
@@ -3892,7 +3907,7 @@ export default function AdminPage() {
                           </div>
                           {availableEventTrainerOptions.length > 0 ? (
                             <label>
-                              Pilih dari {creatorLabelLower}
+                              Pilih dari {creatorLabelLower} aktif
                               <select
                                 value=""
                                 onChange={(e) => {
@@ -3907,7 +3922,11 @@ export default function AdminPage() {
                                 ))}
                               </select>
                             </label>
-                          ) : null}
+                          ) : (
+                            <p className="feedback">
+                              Belum ada {creatorLabelLower} aktif di tenant. Tambahkan user role `pt` dulu atau isi manual.
+                            </p>
+                          )}
                           <label>
                             Tambah manual
                             <input
@@ -4621,7 +4640,7 @@ export default function AdminPage() {
                       </div>
                       {availableClassTrainerOptions.length > 0 ? (
                         <label>
-                          Pilih dari {creatorLabelLower}
+                          Pilih dari {creatorLabelLower} aktif
                           <select
                             value=""
                             onChange={(e) => {
@@ -4636,7 +4655,11 @@ export default function AdminPage() {
                             ))}
                           </select>
                         </label>
-                      ) : null}
+                      ) : (
+                        <p className="feedback">
+                          Belum ada {creatorLabelLower} aktif di tenant. Tambahkan user role `pt` dulu atau isi manual.
+                        </p>
+                      )}
                       <label>
                         Tambah manual
                         <input
