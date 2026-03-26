@@ -1116,7 +1116,6 @@ export default function AdminPage() {
   const [eventTrainerDraft, setEventTrainerDraft] = useState('');
   const [eventAiBriefDraft, setEventAiBriefDraft] = useState('');
   const [eventAiWorking, setEventAiWorking] = useState(false);
-  const [eventImageKeyword, setEventImageKeyword] = useState('');
   const eventImageFileInputRef = useRef(null);
   const [classForm, setClassForm] = useState({ class_name: '', trainer_name: '', capacity: '20', price: '0', start_at: '' });
   const [classTrainerDraft, setClassTrainerDraft] = useState('');
@@ -1844,16 +1843,25 @@ export default function AdminPage() {
     setEventForm((prev) => ({ ...prev, trainer_name: nextTokens.join(', ') }));
   }
 
-  function buildEventImageKeyword() {
+  function buildEventImageKeywords() {
     const source = [
       eventForm.event_name,
       eventForm.categories_text,
       eventForm.location,
-      eventForm.description
+      eventForm.description,
+      eventAiBriefDraft
     ].join(' ');
     const categories = suggestCategoriesFromText(source);
-    const locationToken = String(eventForm.location || '').trim().split(' ')[0] || 'indonesia';
-    return `${categories[0]} ${locationToken} event`;
+    const locationToken = String(eventForm.location || '').trim().split(/[,\s]+/)[0] || 'indonesia';
+    const keywords = [
+      `${String(eventForm.event_name || '').trim()} ${locationToken}`.trim(),
+      `${categories[0]} ${locationToken} event`.trim(),
+      `${String(eventForm.categories_text || '').split(',')[0] || categories[0]} ${locationToken}`.trim(),
+      `${String(eventAiBriefDraft || '').trim()} ${locationToken}`.trim()
+    ]
+      .map((item) => String(item || '').replace(/\s+/g, ' ').trim())
+      .filter((item) => item.length >= 3);
+    return [...new Set(keywords)];
   }
 
   async function fetchPexelsPhotos(keyword, perPage = 4) {
@@ -1996,26 +2004,37 @@ export default function AdminPage() {
     setFeedback('ai.assist: Custom fields disarankan otomatis.');
   }
 
-  function aiShowImageKeyword() {
-    const keyword = buildEventImageKeyword();
-    setEventImageKeyword(keyword);
-    setFeedback(`ai.assist: Keyword image -> ${keyword}`);
-  }
-
   async function aiFillGalleryFromPexels() {
     try {
       setEventAiWorking(true);
-      const keyword = buildEventImageKeyword();
-      const photos = await fetchPexelsPhotos(keyword, 4);
+      const keywordCandidates = buildEventImageKeywords();
+      if (keywordCandidates.length === 0) {
+        throw new Error('Isi Event Name atau Brief dulu agar gallery bisa digenerate.');
+      }
+      let keyword = keywordCandidates[0];
+      let photos = [];
+      let lastError = null;
+      for (const candidate of keywordCandidates) {
+        keyword = candidate;
+        try {
+          photos = await fetchPexelsPhotos(candidate, 6);
+        } catch (error) {
+          lastError = error;
+          photos = [];
+        }
+        if (photos.length > 0) break;
+      }
       if (photos.length === 0) {
-        setFeedback('ai.assist: Pexels tidak menemukan gambar untuk keyword ini.');
+        if (lastError) {
+          throw lastError;
+        }
+        setFeedback('ai.assist: Pexels tidak menemukan gambar dari keyword yang dicoba.');
         return;
       }
       const urls = photos
         .map((item) => item?.image_url || '')
         .map((item) => String(item || '').trim())
         .filter(Boolean);
-      setEventImageKeyword(keyword);
       setEventForm((prev) => ({
         ...prev,
         image_url: urls[0] || prev.image_url,
@@ -3814,20 +3833,11 @@ export default function AdminPage() {
                             className="btn ghost small"
                             type="button"
                             disabled={eventAiWorking}
-                            onClick={aiShowImageKeyword}
-                          >
-                            AI Image Keyword
-                          </button>
-                          <button
-                            className="btn ghost small"
-                            type="button"
-                            disabled={eventAiWorking}
                             onClick={aiFillGalleryFromPexels}
                           >
                             AI Fill Gallery
                           </button>
                         </div>
-                        {eventImageKeyword ? <p className="feedback">Last image keyword: {eventImageKeyword}</p> : null}
                         <label>
                           description
                           <textarea
