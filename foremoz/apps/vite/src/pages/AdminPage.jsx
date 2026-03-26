@@ -227,6 +227,11 @@ function generateDraftFromBrief(brief, currentStartAt = '') {
   const clean = String(brief || '').trim();
   const context = extractBriefContext(clean);
   const categories = suggestCategoriesFromText(clean);
+  const range = parseTimeRangeMinutesFromText(clean);
+  const durationMinutes = range && Number.isFinite(range.end) && Number.isFinite(range.start)
+    ? Math.max(60, range.end - range.start)
+    : 180;
+  const durationHours = Math.max(1, Math.ceil(durationMinutes / 60));
   const topicLabel = titleCaseWords(context.topic || 'Budaya Indonesia');
   const locationLabel = context.location ? titleCaseWords(context.location) : '';
 
@@ -242,6 +247,16 @@ function generateDraftFromBrief(brief, currentStartAt = '') {
   normalizedTopic = normalizedTopic.slice(0, 90).trim() || 'Community Training Session';
 
   const isArt = categories.some((item) => /art/i.test(String(item || ''))) || context.isArt;
+  const suggestedPrice = (() => {
+    if (isArt) {
+      const base = 50000;
+      const addByHour = Math.max(0, durationHours - 3) * 15000;
+      return Math.min(500000, base + addByHour);
+    }
+    const base = 25000;
+    const addByHour = Math.max(0, durationHours - 2) * 10000;
+    return Math.min(300000, base + addByHour);
+  })();
   const description = isArt
     ? [
       `${normalizedTopic} bertema ${topicLabel} dan menghadirkan pengalaman pameran yang kuratorial, nyaman, dan mudah diakses publik.`,
@@ -258,7 +273,9 @@ function generateDraftFromBrief(brief, currentStartAt = '') {
     description,
     categories,
     scheduleText: buildScheduleTemplate(currentStartAt, normalizedTopic, clean),
-    imageKeyword: `${categories[0]} ${topicLabel} event`
+    imageKeyword: `${categories[0]} ${topicLabel} event`,
+    durationMinutes,
+    suggestedPrice
   };
 }
 
@@ -1686,14 +1703,18 @@ export default function AdminPage() {
       : '';
     if (!brief || !String(brief).trim()) return;
     const draft = generateDraftFromBrief(brief, eventForm.start_at);
+    const mappedDuration = fromDurationMinutes(draft.durationMinutes || 180);
     setEventForm((prev) => ({
       ...prev,
       event_name: draft.eventName,
       description: draft.description,
       categories_text: draft.categories.join(', '),
-      schedule_items_text: draft.scheduleText
+      schedule_items_text: draft.scheduleText,
+      duration_value: mappedDuration.duration_value,
+      duration_unit: mappedDuration.duration_unit,
+      price: String(draft.suggestedPrice || prev.price || '0')
     }));
-    setFeedback(`ai.assist: Draft event dibuat dari brief. Keyword image: ${draft.imageKeyword}`);
+    setFeedback(`ai.assist: Draft event dibuat. Harga rekomendasi ${formatIdr(draft.suggestedPrice || 0)}.`);
   }
 
   function aiCheckPublishReadiness() {
