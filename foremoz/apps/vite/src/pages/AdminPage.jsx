@@ -97,24 +97,66 @@ function suggestCategoriesFromText(text) {
 
 function suggestRegistrationFieldsFromText(text) {
   const source = String(text || '').toLowerCase();
-  const fields = [
-    createRegistrationField('free_type'),
-    createRegistrationField('lookup')
-  ];
-  fields[0].label = 'Emergency Contact';
-  fields[1].label = 'T-Shirt Size';
-  fields[1].options_text = 'S, M, L, XL';
+  const fields = [];
+  const usedLabels = new Set();
+  const addFree = (label, required = true) => {
+    const normalizedLabel = String(label || '').trim();
+    if (!normalizedLabel) return;
+    const key = normalizedLabel.toLowerCase();
+    if (usedLabels.has(key)) return;
+    usedLabels.add(key);
+    const field = createRegistrationField('free_type');
+    field.label = normalizedLabel;
+    field.required = required;
+    fields.push(field);
+  };
+  const addLookup = (label, optionsText, required = true) => {
+    const normalizedLabel = String(label || '').trim();
+    if (!normalizedLabel) return;
+    const key = normalizedLabel.toLowerCase();
+    if (usedLabels.has(key)) return;
+    usedLabels.add(key);
+    const field = createRegistrationField('lookup');
+    field.label = normalizedLabel;
+    field.options_text = String(optionsText || '').trim();
+    field.required = required;
+    fields.push(field);
+  };
 
-  if (/trail|mountain|outdoor|tour|trip/.test(source)) {
-    const f = createRegistrationField('free_type');
-    f.label = 'Medical Notes';
-    fields.push(f);
+  const isArt = /art|arts|lukis|lukisan|pameran|gallery|galeri|exhibition|museum|curator|karya/.test(source);
+  const isRace = /run|race|marathon|trail|timed|competition|duathlon|triathlon/.test(source);
+  const isTour = /tour|trip|wisata|itinerary|hiking|outdoor|mountain/.test(source);
+  const isLearning = /workshop|kelas|course|seminar|bootcamp|training|mentoring/.test(source);
+  const isCorporate = /company|corporate|instansi|kantor|komunitas|school|kampus/.test(source);
+
+  addFree('Emergency Contact');
+  addFree('No. WhatsApp');
+
+  if (isArt) {
+    addLookup('Kategori Pengunjung', 'Umum, Pelajar, Kolektor, Komunitas');
+    addFree('Asal Komunitas/Institusi', false);
+    addFree('Preferensi Karya', false);
   }
-  if (/race|timed|competition|marathon/.test(source)) {
-    const f = createRegistrationField('lookup');
-    f.label = 'Category';
-    f.options_text = 'Beginner, Intermediate, Advanced';
-    fields.push(f);
+  if (isLearning) {
+    addLookup('Level Peserta', 'Beginner, Intermediate, Advanced');
+    addFree('Tujuan Ikut Event', false);
+  }
+  if (isRace) {
+    addLookup('T-Shirt Size', 'S, M, L, XL');
+    addLookup('Race Category', '5K, 10K, Half Marathon, Full Marathon');
+    addFree('Medical Notes', false);
+  }
+  if (isTour) {
+    addFree('Nomor Identitas (KTP/Paspor)');
+    addFree('Meeting Point');
+    addFree('Kondisi Kesehatan Khusus', false);
+  }
+  if (isCorporate) {
+    addFree('Nama Perusahaan/Komunitas', false);
+  }
+
+  if (fields.length < 2) {
+    addLookup('Kategori Peserta', 'Umum, Pelajar, Profesional');
   }
   return fields;
 }
