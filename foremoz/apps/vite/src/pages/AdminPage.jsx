@@ -700,6 +700,14 @@ function toInputDatetime(value) {
   return raw.slice(0, 16);
 }
 
+function toInputDate(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  if (raw.includes('T')) return raw.slice(0, 10);
+  if (raw.includes(' ')) return raw.slice(0, 10);
+  return raw.slice(0, 10);
+}
+
 function toApiDatetime(value) {
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return null;
@@ -711,6 +719,14 @@ function formatClassDatetime(value) {
   if (!raw) return '-';
   if (raw.includes('T')) return raw.replace('T', ' ').slice(0, 16);
   return raw.slice(0, 16);
+}
+
+function formatDateOnly(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '-';
+  if (raw.includes('T')) return raw.slice(0, 10);
+  if (raw.includes(' ')) return raw.slice(0, 10);
+  return raw.slice(0, 10);
 }
 
 function resolveEventImage(item) {
@@ -2095,7 +2111,7 @@ export default function AdminPage() {
   }
 
   function viewClass(item) {
-    const normalizedStartAt = toInputDatetime(item.start_at);
+    const normalizedStartAt = toInputDate(item.start_at);
     const trainerName = item.trainer_name || '';
     setClassForm({
       class_name: item.class_name || '',
@@ -2116,7 +2132,7 @@ export default function AdminPage() {
       capacity: item.capacity || '20',
       price: String(item.price || '0'),
       start_at: normalizedStartAt || '',
-      period_end_at: toInputDatetime(item.period_end_at || ''),
+      period_end_at: toInputDate(item.period_end_at || ''),
       max_meetings: String(item.max_meetings || '0')
     });
     setClassTrainerDraft('');
@@ -4808,8 +4824,8 @@ export default function AdminPage() {
                             <td className="admin-data-cell">{item.capacity}</td>
                             <td className="admin-data-cell">{formatIdr(item.price || 0)}</td>
                             <td className="admin-data-cell">
-                              {formatClassDatetime(item.start_at)}
-                              {item.period_end_at ? ` - ${formatClassDatetime(item.period_end_at)}` : ''}
+                              {formatDateOnly(item.start_at)}
+                              {item.period_end_at ? ` - ${formatDateOnly(item.period_end_at)}` : ''}
                             </td>
                             <td className="admin-data-cell">{formatClassScheduleSummary(item)}</td>
                             <td className="admin-data-cell">{Number(item.max_meetings || 0) > 0 ? item.max_meetings : '-'}</td>
@@ -4972,8 +4988,8 @@ export default function AdminPage() {
                         </div>
                         <label>Capacity<input type="number" min="1" value={classForm.capacity} onChange={(e) => setClassForm((p) => ({ ...p, capacity: e.target.value }))} /></label>
                         <label>Price<input type="number" min="0" value={classForm.price} onChange={(e) => setClassForm((p) => ({ ...p, price: e.target.value }))} /></label>
-                        <label>Periode Mulai<input type="datetime-local" value={classForm.start_at} onChange={(e) => setClassForm((p) => ({ ...p, start_at: e.target.value }))} /></label>
-                        <label>Periode Akhir<input type="datetime-local" value={classForm.period_end_at} onChange={(e) => setClassForm((p) => ({ ...p, period_end_at: e.target.value }))} /></label>
+                        <label>Periode Mulai<input type="date" value={classForm.start_at} onChange={(e) => setClassForm((p) => ({ ...p, start_at: e.target.value }))} /></label>
+                        <label>Periode Akhir<input type="date" value={classForm.period_end_at} onChange={(e) => setClassForm((p) => ({ ...p, period_end_at: e.target.value }))} /></label>
                         <label>Jumlah Pertemuan Max<input type="number" min="0" value={classForm.max_meetings} onChange={(e) => setClassForm((p) => ({ ...p, max_meetings: e.target.value }))} /></label>
                       </>
                     ) : null}
