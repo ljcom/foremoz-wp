@@ -88,13 +88,13 @@ function RequireAdminOnboarding({ children }) {
   const session = getSession();
   const role = session?.role || 'admin';
   if (role === 'admin' && !session?.isOnboarded) {
-    return <Navigate to="/web/owner" replace />;
+    return <Navigate to="/newevent/owner" replace />;
   }
   return children;
 }
 
 function OnboardingOnly() {
-  return <Navigate to="/web/owner" replace />;
+  return <Navigate to="/newevent/owner" replace />;
 }
 
 function LegacyAdminRedirect() {
@@ -158,7 +158,8 @@ export default function App() {
   return (
     <Routes>
       <Route path="/" element={<Navigate to="/events" replace />} />
-      <Route path="/web" element={<WebLandingPage />} />
+      <Route path="/newevent" element={<WebLandingPage />} />
+      <Route path="/web" element={<Navigate to="/newevent" replace />} />
       <Route path="/events" element={<PassportLandingPage />} />
       <Route path="/passport" element={<PassportLandingPage />} />
       <Route path="/p/:account" element={<PassportPublicPage />} />
@@ -212,7 +213,8 @@ export default function App() {
       <Route path="/arts" element={<VerticalLandingPage />} />
       <Route path="/tourism" element={<VerticalLandingPage />} />
       <Route path="/performance" element={<VerticalLandingPage />} />
-      <Route path="/web/owner" element={<WebOwnerPage />} />
+      <Route path="/newevent/owner" element={<WebOwnerPage />} />
+      <Route path="/web/owner" element={<Navigate to="/newevent/owner" replace />} />
       <Route path="/a/:account" element={<AccountPublicPage />} />
       <Route path="/signup" element={<SignUpPage />} />
       <Route path="/verify-password" element={<VerifyPasswordPage />} />

@@ -56,7 +56,7 @@ export default function WebLandingPage() {
       <header className="topbar">
         <div className="brand">Foremoz</div>
         <nav>
-          <Link to="/web">Home</Link>
+          <Link to="/newevent">Home</Link>
           <Link to="/events">Events</Link>
           {topNavVerticals.map((item) => (
             <Link key={item.slug} to={`/${item.slug}`}>
@@ -89,7 +89,7 @@ export default function WebLandingPage() {
           <div className="card" style={{ marginTop: '1rem', borderStyle: 'dashed' }}>
             <p className="eyebrow">Auth Route</p>
             <p style={{ marginTop: 0 }}>`/web` untuk owner/tenant operation. Untuk participant event gunakan login Passport di `/events`.</p>
-            <div className="hero-actions">
+          <div className="hero-actions">
               <Link className="btn ghost small" to="/signin">Owner/Tenant Login</Link>
               <Link className="btn ghost small" to="/events/signin">Passport/Event Login</Link>
             </div>

@@ -65,7 +65,7 @@ export default function SignInPage() {
           }
         };
         setSession(nextSession);
-        navigate(isAccountSignin ? `/a/${tenantId}/admin/dashboard` : '/web/owner', { replace: true });
+        navigate(isAccountSignin ? `/a/${tenantId}/admin/dashboard` : '/newevent/owner', { replace: true });
         return;
       }
       const requestedRole = isAccountSignin ? null : 'owner';
@@ -150,7 +150,7 @@ export default function SignInPage() {
       };
       setSession(nextSession);
       if (!isAccountSignin) {
-        navigate('/web/owner', { replace: true });
+        navigate('/newevent/owner', { replace: true });
         return;
       }
       if (signedRole === 'sales') {

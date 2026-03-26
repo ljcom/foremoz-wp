@@ -55,7 +55,7 @@ export default function GovPage() {
         <div className="meta">
           <code>role: gov</code>
           <code>actor: {session?.user?.email || '-'}</code>
-          <button className="btn ghost" onClick={() => navigate('/web')}>Back to web</button>
+          <button className="btn ghost" onClick={() => navigate('/newevent')}>Back to newevent</button>
           <button
             className="btn ghost"
             onClick={() => {
@@ -173,7 +173,7 @@ export default function GovPage() {
       {feedback ? <p className="feedback">{feedback}</p> : null}
 
       <footer className="dash-foot">
-        <Link to="/web">Back to web landing</Link>
+        <Link to="/newevent">Back to newevent landing</Link>
       </footer>
     </main>
   );

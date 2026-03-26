@@ -422,7 +422,7 @@ export default function PtPage() {
         </div>
       </section>
 
-      <footer className="dash-foot"><Link to="/web">Back to web</Link></footer>
+      <footer className="dash-foot"><Link to="/newevent">Back to newevent</Link></footer>
     </main>
   );
 }
