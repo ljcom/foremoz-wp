@@ -84,6 +84,7 @@ function sentenceCase(value) {
 function suggestCategoriesFromText(text) {
   const source = String(text || '').toLowerCase();
   const categories = new Set();
+  if (/art|arts|lukis|lukisan|pameran|gallery|galeri|exhibition|museum/.test(source)) categories.add('Arts Exhibition');
   if (/run|marathon|trail|race/.test(source)) categories.add('Running');
   if (/bike|cycling|ride/.test(source)) categories.add('Cycling');
   if (/yoga|pilates|mobility/.test(source)) categories.add('Mind & Body');
@@ -118,15 +119,68 @@ function suggestRegistrationFieldsFromText(text) {
   return fields;
 }
 
-function buildScheduleTemplate(startAtValue, title) {
+function formatHourMinute(minutes) {
+  const normalized = ((Math.floor(minutes) % (24 * 60)) + (24 * 60)) % (24 * 60);
+  const hour = String(Math.floor(normalized / 60)).padStart(2, '0');
+  const minute = String(normalized % 60).padStart(2, '0');
+  return `${hour}:${minute}`;
+}
+
+function parseTimeRangeMinutesFromText(text) {
+  const source = String(text || '').toLowerCase();
+  if (!source) return null;
+
+  const rangeHourOnly = source.match(/(?:jam\s*)?(\d{1,2})\s*(?:pagi|siang|sore|malam)?\s*[-–]\s*(\d{1,2})\s*(?:pagi|siang|sore|malam)?/i);
+  if (rangeHourOnly) {
+    const startHour = Number(rangeHourOnly[1]);
+    const endHour = Number(rangeHourOnly[2]);
+    if (Number.isFinite(startHour) && Number.isFinite(endHour)) {
+      return { start: Math.max(0, Math.min(23, startHour)) * 60, end: Math.max(0, Math.min(23, endHour)) * 60 };
+    }
+  }
+
+  const rangeWithMinute = source.match(/(\d{1,2}):(\d{2})\s*[-–]\s*(\d{1,2}):(\d{2})/);
+  if (rangeWithMinute) {
+    const startHour = Number(rangeWithMinute[1]);
+    const startMinute = Number(rangeWithMinute[2]);
+    const endHour = Number(rangeWithMinute[3]);
+    const endMinute = Number(rangeWithMinute[4]);
+    if ([startHour, startMinute, endHour, endMinute].every(Number.isFinite)) {
+      return {
+        start: Math.max(0, Math.min(23, startHour)) * 60 + Math.max(0, Math.min(59, startMinute)),
+        end: Math.max(0, Math.min(23, endHour)) * 60 + Math.max(0, Math.min(59, endMinute))
+      };
+    }
+  }
+
+  return null;
+}
+
+function buildScheduleTemplate(startAtValue, title, contextText = '') {
   const rawStart = String(startAtValue || '').trim();
-  const start = rawStart && rawStart.includes('T') ? rawStart.slice(11, 16) : '08:00';
+  const explicitRange = parseTimeRangeMinutesFromText(contextText);
+  const fallbackStart = rawStart && rawStart.includes('T') ? rawStart.slice(11, 16) : '08:00';
+  const fallbackStartMinutes = Number(fallbackStart.slice(0, 2)) * 60 + Number(fallbackStart.slice(3, 5));
+  const startMinutes = explicitRange?.start ?? fallbackStartMinutes;
+  const endMinutes = explicitRange?.end ?? (startMinutes + 180);
+  const mainStartMinutes = startMinutes + 45;
+  const closingMinutes = Math.max(mainStartMinutes + 30, endMinutes - 30);
+
   const eventTitle = String(title || 'Main Session').trim() || 'Main Session';
+  const isArt = /art|lukis|lukisan|pameran|gallery|exhibition|curator|karya/i.test(
+    `${eventTitle} ${contextText}`
+  );
+  const registrationNote = isArt ? 'Verifikasi tamu & tiket masuk' : 'Verifikasi data peserta';
+  const openingNote = isArt ? 'Opening remarks dari curator/host' : 'Briefing singkat dari trainer';
+  const coreNote = isArt ? 'Sesi pameran utama & tur karya' : 'Sesi inti';
+  const closingTitle = isArt ? 'Closing & networking' : 'Cooldown & networking';
+  const closingNote = isArt ? 'Penutupan pameran dan sesi networking' : 'Penutup dan dokumentasi';
+
   return [
-    `${start} | Registrasi peserta | Verifikasi data dan race pack`,
-    `${start} | Opening | Briefing singkat dari trainer`,
-    `${start} | ${eventTitle} | Sesi inti`,
-    `${start} | Cooldown & networking | Penutup dan dokumentasi`
+    `${formatHourMinute(startMinutes)} | Registrasi peserta | ${registrationNote}`,
+    `${formatHourMinute(startMinutes + 15)} | Opening | ${openingNote}`,
+    `${formatHourMinute(mainStartMinutes)} | ${eventTitle} | ${coreNote}`,
+    `${formatHourMinute(closingMinutes)} | ${closingTitle} | ${closingNote}`
   ].join('\n');
 }
 
@@ -135,17 +189,24 @@ function generateDraftFromBrief(brief, currentStartAt = '') {
   const topic = clean.split(/[.\n]/)[0] || clean;
   const normalizedTopic = sentenceCase(topic.replace(/^tema[:\s-]*/i, '')) || 'Community Training Session';
   const categories = suggestCategoriesFromText(clean);
-  const description = [
-    `${normalizedTopic} dirancang untuk peserta yang ingin latihan terarah dalam suasana komunitas.`,
-    'Format sesi dibuat praktis: briefing singkat, sesi utama, lalu cooldown dan networking.',
-    'Cocok untuk pemula maupun peserta rutin dengan penyesuaian intensitas di lapangan.'
-  ].join(' ');
+  const isArt = categories.some((item) => /art/i.test(String(item || ''))) || /lukis|pameran|gallery|exhibition/i.test(clean);
+  const description = isArt
+    ? [
+      `${normalizedTopic} menghadirkan pengalaman pameran yang kuratorial, nyaman, dan mudah diakses publik.`,
+      'Format sesi meliputi registrasi tamu, opening, sesi pameran utama, lalu penutupan dengan networking.',
+      'Cocok untuk pecinta seni, kolektor, dan komunitas kreatif yang ingin menikmati karya dalam satu hari penuh.'
+    ].join(' ')
+    : [
+      `${normalizedTopic} dirancang untuk peserta yang ingin latihan terarah dalam suasana komunitas.`,
+      'Format sesi dibuat praktis: briefing singkat, sesi utama, lalu cooldown dan networking.',
+      'Cocok untuk pemula maupun peserta rutin dengan penyesuaian intensitas di lapangan.'
+    ].join(' ');
   return {
     eventName: normalizedTopic,
     description,
     categories,
-    scheduleText: buildScheduleTemplate(currentStartAt, normalizedTopic),
-    imageKeyword: `${categories[0]} fitness community`
+    scheduleText: buildScheduleTemplate(currentStartAt, normalizedTopic, clean),
+    imageKeyword: `${categories[0]} event`
   };
 }
 
@@ -1666,7 +1727,12 @@ export default function AdminPage() {
 
   function aiGenerateRundown() {
     const title = String(eventForm.event_name || '').trim();
-    const scheduleText = buildScheduleTemplate(eventForm.start_at, title);
+    const context = [
+      eventForm.description,
+      eventForm.categories_text,
+      eventForm.location
+    ].join(' ');
+    const scheduleText = buildScheduleTemplate(eventForm.start_at, title, context);
     setEventForm((prev) => ({ ...prev, schedule_items_text: scheduleText }));
     setFeedback('ai.assist: Rundown dibuat.');
   }
