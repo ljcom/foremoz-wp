@@ -346,15 +346,7 @@ export default function PassportLandingPage() {
               </Link>
             ) : null}
           </div>
-          <div className="card" style={{ marginTop: '1rem', borderStyle: 'dashed' }}>
-            <p className="eyebrow">Auth Route</p>
-            <p style={{ marginTop: 0 }}>`/events` untuk participant/member berbasis Passport. Owner/tenant operation masuk dari `/signin`.</p>
-            <div className="hero-actions">
-              <Link className="btn ghost small" to={isPassportSurface ? '/passport/signin' : accountMemberSigninHref || '/events/signin'}>
-                Passport/Event Login
-              </Link>
-            </div>
-          </div>
+
           <div className="passport-badge-list" style={{ marginTop: '0.75rem' }}>
             <span className="passport-chip"><i className="fa-solid fa-calendar-check" /> Register cepat</span>
             <span className="passport-chip"><i className="fa-solid fa-users" /> Komunitas aktif</span>
