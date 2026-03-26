@@ -1903,16 +1903,37 @@ export default function AdminPage() {
 
   async function addClass(e) {
     e.preventDefault();
-    if (!classForm.class_name || !classForm.trainer_name || !classForm.start_at) return;
+    if (!String(classForm.class_name || '').trim()) {
+      setClassEditTab('general');
+      setFeedback('class_name wajib diisi');
+      return;
+    }
+    if (!String(classForm.trainer_name || '').trim()) {
+      setClassEditTab('general');
+      setFeedback(`${creatorLabel} wajib dipilih`);
+      return;
+    }
+    if (!String(classForm.start_at || '').trim()) {
+      setClassEditTab('general');
+      setFeedback('periode mulai wajib diisi');
+      return;
+    }
 
     const startAtIso = toApiDatetime(classForm.start_at);
     if (!startAtIso) {
+      setClassEditTab('general');
       setFeedback('start_at tidak valid');
       return;
     }
     const periodEndAtIso = classForm.period_end_at ? toApiDatetime(classForm.period_end_at) : null;
     if (classForm.period_end_at && !periodEndAtIso) {
+      setClassEditTab('general');
       setFeedback('period_end_at tidak valid');
+      return;
+    }
+    if (periodEndAtIso && new Date(periodEndAtIso).getTime() < new Date(startAtIso).getTime()) {
+      setClassEditTab('general');
+      setFeedback('periode akhir harus setelah periode mulai');
       return;
     }
 
@@ -1949,6 +1970,9 @@ export default function AdminPage() {
       setClassMode('list');
       await loadClasses();
     } catch (error) {
+      if (String(error?.message || '').toLowerCase().includes('custom_fields')) {
+        setClassEditTab('custom_fields');
+      }
       setFeedback(error.message);
     } finally {
       setClassSaving(false);
