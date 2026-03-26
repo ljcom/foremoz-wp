@@ -488,6 +488,17 @@ export default function PassportLandingPage() {
           </>
         )}
       </section>
+
+      <section className="cta">
+        <p className="eyebrow">Create Events</p>
+        <h2>Ingin bikin event sendiri di Foremoz?</h2>
+        <p>Untuk host/owner yang ingin publish event baru dan kelola operasional tenant, lanjut ke Foremoz Web.</p>
+        <div className="hero-actions">
+          <Link className="btn ghost" to="/web">
+            Create New Events
+          </Link>
+        </div>
+      </section>
     </main>
   );
 }

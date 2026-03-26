@@ -157,7 +157,7 @@ function LegacyMemberPortalRedirect() {
 export default function App() {
   return (
     <Routes>
-      <Route path="/" element={<Navigate to="/web" replace />} />
+      <Route path="/" element={<Navigate to="/events" replace />} />
       <Route path="/web" element={<WebLandingPage />} />
       <Route path="/events" element={<PassportLandingPage />} />
       <Route path="/passport" element={<PassportLandingPage />} />
@@ -339,7 +339,7 @@ export default function App() {
       <Route path="/sales" element={<Navigate to={accountPath(getSession(), '/sales/dashboard')} replace />} />
       <Route path="/pt" element={<Navigate to={accountPath(getSession(), '/pt/dashboard')} replace />} />
 
-      <Route path="*" element={<Navigate to="/web" replace />} />
+      <Route path="*" element={<Navigate to="/events" replace />} />
     </Routes>
   );
 }

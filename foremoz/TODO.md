@@ -240,6 +240,7 @@ Last audited terhadap isi folder: **2026-03-25** (`foremoz/apps/api`, `foremoz/a
   - Remark: halaman member signup/signin sekarang sudah membawa context account dan value proposition yang nyambung ke portal member.
 - [~] Auth clarity `/web` vs `/events`
   - Remark: landing + sign-in sekarang sudah menampilkan penjelasan route auth agar user tahu `/web` untuk owner/tenant ops dan `/events` untuk passport/member participant.
+  - Remark tambahan: default route kini diarahkan ke `/events` (Foremoz Events), dan di footer events ada CTA creator untuk pindah ke `/web`.
 - [~] PT workspace
   - Remark: PT dashboard sekarang sudah pakai flow nyata (book session, complete session, log activity) + read model `pt-balance` dan `pt-activity` dengan filter trainer, tidak lagi log local dummy. Form PT + checkin/checkout event kini mendukung `custom_fields` JSON untuk metadata operasional.
 - [~] Sales workspace
