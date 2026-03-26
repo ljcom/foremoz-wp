@@ -881,6 +881,15 @@ function downloadCsvFile(filename, rows) {
   URL.revokeObjectURL(url);
 }
 
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(new Error('Gagal membaca file gambar.'));
+    reader.readAsDataURL(file);
+  });
+}
+
 function getStorageKey(entity, accountSlug) {
   return `ff.admin.${entity}.${accountSlug || 'foremoz-gym'}`;
 }
@@ -1050,6 +1059,7 @@ export default function AdminPage() {
   const [eventAiBriefDraft, setEventAiBriefDraft] = useState('');
   const [eventAiWorking, setEventAiWorking] = useState(false);
   const [eventImageKeyword, setEventImageKeyword] = useState('');
+  const eventImageFileInputRef = useRef(null);
   const [classForm, setClassForm] = useState({ class_name: '', trainer_name: '', capacity: '20', price: '0', start_at: '' });
   const [classTrainerDraft, setClassTrainerDraft] = useState('');
   const [memberRelationDraft, setMemberRelationDraft] = useState('');
@@ -1973,6 +1983,28 @@ export default function AdminPage() {
       setFeedback(error.message || 'ai.assist: Gagal mengambil gambar dari Pexels.');
     } finally {
       setEventAiWorking(false);
+    }
+  }
+
+  async function uploadOwnEventImage(file) {
+    try {
+      const selected = file || null;
+      if (!selected) return;
+      if (!String(selected.type || '').startsWith('image/')) {
+        throw new Error('File harus berupa gambar.');
+      }
+      const maxBytes = 5 * 1024 * 1024;
+      if (Number(selected.size || 0) > maxBytes) {
+        throw new Error('Ukuran gambar maksimal 5MB.');
+      }
+      const dataUrl = await readFileAsDataUrl(selected);
+      if (!dataUrl) {
+        throw new Error('Gagal memproses gambar.');
+      }
+      setEventForm((prev) => ({ ...prev, image_url: dataUrl }));
+      setFeedback('event.image.uploaded: Cover image berhasil diunggah dari perangkat.');
+    } catch (error) {
+      setFeedback(error.message || 'Gagal upload cover image.');
     }
   }
 
@@ -3700,6 +3732,28 @@ export default function AdminPage() {
                         </div>
                         <label>Location<input value={eventForm.location} onChange={(e) => setEventForm((p) => ({ ...p, location: e.target.value }))} /></label>
                         <label>Image URL<input value={eventForm.image_url} onChange={(e) => setEventForm((p) => ({ ...p, image_url: e.target.value }))} /></label>
+                        <div className="row-actions" style={{ marginTop: '-0.2rem' }}>
+                          <button
+                            className="btn ghost small"
+                            type="button"
+                            onClick={() => eventImageFileInputRef.current?.click()}
+                          >
+                            Upload Cover Image
+                          </button>
+                          <input
+                            ref={eventImageFileInputRef}
+                            type="file"
+                            accept="image/*"
+                            style={{ display: 'none' }}
+                            onChange={(e) => {
+                              const file = e.target.files?.[0] || null;
+                              if (file) {
+                                uploadOwnEventImage(file);
+                              }
+                              e.target.value = '';
+                            }}
+                          />
+                        </div>
                         <div className="row-actions" style={{ marginTop: '-0.2rem' }}>
                           <button
                             className="btn ghost small"
