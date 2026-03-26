@@ -1047,6 +1047,7 @@ export default function AdminPage() {
   const [eventForm, setEventForm] = useState(() => createEmptyEventForm());
   const [eventFormBaseline, setEventFormBaseline] = useState(() => serializeEventForm(createEmptyEventForm()));
   const [eventTrainerDraft, setEventTrainerDraft] = useState('');
+  const [eventAiBriefDraft, setEventAiBriefDraft] = useState('');
   const [eventAiWorking, setEventAiWorking] = useState(false);
   const [eventImageKeyword, setEventImageKeyword] = useState('');
   const [classForm, setClassForm] = useState({ class_name: '', trainer_name: '', capacity: '20', price: '0', start_at: '' });
@@ -1792,10 +1793,11 @@ export default function AdminPage() {
   }
 
   function aiGenerateDraftFromBrief() {
-    const brief = typeof window !== 'undefined'
-      ? window.prompt('Masukkan brief event singkat (tema, target peserta, vibe):', '')
-      : '';
-    if (!brief || !String(brief).trim()) return;
+    const brief = String(eventAiBriefDraft || '').trim();
+    if (!brief) {
+      setFeedback('Isi brief dulu di textbox AI Assist.');
+      return;
+    }
     const draft = generateDraftFromBrief(brief, eventForm.start_at);
     const mappedDuration = fromDurationMinutes(draft.durationMinutes || 180);
     setEventForm((prev) => ({
@@ -3593,6 +3595,15 @@ export default function AdminPage() {
                   <div className="card" style={{ marginBottom: '0.8rem', borderStyle: 'dashed' }}>
                     <p className="eyebrow">AI Assist</p>
                     <p className="feedback">Gunakan tombol ini untuk mempercepat drafting event. Pexels akan dipakai jika API key tersedia.</p>
+                    <label>
+                      Brief Event
+                      <textarea
+                        rows={3}
+                        placeholder="Contoh: Saya mau mengadakan pameran lukisan di Artpreneur Jakarta tgl 1 April 2026, 8 pagi - 20 sore, topiknya budaya Indonesia."
+                        value={eventAiBriefDraft}
+                        onChange={(e) => setEventAiBriefDraft(e.target.value)}
+                      />
+                    </label>
                     <div className="row-actions">
                       <button
                         className="btn ghost small"
