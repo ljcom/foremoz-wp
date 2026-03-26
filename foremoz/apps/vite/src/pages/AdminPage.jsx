@@ -32,6 +32,48 @@ const DEFAULT_EVENTS = [
     status: 'scheduled'
   }
 ];
+
+const EVENT_DURATION_UNITS = [
+  { value: 'minutes', label: 'Minutes', minutes: 1 },
+  { value: 'hours', label: 'Hours', minutes: 60 },
+  { value: 'days', label: 'Days', minutes: 60 * 24 },
+  { value: 'weeks', label: 'Weeks', minutes: 60 * 24 * 7 },
+  { value: 'months', label: 'Months (30 days)', minutes: 60 * 24 * 30 },
+  { value: 'years', label: 'Years (365 days)', minutes: 60 * 24 * 365 }
+];
+
+function toDurationMinutes(durationValue, durationUnit) {
+  const value = Number(durationValue);
+  const unit = EVENT_DURATION_UNITS.find((item) => item.value === durationUnit) || EVENT_DURATION_UNITS[0];
+  if (!Number.isFinite(value) || value <= 0) return NaN;
+  return Math.floor(value * unit.minutes);
+}
+
+function fromDurationMinutes(durationMinutes) {
+  const total = Number(durationMinutes);
+  if (!Number.isFinite(total) || total <= 0) {
+    return { duration_value: '60', duration_unit: 'minutes' };
+  }
+  for (const unit of [...EVENT_DURATION_UNITS].reverse()) {
+    if (total % unit.minutes === 0) {
+      return {
+        duration_value: String(Math.max(1, Math.floor(total / unit.minutes))),
+        duration_unit: unit.value
+      };
+    }
+  }
+  return { duration_value: String(Math.max(1, Math.floor(total))), duration_unit: 'minutes' };
+}
+
+function formatDurationLabelFromMinutes(durationMinutes) {
+  const parsed = fromDurationMinutes(durationMinutes);
+  const value = Number(parsed.duration_value || 0);
+  const unit = EVENT_DURATION_UNITS.find((item) => item.value === parsed.duration_unit);
+  if (!unit) return `${durationMinutes || 0} minutes`;
+  const label = value === 1 ? unit.label.replace(/s\b/, '') : unit.label;
+  return `${value} ${label}`;
+}
+
 function createEmptyEventForm() {
   return {
     event_name: '',
@@ -46,7 +88,8 @@ function createEmptyEventForm() {
     schedule_items_text: '',
     start_at: '',
     price: '0',
-    duration_minutes: '60',
+    duration_value: '1',
+    duration_unit: 'hours',
     registration_fields: []
   };
 }
@@ -73,7 +116,8 @@ function serializeEventForm(value) {
     gallery_images_text: String(form.gallery_images_text || ''),
     schedule_items_text: String(form.schedule_items_text || ''),
     start_at: String(form.start_at || ''),
-    duration_minutes: String(form.duration_minutes || '60'),
+    duration_value: String(form.duration_value || '1'),
+    duration_unit: String(form.duration_unit || 'hours'),
     registration_fields: registrationFields
   });
 }
@@ -1882,15 +1926,15 @@ export default function AdminPage() {
 
   async function addEvent(e) {
     e.preventDefault();
-    if (!eventForm.event_name || !eventForm.start_at || !eventForm.duration_minutes) return;
+    if (!eventForm.event_name || !eventForm.start_at || !eventForm.duration_value) return;
     const startAtIso = toApiDatetime(eventForm.start_at);
     if (!startAtIso) {
       setFeedback('start_at tidak valid');
       return;
     }
-    const durationMinutes = Number(eventForm.duration_minutes);
+    const durationMinutes = toDurationMinutes(eventForm.duration_value, eventForm.duration_unit);
     if (!Number.isFinite(durationMinutes) || durationMinutes <= 0) {
-      setFeedback('duration_minutes harus lebih dari 0');
+      setFeedback('Duration harus lebih dari 0');
       return;
     }
     try {
@@ -1945,6 +1989,7 @@ export default function AdminPage() {
   }
 
   function viewEvent(item) {
+    const durationInput = fromDurationMinutes(item.duration_minutes || '60');
     const nextForm = {
       event_name: item.event_name || '',
       location: item.location || '',
@@ -1958,7 +2003,8 @@ export default function AdminPage() {
       schedule_items_text: scheduleItemsToText(item.schedule_items),
       start_at: toInputDatetime(item.start_at || ''),
       price: String(item.price || '0'),
-      duration_minutes: String(item.duration_minutes || '60'),
+      duration_value: durationInput.duration_value,
+      duration_unit: durationInput.duration_unit,
       registration_fields: (Array.isArray(item.registration_fields) ? item.registration_fields : []).map(toRegistrationFieldForm)
     };
     setEventWalkinForm(createEmptyEventWalkinForm());
@@ -2385,13 +2431,13 @@ export default function AdminPage() {
       return;
     }
     const startAtIso = toApiDatetime(eventForm.start_at);
-    const durationMinutes = Number(eventForm.duration_minutes);
+    const durationMinutes = toDurationMinutes(eventForm.duration_value, eventForm.duration_unit);
     if (!startAtIso) {
       setFeedback('start_at tidak valid');
       return;
     }
     if (!Number.isFinite(durationMinutes) || durationMinutes <= 0) {
-      setFeedback('duration_minutes harus lebih dari 0');
+      setFeedback('Duration harus lebih dari 0');
       return;
     }
     const price = estimateEventPostingPrice(durationMinutes);
@@ -2793,7 +2839,7 @@ export default function AdminPage() {
                           {!isFreePlan && isAwardEnabled(item.award_enabled, true) ? <p>Top N: {normalizeAwardTopN(item.award_top_n, 1)}</p> : null}
                           <p>Start: {formatClassDatetime(item.start_at)}</p>
                           <p>Price: {formatIdr(item.price || 0)}</p>
-                          <p>Duration: {item.duration_minutes || '60'} minutes</p>
+                          <p>Duration: {formatDurationLabelFromMinutes(item.duration_minutes || '60')}</p>
                           <p>Participants: {Number(item.participant_count || 0)}</p>
                           <div className="row-actions">
                             <button
@@ -3104,7 +3150,27 @@ export default function AdminPage() {
                         </div>
                         <label>Start At<input type="datetime-local" value={eventForm.start_at} onChange={(e) => setEventForm((p) => ({ ...p, start_at: e.target.value }))} /></label>
                         <label>Price<input type="number" min="0" value={eventForm.price} onChange={(e) => setEventForm((p) => ({ ...p, price: e.target.value }))} /></label>
-                        <label>Duration (Minutes)<input type="number" min="1" value={eventForm.duration_minutes} onChange={(e) => setEventForm((p) => ({ ...p, duration_minutes: e.target.value }))} /></label>
+                        <label>
+                          Duration Value
+                          <input
+                            type="number"
+                            min="1"
+                            step="1"
+                            value={eventForm.duration_value}
+                            onChange={(e) => setEventForm((p) => ({ ...p, duration_value: e.target.value }))}
+                          />
+                        </label>
+                        <label>
+                          Duration Unit
+                          <select
+                            value={eventForm.duration_unit}
+                            onChange={(e) => setEventForm((p) => ({ ...p, duration_unit: e.target.value }))}
+                          >
+                            {EVENT_DURATION_UNITS.map((unit) => (
+                              <option key={unit.value} value={unit.value}>{unit.label}</option>
+                            ))}
+                          </select>
+                        </label>
                       </>
                     ) : null}
                     {eventEditTab === 'category' ? (
@@ -3480,7 +3546,7 @@ export default function AdminPage() {
                     <div className="card" style={{ marginTop: '0.8rem', borderStyle: 'dashed' }}>
                       <p className="eyebrow">Preview Publikasi</p>
                       <p>Mulai: {formatClassDatetime(eventPostQuote.start_at)}</p>
-                      <p>Durasi: {eventPostQuote.duration_minutes} menit</p>
+                      <p>Durasi: {formatDurationLabelFromMinutes(eventPostQuote.duration_minutes)}</p>
                       <p>Biaya publikasi: <strong>{formatIdr(eventPostQuote.price)}</strong></p>
                       <button className="btn" type="button" disabled={eventSaving} onClick={proceedPostEventPayment}>
                         Publikasikan Sekarang
