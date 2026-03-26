@@ -467,6 +467,7 @@ function buildCatchyTitle(baseText, categories = [], location = '') {
 
 function createEmptyEventForm() {
   return {
+    brief_event: '',
     event_name: '',
     trainer_name: '',
     location: '',
@@ -499,6 +500,7 @@ function serializeEventForm(value) {
     }))
     : [];
   return JSON.stringify({
+    brief_event: String(form.brief_event || ''),
     event_name: String(form.event_name || ''),
     trainer_name: String(form.trainer_name || ''),
     location: String(form.location || ''),
@@ -1130,7 +1132,6 @@ export default function AdminPage() {
   const [eventForm, setEventForm] = useState(() => createEmptyEventForm());
   const [eventFormBaseline, setEventFormBaseline] = useState(() => serializeEventForm(createEmptyEventForm()));
   const [eventTrainerDraft, setEventTrainerDraft] = useState('');
-  const [eventAiBriefDraft, setEventAiBriefDraft] = useState('');
   const [eventAiWorking, setEventAiWorking] = useState(false);
   const eventImageFileInputRef = useRef(null);
   const [classForm, setClassForm] = useState({ class_name: '', trainer_name: '', capacity: '20', price: '0', start_at: '' });
@@ -1249,6 +1250,7 @@ export default function AdminPage() {
       setEvents(
         rows.map((item) => ({
           event_id: item.event_id,
+          brief_event: item.brief_event || '',
           event_name: item.event_name || '',
           trainer_name: item.trainer_name || '',
           location: item.location || '',
@@ -1865,7 +1867,7 @@ export default function AdminPage() {
       eventForm.categories_text,
       eventForm.location,
       eventForm.description,
-      eventAiBriefDraft
+      eventForm.brief_event
     ].join(' ');
     const categories = suggestCategoriesFromText(source);
     const locationToken = String(eventForm.location || '').trim().split(/[,\s]+/)[0] || 'indonesia';
@@ -1873,7 +1875,7 @@ export default function AdminPage() {
       `${String(eventForm.event_name || '').trim()} ${locationToken}`.trim(),
       `${categories[0]} ${locationToken} event`.trim(),
       `${String(eventForm.categories_text || '').split(',')[0] || categories[0]} ${locationToken}`.trim(),
-      `${String(eventAiBriefDraft || '').trim()} ${locationToken}`.trim()
+      `${String(eventForm.brief_event || '').trim()} ${locationToken}`.trim()
     ]
       .map((item) => String(item || '').replace(/\s+/g, ' ').trim())
       .filter((item) => item.length >= 3);
@@ -1889,7 +1891,7 @@ export default function AdminPage() {
   }
 
   function aiGenerateDraftFromBrief() {
-    const brief = String(eventAiBriefDraft || '').trim();
+    const brief = String(eventForm.brief_event || '').trim();
     if (!brief) {
       setFeedback('Isi brief dulu di textbox AI Assist.');
       return;
@@ -2612,6 +2614,7 @@ export default function AdminPage() {
         body: JSON.stringify({
           tenant_id: tenantId,
           branch_id: branchId,
+          brief_event: eventForm.brief_event || null,
           event_name: eventForm.event_name,
           trainer_name: eventForm.trainer_name || null,
           location: eventForm.location || null,
@@ -2651,6 +2654,7 @@ export default function AdminPage() {
   function viewEvent(item) {
     const durationInput = fromDurationMinutes(item.duration_minutes || '60');
     const nextForm = {
+      brief_event: item.brief_event || '',
       event_name: item.event_name || '',
       trainer_name: item.trainer_name || '',
       location: item.location || '',
@@ -3710,8 +3714,8 @@ export default function AdminPage() {
                         <textarea
                           rows={3}
                           placeholder="Contoh: Saya mau mengadakan pameran lukisan di Artpreneur Jakarta tgl 1 April 2026, 8 pagi - 20 sore, topiknya budaya Indonesia."
-                          value={eventAiBriefDraft}
-                          onChange={(e) => setEventAiBriefDraft(e.target.value)}
+                          value={eventForm.brief_event}
+                          onChange={(e) => setEventForm((p) => ({ ...p, brief_event: e.target.value }))}
                         />
                       </label>
                       <div className="row-actions">
