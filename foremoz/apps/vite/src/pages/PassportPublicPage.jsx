@@ -49,14 +49,14 @@ function normalizePublicVisibility(raw) {
 }
 
 function guessVertical(eventItem) {
-  const slug = guessVerticalSlugByEventText(eventItem, 'active');
-  return getVerticalLabel(slug, 'Active');
+  const slug = guessVerticalSlugByEventText(eventItem, 'fitness');
+  return getVerticalLabel(slug, 'Fitness');
 }
 
 function deriveCapabilities(events) {
   const set = new Set();
   events.forEach((item) => {
-    const verticalSlug = guessVerticalSlugByEventText(item, 'active');
+    const verticalSlug = guessVerticalSlugByEventText(item, 'fitness');
     const creator = getVerticalConfig(verticalSlug)?.vocabulary?.creator;
     if (creator) set.add(creator);
   });

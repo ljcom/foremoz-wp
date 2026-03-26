@@ -9,10 +9,10 @@ const JOINED_EVENTS_KEY = 'ff.events.joined';
 const fallbackEvents = [
   {
     title: 'Morning Strength Camp',
-    vertical: 'Active',
+    vertical: 'Fitness',
     category: 'Strength Training',
-    host: 'Coach Rafi - Foremoz Active Center',
-    organizer: 'Foremoz Active Team',
+    host: 'Coach Rafi - Foremoz Fitness Center',
+    organizer: 'Foremoz Fitness Team',
     time: 'Sedang berlangsung (06:00 - 07:30 WIB)',
     status: 'Live',
     image:
@@ -130,7 +130,7 @@ export default function PassportLandingPage() {
           const startAt = new Date(row.start_at || '');
           const validStart = !Number.isNaN(startAt.getTime());
           const vertical = guessVertical(row);
-          const verticalSlug = guessVerticalSlugByEventText(row, 'active');
+          const verticalSlug = guessVerticalSlugByEventText(row, 'fitness');
           const vocabularyCreator = getVerticalConfig(verticalSlug)?.vocabulary?.creator || 'Creator';
           return {
             event_id: row.event_id || '',
@@ -164,7 +164,7 @@ export default function PassportLandingPage() {
             const startAt = new Date(row.start_at || '');
             const validStart = !Number.isNaN(startAt.getTime());
             const vertical = guessVertical(row);
-            const verticalSlug = guessVerticalSlugByEventText(row, 'active');
+            const verticalSlug = guessVerticalSlugByEventText(row, 'fitness');
             const vocabularyCreator = getVerticalConfig(verticalSlug)?.vocabulary?.creator || 'Creator';
             return {
               event_id: row.event_id || '',
@@ -556,8 +556,8 @@ export default function PassportLandingPage() {
 }
 
 function guessVertical(row) {
-  const slug = guessVerticalSlugByEventText(row, 'active');
-  return getVerticalLabel(slug, 'Active');
+  const slug = guessVerticalSlugByEventText(row, 'fitness');
+  return getVerticalLabel(slug, 'Fitness');
 }
 
 function guessCategory(row) {
@@ -568,14 +568,15 @@ function guessCategory(row) {
   if (text.includes('bootcamp') || text.includes('strength')) return 'Strength Training';
   if (text.includes('english') || text.includes('language')) return 'Language Practice';
   if (text.includes('dance') || text.includes('art')) return 'Creative Session';
-  const verticalSlug = guessVerticalSlugByEventText(row, 'active');
+  const verticalSlug = guessVerticalSlugByEventText(row, 'fitness');
   const firstType = (getVerticalConfig(verticalSlug)?.experience_types || [])[0];
   return firstType ? String(firstType) : 'General Event';
 }
 
 function iconForVertical(verticalLabel) {
   const text = String(verticalLabel || '').toLowerCase();
-  if (text.includes('active')) return 'fa-solid fa-dumbbell';
+  if (text.includes('fitness') || text.includes('gym') || text.includes('workout')) return 'fa-solid fa-dumbbell';
+  if (text.includes('sport') || text.includes('match') || text.includes('league') || text.includes('tournament')) return 'fa-solid fa-futbol';
   if (text.includes('learning')) return 'fa-solid fa-book-open';
   if (text.includes('performance')) return 'fa-solid fa-microphone-lines';
   if (text.includes('art')) return 'fa-solid fa-palette';

@@ -138,8 +138,8 @@ export default function DashboardPage() {
   const packagePlan = getSessionPackagePlan(session);
   const fullName = session?.user?.fullName || session?.user?.full_name || 'User';
   const resolvedVerticalSlug = String(session?.tenant?.industry_slug || '').trim().toLowerCase()
-    || guessVerticalSlugByText(`${session?.tenant?.gym_name || ''} ${accountSlug}`, 'active');
-  const inferredVerticalLabel = getVerticalLabel(resolvedVerticalSlug, 'Active');
+    || guessVerticalSlugByText(`${session?.tenant?.gym_name || ''} ${accountSlug}`, 'fitness');
+  const inferredVerticalLabel = getVerticalLabel(resolvedVerticalSlug, 'Fitness');
   const [targetEnv, setTargetEnv] = useState(
     role === 'owner' || role === 'admin' ? 'admin' : role === 'sales' ? 'sales' : role === 'pt' ? 'pt' : 'cs'
   );

@@ -212,7 +212,9 @@ export default function App() {
           </PassportProtectedRoute>
         }
       />
-      <Route path="/active" element={<VerticalLandingPage />} />
+      <Route path="/active" element={<Navigate to="/fitness" replace />} />
+      <Route path="/fitness" element={<VerticalLandingPage />} />
+      <Route path="/sport" element={<VerticalLandingPage />} />
       <Route path="/learning" element={<VerticalLandingPage />} />
       <Route path="/arts" element={<VerticalLandingPage />} />
       <Route path="/tourism" element={<VerticalLandingPage />} />

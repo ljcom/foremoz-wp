@@ -5,7 +5,8 @@ import { getVerticalConfig, getVerticalLabel, guessVerticalSlugByText } from '..
 
 function visualForVertical(slug) {
   const key = String(slug || '').toLowerCase();
-  if (key === 'active') return 'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?auto=format&fit=crop&w=1400&q=80';
+  if (key === 'fitness') return 'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?auto=format&fit=crop&w=1400&q=80';
+  if (key === 'sport') return 'https://images.unsplash.com/photo-1517649763962-0c623066013b?auto=format&fit=crop&w=1400&q=80';
   if (key === 'learning') return 'https://images.unsplash.com/photo-1523240795612-9a054b0db644?auto=format&fit=crop&w=1400&q=80';
   if (key === 'arts') return 'https://images.unsplash.com/photo-1513364776144-60967b0f800f?auto=format&fit=crop&w=1400&q=80';
   if (key === 'performance') return 'https://images.unsplash.com/photo-1498038432885-c6f3f1b912ee?auto=format&fit=crop&w=1400&q=80';
@@ -17,8 +18,8 @@ export default function AccountPublicPage() {
   const { account } = useParams();
   const [accountInfo, setAccountInfo] = useState(null);
   const verticalSlug = String(accountInfo?.industry_slug || '').trim().toLowerCase()
-    || guessVerticalSlugByText(account, 'active');
-  const verticalLabel = getVerticalLabel(verticalSlug, 'Active');
+    || guessVerticalSlugByText(account, 'fitness');
+  const verticalLabel = getVerticalLabel(verticalSlug, 'Fitness');
   const vocabulary = getVerticalConfig(verticalSlug)?.vocabulary || {};
   const creatorLabel = vocabulary.creator || 'Coach';
   const participantLabel = vocabulary.participant || 'Member';

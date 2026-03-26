@@ -56,7 +56,7 @@ export default function SignInPage() {
             namespace: `foremoz:${tenantId}`,
             gym_name: 'Foremoz Mock Gym',
             package_plan: 'free',
-            industry_slug: 'active'
+            industry_slug: 'fitness'
           },
           branch: {
             id: 'br_mock_01',
@@ -117,7 +117,7 @@ export default function SignInPage() {
           branch_id: setupForTenant.branch_id,
           account_slug: setupForTenant.account_slug,
           package_plan: setupForTenant.package_plan || 'free',
-          industry_slug: setupForTenant.industry_slug || 'active'
+          industry_slug: setupForTenant.industry_slug || 'fitness'
         });
       } else if (!activeSetup) {
         setOwnerSetup(null);
@@ -141,7 +141,7 @@ export default function SignInPage() {
           namespace: `foremoz:${signedTenantId}`,
           gym_name: activeSetup?.gym_name || accountSetup?.gym_name || 'Foremoz Demo Gym',
           package_plan: normalizePackagePlan(activeSetup?.package_plan || setupForTenant?.package_plan || 'starter'),
-          industry_slug: activeSetup?.industry_slug || accountSetup?.industry_slug || setup?.industry_slug || 'active'
+          industry_slug: activeSetup?.industry_slug || accountSetup?.industry_slug || setup?.industry_slug || 'fitness'
         },
         branch: {
           id: activeSetup?.branch_id || accountSetup?.branch_id || 'br_jkt_01',

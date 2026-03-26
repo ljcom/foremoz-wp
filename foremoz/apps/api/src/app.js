@@ -1331,12 +1331,14 @@ function normalizeOwnerBranchStatusFilter(input) {
   throw fail(400, 'OWNER_BRANCH_STATUS_INVALID', 'status must be active, inactive, or all');
 }
 
-const ALLOWED_INDUSTRY_SLUGS = new Set(['active', 'learning', 'performance', 'arts', 'tourism']);
+const ALLOWED_INDUSTRY_SLUGS = new Set(['active', 'fitness', 'sport', 'learning', 'performance', 'arts', 'tourism']);
 
-function normalizeIndustrySlug(value, fallback = 'active') {
+function normalizeIndustrySlug(value, fallback = 'fitness') {
   const normalized = String(value || '').trim().toLowerCase();
+  if (normalized === 'active') return 'fitness';
   if (ALLOWED_INDUSTRY_SLUGS.has(normalized)) return normalized;
-  return fallback;
+  const normalizedFallback = String(fallback || 'fitness').trim().toLowerCase();
+  return normalizedFallback === 'active' ? 'fitness' : normalizedFallback;
 }
 
 async function ensureOwnerBranchTable() {
@@ -1392,7 +1394,7 @@ app.post('/v1/tenant/auth/signup', async (req, res, next) => {
     const email = normalizeEmail(required(data.email, 'email'));
     const password = String(required(data.password, 'password'));
     const fullName = required(data.full_name, 'full_name');
-    const industrySlug = normalizeIndustrySlug(data.industry_slug, 'active');
+    const industrySlug = normalizeIndustrySlug(data.industry_slug, 'fitness');
     const userId = data.user_id || `usr_${Date.now()}_${randomUUID().slice(0, 8)}`;
     const ts = new Date().toISOString();
     const signinContext = await getTenantSigninContext(tenantId);
@@ -2199,7 +2201,7 @@ app.post('/v1/owner/setup/save', async (req, res, next) => {
     const branchId = required(data.branch_id, 'branch_id');
     const accountSlug = validateAccountSlug(required(data.account_slug, 'account_slug'));
     const packagePlan = data.package_plan || 'free';
-    const industrySlug = normalizeIndustrySlug(data.industry_slug, 'active');
+    const industrySlug = normalizeIndustrySlug(data.industry_slug, 'fitness');
 
     const existingSlug = await query(
       `select tenant_id

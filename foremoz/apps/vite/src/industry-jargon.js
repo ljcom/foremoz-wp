@@ -1,9 +1,16 @@
 import settings from './industry-jargon.settings.json';
 
-const DEFAULT_VERTICAL_ORDER = ['active', 'learning', 'performance', 'arts', 'tourism'];
+const DEFAULT_VERTICAL_ORDER = ['fitness', 'sport', 'learning', 'performance', 'arts', 'tourism'];
 
 function normalizeSlug(value) {
   return String(value || '').trim().toLowerCase();
+}
+
+export function normalizeVerticalSlug(value, fallback = 'fitness') {
+  const normalized = normalizeSlug(value);
+  if (!normalized) return fallback;
+  if (normalized === 'active') return 'fitness';
+  return normalized;
 }
 
 export function getIndustryJargonSettings() {
@@ -18,7 +25,7 @@ export function listVerticalSlugs() {
 }
 
 export function getVerticalConfig(verticalSlug) {
-  const slug = normalizeSlug(verticalSlug);
+  const slug = normalizeVerticalSlug(verticalSlug);
   const all = settings?.verticals || {};
   return all[slug] || null;
 }
@@ -29,17 +36,17 @@ export function listVerticalConfigs() {
     .filter((item) => item.label);
 }
 
-export function getVerticalLabel(slug, fallback = 'Active') {
+export function getVerticalLabel(slug, fallback = 'Fitness') {
   return getVerticalConfig(slug)?.label || fallback;
 }
 
-export function findVerticalByLabel(label, fallbackSlug = 'active') {
+export function findVerticalByLabel(label, fallbackSlug = 'fitness') {
   const normalized = String(label || '').trim().toLowerCase();
   const found = listVerticalConfigs().find((item) => normalizeSlug(item.label) === normalized);
-  return found?.slug || fallbackSlug;
+  return found?.slug || normalizeVerticalSlug(fallbackSlug, 'fitness');
 }
 
-export function guessVerticalSlugByEventText(eventItem, fallbackSlug = 'active') {
+export function guessVerticalSlugByEventText(eventItem, fallbackSlug = 'fitness') {
   const text = `${eventItem?.event_name || ''} ${eventItem?.location || ''}`.toLowerCase();
   for (const item of listVerticalConfigs()) {
     const labelToken = String(item.label || '').toLowerCase();
@@ -47,19 +54,19 @@ export function guessVerticalSlugByEventText(eventItem, fallbackSlug = 'active')
     if (labelToken && text.includes(labelToken)) return item.slug;
     if (experienceTypes.some((type) => text.includes(String(type).toLowerCase()))) return item.slug;
   }
-  return fallbackSlug;
+  return normalizeVerticalSlug(fallbackSlug, 'fitness');
 }
 
-export function guessVerticalSlugByText(value, fallbackSlug = 'active') {
+export function guessVerticalSlugByText(value, fallbackSlug = 'fitness') {
   const text = String(value || '').toLowerCase();
-  if (!text) return fallbackSlug;
+  if (!text) return normalizeVerticalSlug(fallbackSlug, 'fitness');
   for (const item of listVerticalConfigs()) {
     const labelToken = String(item.label || '').toLowerCase();
     const experienceTypes = Array.isArray(item.experience_types) ? item.experience_types : [];
     if (labelToken && text.includes(labelToken)) return item.slug;
     if (experienceTypes.some((type) => text.includes(String(type).toLowerCase()))) return item.slug;
   }
-  return fallbackSlug;
+  return normalizeVerticalSlug(fallbackSlug, 'fitness');
 }
 
 export function describeVerticalByJargon(slug) {

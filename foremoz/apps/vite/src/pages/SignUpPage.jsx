@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import AuthLayout from '../components/AuthLayout.jsx';
 import TurnstileWidget from '../components/TurnstileWidget.jsx';
 import { apiJson, requireField } from '../lib.js';
-import { listVerticalConfigs } from '../industry-jargon.js';
+import { listVerticalConfigs, normalizeVerticalSlug } from '../industry-jargon.js';
 
 function generateTenantId(email) {
   const localPart = String(email || '')
@@ -20,9 +20,9 @@ export default function SignUpPage() {
   const [searchParams] = useSearchParams();
   const verticalOptions = listVerticalConfigs();
   const defaultIndustry = (() => {
-    const requested = String(searchParams.get('industry') || '').trim().toLowerCase();
+    const requested = normalizeVerticalSlug(searchParams.get('industry'), 'fitness');
     if (verticalOptions.some((item) => item.slug === requested)) return requested;
-    return 'active';
+    return 'fitness';
   })();
   const [form, setForm] = useState({ fullName: '', email: '', password: '', industrySlug: defaultIndustry });
   const [error, setError] = useState('');

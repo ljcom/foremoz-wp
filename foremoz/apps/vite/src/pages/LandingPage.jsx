@@ -1,12 +1,12 @@
 import { Link } from 'react-router-dom';
 import { APP_ORIGIN, getSession } from '../lib.js';
-import { getVerticalLabel } from '../industry-jargon.js';
+import { getVerticalLabel, normalizeVerticalSlug } from '../industry-jargon.js';
 
 export default function LandingPage() {
   const host = window.location.host;
   const isLocal = host.includes('localhost') || host.includes('127.0.0.1');
-  const industrySlug = String(getSession()?.tenant?.industry_slug || '').trim().toLowerCase() || 'active';
-  const brand = `Foremoz ${getVerticalLabel(industrySlug, 'Active')}`;
+  const industrySlug = normalizeVerticalSlug(getSession()?.tenant?.industry_slug, 'fitness');
+  const brand = `Foremoz ${getVerticalLabel(industrySlug, 'Fitness')}`;
   const whyItems = [
     {
       title: 'Ops tidak lagi pecah di chat, sheet, dan form',

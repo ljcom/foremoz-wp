@@ -2,7 +2,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { getVerticalConfig, getVerticalLabel, listVerticalConfigs } from '../industry-jargon.js';
 
 const PRICING_BY_VERTICAL = {
-  active: [
+  fitness: [
     {
       name: 'Free',
       price: 'Rp0 / bulan',
@@ -26,6 +26,32 @@ const PRICING_BY_VERTICAL = {
       price: 'Mulai Rp3.490.000 / bulan',
       note: 'Untuk skala besar',
       items: ['Multi lokasi', 'Custom kebutuhan bisnis']
+    }
+  ],
+  sport: [
+    {
+      name: 'Free',
+      price: 'Rp0 / bulan',
+      note: 'Mulai squad kecil',
+      items: ['1 training calendar', 'Attendance dasar']
+    },
+    {
+      name: 'Starter',
+      price: 'Rp149.000 - Rp499.000 / bulan',
+      note: 'Untuk latihan rutin',
+      items: ['Training + camp + tryout', 'Roster dan check-in']
+    },
+    {
+      name: 'Growth',
+      price: 'Rp990.000 - Rp1.990.000 / bulan',
+      note: 'Untuk klub berkembang',
+      items: ['Tim multi role', 'Tracking performa atlet']
+    },
+    {
+      name: 'Institution',
+      price: 'Mulai Rp3.490.000 / bulan',
+      note: 'Untuk akademi / klub besar',
+      items: ['Multi lokasi', 'Operasional tim lebih rapi']
     }
   ],
   learning: [
@@ -136,10 +162,16 @@ const PRICING_BY_VERTICAL = {
 
 function visualForVertical(slug) {
   const key = String(slug || '').toLowerCase();
-  if (key === 'active') {
+  if (key === 'fitness') {
     return {
       icon: 'fa-solid fa-dumbbell',
       image: 'https://images.unsplash.com/photo-1549060279-7e168fcee0c2?auto=format&fit=crop&w=1400&q=80'
+    };
+  }
+  if (key === 'sport') {
+    return {
+      icon: 'fa-solid fa-futbol',
+      image: 'https://images.unsplash.com/photo-1517649763962-0c623066013b?auto=format&fit=crop&w=1400&q=80'
     };
   }
   if (key === 'learning') {
@@ -175,11 +207,11 @@ function visualForVertical(slug) {
 export default function VerticalLandingPage() {
   const location = useLocation();
   const slug = location.pathname.replace('/', '').trim().toLowerCase();
-  const config = getVerticalConfig(slug) || getVerticalConfig('active');
-  const activeSlug = getVerticalConfig(slug) ? slug : 'active';
-  const label = getVerticalLabel(activeSlug, 'Active');
+  const config = getVerticalConfig(slug) || getVerticalConfig('fitness');
+  const activeSlug = getVerticalConfig(slug) ? slug : 'fitness';
+  const label = getVerticalLabel(activeSlug, 'Fitness');
   const navVerticals = listVerticalConfigs();
-  const pricing = PRICING_BY_VERTICAL[activeSlug] || PRICING_BY_VERTICAL.active;
+  const pricing = PRICING_BY_VERTICAL[activeSlug] || PRICING_BY_VERTICAL.fitness;
   const creator = config?.vocabulary?.creator || 'Creator';
   const participant = config?.vocabulary?.participant || 'Member';
   const experience = config?.vocabulary?.experience || 'Event';

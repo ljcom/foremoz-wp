@@ -3,10 +3,16 @@ import { listVerticalConfigs } from '../industry-jargon.js';
 
 function visualForVertical(slug) {
   const key = String(slug || '').toLowerCase();
-  if (key === 'active') {
+  if (key === 'fitness') {
     return {
       icon: 'fa-solid fa-dumbbell',
       image: 'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?auto=format&fit=crop&w=1400&q=80'
+    };
+  }
+  if (key === 'sport') {
+    return {
+      icon: 'fa-solid fa-futbol',
+      image: 'https://images.unsplash.com/photo-1517649763962-0c623066013b?auto=format&fit=crop&w=1400&q=80'
     };
   }
   if (key === 'learning') {

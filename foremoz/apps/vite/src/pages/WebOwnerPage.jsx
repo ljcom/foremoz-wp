@@ -11,7 +11,7 @@ import {
   setOwnerSetup,
   setSession
 } from '../lib.js';
-import { getVerticalConfig, listVerticalConfigs } from '../industry-jargon.js';
+import { getVerticalConfig, listVerticalConfigs, normalizeVerticalSlug } from '../industry-jargon.js';
 
 const PLANS = [
   {
@@ -81,7 +81,7 @@ function createEmptyUserForm() {
   return { full_name: '', email: '', role: '', password: '' };
 }
 
-function formatAddUserRoleLabel(role, industrySlug = 'active') {
+function formatAddUserRoleLabel(role, industrySlug = 'fitness') {
   const normalized = String(role || '').trim().toLowerCase();
   if (normalized === 'pt') return getVerticalConfig(industrySlug)?.vocabulary?.creator || 'Coach';
   if (normalized === 'sales') return 'Influencer/Sales';
@@ -131,7 +131,7 @@ export default function WebOwnerPage() {
     gym_name: existingSetup?.gym_name || session?.tenant?.gym_name || '',
     account_slug: existingSetup?.account_slug || session?.tenant?.account_slug || '',
     package_plan: normalizePackagePlan(existingSetup?.package_plan || 'free'),
-    industry_slug: existingSetup?.industry_slug || session?.tenant?.industry_slug || 'active',
+    industry_slug: normalizeVerticalSlug(existingSetup?.industry_slug || session?.tenant?.industry_slug, 'fitness'),
     tenant_id: existingSetup?.tenant_id || session?.tenant?.id || 'tn_001',
     branch_id: existingSetup?.branch_id || session?.branch?.id || '',
     address: existingSetup?.address || '',
@@ -171,7 +171,7 @@ export default function WebOwnerPage() {
 
   const selectedPlanMonthlyPrice = PLAN_PRICE[setupForm.package_plan] || 0;
   const verticalOptions = listVerticalConfigs();
-  const creatorLabel = getVerticalConfig(setupForm.industry_slug)?.vocabulary?.creator || 'Coach';
+  const creatorLabel = getVerticalConfig(normalizeVerticalSlug(setupForm.industry_slug, 'fitness'))?.vocabulary?.creator || 'Coach';
   const selectedMonths = Number(saasForm.months || 1);
   const extendTotalPrice = selectedPlanMonthlyPrice * selectedMonths;
   const isGrowthOrAbove = useMemo(
@@ -215,7 +215,7 @@ export default function WebOwnerPage() {
         tenant_id: setupRes.row.tenant_id || prev.tenant_id,
         branch_id: setupRes.row.branch_id || prev.branch_id,
         account_slug: setupRes.row.account_slug || prev.account_slug,
-        industry_slug: setupRes.row.industry_slug || prev.industry_slug || 'active',
+        industry_slug: normalizeVerticalSlug(setupRes.row.industry_slug || prev.industry_slug, 'fitness'),
         address: setupRes.row.address || '',
         city: setupRes.row.city || '',
         photo_url: setupRes.row.photo_url || '',
@@ -227,7 +227,7 @@ export default function WebOwnerPage() {
         branch_id: setupRes.row.branch_id,
         account_slug: setupRes.row.account_slug,
         package_plan: normalizePackagePlan(setupRes.row.package_plan || setupForm.package_plan),
-        industry_slug: setupRes.row.industry_slug || setupForm.industry_slug || 'active',
+        industry_slug: normalizeVerticalSlug(setupRes.row.industry_slug || setupForm.industry_slug, 'fitness'),
         address: setupRes.row.address || '',
         city: setupRes.row.city || '',
         photo_url: setupRes.row.photo_url || ''
@@ -242,7 +242,7 @@ export default function WebOwnerPage() {
         account_slug: '',
         branch_id: '',
         package_plan: 'free',
-        industry_slug: 'active',
+        industry_slug: 'fitness',
         address: '',
         city: '',
         photo_url: ''
@@ -285,7 +285,7 @@ export default function WebOwnerPage() {
           namespace: `foremoz:${tenantId}`,
           gym_name: gymName,
           package_plan: normalizePackagePlan(setup?.package_plan || setupForm.package_plan || 'free'),
-          industry_slug: setup?.industry_slug || setupForm.industry_slug || 'active'
+          industry_slug: normalizeVerticalSlug(setup?.industry_slug || setupForm.industry_slug, 'fitness')
         },
         branch: {
           id: branchId,
@@ -336,7 +336,7 @@ export default function WebOwnerPage() {
           namespace: `foremoz:${payload.tenant_id}`,
           gym_name: payload.gym_name,
           package_plan: normalizePackagePlan(payload.package_plan),
-          industry_slug: payload.industry_slug || 'active'
+          industry_slug: normalizeVerticalSlug(payload.industry_slug, 'fitness')
         },
         branch: {
           id: payload.branch_id,
@@ -358,7 +358,7 @@ export default function WebOwnerPage() {
         branch_id: setupForm.branch_id,
         account_slug: normalizeSlug(setupForm.account_slug),
         package_plan: setupForm.package_plan,
-        industry_slug: setupForm.industry_slug || 'active',
+        industry_slug: normalizeVerticalSlug(setupForm.industry_slug, 'fitness'),
         address: setupForm.address,
         city: setupForm.city,
         photo_url: setupForm.photo_url
@@ -390,7 +390,7 @@ export default function WebOwnerPage() {
         branch_id: setupForm.branch_id,
         account_slug: setupForm.account_slug,
         package_plan: setupForm.package_plan,
-        industry_slug: setupForm.industry_slug || 'active',
+        industry_slug: normalizeVerticalSlug(setupForm.industry_slug, 'fitness'),
         address: setupForm.address,
         city: setupForm.city,
         photo_url: setupForm.photo_url
@@ -591,7 +591,7 @@ export default function WebOwnerPage() {
         branch_id: setupForm.branch_id,
         account_slug: setupForm.account_slug,
         package_plan: setupForm.package_plan,
-        industry_slug: setupForm.industry_slug || 'active',
+        industry_slug: normalizeVerticalSlug(setupForm.industry_slug, 'fitness'),
         address: setupForm.address,
         city: setupForm.city,
         photo_url: setupForm.photo_url
@@ -646,7 +646,7 @@ export default function WebOwnerPage() {
       branch_id: setupForm.branch_id,
       account_slug: setupForm.account_slug,
       package_plan: 'starter',
-      industry_slug: setupForm.industry_slug || 'active',
+      industry_slug: normalizeVerticalSlug(setupForm.industry_slug, 'fitness'),
       address: setupForm.address,
       city: setupForm.city,
       photo_url: setupForm.photo_url
@@ -913,7 +913,7 @@ export default function WebOwnerPage() {
                 <label>
                   Nama bisnis / organisasi
                   <input
-                    placeholder="Contoh: Foremoz Active Cilandak"
+                    placeholder="Contoh: Foremoz Fitness Cilandak"
                     value={setupForm.gym_name}
                     onChange={(e) => setSetupForm((p) => ({ ...p, gym_name: e.target.value }))}
                   />

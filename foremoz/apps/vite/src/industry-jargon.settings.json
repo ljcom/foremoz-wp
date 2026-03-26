@@ -14,8 +14,8 @@
     "monetization_pattern"
   ],
   "verticals": {
-    "active": {
-      "label": "Active",
+    "fitness": {
+      "label": "Fitness",
       "vocabulary": {
         "creator": "Coach",
         "participant": "Member",
@@ -25,8 +25,22 @@
       "duration_model": "30-90 min",
       "participation_pattern": "small group / recurring",
       "monetization_pattern": "class fee / membership",
-      "experience_types": ["class", "session", "training", "bootcamp"],
+      "experience_types": ["class", "session", "training", "bootcamp", "gym", "workout", "pilates", "yoga"],
       "offering_examples": ["10 class pass", "monthly membership"]
+    },
+    "sport": {
+      "label": "Sport",
+      "vocabulary": {
+        "creator": "Coach",
+        "participant": "Athlete",
+        "experience": "Training",
+        "place": "Field"
+      },
+      "duration_model": "60-180 min",
+      "participation_pattern": "team / squad / competition prep",
+      "monetization_pattern": "program fee / team membership",
+      "experience_types": ["training", "match", "league", "academy", "camp", "sparring", "competition", "tournament"],
+      "offering_examples": ["academy membership", "season pass", "training camp"]
     },
     "learning": {
       "label": "Learning",
@@ -97,7 +111,7 @@
     "core_engine_is_shared": true,
     "recommended_dimension": {
       "experience_type_examples": ["class", "workshop", "show", "tour", "exhibition"],
-      "vertical_examples": ["ACTIVE", "LEARNING", "PERFORMANCE", "ARTS", "TOURISM"]
+      "vertical_examples": ["FITNESS", "SPORT", "LEARNING", "PERFORMANCE", "ARTS", "TOURISM"]
     }
   },
   "creator_growth_pattern": ["creator", "event", "participant", "repeat", "community"],

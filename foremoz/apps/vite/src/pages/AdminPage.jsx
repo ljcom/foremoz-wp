@@ -1508,11 +1508,11 @@ export default function AdminPage() {
   const packagePlan = getSessionPackagePlan(session);
   const isFreePlan = packagePlan === 'free';
   const resolvedVerticalSlug = String(session?.tenant?.industry_slug || '').trim().toLowerCase()
-    || guessVerticalSlugByText(`${session?.tenant?.gym_name || ''} ${accountSlug}`, 'active');
+    || guessVerticalSlugByText(`${session?.tenant?.gym_name || ''} ${accountSlug}`, 'fitness');
   const resolvedVerticalConfig = getVerticalConfig(resolvedVerticalSlug) || null;
   const creatorLabel = String(resolvedVerticalConfig?.vocabulary?.creator || 'Trainer').trim() || 'Trainer';
   const creatorLabelLower = creatorLabel.toLowerCase();
-  const inferredVerticalLabel = getVerticalLabel(resolvedVerticalSlug, 'Active');
+  const inferredVerticalLabel = getVerticalLabel(resolvedVerticalSlug, 'Fitness');
   const eventCategoryExamples = useMemo(
     () => getEventCategoryExamplesByIndustry(resolvedVerticalSlug),
     [resolvedVerticalSlug]
