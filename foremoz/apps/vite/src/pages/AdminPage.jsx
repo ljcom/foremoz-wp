@@ -156,6 +156,45 @@ function parseTimeRangeMinutesFromText(text) {
   return null;
 }
 
+function titleCaseWords(value) {
+  return String(value || '')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+}
+
+function extractBriefContext(brief) {
+  const clean = String(brief || '').trim();
+  const source = clean.toLowerCase();
+
+  const topicMatch = clean.match(/topik(?:nya)?\s*(?:tentang|:)\s*([^.,\n]+)/i);
+  const topic = String(topicMatch?.[1] || '').trim();
+
+  const locationMatch = clean.match(/di\s+(.+?)(?=\s*(?:tgl|tanggal|jam|,|\d{1,2}\s*(?:pagi|siang|sore|malam)|\d{1,2}:\d{2}|$))/i);
+  const location = String(locationMatch?.[1] || '').trim();
+
+  const isArt = /lukis|lukisan|pameran|gallery|galeri|exhibition|art/.test(source);
+  const isPainting = /lukis|lukisan|painting/.test(source);
+
+  const baseIntent = clean
+    .replace(/^saya\s+(mau|ingin)\s+mengadakan\s+/i, '')
+    .replace(/^kami\s+(mau|ingin)\s+mengadakan\s+/i, '')
+    .replace(/topik(?:nya)?\s*(?:tentang|:).*/i, '')
+    .replace(/\s+(di|tgl|tanggal|jam)\b.*/i, '')
+    .replace(/[.,]+$/g, '')
+    .trim();
+
+  return {
+    topic: topic || '',
+    location: location || '',
+    baseIntent: baseIntent || '',
+    isArt,
+    isPainting
+  };
+}
+
 function buildScheduleTemplate(startAtValue, title, contextText = '') {
   const rawStart = String(startAtValue || '').trim();
   const explicitRange = parseTimeRangeMinutesFromText(contextText);
@@ -186,13 +225,26 @@ function buildScheduleTemplate(startAtValue, title, contextText = '') {
 
 function generateDraftFromBrief(brief, currentStartAt = '') {
   const clean = String(brief || '').trim();
-  const topic = clean.split(/[.\n]/)[0] || clean;
-  const normalizedTopic = sentenceCase(topic.replace(/^tema[:\s-]*/i, '')) || 'Community Training Session';
+  const context = extractBriefContext(clean);
   const categories = suggestCategoriesFromText(clean);
-  const isArt = categories.some((item) => /art/i.test(String(item || ''))) || /lukis|pameran|gallery|exhibition/i.test(clean);
+  const topicLabel = titleCaseWords(context.topic || 'Budaya Indonesia');
+  const locationLabel = context.location ? titleCaseWords(context.location) : '';
+
+  let normalizedTopic = '';
+  if (context.isArt && context.isPainting) {
+    normalizedTopic = `Pameran Lukisan ${topicLabel}${locationLabel ? ` @ ${locationLabel}` : ''}`;
+  } else if (context.isArt) {
+    normalizedTopic = `Pameran Seni ${topicLabel}${locationLabel ? ` @ ${locationLabel}` : ''}`;
+  } else {
+    const fallback = context.baseIntent || clean.split(/[.\n]/)[0] || 'Community Training Session';
+    normalizedTopic = sentenceCase(fallback.replace(/^tema[:\s-]*/i, ''));
+  }
+  normalizedTopic = normalizedTopic.slice(0, 90).trim() || 'Community Training Session';
+
+  const isArt = categories.some((item) => /art/i.test(String(item || ''))) || context.isArt;
   const description = isArt
     ? [
-      `${normalizedTopic} menghadirkan pengalaman pameran yang kuratorial, nyaman, dan mudah diakses publik.`,
+      `${normalizedTopic} bertema ${topicLabel} dan menghadirkan pengalaman pameran yang kuratorial, nyaman, dan mudah diakses publik.`,
       'Format sesi meliputi registrasi tamu, opening, sesi pameran utama, lalu penutupan dengan networking.',
       'Cocok untuk pecinta seni, kolektor, dan komunitas kreatif yang ingin menikmati karya dalam satu hari penuh.'
     ].join(' ')
@@ -206,7 +258,7 @@ function generateDraftFromBrief(brief, currentStartAt = '') {
     description,
     categories,
     scheduleText: buildScheduleTemplate(currentStartAt, normalizedTopic, clean),
-    imageKeyword: `${categories[0]} event`
+    imageKeyword: `${categories[0]} ${topicLabel} event`
   };
 }
 
