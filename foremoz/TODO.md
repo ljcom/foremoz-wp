@@ -288,6 +288,13 @@ Last audited terhadap isi folder: **2026-03-26** (`foremoz/apps/api`, `foremoz/a
   - Remark: PT dashboard sekarang sudah pakai flow nyata (book session, complete session, log activity) + read model `pt-balance` dan `pt-activity` dengan filter trainer, tidak lagi log local dummy. Form PT + checkin/checkout event kini mendukung `custom_fields` JSON untuk metadata operasional.
 - [~] Sales workspace
   - Remark: Sales dashboard sekarang sudah pakai flow real (create prospect, follow-up, update stage, convert ke member) + timeline event prospect. Form sales juga sudah mendukung `custom_fields` JSON untuk metadata follow-up/convert.
+- [ ] Reporting
+  - [ ] Laporan komisi coach/team untuk event dan class per periode.
+  - [ ] Read model komisi dari `coach_shares` x nilai transaksi/price aktual.
+  - [ ] Breakdown per event/class: gross amount, coach involved, persen share, nominal komisi.
+  - [ ] Filter reporting per branch, date range, coach, dan jenis aktivitas (`event/class`).
+  - [ ] Status settlement komisi (`pending/approved/paid`) + timestamp payout.
+  - [ ] Export CSV untuk laporan komisi coach/team.
 - [~] Setup
   - [x] Event (one time)
     - [x] general fields
