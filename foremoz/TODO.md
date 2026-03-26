@@ -192,6 +192,14 @@ Last audited terhadap isi folder: **2026-03-25** (`foremoz/apps/api`, `foremoz/a
 - [x] Browse: card (ecommerce-like)
 - [~] Detail -> passport access -> payment
   - Remark: checkout sekarang merekam `payment.recorded` lalu `payment.confirmed` sebelum `event.participant.registered`, dan register menerima verifikasi `payment_id`; enrichment detail event masih bisa diperdalam.
+- [~] Event creator assist (AI)
+  - [ ] Generate draft event copy dari brief singkat (title, description, category, schedule starter).
+  - [ ] Regenerate per section (judul/deskripsi/rundown) sebelum save.
+  - [ ] Simpan metadata draft AI (`generated_by_ai`, `prompt_snapshot`) untuk audit/editability.
+  - [~] Image strategy
+    - [ ] Tahap 1: gunakan stock image gratis (Pexels/Unsplash) via rekomendasi keyword.
+    - [ ] Tahap 2: AI generated image sebagai opsi berbayar/quota.
+    - Remark: cost-aware default = stock gratis dulu, AI image menyusul jika usage sudah justify.
 
 ### Passport
 - [x] Signup -> signin -> registration
