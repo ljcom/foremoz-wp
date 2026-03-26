@@ -531,7 +531,9 @@ function createEmptyClassForm() {
     coach_shares: [],
     capacity: '20',
     price: '0',
-    start_at: ''
+    start_at: '',
+    period_end_at: '',
+    max_meetings: '0'
   };
 }
 
@@ -1390,7 +1392,10 @@ export default function AdminPage() {
           trainer_name: item.trainer_name || '',
           capacity: String(item.capacity || '20'),
           price: String(item.price || '0'),
-          start_at: item.start_at || ''
+          start_at: item.start_at || '',
+          period_end_at: item.period_end_at || '',
+          max_meetings: String(item.max_meetings || '0'),
+          coach_shares: Array.isArray(item.coach_shares) ? item.coach_shares : []
         }))
       );
     } catch (error) {
@@ -1898,6 +1903,11 @@ export default function AdminPage() {
       setFeedback('start_at tidak valid');
       return;
     }
+    const periodEndAtIso = classForm.period_end_at ? toApiDatetime(classForm.period_end_at) : null;
+    if (classForm.period_end_at && !periodEndAtIso) {
+      setFeedback('period_end_at tidak valid');
+      return;
+    }
 
     try {
       setClassSaving(true);
@@ -1915,7 +1925,9 @@ export default function AdminPage() {
           coach_shares: normalizeCoachSharesForPayload(classForm.coach_shares, 'coach'),
           capacity: Number(classForm.capacity || 20),
           price: Number(classForm.price || 0),
-          start_at: startAtIso
+          start_at: startAtIso,
+          period_end_at: periodEndAtIso,
+          max_meetings: Number(classForm.max_meetings || 0)
         })
       });
 
@@ -1941,7 +1953,9 @@ export default function AdminPage() {
       coach_shares: syncCoachSharesWithTrainerNames(trainerName, item.coach_shares),
       capacity: item.capacity || '20',
       price: String(item.price || '0'),
-      start_at: normalizedStartAt || ''
+      start_at: normalizedStartAt || '',
+      period_end_at: toInputDatetime(item.period_end_at || ''),
+      max_meetings: String(item.max_meetings || '0')
     });
     setClassTrainerDraft('');
     setEditingClassId(item.class_id || '');
@@ -4594,7 +4608,8 @@ export default function AdminPage() {
                           <th className="admin-data-head">Trainer</th>
                           <th className="admin-data-head">Capacity</th>
                           <th className="admin-data-head">Price</th>
-                          <th className="admin-data-head">Start At</th>
+                          <th className="admin-data-head">Periode</th>
+                          <th className="admin-data-head">Max Meeting</th>
                           <th className="admin-data-head">Aksi</th>
                         </tr>
                       </thead>
@@ -4605,7 +4620,11 @@ export default function AdminPage() {
                             <td className="admin-data-cell">{item.trainer_name}</td>
                             <td className="admin-data-cell">{item.capacity}</td>
                             <td className="admin-data-cell">{formatIdr(item.price || 0)}</td>
-                            <td className="admin-data-cell">{formatClassDatetime(item.start_at)}</td>
+                            <td className="admin-data-cell">
+                              {formatClassDatetime(item.start_at)}
+                              {item.period_end_at ? ` - ${formatClassDatetime(item.period_end_at)}` : ''}
+                            </td>
+                            <td className="admin-data-cell">{Number(item.max_meetings || 0) > 0 ? item.max_meetings : '-'}</td>
                             <td className="admin-data-cell">
                               <div className="row-actions">
                                 <ViewButton onClick={() => viewClass(item)} />
@@ -4723,7 +4742,9 @@ export default function AdminPage() {
                     </div>
                     <label>Capacity<input type="number" min="1" value={classForm.capacity} onChange={(e) => setClassForm((p) => ({ ...p, capacity: e.target.value }))} /></label>
                     <label>Price<input type="number" min="0" value={classForm.price} onChange={(e) => setClassForm((p) => ({ ...p, price: e.target.value }))} /></label>
-                    <label>Start At<input type="datetime-local" value={classForm.start_at} onChange={(e) => setClassForm((p) => ({ ...p, start_at: e.target.value }))} /></label>
+                    <label>Periode Mulai<input type="datetime-local" value={classForm.start_at} onChange={(e) => setClassForm((p) => ({ ...p, start_at: e.target.value }))} /></label>
+                    <label>Periode Akhir<input type="datetime-local" value={classForm.period_end_at} onChange={(e) => setClassForm((p) => ({ ...p, period_end_at: e.target.value }))} /></label>
+                    <label>Jumlah Pertemuan Max<input type="number" min="0" value={classForm.max_meetings} onChange={(e) => setClassForm((p) => ({ ...p, max_meetings: e.target.value }))} /></label>
                     <button className="btn" type="submit" disabled={classSaving}>{classSaving ? 'Saving...' : 'Save class'}</button>
                   </form>
                 </>

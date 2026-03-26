@@ -427,6 +427,15 @@ function normalizeCoachShares(value, fallback = []) {
   return normalized;
 }
 
+function normalizeOptionalDatetime(value, fieldName, fallback = null) {
+  if (value === undefined || value === null || value === '') return fallback;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    throw fail(400, 'BAD_REQUEST', `${fieldName} must be a valid datetime`);
+  }
+  return parsed.toISOString();
+}
+
 function normalizeBoolean(value, fallback = true) {
   if (value === undefined || value === null || value === '') return fallback;
   if (typeof value === 'boolean') return value;
@@ -3712,6 +3721,8 @@ app.get('/v1/admin/classes', async (req, res, next) => {
     let trainerByClassId = {};
     let priceByClassId = {};
     let coachSharesByClassId = {};
+    let periodEndByClassId = {};
+    let maxMeetingsByClassId = {};
     if (classIds.length > 0) {
       const namespaceId = resolveNamespaceId(tenantId);
       const { rows: trainerRows } = await query(
@@ -3735,6 +3746,16 @@ app.get('/v1/admin/classes', async (req, res, next) => {
           .map((row) => [row.data?.class_id, normalizeCoachShares(row.data?.coach_shares, [])])
           .filter(([classId]) => Boolean(classId))
       );
+      periodEndByClassId = Object.fromEntries(
+        trainerRows
+          .map((row) => [row.data?.class_id, row.data?.period_end_at || null])
+          .filter(([classId]) => Boolean(classId))
+      );
+      maxMeetingsByClassId = Object.fromEntries(
+        trainerRows
+          .map((row) => [row.data?.class_id, Number(row.data?.max_meetings || 0)])
+          .filter(([classId]) => Boolean(classId))
+      );
     }
 
     return ok(res, {
@@ -3742,7 +3763,9 @@ app.get('/v1/admin/classes', async (req, res, next) => {
         ...row,
         trainer_name: trainerByClassId[row.class_id] || '',
         price: priceByClassId[row.class_id] || 0,
-        coach_shares: coachSharesByClassId[row.class_id] || []
+        coach_shares: coachSharesByClassId[row.class_id] || [],
+        period_end_at: periodEndByClassId[row.class_id] || null,
+        max_meetings: maxMeetingsByClassId[row.class_id] || 0
       }))
     });
   } catch (error) {
@@ -3765,6 +3788,10 @@ app.post('/v1/admin/classes', async (req, res, next) => {
     if (Number.isNaN(endAt.getTime())) {
       throw fail(400, 'BAD_REQUEST', 'end_at must be a valid datetime');
     }
+    const periodEndAt = normalizeOptionalDatetime(data.period_end_at, 'period_end_at', null);
+    if (periodEndAt && new Date(periodEndAt).getTime() < startAt.getTime()) {
+      throw fail(400, 'BAD_REQUEST', 'period_end_at must be after start_at');
+    }
 
     const event = await appendDomainEvent({
       tenantId,
@@ -3783,7 +3810,9 @@ app.post('/v1/admin/classes', async (req, res, next) => {
         price: asNonNegativeInteger(data.price, 'price', 0),
         capacity: asPositiveInteger(data.capacity, 'capacity', 20),
         start_at: startAt.toISOString(),
-        end_at: endAt.toISOString()
+        end_at: endAt.toISOString(),
+        period_end_at: periodEndAt,
+        max_meetings: asNonNegativeInteger(data.max_meetings, 'max_meetings', 0)
       },
       refs: {},
       uniqueIds: [{ scope: 'class.class_id', value: classId }]
@@ -3823,6 +3852,14 @@ app.patch('/v1/admin/classes/:classId', async (req, res, next) => {
     if (Number.isNaN(startAt.getTime()) || Number.isNaN(endAt.getTime())) {
       throw fail(400, 'BAD_REQUEST', 'start_at/end_at must be valid datetime');
     }
+    const periodEndAt = normalizeOptionalDatetime(
+      data.period_end_at,
+      'period_end_at',
+      latestScheduledData?.period_end_at || null
+    );
+    if (periodEndAt && new Date(periodEndAt).getTime() < startAt.getTime()) {
+      throw fail(400, 'BAD_REQUEST', 'period_end_at must be after start_at');
+    }
 
     const event = await appendDomainEvent({
       tenantId,
@@ -3844,7 +3881,9 @@ app.patch('/v1/admin/classes/:classId', async (req, res, next) => {
         price: asNonNegativeInteger(data.price, 'price', Number(latestScheduledData?.price || 0)),
         capacity: asPositiveInteger(data.capacity, 'capacity', current.capacity || latestScheduledData?.capacity || 20),
         start_at: startAt.toISOString(),
-        end_at: endAt.toISOString()
+        end_at: endAt.toISOString(),
+        period_end_at: periodEndAt,
+        max_meetings: asNonNegativeInteger(data.max_meetings, 'max_meetings', Number(latestScheduledData?.max_meetings || 0))
       },
       refs: {}
     });
