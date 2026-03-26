@@ -243,6 +243,10 @@ Last audited terhadap isi folder: **2026-03-25** (`foremoz/apps/api`, `foremoz/a
     - Requirement: untuk host, forgot password bisa reset dengan menuliskan `account name` (account slug) sebagai langkah verifikasi tenant scope.
   - [ ] Member sign-in (`/a/:account/member/signin`)
   - [ ] Passport/Event sign-in (`/events/signin`, `/passport/signin`)
+  - [ ] Security guard auth:
+    - [ ] Integrasi Cloudflare Turnstile untuk sign-in + forgot password.
+    - [ ] Backend wajib verifikasi token Turnstile.
+    - [ ] Rate limiting per IP + per email/account slug pada endpoint auth.
 - [~] Auth clarity `/web` vs `/events`
   - Remark: landing + sign-in sekarang sudah menampilkan penjelasan route auth agar user tahu `/web` untuk owner/tenant ops dan `/events` untuk passport/member participant.
   - Remark tambahan: default route kini diarahkan ke `/events` (Foremoz Events), dan di footer events ada CTA creator untuk pindah ke `/web`.
