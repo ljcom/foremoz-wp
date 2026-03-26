@@ -353,9 +353,6 @@ export default function PassportLandingPage() {
               <Link className="btn ghost small" to={isPassportSurface ? '/passport/signin' : accountMemberSigninHref || '/events/signin'}>
                 Passport/Event Login
               </Link>
-              <Link className="btn ghost small" to="/signin">
-                Owner/Tenant Login
-              </Link>
             </div>
           </div>
           <div className="passport-badge-list" style={{ marginTop: '0.75rem' }}>
