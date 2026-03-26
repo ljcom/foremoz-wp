@@ -257,12 +257,24 @@ function titleCaseWords(value) {
     .join(' ');
 }
 
+function stripTicketPriceTerms(value) {
+  const source = String(value || '').trim();
+  if (!source) return '';
+  return source
+    .replace(/\b(?:harga|price)\s*(?:tiket|ticket)?\s*(?:masuk)?\s*[:=]?\s*(?:rp|idr)?\s*[\d.,]+(?:\s*(?:rb|ribu|k|jt|juta))?\b/gi, '')
+    .replace(/\b(?:tiket|ticket)\s*(?:masuk)?\s*(?:[:=])?\s*(?:rp|idr)?\s*[\d.,]+(?:\s*(?:rb|ribu|k|jt|juta))?\b/gi, '')
+    .replace(/\b(?:rp|idr)\s*[\d.,]+(?:\s*(?:rb|ribu|k|jt|juta))?\b/gi, '')
+    .replace(/\s{2,}/g, ' ')
+    .replace(/[,:;.\-@|]+\s*$/g, '')
+    .trim();
+}
+
 function extractBriefContext(brief) {
   const clean = String(brief || '').trim();
   const source = clean.toLowerCase();
 
   const topicMatch = clean.match(/topik(?:nya)?\s*(?:tentang|:)\s*([^.,\n]+)/i);
-  const topic = String(topicMatch?.[1] || '').trim();
+  const topic = stripTicketPriceTerms(String(topicMatch?.[1] || '').trim());
 
   const locationMatch = clean.match(/di\s+(.+?)(?=\s*(?:tgl|tanggal|jam|,|\d{1,2}\s*(?:pagi|siang|sore|malam)|\d{1,2}:\d{2}|$))/i);
   const location = String(locationMatch?.[1] || '').trim();
@@ -274,6 +286,8 @@ function extractBriefContext(brief) {
     .replace(/^saya\s+(mau|ingin)\s+mengadakan\s+/i, '')
     .replace(/^kami\s+(mau|ingin)\s+mengadakan\s+/i, '')
     .replace(/topik(?:nya)?\s*(?:tentang|:).*/i, '')
+    .replace(/\b(?:harga|price)\s*(?:tiket|ticket)?\s*(?:masuk)?\s*[:=]?\s*(?:rp|idr)?\s*[\d.,]+(?:\s*(?:rb|ribu|k|jt|juta))?\b/gi, '')
+    .replace(/\b(?:tiket|ticket)\s*(?:masuk)?\s*(?:[:=])?\s*(?:rp|idr)?\s*[\d.,]+(?:\s*(?:rb|ribu|k|jt|juta))?\b/gi, '')
     .replace(/\s+(di|tgl|tanggal|jam)\b.*/i, '')
     .replace(/[.,]+$/g, '')
     .trim();
@@ -375,7 +389,7 @@ function generateDraftFromBrief(brief, currentStartAt = '') {
 
 function buildCatchyTitle(baseText, mode = 'rewrite', categories = []) {
   const clean = sentenceCase(
-    String(baseText || '')
+    stripTicketPriceTerms(String(baseText || ''))
       .replace(/\s+/g, ' ')
       .replace(/[|]+/g, '-')
       .trim()
