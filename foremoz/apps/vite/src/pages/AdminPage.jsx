@@ -156,6 +156,98 @@ function parseTimeRangeMinutesFromText(text) {
   return null;
 }
 
+function monthNameToNumber(rawMonth) {
+  const value = String(rawMonth || '').trim().toLowerCase();
+  const map = {
+    januari: 1,
+    feb: 2,
+    februari: 2,
+    mar: 3,
+    maret: 3,
+    apr: 4,
+    april: 4,
+    mei: 5,
+    jun: 6,
+    juni: 6,
+    jul: 7,
+    juli: 7,
+    agu: 8,
+    agustus: 8,
+    sep: 9,
+    september: 9,
+    okt: 10,
+    oktober: 10,
+    nov: 11,
+    november: 11,
+    des: 12,
+    desember: 12
+  };
+  return map[value] || null;
+}
+
+function to24Hour(hourInput, period = '') {
+  let hour = Number(hourInput);
+  if (!Number.isFinite(hour)) return null;
+  hour = Math.max(0, Math.min(23, Math.floor(hour)));
+  const p = String(period || '').trim().toLowerCase();
+  if (!p) return hour;
+  if (p === 'siang' && hour >= 1 && hour <= 11) return Math.min(23, hour + 12);
+  if (p === 'sore' && hour >= 1 && hour <= 11) return Math.min(23, hour + 12);
+  if (p === 'malam' && hour >= 1 && hour <= 11) return Math.min(23, hour + 12);
+  return hour;
+}
+
+function parseStartAtInputFromBrief(brief, fallbackStartAt = '') {
+  const text = String(brief || '').trim();
+  if (!text) return String(fallbackStartAt || '').trim();
+
+  let day = null;
+  let month = null;
+  let year = null;
+
+  const dateWithMonthName = text.match(/(?:tgl|tanggal)?\s*(\d{1,2})\s+([a-zA-Z]+)\s+(\d{4})/i);
+  if (dateWithMonthName) {
+    day = Number(dateWithMonthName[1]);
+    month = monthNameToNumber(dateWithMonthName[2]);
+    year = Number(dateWithMonthName[3]);
+  } else {
+    const dateNumeric = text.match(/(?:tgl|tanggal)?\s*(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/i);
+    if (dateNumeric) {
+      day = Number(dateNumeric[1]);
+      month = Number(dateNumeric[2]);
+      year = Number(dateNumeric[3]);
+    }
+  }
+
+  const explicitRange = parseTimeRangeMinutesFromText(text);
+  let hour = explicitRange ? Math.floor(explicitRange.start / 60) : null;
+  let minute = explicitRange ? explicitRange.start % 60 : 0;
+  if (hour === null) {
+    const timeMatch = text.match(/(?:jam\s*)?(\d{1,2})(?::(\d{2}))?\s*(pagi|siang|sore|malam)?/i);
+    if (timeMatch) {
+      hour = to24Hour(timeMatch[1], timeMatch[3]);
+      minute = Number(timeMatch[2] || 0);
+    }
+  }
+
+  const fallback = String(fallbackStartAt || '').trim();
+  if (!day || !month || !year) {
+    if (fallback) return fallback;
+    return '';
+  }
+  if (!Number.isFinite(hour) || hour === null) {
+    if (fallback) return fallback;
+    hour = 8;
+    minute = 0;
+  }
+  const yyyy = String(year).padStart(4, '0');
+  const mm = String(Math.max(1, Math.min(12, month))).padStart(2, '0');
+  const dd = String(Math.max(1, Math.min(31, day))).padStart(2, '0');
+  const hh = String(Math.max(0, Math.min(23, hour))).padStart(2, '0');
+  const min = String(Math.max(0, Math.min(59, minute))).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}T${hh}:${min}`;
+}
+
 function titleCaseWords(value) {
   return String(value || '')
     .trim()
@@ -227,6 +319,7 @@ function generateDraftFromBrief(brief, currentStartAt = '') {
   const clean = String(brief || '').trim();
   const context = extractBriefContext(clean);
   const categories = suggestCategoriesFromText(clean);
+  const startAtInput = parseStartAtInputFromBrief(clean, currentStartAt);
   const range = parseTimeRangeMinutesFromText(clean);
   const durationMinutes = range && Number.isFinite(range.end) && Number.isFinite(range.start)
     ? Math.max(60, range.end - range.start)
@@ -272,10 +365,11 @@ function generateDraftFromBrief(brief, currentStartAt = '') {
     eventName: normalizedTopic,
     description,
     categories,
-    scheduleText: buildScheduleTemplate(currentStartAt, normalizedTopic, clean),
+    scheduleText: buildScheduleTemplate(startAtInput || currentStartAt, normalizedTopic, clean),
     imageKeyword: `${categories[0]} ${topicLabel} event`,
     durationMinutes,
-    suggestedPrice
+    suggestedPrice,
+    startAtInput
   };
 }
 
@@ -1710,6 +1804,7 @@ export default function AdminPage() {
       description: draft.description,
       categories_text: draft.categories.join(', '),
       schedule_items_text: draft.scheduleText,
+      start_at: draft.startAtInput || prev.start_at,
       duration_value: mappedDuration.duration_value,
       duration_unit: mappedDuration.duration_unit,
       price: String(draft.suggestedPrice || prev.price || '0')
