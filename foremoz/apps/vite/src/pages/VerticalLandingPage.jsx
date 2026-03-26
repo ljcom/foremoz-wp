@@ -217,7 +217,7 @@ export default function VerticalLandingPage() {
       <header className="topbar">
         <div className="brand">{`Foremoz ${label}`}</div>
         <nav>
-          <Link to="/newevent">Home</Link>
+          <Link to="/host">Home</Link>
           <Link to="/events">Events</Link>
           {navVerticals.map((item) => (
             <Link key={item.slug} to={`/${item.slug}`}>

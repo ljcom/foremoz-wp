@@ -82,7 +82,7 @@ export default function PassportLandingPage() {
   const [error, setError] = useState('');
   const verticalLabels = listVerticalConfigs().map((item) => item.label);
   const verticalListText = verticalLabels.join(', ');
-  const homeHref = isAccountSurface ? `/a/${encodeURIComponent(normalizedAccount)}` : '/newevent';
+  const homeHref = isAccountSurface ? `/a/${encodeURIComponent(normalizedAccount)}` : '/host';
   const accountMemberSigninHref = isAccountSurface
     ? `/a/${encodeURIComponent(normalizedAccount)}/member/signin`
     : null;
@@ -486,7 +486,7 @@ export default function PassportLandingPage() {
         <h2>Ingin bikin event sendiri di Foremoz?</h2>
         <p>Untuk host/owner yang ingin publish event baru dan kelola operasional tenant, lanjut ke Foremoz Web.</p>
         <div className="hero-actions">
-          <Link className="btn ghost" to="/newevent">
+          <Link className="btn ghost" to="/host">
             Create New Events
           </Link>
         </div>

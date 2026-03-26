@@ -632,7 +632,7 @@ export default function SalesPage() {
         </section>
       ) : null}
 
-      <footer className="dash-foot"><Link to="/newevent">Back to newevent</Link></footer>
+      <footer className="dash-foot"><Link to="/host">Back to host</Link></footer>
     </main>
   );
 }

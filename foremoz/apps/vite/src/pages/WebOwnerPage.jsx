@@ -359,7 +359,7 @@ export default function WebOwnerPage() {
         `owner.setup.saved package ${payload.package_plan} namespace foremoz:${payload.tenant_id} chain branch:${payload.branch_id}`
       );
       setMenu('profile');
-      navigate('/newevent/owner', { replace: true });
+      navigate('/host/owner', { replace: true });
     } catch (error) {
       setFeedback(error.message);
     } finally {
@@ -801,7 +801,7 @@ export default function WebOwnerPage() {
 
   function signOut() {
     clearSession();
-    navigate('/newevent', { replace: true });
+    navigate('/host', { replace: true });
   }
 
   async function deleteAccountPermanently(e) {
@@ -819,7 +819,7 @@ export default function WebOwnerPage() {
       clearSession();
       setOwnerSetup(null);
       setFeedback(`owner.account.deleted ${tenantId}`);
-      navigate('/newevent', { replace: true });
+      navigate('/host', { replace: true });
     } catch (error) {
       setFeedback(error.message);
     } finally {
@@ -1500,7 +1500,7 @@ export default function WebOwnerPage() {
       {feedback ? <p className="feedback">{feedback}</p> : null}
 
       <footer className="dash-foot">
-        <Link to="/newevent">Back to newevent landing</Link>
+        <Link to="/host">Back to host landing</Link>
       </footer>
     </main>
   );
