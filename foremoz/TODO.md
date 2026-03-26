@@ -305,6 +305,11 @@ Last audited terhadap isi folder: **2026-03-26** (`foremoz/apps/api`, `foremoz/a
         - Remark: final score via checkout+rank sudah ada, belum ada builder field terpisah untuk session.
   - [~] Class (multiple time)
     - [x] general fields
+    - [ ] AI assist untuk class setup/edit
+      - [ ] Generate draft dari brief singkat (`class_name`, deskripsi, coach, price, duration/schedule starter).
+      - [ ] Rewrite/improve copy per section (judul, deskripsi, instruction/notes).
+      - [ ] Bantu parsing brief kompleks untuk jadwal class berulang / multi-session.
+      - [ ] Simpan metadata hasil AI (`generated_by_ai`, `prompt_snapshot`) untuk audit/editability.
     - [ ] custom fields
       - [ ] registration
       - [ ] checkin/out
