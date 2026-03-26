@@ -1684,6 +1684,10 @@ export default function AdminPage() {
     item.phone.toLowerCase().includes(trainerQuery.toLowerCase()) ||
     item.specialization.toLowerCase().includes(trainerQuery.toLowerCase())
   );
+  const coachLookupUsers = users.filter((item) => {
+    const itemRole = String(item.role || '').toLowerCase();
+    return itemRole === 'pt' || itemRole === 'owner';
+  });
   const ptLookupOptions = users.filter((item) => {
     const itemRole = String(item.role || '').toLowerCase();
     if (itemRole !== 'pt') return false;
@@ -1691,10 +1695,14 @@ export default function AdminPage() {
   });
   const trainerNameOptions = useMemo(() => {
     const names = new Set();
-    ptLookupOptions.forEach((item) => {
+    coachLookupUsers.forEach((item) => {
       const fullName = String(item.full_name || '').trim();
       if (fullName) names.add(fullName);
     });
+    if (String(session?.role || '').toLowerCase() === 'owner') {
+      const ownerName = String(session?.user?.fullName || '').trim();
+      if (ownerName) names.add(ownerName);
+    }
     (events || []).forEach((item) => {
       parseTrainerTokens(item.trainer_name).forEach((name) => names.add(name));
     });
@@ -1710,7 +1718,7 @@ export default function AdminPage() {
       if (trainerName) names.add(trainerName);
     });
     return [...names].sort((a, b) => a.localeCompare(b));
-  }, [ptLookupOptions, events, classes, packages, trainers]);
+  }, [coachLookupUsers, session, events, classes, packages, trainers]);
   const memberRelationOptions = useMemo(() => {
     const eventOptions = (events || []).map((item) => ({
       kind: 'event',
@@ -3924,7 +3932,7 @@ export default function AdminPage() {
                             </label>
                           ) : (
                             <p className="feedback">
-                              Belum ada {creatorLabelLower} aktif di tenant. Tambahkan user role `pt` dulu atau isi manual.
+                              Belum ada {creatorLabelLower} aktif di tenant. Tambahkan user role `pt` atau `owner`, atau isi manual.
                             </p>
                           )}
                           <label>
@@ -4657,7 +4665,7 @@ export default function AdminPage() {
                         </label>
                       ) : (
                         <p className="feedback">
-                          Belum ada {creatorLabelLower} aktif di tenant. Tambahkan user role `pt` dulu atau isi manual.
+                          Belum ada {creatorLabelLower} aktif di tenant. Tambahkan user role `pt` atau `owner`, atau isi manual.
                         </p>
                       )}
                       <label>
