@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import LanguageSwitcher from '../components/LanguageSwitcher.jsx';
+import { useI18n } from '../i18n.js';
 import { apiJson } from '../lib.js';
 import { getVerticalConfig, getVerticalLabel, guessVerticalSlugByText } from '../industry-jargon.js';
 
@@ -15,6 +17,86 @@ function visualForVertical(slug) {
 }
 
 export default function AccountPublicPage() {
+  const { language } = useI18n();
+  const copy = language === 'en'
+    ? {
+        events: 'Events',
+        signUp: 'Sign up',
+        signIn: 'Sign in',
+        heroTitle: '{creator} with proven experience, an active community, and visible progress.',
+        heroDescriptionWithPlace: '{place} - A place where {participant} grow through consistent events and classes.',
+        heroDescriptionNoPlace: 'A place where {participant} grow through consistent events and classes.',
+        joinNow: 'Join Now',
+        alreadyMember: 'I Am Already a Member',
+        quickActions: 'Quick Actions',
+        whyJoin: 'Why Join',
+        whyJoinTitle: '{name} is built for conversion, not just a static profile.',
+        program: 'Program',
+        programTitle: 'Pick your favorite program',
+        takeProgram: 'Choose Program',
+        howToStart: 'How To Start',
+        exploreEvents: 'Explore Events',
+        startMembership: 'Start Membership',
+        coach: 'Coach',
+        coachTitle: 'Coaches selected for you',
+        joinCoach: 'Join {coach}',
+        startToday: 'Start Today',
+        startTodayTitle: 'Bring your friends and start together today',
+        registerMember: 'Register Member',
+        quickJoinMember: 'Become a member',
+        quickBook: 'Book event / class',
+        quickCheckin: 'Fast check-in',
+        quickProgress: 'See progress',
+        reason1Title: 'Get into an active ecosystem fast',
+        reason1Body: '{participant} can immediately pick an event, class, or package without confusing onboarding.',
+        reason2Title: 'Clear creators and coaches',
+        reason2Body: '{creator} show up as the face of the brand, so trust and expectations form earlier.',
+        reason3Title: 'Shorter path from discovery to registration',
+        reason3Body: 'Primary CTAs point directly to member signup, event listing, and repeat visits through sign in.',
+        flow1: 'Find a brand and creator that fit you',
+        flow2: 'See active events, classes, and programs',
+        flow3: 'Sign up as a member',
+        flow4: 'Come back for booking, check-in, and progress'
+      }
+    : {
+        events: 'Events',
+        signUp: 'Sign up',
+        signIn: 'Sign in',
+        heroTitle: '{creator} berpengalaman, komunitas aktif, progress nyata.',
+        heroDescriptionWithPlace: '{place} - Tempat {participant} berkembang lewat event dan class yang konsisten.',
+        heroDescriptionNoPlace: 'Tempat {participant} berkembang lewat event dan class yang konsisten.',
+        joinNow: 'Join Sekarang',
+        alreadyMember: 'Saya Sudah Member',
+        quickActions: 'Quick Actions',
+        whyJoin: 'Why Join',
+        whyJoinTitle: '{name} dibuat untuk conversion, bukan sekadar profile statis.',
+        program: 'Program',
+        programTitle: 'Pilih program favoritmu',
+        takeProgram: 'Ambil Program',
+        howToStart: 'How To Start',
+        exploreEvents: 'Explore Events',
+        startMembership: 'Start Membership',
+        coach: 'Coach',
+        coachTitle: 'Coach pilihan untuk kamu',
+        joinCoach: 'Join {coach}',
+        startToday: 'Start Today',
+        startTodayTitle: 'Ajak teman dan mulai bareng hari ini',
+        registerMember: 'Daftar Member',
+        quickJoinMember: 'Daftar member',
+        quickBook: 'Booking event / class',
+        quickCheckin: 'Check-in cepat',
+        quickProgress: 'Lihat progress',
+        reason1Title: 'Masuk cepat ke ekosistem yang aktif',
+        reason1Body: '{participant} bisa langsung pilih event, class, atau package tanpa onboarding yang membingungkan.',
+        reason2Title: 'Ada creator dan coach yang jelas',
+        reason2Body: '{creator} tampil sebagai wajah utama brand, jadi trust dan expectation lebih kebentuk sejak awal.',
+        reason3Title: 'Dari discover ke register lebih pendek',
+        reason3Body: 'CTA utama diarahkan langsung ke member signup, event list, dan repeat visit lewat sign in.',
+        flow1: 'Temukan brand dan creator yang cocok',
+        flow2: 'Lihat event / class / program yang sedang aktif',
+        flow3: 'Sign up sebagai member',
+        flow4: 'Kembali untuk booking, check-in, dan progress'
+      };
   const { account } = useParams();
   const [accountInfo, setAccountInfo] = useState(null);
   const verticalSlug = String(accountInfo?.industry_slug || '').trim().toLowerCase()
@@ -46,10 +128,10 @@ export default function AccountPublicPage() {
   }, [account]);
 
   const quickActions = [
-    { icon: 'fa-solid fa-user-plus', title: 'Daftar member' },
-    { icon: 'fa-solid fa-calendar-check', title: 'Booking event / class' },
-    { icon: 'fa-solid fa-qrcode', title: 'Check-in cepat' },
-    { icon: 'fa-solid fa-trophy', title: 'Lihat progress' }
+    { icon: 'fa-solid fa-user-plus', title: copy.quickJoinMember },
+    { icon: 'fa-solid fa-calendar-check', title: copy.quickBook },
+    { icon: 'fa-solid fa-qrcode', title: copy.quickCheckin },
+    { icon: 'fa-solid fa-trophy', title: copy.quickProgress }
   ];
 
   const promoPrograms = [
@@ -93,23 +175,23 @@ export default function AccountPublicPage() {
   ];
   const conversionReasons = [
     {
-      title: 'Masuk cepat ke ekosistem yang aktif',
-      body: `${participantLabel} bisa langsung pilih event, class, atau package tanpa onboarding yang membingungkan.`
+      title: copy.reason1Title,
+      body: copy.reason1Body.replace('{participant}', participantLabel.toLowerCase())
     },
     {
-      title: 'Ada creator dan coach yang jelas',
-      body: `${creatorLabel} tampil sebagai wajah utama brand, jadi trust dan expectation lebih kebentuk sejak awal.`
+      title: copy.reason2Title,
+      body: copy.reason2Body.replace('{creator}', creatorLabel)
     },
     {
-      title: 'Dari discover ke register lebih pendek',
-      body: 'CTA utama diarahkan langsung ke member signup, event list, dan repeat visit lewat sign in.'
+      title: copy.reason3Title,
+      body: copy.reason3Body
     }
   ];
   const conversionFlow = [
-    'Temukan brand dan creator yang cocok',
-    'Lihat event / class / program yang sedang aktif',
-    'Sign up sebagai member',
-    'Kembali untuk booking, check-in, dan progress'
+    copy.flow1,
+    copy.flow2,
+    copy.flow3,
+    copy.flow4
   ];
 
   return (
@@ -117,10 +199,11 @@ export default function AccountPublicPage() {
       <header className="topbar">
         <div className="brand">{displayName || account}</div>
         <nav>
-          <Link to={`/a/${account}/events`}>Events</Link>
-          <Link to={`/a/${account}/member/signup`}>Sign up</Link>
+          <Link to={`/a/${account}/events`}>{copy.events}</Link>
+          <Link to={`/a/${account}/member/signup`}>{copy.signUp}</Link>
+          <LanguageSwitcher compact />
           <Link className="btn small" to={`/a/${account}/member/signin`}>
-            Sign in
+            {copy.signIn}
           </Link>
         </nav>
       </header>
@@ -128,18 +211,18 @@ export default function AccountPublicPage() {
       <section className="hero web-hero-visual">
         <div>
           <p className="eyebrow">{verticalLabel}</p>
-          <h1>{`${creatorLabel} berpengalaman, komunitas aktif, progress nyata.`}</h1>
+          <h1>{copy.heroTitle.replace('{creator}', creatorLabel)}</h1>
           <p>
             {placeLabel
-              ? `${placeLabel} - Tempat ${participantLabel.toLowerCase()} berkembang lewat event dan class yang konsisten.`
-              : `Tempat ${participantLabel.toLowerCase()} berkembang lewat event dan class yang konsisten.`}
+              ? copy.heroDescriptionWithPlace.replace('{place}', placeLabel).replace('{participant}', participantLabel.toLowerCase())
+              : copy.heroDescriptionNoPlace.replace('{participant}', participantLabel.toLowerCase())}
           </p>
           <div className="hero-actions">
             <Link className="btn" to={`/a/${account}/member/signup`}>
-              Join Sekarang
+              {copy.joinNow}
             </Link>
             <Link className="btn ghost" to={`/a/${account}/member/signin`}>
-              Saya Sudah Member
+              {copy.alreadyMember}
             </Link>
           </div>
         </div>
@@ -154,7 +237,7 @@ export default function AccountPublicPage() {
       </section>
 
       <section className="landing-section">
-        <p className="eyebrow">Quick Actions</p>
+        <p className="eyebrow">{copy.quickActions}</p>
         <div className="feature-grid web-icon-grid">
           {quickActions.map((item) => (
             <article className="feature-card" key={item.title}>
@@ -168,8 +251,8 @@ export default function AccountPublicPage() {
       </section>
 
       <section className="landing-section">
-        <p className="eyebrow">Why Join</p>
-        <h2 className="landing-title">{`${displayName || account} dibuat untuk conversion, bukan sekadar profile statis.`}</h2>
+        <p className="eyebrow">{copy.whyJoin}</p>
+        <h2 className="landing-title">{copy.whyJoinTitle.replace('{name}', displayName || account)}</h2>
         <div className="feature-grid">
           {conversionReasons.map((item) => (
             <article className="feature-card" key={item.title}>
@@ -183,8 +266,8 @@ export default function AccountPublicPage() {
       </section>
 
       <section className="landing-section">
-        <p className="eyebrow">Program</p>
-        <h2 className="landing-title">Pilih program favoritmu</h2>
+        <p className="eyebrow">{copy.program}</p>
+        <h2 className="landing-title">{copy.programTitle}</h2>
         <div className="case-grid web-visual-grid">
           {promoPrograms.map((program) => (
             <article className="feature-card case-card web-visual-card" key={program.title}>
@@ -193,7 +276,7 @@ export default function AccountPublicPage() {
                 <h3>{program.title}</h3>
                 <div className="hero-actions">
                   <Link className="btn small" to={`/a/${account}/member/signup`}>
-                    Ambil Program
+                    {copy.takeProgram}
                   </Link>
                 </div>
               </div>
@@ -203,7 +286,7 @@ export default function AccountPublicPage() {
       </section>
 
       <section className="landing-section">
-        <p className="eyebrow">How To Start</p>
+        <p className="eyebrow">{copy.howToStart}</p>
         <div className="card">
           <div className="entity-list">
             {conversionFlow.map((item, index) => (
@@ -217,18 +300,18 @@ export default function AccountPublicPage() {
           </div>
           <div className="hero-actions" style={{ marginTop: '1rem' }}>
             <Link className="btn" to={`/a/${account}/events`}>
-              Explore Events
+              {copy.exploreEvents}
             </Link>
             <Link className="btn ghost" to={`/a/${account}/member/signup`}>
-              Start Membership
+              {copy.startMembership}
             </Link>
           </div>
         </div>
       </section>
 
       <section className="landing-section">
-        <p className="eyebrow">Coach</p>
-        <h2 className="landing-title">Coach pilihan untuk kamu</h2>
+        <p className="eyebrow">{copy.coach}</p>
+        <h2 className="landing-title">{copy.coachTitle}</h2>
         <div className="coach-grid">
           {coachProfiles.map((coach) => (
             <article className="coach-card" key={coach.name}>
@@ -239,7 +322,7 @@ export default function AccountPublicPage() {
                 <p className="coach-schedule">{coach.schedule}</p>
               </div>
               <Link className="btn small" to={`/a/${account}/member/signup`}>
-                Join {coach.name}
+                {copy.joinCoach.replace('{coach}', coach.name)}
               </Link>
             </article>
           ))}
@@ -247,14 +330,14 @@ export default function AccountPublicPage() {
       </section>
 
       <section className="cta">
-        <p className="eyebrow">Start Today</p>
-        <h2>Ajak teman dan mulai bareng hari ini</h2>
+        <p className="eyebrow">{copy.startToday}</p>
+        <h2>{copy.startTodayTitle}</h2>
         <div className="hero-actions">
           <Link className="btn" to={`/a/${account}/member/signup`}>
-            Daftar Member
+            {copy.registerMember}
           </Link>
           <Link className="btn ghost" to={`/a/${account}/member/signin`}>
-            Sign In
+            {copy.signIn}
           </Link>
         </div>
       </section>
