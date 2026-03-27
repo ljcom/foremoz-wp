@@ -1,6 +1,7 @@
-# Foremoz Fitness API (MVP start)
+# Foremoz Core API
 
-API ini adalah lapisan domain untuk fitness operations di atas EventDB write layer.
+API ini adalah lapisan domain core di atas EventDB write layer.
+Implementasi aktif saat ini masih paling banyak melayani fitness operations.
 Mode terbaru memprioritaskan creator-led event flow (`creator -> event -> participant`) dan tetap mempertahankan institution operations sebagai layer lanjutan.
 
 ## Fitur awal
@@ -33,8 +34,8 @@ Tambahkan konfigurasi JWT di `.env`:
 
 ```bash
 JWT_SECRET=dev-change-this-secret
-JWT_ISSUER=foremoz-fitness-api
-JWT_AUDIENCE=foremoz-fitness-member
+JWT_ISSUER=foremoz-core-api
+JWT_AUDIENCE=foremoz-core-member
 JWT_EXPIRES_IN_SEC=86400
 ```
 

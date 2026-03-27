@@ -1,5 +1,5 @@
 {
-  "name": "foremoz-fitness-workspace",
+  "name": "foremoz-core-workspace",
   "private": true,
   "version": "0.1.0",
   "scripts": {
@@ -7,10 +7,9 @@
     "web:mockup": "VITE_APP_MODE=mock VITE_MOCKUP_OPEN_ACCESS=true npm --prefix ./apps/vite run dev",
     "web": "VITE_APP_MODE=full VITE_MOCKUP_OPEN_ACCESS=false npm --prefix ./apps/vite run dev",
     "mockup": "npm run web:mockup",
-    "backend:setup": "DATABASE_URL=postgresql://postgres:ljcom2x@localhost:15432/eventdb_foremoz npm --prefix ../eventdb run db:schema && npm --prefix ./apps/api run db:read-model",
+    "setup:core": "DATABASE_URL=postgresql://postgres:ljcom2x@localhost:15432/eventdb_foremoz npm --prefix ../eventdb run db:schema && npm --prefix ./apps/api run db:read-model",
     "backend:eventdb": "npm --prefix ../eventdb run dev",
     "backend:api": "npm --prefix ./apps/api run dev",
-    "setup:backend": "DATABASE_URL=postgresql://postgres:ljcom2x@localhost:15432/eventdb_foremoz npm --prefix ../eventdb run db:schema && npm --prefix ./apps/api run db:read-model",
     "full": "sh -c 'DATABASE_URL=postgresql://postgres:ljcom2x@localhost:15432/eventdb_foremoz npm --prefix ../eventdb run dev & EVENTDB_PID=$!; npm --prefix ./apps/api run dev & API_PID=$!; VITE_APP_MODE=full VITE_MOCKUP_OPEN_ACCESS=false npm --prefix ./apps/vite run dev; kill $EVENTDB_PID $API_PID 2>/dev/null || true'",
     "fullstack": "npm run full"
   }

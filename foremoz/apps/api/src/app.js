@@ -6539,7 +6539,7 @@ app.use((error, _req, res, _next) => {
 
 const server = app.listen(config.port, () => {
   // eslint-disable-next-line no-console
-  console.log(`foremoz-fitness-api listening on :${config.port}`);
+  console.log(`foremoz-core-api listening on :${config.port}`);
 });
 
 async function shutdown() {
