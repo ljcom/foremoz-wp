@@ -1,4 +1,4 @@
-# Foremoz Fitness Implementation Workspace
+# Foremoz Implementation Workspace
 
 Repository ini mengimplementasikan vertical `fitness` berdasarkan whitepaper Active di `paper/industries/active`.
 
