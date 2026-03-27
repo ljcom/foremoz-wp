@@ -1,9 +1,12 @@
 import { useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import LanguageSwitcher from '../components/LanguageSwitcher.jsx';
 import TurnstileWidget from '../components/TurnstileWidget.jsx';
+import { useI18n } from '../i18n.js';
 import { normalizeEmail, passportApiJson, requirePassportField, setPassportSession } from '../passport-client.js';
 
 export default function PassportSignUpPage() {
+  const { t } = useI18n();
   const navigate = useNavigate();
   const location = useLocation();
   const authBase = location.pathname.startsWith('/passport') ? '/passport' : '/events';
@@ -74,24 +77,25 @@ export default function PassportSignUpPage() {
   return (
     <main className="dashboard">
       <section className="card wide">
-        <p className="eyebrow">Passport Sign up</p>
-        <h1>Create Passport Account</h1>
-        <p className="sub">
-          Bangun identity publik kamu sejak awal supaya event history, capability, dan profile publik terkumpul di satu tempat.
-        </p>
+        <div className="page-toolbar">
+          <p className="eyebrow">{t('passport.signUp.eyebrow')}</p>
+          <LanguageSwitcher compact />
+        </div>
+        <h1>{t('passport.signUp.title')}</h1>
+        <p className="sub">{t('passport.signUp.subtitle')}</p>
         <div className="ops-grid" style={{ marginBottom: '1rem' }}>
           <article className="card">
-            <p className="eyebrow">Identity Layer</p>
-            <p className="sub">Passport dipakai untuk public profile, event participation record, dan social proof dasar lintas account.</p>
+            <p className="eyebrow">{t('passport.signUp.identityLayer')}</p>
+            <p className="sub">{t('passport.signUp.identityLayerDescription')}</p>
           </article>
           <article className="card">
-            <p className="eyebrow">After Sign Up</p>
-            <p className="sub">Kamu akan lanjut ke onboarding untuk pilih goal, interest, dan privacy preset sebelum masuk dashboard.</p>
+            <p className="eyebrow">{t('passport.signUp.afterTitle')}</p>
+            <p className="sub">{t('passport.signUp.afterDescription')}</p>
           </article>
         </div>
         <form className="form" onSubmit={onSubmit}>
           <label>
-            Full name
+            {t('common.fullName')}
             <input
               name="fullName"
               value={form.fullName}
@@ -99,7 +103,7 @@ export default function PassportSignUpPage() {
             />
           </label>
           <label>
-            Email
+            {t('common.email')}
             <input
               name="email"
               type="email"
@@ -108,7 +112,7 @@ export default function PassportSignUpPage() {
             />
           </label>
           <label>
-            Password
+            {t('common.password')}
             <input
               name="password"
               type="password"
@@ -119,15 +123,15 @@ export default function PassportSignUpPage() {
           {error ? <p className="error">{error}</p> : null}
           <div className="hero-actions">
             <button className="btn" type="submit" disabled={loading}>
-              {loading ? 'Creating...' : 'Create passport'}
+              {loading ? t('passport.signUp.loading') : t('passport.signUp.submit')}
             </button>
             <Link className="btn ghost" to={signinHref}>
-              Already have account
+              {t('passport.signUp.alternate')}
             </Link>
           </div>
           <TurnstileWidget onToken={setTurnstileToken} resetSignal={turnstileResetSignal} />
           <p className="mini-note" style={{ marginTop: '0.75rem' }}>
-            Cocok dipakai oleh creator maupun participant yang ingin punya profile publik di Foremoz.
+            {t('passport.signUp.note')}
           </p>
         </form>
       </section>

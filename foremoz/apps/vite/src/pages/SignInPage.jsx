@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import AuthLayout from '../components/AuthLayout.jsx';
 import TurnstileWidget from '../components/TurnstileWidget.jsx';
+import { useI18n } from '../i18n.js';
 import {
   apiJson,
   getOwnerSetup,
@@ -16,6 +17,7 @@ import {
 } from '../lib.js';
 
 export default function SignInPage() {
+  const { t } = useI18n();
   const navigate = useNavigate();
   const { account } = useParams();
   const [searchParams] = useSearchParams();
@@ -195,45 +197,45 @@ export default function SignInPage() {
 
   return (
     <AuthLayout
-      title={isAccountSignin ? `Tenant sign in - ${account}` : 'Owner sign in'}
+      title={isAccountSignin ? t('auth.tenant.title', { account }) : t('auth.owner.title')}
       subtitle={
         isAccountSignin
-          ? 'Sign in as tenant user (admin, CS, sales, PT). Halaman ini bukan untuk passport event.'
-          : 'Sign in as owner untuk operasional tenant. Untuk event participant gunakan Passport login.'
+          ? t('auth.tenant.subtitle')
+          : t('auth.owner.subtitle')
       }
       alternateHref={isAccountSignin ? '' : '/signup'}
-      alternateText={isAccountSignin ? '' : 'Need owner account? Create one'}
+      alternateText={isAccountSignin ? '' : t('auth.owner.alternate')}
     >
       <form className="card form" onSubmit={submit}>
-        {activationNotice ? <p className="feedback">Akun sudah aktif. Silakan sign in.</p> : null}
-        {resetNotice ? <p className="feedback">Password berhasil direset. Silakan sign in dengan password baru.</p> : null}
+        {activationNotice ? <p className="feedback">{t('auth.activationNotice')}</p> : null}
+        {resetNotice ? <p className="feedback">{t('auth.resetNotice')}</p> : null}
         <label>
-          Email
+          {t('common.email')}
           <input name="email" type="email" value={form.email} onChange={handleChange} />
         </label>
         <label>
-          Password
+          {t('common.password')}
           <input name="password" type="password" value={form.password} onChange={handleChange} />
         </label>
         {error ? <p className="error">{error}</p> : null}
         <button className="btn" type="submit" disabled={loading}>
-          {loading ? 'Signing in...' : 'Sign in'}
+          {loading ? t('common.signInLoading') : t('common.signIn')}
         </button>
         <TurnstileWidget onToken={setTurnstileToken} resetSignal={turnstileResetSignal} />
         <p style={{ margin: '0.35rem 0 0' }}>
           <Link className="link-inline" to={isAccountSignin && account ? `/a/${account}/forgot-password` : '/forgot-password'}>
-            Forgot password
+            {t('common.forgotPassword')}
           </Link>
         </p>
       </form>
       <div className="card" style={{ marginTop: '0.75rem', borderStyle: 'dashed' }}>
-        <p className="eyebrow">Need different login?</p>
+        <p className="eyebrow">{t('auth.differentLogin')}</p>
         <div className="hero-actions">
           <Link className="btn ghost small" to="/events/signin">
-            Passport/Event Login
+            {t('auth.passportLogin')}
           </Link>
           <Link className="btn ghost small" to={isAccountSignin && account ? `/a/${account}/member/signin` : '/a/tn_001/member/signin'}>
-            Member Portal Login
+            {t('auth.memberPortalLogin')}
           </Link>
         </div>
       </div>

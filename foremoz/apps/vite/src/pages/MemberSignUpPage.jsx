@@ -3,9 +3,11 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useParams } from 'react-router-dom';
 import AuthLayout from '../components/AuthLayout.jsx';
 import TurnstileWidget from '../components/TurnstileWidget.jsx';
+import { useI18n } from '../i18n.js';
 import { apiJson, requireField, setSession } from '../lib.js';
 
 export default function MemberSignUpPage() {
+  const { t } = useI18n();
   const navigate = useNavigate();
   const { account } = useParams();
   const [form, setForm] = useState({ fullName: '', phone: '', email: '', password: '' });
@@ -86,41 +88,41 @@ export default function MemberSignUpPage() {
 
   return (
     <AuthLayout
-      title="Member signup"
-      subtitle={`Join sebagai member${account ? ` @${account}` : ''} untuk akses membership, booking, dan payment flow.`}
+      title={t('auth.memberSignup.title')}
+      subtitle={t('auth.memberSignup.subtitle', { accountSuffix: account ? ` @${account}` : '' })}
       alternateHref={`/a/${account || 'tn_001'}/member/signin`}
-      alternateText="Already member? Sign in"
+      alternateText={t('auth.memberSignup.alternate')}
     >
       <form className="card form" onSubmit={submit}>
         <div className="card" style={{ marginBottom: '1rem', borderStyle: 'dashed' }}>
-          <p className="eyebrow">What You Unlock</p>
-          <p className="sub">Setelah signup, kamu langsung masuk ke portal member untuk lihat event yang diikuti, status membership, PT package, booking class, dan riwayat payment.</p>
+          <p className="eyebrow">{t('auth.memberSignup.unlockTitle')}</p>
+          <p className="sub">{t('auth.memberSignup.unlockDescription')}</p>
         </div>
         <label>
-          Full name
+          {t('common.fullName')}
           <input value={form.fullName} onChange={(e) => setForm((p) => ({ ...p, fullName: e.target.value }))} />
         </label>
         <label>
-          Phone
+          {t('common.phone')}
           <input value={form.phone} onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))} />
         </label>
         <label>
-          Email
+          {t('common.email')}
           <input type="email" value={form.email} onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))} />
         </label>
         <label>
-          Password
+          {t('common.password')}
           <input type="password" value={form.password} onChange={(e) => setForm((p) => ({ ...p, password: e.target.value }))} />
         </label>
         {error ? <p className="error">{error}</p> : null}
         <button className="btn" type="submit" disabled={loading}>
-          {loading ? 'Creating account...' : 'Create member account'}
+          {loading ? t('common.createLoading') : t('auth.memberSignup.submit')}
         </button>
         <TurnstileWidget onToken={setTurnstileToken} resetSignal={turnstileResetSignal} />
         {account ? (
           <p style={{ margin: '0.25rem 0 0' }}>
             <Link className="link-inline" to={`/a/${account}`}>
-              Back to public account
+              {t('auth.memberSignIn.backToAccount')}
             </Link>
           </p>
         ) : null}

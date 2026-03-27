@@ -186,6 +186,19 @@ Last audited terhadap isi folder: **2026-03-27** (`foremoz/apps/api`, `foremoz/a
 
 ## Product Scope Backlog (69%)
 
+### Localization / Language Pack
+- [~] Foundation i18n untuk web/app admin dengan language pack `id` dan `en`.
+  - Semua copy UI dipindah dari hardcoded string ke dictionary/translation key.
+  - Scope awal: landing, auth, event browse/detail/register, passport, admin shell.
+  - Remark: provider i18n, switcher `ID/EN`, persistence local, dan translate awal untuk landing web + flow auth utama sudah masuk. Surface event/passport/admin lain masih perlu dirapikan bertahap.
+- [ ] Tentukan language resolution order untuk experience publik dan area login.
+  - Prioritas yang disarankan: `user preference` -> `tenant/account default language` -> browser `Accept-Language` -> fallback `id`.
+  - URL opsional untuk override eksplisit, mis. `?lang=en` atau prefix route jika nanti dibutuhkan.
+- [ ] Simpan preferensi bahasa user di profile/session.
+  - Member, owner, dan tenant user bisa memilih bahasa tanpa bergantung browser/device.
+- [ ] Tambah content policy untuk field yang masih user-generated.
+  - Bedakan mana yang ditranslate oleh sistem (label UI, CTA, empty-state, email template) dan mana yang tetap mengikuti bahasa konten input user (judul event, deskripsi, bio).
+
 ### Web
 - [ ] Landing page
   - [x] what/who

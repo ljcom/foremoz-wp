@@ -2,10 +2,12 @@ import { useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import AuthLayout from '../components/AuthLayout.jsx';
 import TurnstileWidget from '../components/TurnstileWidget.jsx';
+import { useI18n } from '../i18n.js';
 import { apiJson, IS_MOCK_MODE, IS_MOCKUP_OPEN_ACCESS, requireField, setSession } from '../lib.js';
 import { passportApiJson } from '../passport-client.js';
 
 export default function MemberSignInPage() {
+  const { t } = useI18n();
   const navigate = useNavigate();
   const { account } = useParams();
   const [searchParams] = useSearchParams();
@@ -165,44 +167,44 @@ export default function MemberSignInPage() {
 
   return (
     <AuthLayout
-      title="Member sign in"
-      subtitle={`Masuk ke portal member${account ? ` @${account}` : ''} untuk booking, payment, dan status membership.`}
+      title={t('auth.memberSignIn.title')}
+      subtitle={t('auth.memberSignIn.subtitle', { accountSuffix: account ? ` @${account}` : '' })}
       alternateHref={`/a/${account || 'tn_001'}/member/signup`}
-      alternateText="New member? Sign up"
+      alternateText={t('auth.memberSignIn.alternate')}
     >
       <form className="card form" onSubmit={submit}>
-        {resetNotice ? <p className="feedback">Password berhasil direset. Silakan sign in dengan password baru.</p> : null}
+        {resetNotice ? <p className="feedback">{t('auth.resetNotice')}</p> : null}
         <div className="card" style={{ marginBottom: '1rem', borderStyle: 'dashed' }}>
-          <p className="eyebrow">After Sign In</p>
-          <p className="sub">Portal member akan menampilkan event yang sudah kamu join, status subscription, PT balance, booking class, dan payment activity.</p>
+          <p className="eyebrow">{t('auth.memberSignIn.afterTitle')}</p>
+          <p className="sub">{t('auth.memberSignIn.afterDescription')}</p>
         </div>
         <label>
-          Email
+          {t('common.email')}
           <input type="email" value={form.email} onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))} />
         </label>
         <label>
-          Password
+          {t('common.password')}
           <input type="password" value={form.password} onChange={(e) => setForm((p) => ({ ...p, password: e.target.value }))} />
         </label>
         {error ? <p className="error">{error}</p> : null}
         <button className="btn" type="submit" disabled={loading}>
-          {loading ? 'Signing in...' : 'Sign in as member'}
+          {loading ? t('common.signInLoading') : t('auth.memberSignIn.submit')}
         </button>
         <TurnstileWidget onToken={setTurnstileToken} resetSignal={turnstileResetSignal} />
         <p style={{ margin: '0.25rem 0 0' }}>
           <Link className="link-inline" to={`/a/${account || 'tn_001'}/signin`}>
-            Staff sign in
+            {t('auth.memberSignIn.staffSignIn')}
           </Link>
         </p>
         <p style={{ margin: '0.25rem 0 0' }}>
           <Link className="link-inline" to={`/a/${account || 'tn_001'}/member/forgot-password`}>
-            Forgot password
+            {t('common.forgotPassword')}
           </Link>
         </p>
         {account ? (
           <p style={{ margin: '0.25rem 0 0' }}>
             <Link className="link-inline" to={`/a/${account}`}>
-              Back to public account
+              {t('auth.memberSignIn.backToAccount')}
             </Link>
           </p>
         ) : null}

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import AuthLayout from '../components/AuthLayout.jsx';
 import TurnstileWidget from '../components/TurnstileWidget.jsx';
+import { useI18n } from '../i18n.js';
 import { apiJson, requireField } from '../lib.js';
 import { listVerticalConfigs, normalizeVerticalSlug } from '../industry-jargon.js';
 
@@ -16,6 +17,7 @@ function generateTenantId(email) {
 }
 
 export default function SignUpPage() {
+  const { t } = useI18n();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const verticalOptions = listVerticalConfigs();
@@ -76,22 +78,22 @@ export default function SignUpPage() {
 
   return (
     <AuthLayout
-      title="Create owner account"
-      subtitle="Setup tenant workspace and branch operations."
+      title={t('auth.ownerSignup.title')}
+      subtitle={t('auth.ownerSignup.subtitle')}
       alternateHref="/signin"
-      alternateText="Already owner? Sign in"
+      alternateText={t('auth.ownerSignup.alternate')}
     >
       <form className="card form" onSubmit={submit}>
         <label>
-          Full name
+          {t('common.fullName')}
           <input name="fullName" value={form.fullName} onChange={handleChange} />
         </label>
         <label>
-          Email
+          {t('common.email')}
           <input name="email" type="email" value={form.email} onChange={handleChange} />
         </label>
         <label>
-          Industry
+          {t('common.industry')}
           <select name="industrySlug" value={form.industrySlug} onChange={handleChange}>
             {verticalOptions.map((item) => (
               <option key={item.slug} value={item.slug}>
@@ -101,12 +103,12 @@ export default function SignUpPage() {
           </select>
         </label>
         <label>
-          Password
+          {t('common.password')}
           <input name="password" type="password" value={form.password} onChange={handleChange} />
         </label>
         {error ? <p className="error">{error}</p> : null}
         <button className="btn" type="submit" disabled={loading}>
-          {loading ? 'Creating account...' : 'Create account'}
+          {loading ? t('common.createLoading') : t('common.createAccount')}
         </button>
         <TurnstileWidget onToken={setTurnstileToken} resetSignal={turnstileResetSignal} />
       </form>

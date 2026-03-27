@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import LanguageSwitcher from '../components/LanguageSwitcher.jsx';
 import TurnstileWidget from '../components/TurnstileWidget.jsx';
+import { useI18n } from '../i18n.js';
 import { getSession as getForemozSession } from '../lib.js';
 import {
   foremozApiJson,
@@ -12,6 +14,7 @@ import {
 } from '../passport-client.js';
 
 export default function PassportSignInPage() {
+  const { t } = useI18n();
   const navigate = useNavigate();
   const location = useLocation();
   const authBase = location.pathname.startsWith('/passport') ? '/passport' : '/events';
@@ -213,25 +216,26 @@ export default function PassportSignInPage() {
   return (
     <main className="dashboard">
       <section className="card wide">
-        <p className="eyebrow">Passport Sign in</p>
-        <h1>Masuk ke Foremoz Passport</h1>
-        <p className="sub">
-          Akses identity layer kamu untuk profile publik, event history, achievement, dan dashboard passport.
-        </p>
+        <div className="page-toolbar">
+          <p className="eyebrow">{t('passport.signIn.eyebrow')}</p>
+          <LanguageSwitcher compact />
+        </div>
+        <h1>{t('passport.signIn.title')}</h1>
+        <p className="sub">{t('passport.signIn.subtitle')}</p>
         <div className="ops-grid" style={{ marginBottom: '1rem' }}>
           <article className="card">
-            <p className="eyebrow">What You Get</p>
-            <p className="sub">Public profile, event timeline, activity feed dasar, dan visibility controls untuk profile publik.</p>
+            <p className="eyebrow">{t('passport.signIn.whatYouGet')}</p>
+            <p className="sub">{t('passport.signIn.whatYouGetDescription')}</p>
           </article>
           <article className="card">
-            <p className="eyebrow">Bridge Ready</p>
-            <p className="sub">Kalau akun kamu baru ada di member tenant, sign in ini tetap mencoba bridge ke Passport secara otomatis.</p>
+            <p className="eyebrow">{t('passport.signIn.bridgeReady')}</p>
+            <p className="sub">{t('passport.signIn.bridgeReadyDescription')}</p>
           </article>
         </div>
         <form className="form" onSubmit={onSubmit}>
-          {resetNotice ? <p className="feedback">Password berhasil direset. Silakan sign in dengan password baru.</p> : null}
+          {resetNotice ? <p className="feedback">{t('auth.resetNotice')}</p> : null}
           <label>
-            Email
+            {t('common.email')}
             <input
               name="email"
               type="email"
@@ -240,7 +244,7 @@ export default function PassportSignInPage() {
             />
           </label>
           <label>
-            Password
+            {t('common.password')}
             <input
               name="password"
               type="password"
@@ -251,19 +255,19 @@ export default function PassportSignInPage() {
           {error ? <p className="error">{error}</p> : null}
           <div className="hero-actions">
             <button className="btn" type="submit" disabled={loading}>
-              {loading ? 'Signing in...' : 'Sign in'}
+              {loading ? t('common.signInLoading') : t('common.signIn')}
             </button>
             <Link className="btn ghost" to={signupHref}>
-              Create account
+              {t('passport.signIn.createAccount')}
             </Link>
           </div>
           <TurnstileWidget onToken={setTurnstileToken} resetSignal={turnstileResetSignal} />
           <p className="mini-note" style={{ marginTop: '0.75rem' }}>
-            Next step setelah sign in: lengkapi onboarding lalu atur public visibility profile kamu.
+            {t('passport.signIn.nextStep')}
           </p>
           <p style={{ margin: '0.35rem 0 0' }}>
             <Link className="link-inline" to={`${authBase}/forgot-password${initialEmail ? `?email=${encodeURIComponent(initialEmail)}` : ''}`}>
-              Forgot password
+              {t('common.forgotPassword')}
             </Link>
           </p>
         </form>

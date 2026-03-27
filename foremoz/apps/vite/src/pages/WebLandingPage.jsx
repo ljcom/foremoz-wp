@@ -1,5 +1,7 @@
 import { Link } from 'react-router-dom';
 import { listVerticalConfigs } from '../industry-jargon.js';
+import LanguageSwitcher from '../components/LanguageSwitcher.jsx';
+import { useI18n } from '../i18n.js';
 
 function visualForVertical(slug) {
   const key = String(slug || '').toLowerCase();
@@ -46,6 +48,7 @@ function visualForVertical(slug) {
 }
 
 export default function WebLandingPage() {
+  const { t } = useI18n();
   const isMockupOpenAccess = (import.meta.env.VITE_MOCKUP_OPEN_ACCESS ?? 'false') === 'true';
   const topNavVerticals = listVerticalConfigs().slice(0, 5);
   const verticalCards = listVerticalConfigs().map((item) => {
@@ -62,32 +65,31 @@ export default function WebLandingPage() {
       <header className="topbar">
         <div className="brand">Foremoz</div>
         <nav>
-          <Link to="/events">Events</Link>
+          <Link to="/events">{t('common.events')}</Link>
           {topNavVerticals.map((item) => (
             <Link key={item.slug} className="topbar-industry-link" to={`/${item.slug}`}>
               {item.label}
             </Link>
           ))}
+          <LanguageSwitcher compact />
           <Link className="btn small" to="/signin">
-            Owner Sign In
+            {t('web.nav.ownerSignIn')}
           </Link>
         </nav>
       </header>
 
       <section className="hero hero-no-aside web-hero-visual">
         <div>
-          <p className="eyebrow">Home</p>
-          <h1>Semua event, class, dan komunitas kamu dalam satu tempat.</h1>
-          <p>
-            Tempat creator dan member ketemu, join, check in, dan tumbuh bareng.
-          </p>
+          <p className="eyebrow">{t('web.hero.eyebrow')}</p>
+          <h1>{t('web.hero.title')}</h1>
+          <p>{t('web.hero.description')}</p>
           <div className="hero-actions">
             <Link className="btn" to="/events">
-              Lihat Events
+              {t('web.hero.browse')}
             </Link>
             {isMockupOpenAccess ? (
               <Link className="btn ghost" to="/signup">
-                Mulai Gratis
+                {t('web.hero.startFree')}
               </Link>
             ) : null}
           </div>
@@ -111,38 +113,38 @@ export default function WebLandingPage() {
       </section>
 
       <section className="landing-section">
-        <p className="eyebrow">Quick Start</p>
+        <p className="eyebrow">{t('web.quickStart.eyebrow')}</p>
         <div className="feature-grid web-icon-grid">
           <article className="feature-card">
             <div className="feature-head">
               <span className="feature-icon"><i className="fa-solid fa-calendar-check" /></span>
-              <h3>Join Event</h3>
+              <h3>{t('web.quickStart.joinEvent')}</h3>
             </div>
           </article>
           <article className="feature-card">
             <div className="feature-head">
               <span className="feature-icon"><i className="fa-solid fa-chalkboard-user" /></span>
-              <h3>Ikut Class</h3>
+              <h3>{t('web.quickStart.joinClass')}</h3>
             </div>
           </article>
           <article className="feature-card">
             <div className="feature-head">
               <span className="feature-icon"><i className="fa-solid fa-users" /></span>
-              <h3>Bangun Komunitas</h3>
+              <h3>{t('web.quickStart.buildCommunity')}</h3>
             </div>
           </article>
           <article className="feature-card">
             <div className="feature-head">
               <span className="feature-icon"><i className="fa-solid fa-trophy" /></span>
-              <h3>Tunjukkan Progress</h3>
+              <h3>{t('web.quickStart.showProgress')}</h3>
             </div>
           </article>
         </div>
       </section>
 
       <section className="landing-section">
-        <p className="eyebrow">Explore</p>
-        <h2 className="landing-title">Pilih dunia yang kamu suka</h2>
+        <p className="eyebrow">{t('web.explore.eyebrow')}</p>
+        <h2 className="landing-title">{t('web.explore.title')}</h2>
         <div className="case-grid web-visual-grid">
           {verticalCards.map((item) => (
             <article className="feature-card case-card web-visual-card" key={item.slug}>
@@ -154,7 +156,7 @@ export default function WebLandingPage() {
                 </div>
                 <div className="hero-actions">
                   <Link className="btn small" to={`/${item.slug}`}>
-                    Masuk
+                    {t('web.explore.enter')}
                   </Link>
                 </div>
               </div>
@@ -164,14 +166,14 @@ export default function WebLandingPage() {
       </section>
 
       <section className="cta">
-        <p className="eyebrow">Ready</p>
-        <h2>Temukan event berikutnya dan mulai sekarang.</h2>
+        <p className="eyebrow">{t('web.cta.eyebrow')}</p>
+        <h2>{t('web.cta.title')}</h2>
         <div className="hero-actions">
           <Link className="btn" to="/events">
-            Browse Events
+            {t('web.cta.browse')}
           </Link>
           <Link className="btn ghost" to="/signin">
-            Owner Sign In
+            {t('web.nav.ownerSignIn')}
           </Link>
         </div>
       </section>
