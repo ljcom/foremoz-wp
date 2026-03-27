@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { accountPath, apiJson, clearSession, getAccountSlug, getEnvironmentLabel, getSession, getAdminTabsByPlan, getAllowedEnvironments, getSessionPackagePlan } from '../lib.js';
 import { getVerticalConfig, getVerticalLabel, guessVerticalSlugByText } from '../industry-jargon.js';
 import WorkspaceHeader from '../components/WorkspaceHeader.jsx';
+import { useI18n } from '../i18n.js';
 import {
   formatAppDate,
   formatAppDateTime,
@@ -1271,6 +1272,7 @@ function ParticipantsButton({ onClick }) {
 export default function AdminPage() {
   const navigate = useNavigate();
   const session = getSession();
+  const { language } = useI18n();
   const role = String(session?.role || 'admin').toLowerCase();
   const accountSlug = getAccountSlug(session);
   const tenantId = session?.tenant?.id || 'tn_001';
@@ -1735,9 +1737,65 @@ export default function AdminPage() {
   const eventCategoryInstruction = `Pisahkan dengan koma atau baris baru. Contoh: ${eventCategoryExamples[0]}, ${eventCategoryExamples[1]}.`;
   const eventCategoryPlaceholder = `${eventCategoryExamples[0]}, ${eventCategoryExamples[1]}\n${eventCategoryExamples[2]}`;
   const isCsView = role === 'cs';
-  const dashboardTitle = isCsView ? 'Setup' : 'Admin';
-  const dashboardSubtitle = isCsView ? 'Tenant setup panel' : 'Tenant administration panel';
-  const dashboardMenuLabel = isCsView ? 'Setup Menu' : 'Admin Menu';
+  const copy = useMemo(
+    () => (language === 'en'
+      ? {
+          dashboardTitleSetup: 'Setup',
+          dashboardTitleAdmin: 'Admin',
+          dashboardSubtitleSetup: 'Tenant setup panel',
+          dashboardSubtitleAdmin: 'Tenant administration panel',
+          dashboardMenuSetup: 'Setup Menu',
+          dashboardMenuAdmin: 'Admin Menu',
+          unsavedEventTabPrompt: 'There are unsaved event changes. Switch tab anyway?',
+          unsavedEventMenuPrompt: 'There are unsaved event changes. Switch menu anyway?',
+          unsavedEventListPrompt: 'There are unsaved event changes. Return to the list anyway?',
+          eventEyebrow: 'Event',
+          eventListTitle: 'Event list, delete',
+          eventSearchPlaceholder: 'Search events...',
+          addNew: 'Add New',
+          loadingEventList: 'Loading event list...',
+          adminTabs: {
+            event: 'Event',
+            class: 'Class',
+            product: 'Product',
+            package_creation: 'Package Creation',
+            trainer: creatorLabel,
+            sales: 'Sales',
+            member: 'Member',
+            transaction: 'Transaction'
+          }
+        }
+      : {
+          dashboardTitleSetup: 'Setup',
+          dashboardTitleAdmin: 'Admin',
+          dashboardSubtitleSetup: 'Panel setup tenant',
+          dashboardSubtitleAdmin: 'Panel administrasi tenant',
+          dashboardMenuSetup: 'Menu Setup',
+          dashboardMenuAdmin: 'Menu Admin',
+          unsavedEventTabPrompt: 'Ada perubahan event yang belum disimpan. Tetap pindah tab?',
+          unsavedEventMenuPrompt: 'Ada perubahan event yang belum disimpan. Tetap pindah menu?',
+          unsavedEventListPrompt: 'Ada perubahan event yang belum disimpan. Kembali ke list?',
+          eventEyebrow: 'Event',
+          eventListTitle: 'Daftar event, hapus',
+          eventSearchPlaceholder: 'Cari event...',
+          addNew: 'Tambah Baru',
+          loadingEventList: 'Memuat daftar event...',
+          adminTabs: {
+            event: 'Event',
+            class: 'Class',
+            product: 'Produk',
+            package_creation: 'Buat Paket',
+            trainer: creatorLabel,
+            sales: 'Sales',
+            member: 'Member',
+            transaction: 'Transaksi'
+          }
+        }),
+    [creatorLabel, language]
+  );
+  const dashboardTitle = isCsView ? copy.dashboardTitleSetup : copy.dashboardTitleAdmin;
+  const dashboardSubtitle = isCsView ? copy.dashboardSubtitleSetup : copy.dashboardSubtitleAdmin;
+  const dashboardMenuLabel = isCsView ? copy.dashboardMenuSetup : copy.dashboardMenuAdmin;
   const enabledAdminTabIds = useMemo(() => getAdminTabsByPlan(session), [session]);
   const visibleAdminTabs = useMemo(
     () => ADMIN_TABS.filter((tab) => enabledAdminTabIds.includes(tab.id)),
@@ -3079,7 +3137,7 @@ export default function AdminPage() {
   function switchEventEditTab(nextTab) {
     if (nextTab === eventEditTab) return;
     if (isEventFormDirty && typeof window !== 'undefined') {
-      const proceed = window.confirm('Ada perubahan event yang belum disimpan. Tetap pindah tab?');
+      const proceed = window.confirm(copy.unsavedEventTabPrompt);
       if (!proceed) return;
     }
     setEventEditTab(nextTab);
@@ -3775,7 +3833,7 @@ export default function AdminPage() {
                   isEventFormDirty &&
                   typeof window !== 'undefined'
                 ) {
-                  const proceed = window.confirm('Ada perubahan event yang belum disimpan. Tetap pindah menu?');
+                  const proceed = window.confirm(copy.unsavedEventMenuPrompt);
                   if (!proceed) return;
                 }
                 setActiveTab(tab.id);
@@ -3820,7 +3878,7 @@ export default function AdminPage() {
                 }
               }}
             >
-              {tab.label}
+              {copy.adminTabs[tab.id] || tab.label}
             </button>
           ))}
         </div>
@@ -3830,24 +3888,24 @@ export default function AdminPage() {
         <article className="card admin-main">
           {activeTab === 'event' ? (
             <>
-              <p className="eyebrow">Event</p>
+              <p className="eyebrow">{copy.eventEyebrow}</p>
               {eventMode === 'list' ? (
                 <>
                   <div className="panel-head">
-                    <h2>Event list, delete</h2>
+                    <h2>{copy.eventListTitle}</h2>
                     <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginLeft: 'auto' }}>
                       <input
                         type="text"
-                        placeholder="Cari event..."
+                        placeholder={copy.eventSearchPlaceholder}
                         value={eventQuery}
                         onChange={(e) => setEventQuery(e.target.value)}
                       />
                       <button className="btn" type="button" onClick={startAddEvent}>
-                        Add New
+                        {copy.addNew}
                       </button>
                     </div>
                   </div>
-                  {eventLoading ? <p className="feedback">Loading event list...</p> : null}
+                  {eventLoading ? <p className="feedback">{copy.loadingEventList}</p> : null}
                   <div className="event-card-grid">
                     {filteredEvents.map((item) => (
                       <article key={item.event_id} className="event-admin-card">
@@ -4027,7 +4085,7 @@ export default function AdminPage() {
                       type="button"
                       onClick={() => {
                         if (isEventFormDirty && typeof window !== 'undefined') {
-                          const proceed = window.confirm('Ada perubahan event yang belum disimpan. Kembali ke list?');
+                          const proceed = window.confirm(copy.unsavedEventListPrompt);
                           if (!proceed) return;
                         }
                         setEventMode('list');
