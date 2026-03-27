@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import LanguageSwitcher from '../components/LanguageSwitcher.jsx';
+import { useI18n } from '../i18n.js';
 import { apiJson } from '../lib.js';
 import { getVerticalConfig, getVerticalLabel, guessVerticalSlugByEventText } from '../industry-jargon.js';
 import PageStateCard from '../components/PageStateCard.jsx';
@@ -69,6 +71,112 @@ function derivePrograms(events) {
 }
 
 export default function PassportPublicPage() {
+  const { language } = useI18n();
+  const copy = useMemo(() => (language === 'en'
+    ? {
+        loadError: 'Failed to load the public passport.',
+        publicEyebrow: 'Passport Public',
+        publicTitle: 'The public passport could not be loaded',
+        publicDescription: 'The public profile failed to load from the backend. Try again or return to the event listing.',
+        retry: 'Try again',
+        backToEvents: 'Back to events',
+        signIn: 'Sign in',
+        notFoundTitle: 'Passport not found',
+        notFoundDescription: 'No passport data is available or published for this slug yet.',
+        verified: 'Verified',
+        following: 'Following',
+        follow: 'Follow',
+        share: 'Share',
+        exploreEvents: 'Explore Events',
+        hosted: 'Hosted',
+        joined: 'Joined',
+        followers: 'Followers',
+        workTitle: 'Work With This Passport',
+        workSubtitle: 'A public profile ready for discovery and conversion.',
+        workFallback: 'This profile already has event context, social proof, and a primary CTA.',
+        copyProfile: 'Copy Profile Link',
+        requestCollab: 'Request Collaboration',
+        privateProfile: 'Private Profile',
+        privateDescription: 'This page is not open to the public yet.',
+        noActivity: 'No activity available yet.',
+        eventsTitle: 'Events',
+        seeMyEvents: 'See you in my event.',
+        joinSame: 'Want to join the same event?',
+        myUpcoming: 'My Upcoming Events',
+        upcoming: 'Upcoming Events',
+        myHistory: 'My Event History',
+        history: 'History Events',
+        loadingEvents: 'Loading events...',
+        carouselHint: 'Swipe or use the buttons to see more events.',
+        joinEvent: 'Join Event',
+        noUpcoming: 'No upcoming events yet.',
+        noHistory: 'No event history yet.',
+        contact: 'Contact',
+        bookSession: 'Book Private Session',
+        requestEvent: 'Request Event',
+        contactCreator: 'Contact Creator',
+        nowFollowing: 'Now following.',
+        unfollowed: 'Unfollowed.',
+        profileCopied: 'Profile link copied.',
+        subjectBook: 'Book private session with {name}',
+        subjectRequest: 'Request event with {name}',
+        subjectContact: 'Contact {name}',
+        profileOnForemoz: '{name} on Foremoz Passport',
+        activityJoined: '{name} joined {event}',
+        activityScheduled: '{name} scheduled {event}'
+      }
+    : {
+        loadError: 'Gagal memuat passport publik.',
+        publicEyebrow: 'Passport Public',
+        publicTitle: 'Passport public belum bisa dimuat',
+        publicDescription: 'Profile publik gagal diambil dari backend. Coba lagi atau kembali ke event listing.',
+        retry: 'Coba lagi',
+        backToEvents: 'Back to events',
+        signIn: 'Sign in',
+        notFoundTitle: 'Passport not found',
+        notFoundDescription: 'Data passport untuk slug ini belum tersedia atau belum dipublish.',
+        verified: 'Verified',
+        following: 'Following',
+        follow: 'Follow',
+        share: 'Share',
+        exploreEvents: 'Explore Events',
+        hosted: 'Hosted',
+        joined: 'Joined',
+        followers: 'Followers',
+        workTitle: 'Work With This Passport',
+        workSubtitle: 'Public profile yang siap dipakai untuk discovery dan conversion.',
+        workFallback: 'Profile ini sudah punya context event, social proof, dan CTA utama.',
+        copyProfile: 'Copy Profile Link',
+        requestCollab: 'Request Collaboration',
+        privateProfile: 'Private Profile',
+        privateDescription: 'Halaman ini belum dibuka untuk publik.',
+        noActivity: 'Belum ada aktivitas yang bisa ditampilkan.',
+        eventsTitle: 'Events',
+        seeMyEvents: 'See you in my event.',
+        joinSame: 'Mau join event yang sama?',
+        myUpcoming: 'My Upcoming Events',
+        upcoming: 'Upcoming Events',
+        myHistory: 'My Event History',
+        history: 'History Events',
+        loadingEvents: 'Loading events...',
+        carouselHint: 'Swipe atau gunakan tombol untuk lihat event lainnya.',
+        joinEvent: 'Join Event',
+        noUpcoming: 'Belum ada upcoming events.',
+        noHistory: 'Belum ada history events.',
+        contact: 'Contact',
+        bookSession: 'Book Private Session',
+        requestEvent: 'Request Event',
+        contactCreator: 'Contact Creator',
+        nowFollowing: 'Now following.',
+        unfollowed: 'Unfollowed.',
+        profileCopied: 'Profile link copied.',
+        subjectBook: 'Book private session with {name}',
+        subjectRequest: 'Request event with {name}',
+        subjectContact: 'Contact {name}',
+        profileOnForemoz: '{name} on Foremoz Passport',
+        activityJoined: '{name} joined {event}',
+        activityScheduled: '{name} scheduled {event}'
+      }), [language]);
   const { account = 'member' } = useParams();
   const [events, setEvents] = useState({ upcoming: [], past: [] });
   const [profile, setProfile] = useState(null);
@@ -116,7 +224,7 @@ export default function PassportPublicPage() {
         setProfile(null);
         setOwnerSetup(null);
         setNotFound(false);
-        setLoadError(error?.message || 'Gagal memuat passport publik.');
+        setLoadError(error?.message || copy.loadError);
         setPublicVisibility(normalizePublicVisibility({}));
         setEvents({ upcoming: [], past: [] });
       } finally {
@@ -127,7 +235,7 @@ export default function PassportPublicPage() {
     return () => {
       mounted = false;
     };
-  }, [account, reloadVersion]);
+  }, [account, copy.loadError, reloadVersion]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -162,11 +270,13 @@ export default function PassportPublicPage() {
       return {
         id: String(item?.event_id || Math.random()),
         icon: isPast ? 'fa-solid fa-circle-check' : 'fa-solid fa-calendar-days',
-        text: `${name} ${isPast ? 'joined' : 'scheduled'} ${item.event_name || 'event'}`,
+        text: (isPast ? copy.activityJoined : copy.activityScheduled)
+          .replace('{name}', name)
+          .replace('{event}', item.event_name || 'event'),
         time: formatAppDateTime(item.start_at)
       };
     });
-  }, [history, name, upcoming]);
+  }, [copy.activityJoined, copy.activityScheduled, history, name, upcoming]);
   const accountSlug = String(account || '').trim().toLowerCase();
   const ownerAccountSlug = String(ownerSetup?.account_slug || '').trim().toLowerCase();
   const isOwnerContext = Boolean(ownerAccountSlug) && ownerAccountSlug === accountSlug;
@@ -205,7 +315,7 @@ export default function PassportPublicPage() {
     const previousDescription = meta.getAttribute('content');
     meta.setAttribute(
       'content',
-      profileDescription || `${name} on Foremoz Passport`
+      profileDescription || copy.profileOnForemoz.replace('{name}', name)
     );
     return () => {
       document.title = previousTitle;
@@ -217,7 +327,7 @@ export default function PassportPublicPage() {
         }
       }
     };
-  }, [name, profileDescription]);
+  }, [copy.profileOnForemoz, name, profileDescription]);
 
   useEffect(() => {
     if (eventsTab === 'upcoming' && !canShowUpcomingEvents && canShowHistoryEvents) {
@@ -238,13 +348,13 @@ export default function PassportPublicPage() {
     localStorage.setItem(`${key}.count`, String(nextCount));
     setIsFollowing(next);
     setFollowCount(nextCount);
-    setActionMessage(next ? 'Now following.' : 'Unfollowed.');
+    setActionMessage(next ? copy.nowFollowing : copy.unfollowed);
   }
 
   function shareProfile() {
     const href = typeof window !== 'undefined' ? window.location.href : `/p/${encodeURIComponent(account)}`;
     if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
-      navigator.clipboard.writeText(href).then(() => setActionMessage('Profile link copied.'));
+      navigator.clipboard.writeText(href).then(() => setActionMessage(copy.profileCopied));
       return;
     }
     setActionMessage(href);
@@ -252,11 +362,11 @@ export default function PassportPublicPage() {
 
   function contactCreator(type) {
     const subjectMap = {
-      book: `Book private session with ${name}`,
-      request: `Request event with ${name}`,
-      contact: `Contact ${name}`
+      book: copy.subjectBook.replace('{name}', name),
+      request: copy.subjectRequest.replace('{name}', name),
+      contact: copy.subjectContact.replace('{name}', name)
     };
-    const subject = subjectMap[type] || `Contact ${name}`;
+    const subject = subjectMap[type] || copy.subjectContact.replace('{name}', name);
     const body = [
       `Hi ${name},`,
       '',
@@ -283,7 +393,8 @@ export default function PassportPublicPage() {
           <div className="brand"><i className="fa-solid fa-id-card" /> Passport</div>
           <nav>
             <Link to="/events">Events</Link>
-            <Link to="/passport/signin">Sign in</Link>
+            <LanguageSwitcher compact />
+            <Link to="/passport/signin">{copy.signIn}</Link>
           </nav>
         </header>
 
@@ -329,12 +440,12 @@ export default function PassportPublicPage() {
       <PageStateCard
         shellClassName="landing passport-fancy-public"
         withBackdrop
-        eyebrow="Passport Public"
-        title="Passport public belum bisa dimuat"
-        description="Profile publik gagal diambil dari backend. Coba lagi atau kembali ke event listing."
+        eyebrow={copy.publicEyebrow}
+        title={copy.publicTitle}
+        description={copy.publicDescription}
         actions={[
-          { label: 'Coba lagi', onClick: () => setReloadVersion((value) => value + 1) },
-          { label: 'Back to events', to: '/events', variant: 'ghost' }
+          { label: copy.retry, onClick: () => setReloadVersion((value) => value + 1) },
+          { label: copy.backToEvents, to: '/events', variant: 'ghost' }
         ]}
       >
         <p className="error">{loadError}</p>
@@ -350,15 +461,16 @@ export default function PassportPublicPage() {
           <div className="brand"><i className="fa-solid fa-id-card" /> Passport</div>
           <nav>
             <Link to="/events">Events</Link>
-            <Link to="/passport/signin">Sign in</Link>
+            <LanguageSwitcher compact />
+            <Link to="/passport/signin">{copy.signIn}</Link>
           </nav>
         </header>
         <section className="card">
           <p className="eyebrow">404</p>
-          <h1>Passport not found</h1>
-          <p className="sub">Data passport untuk slug ini belum tersedia atau belum dipublish.</p>
+          <h1>{copy.notFoundTitle}</h1>
+          <p className="sub">{copy.notFoundDescription}</p>
           <div className="hero-actions">
-            <Link className="btn" to="/events">Back to events</Link>
+            <Link className="btn" to="/events">{copy.backToEvents}</Link>
           </div>
         </section>
       </main>
@@ -372,7 +484,8 @@ export default function PassportPublicPage() {
         <div className="brand"><i className="fa-solid fa-id-card" /> Passport</div>
         <nav>
           <Link to="/events">Events</Link>
-          <Link to="/passport/signin">Sign in</Link>
+          <LanguageSwitcher compact />
+          <Link to="/passport/signin">{copy.signIn}</Link>
         </nav>
       </header>
 
@@ -387,17 +500,17 @@ export default function PassportPublicPage() {
           <p className="sub">{capabilities.slice(0, 3).join(' | ') || 'Member'}</p>
           <p className="sub">{profile?.city || '-'}</p>
           <div className="row-actions">
-            {profile?.passport_id ? <span className="passport-verified">Verified</span> : null}
-            <button className="btn" type="button" onClick={toggleFollow}>{isFollowing ? 'Following' : 'Follow'}</button>
-            <button className="btn ghost" type="button" onClick={shareProfile}>Share</button>
+            {profile?.passport_id ? <span className="passport-verified">{copy.verified}</span> : null}
+            <button className="btn" type="button" onClick={toggleFollow}>{isFollowing ? copy.following : copy.follow}</button>
+            <button className="btn ghost" type="button" onClick={shareProfile}>{copy.share}</button>
             {canShowEventsSection ? (
-              <a className="btn ghost" href="#public-events">Explore Events</a>
+              <a className="btn ghost" href="#public-events">{copy.exploreEvents}</a>
             ) : null}
           </div>
           <div className="passport-public-stats">
-            <span><i className="fa-solid fa-bolt" /> {stats.events_created} Hosted</span>
-            <span><i className="fa-solid fa-ticket" /> {stats.events_attended} Joined</span>
-            <span><i className="fa-solid fa-heart" /> {followCount} Followers</span>
+            <span><i className="fa-solid fa-bolt" /> {stats.events_created} {copy.hosted}</span>
+            <span><i className="fa-solid fa-ticket" /> {stats.events_attended} {copy.joined}</span>
+            <span><i className="fa-solid fa-heart" /> {followCount} {copy.followers}</span>
           </div>
           {actionMessage ? <p className="sub">{actionMessage}</p> : null}
         </div>
@@ -407,14 +520,14 @@ export default function PassportPublicPage() {
         <section className="card">
           <div className="panel-head">
             <div>
-              <p className="eyebrow"><i className="fa-solid fa-rocket" /> Work With This Passport</p>
-              <h2 style={{ marginBottom: '0.35rem' }}>Public profile yang siap dipakai untuk discovery dan conversion.</h2>
-              <p className="sub">{profileDescription || 'Profile ini sudah punya context event, social proof, dan CTA utama.'}</p>
+              <p className="eyebrow"><i className="fa-solid fa-rocket" /> {copy.workTitle}</p>
+              <h2 style={{ marginBottom: '0.35rem' }}>{copy.workSubtitle}</h2>
+              <p className="sub">{profileDescription || copy.workFallback}</p>
             </div>
             <div className="row-actions">
-              <button className="btn" type="button" onClick={shareProfile}>Copy Profile Link</button>
+              <button className="btn" type="button" onClick={shareProfile}>{copy.copyProfile}</button>
               {showContactPanel ? (
-                <button className="btn ghost" type="button" onClick={() => contactCreator('request')}>Request Collaboration</button>
+                <button className="btn ghost" type="button" onClick={() => contactCreator('request')}>{copy.requestCollab}</button>
               ) : null}
             </div>
           </div>
@@ -445,8 +558,8 @@ export default function PassportPublicPage() {
 
       {!publicVisibility.allowPublicPublish ? (
         <section className="card">
-          <h2><i className="fa-solid fa-lock" /> Private Profile</h2>
-          <p className="sub">Halaman ini belum dibuka untuk publik.</p>
+          <h2><i className="fa-solid fa-lock" /> {copy.privateProfile}</h2>
+          <p className="sub">{copy.privateDescription}</p>
         </section>
       ) : null}
 
@@ -506,7 +619,7 @@ export default function PassportPublicPage() {
                 ))}
               </div>
               <div className="passport-insight-action">
-                <button className="btn" type="button" onClick={toggleFollow}>{isFollowing ? 'Following' : 'Follow'}</button>
+                <button className="btn" type="button" onClick={toggleFollow}>{isFollowing ? copy.following : copy.follow}</button>
               </div>
             </article>
           ) : null}
@@ -518,7 +631,7 @@ export default function PassportPublicPage() {
                   <li key={item.id}><i className={item.icon} /> {item.text} - {item.time}</li>
                 ))}
                 {activityItems.length === 0 ? (
-                  <li><i className="fa-solid fa-bolt" /> Belum ada aktivitas yang bisa ditampilkan.</li>
+                  <li><i className="fa-solid fa-bolt" /> {copy.noActivity}</li>
                 ) : null}
               </ul>
             </article>
@@ -539,8 +652,8 @@ export default function PassportPublicPage() {
 
       {canShowEventsSection ? (
         <section className="card" id="public-events">
-          <h2><i className="fa-solid fa-calendar-days" /> Events</h2>
-          <p className="sub">{isCreatorProfile ? 'See you in my event.' : 'Mau join event yang sama?'}</p>
+          <h2><i className="fa-solid fa-calendar-days" /> {copy.eventsTitle}</h2>
+          <p className="sub">{isCreatorProfile ? copy.seeMyEvents : copy.joinSame}</p>
           {canShowUpcomingEvents && canShowHistoryEvents ? (
             <div className="landing-tabs">
               <button
@@ -548,23 +661,23 @@ export default function PassportPublicPage() {
                 className={`landing-tab ${eventsTab === 'upcoming' ? 'active' : ''}`}
                 onClick={() => setEventsTab('upcoming')}
               >
-                {isCreatorProfile ? 'My Upcoming Events' : 'Upcoming Events'}
+                {isCreatorProfile ? copy.myUpcoming : copy.upcoming}
               </button>
               <button
                 type="button"
                 className={`landing-tab ${eventsTab === 'history' ? 'active' : ''}`}
                 onClick={() => setEventsTab('history')}
               >
-                {isCreatorProfile ? 'My Event History' : 'History Events'}
+                {isCreatorProfile ? copy.myHistory : copy.history}
               </button>
             </div>
           ) : null}
-          {loading ? <p className="sub">Loading events...</p> : null}
+          {loading ? <p className="sub">{copy.loadingEvents}</p> : null}
           {canShowUpcomingEvents && eventsTab === 'upcoming' ? (
             <div>
               {isCreatorProfile ? (
                 <div className="passport-carousel-head">
-                  <p className="sub">Swipe atau gunakan tombol untuk lihat event lainnya.</p>
+                  <p className="sub">{copy.carouselHint}</p>
                   <div className="passport-carousel-arrows">
                     <button type="button" className="btn ghost small" onClick={() => scrollUpcomingCarousel('prev')}>
                       <i className="fa-solid fa-chevron-left" />
@@ -589,11 +702,11 @@ export default function PassportPublicPage() {
                   <h3>{item.event_name || '-'}</h3>
                   <p className="passport-live-time"><i className="fa-regular fa-clock" /> {formatAppDateTime(item.start_at)}</p>
                   <Link className="btn ghost small" to={`/a/${encodeURIComponent(item.account_slug || account)}/e/${encodeURIComponent(item.event_id)}`}>
-                    Join Event
+                    {copy.joinEvent}
                   </Link>
                 </article>
               ))}
-              {upcoming.length === 0 ? <p className="sub">Belum ada upcoming events.</p> : null}
+              {upcoming.length === 0 ? <p className="sub">{copy.noUpcoming}</p> : null}
               </div>
             </div>
           ) : null}
@@ -610,7 +723,7 @@ export default function PassportPublicPage() {
                   <p className="passport-live-time"><i className="fa-regular fa-clock" /> {formatAppDateTime(item.start_at)}</p>
                 </article>
               ))}
-              {history.length === 0 ? <p className="sub">Belum ada history events.</p> : null}
+              {history.length === 0 ? <p className="sub">{copy.noHistory}</p> : null}
             </div>
           ) : null}
         </section>
@@ -618,11 +731,11 @@ export default function PassportPublicPage() {
 
       {showContactPanel ? (
         <section className="card">
-          <h2><i className="fa-solid fa-phone-volume" /> Contact</h2>
+          <h2><i className="fa-solid fa-phone-volume" /> {copy.contact}</h2>
           <div className="hero-actions">
-            <button className="btn" type="button" onClick={() => contactCreator('book')}>Book Private Session</button>
-            <button className="btn ghost" type="button" onClick={() => contactCreator('request')}>Request Event</button>
-            <button className="btn ghost" type="button" onClick={() => contactCreator('contact')}>Contact Creator</button>
+            <button className="btn" type="button" onClick={() => contactCreator('book')}>{copy.bookSession}</button>
+            <button className="btn ghost" type="button" onClick={() => contactCreator('request')}>{copy.requestEvent}</button>
+            <button className="btn ghost" type="button" onClick={() => contactCreator('contact')}>{copy.contactCreator}</button>
           </div>
         </section>
       ) : null}

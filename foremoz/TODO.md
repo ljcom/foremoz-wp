@@ -190,7 +190,7 @@ Last audited terhadap isi folder: **2026-03-27** (`foremoz/apps/api`, `foremoz/a
 - [~] Foundation i18n untuk web/app admin dengan language pack `id` dan `en`.
   - Semua copy UI dipindah dari hardcoded string ke dictionary/translation key.
   - Scope awal: landing, auth, event browse/detail/register, passport, admin shell.
-  - Remark: provider i18n, switcher `ID/EN`, persistence local, dan translate awal untuk landing web + flow auth utama sudah masuk. Surface event/passport/admin lain masih perlu dirapikan bertahap.
+  - Remark: provider i18n, switcher `ID/EN`, persistence local, dan translate awal untuk landing web + flow auth utama + browse/register event + dashboard/public passport sudah masuk. Surface admin shell dan page lain masih perlu dirapikan bertahap.
 - [ ] Tentukan language resolution order untuk experience publik dan area login.
   - Prioritas yang disarankan: `user preference` -> `tenant/account default language` -> browser `Accept-Language` -> fallback `id`.
   - URL opsional untuk override eksplisit, mis. `?lang=en` atau prefix route jika nanti dibutuhkan.

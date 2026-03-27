@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
+import LanguageSwitcher from '../components/LanguageSwitcher.jsx';
+import { useI18n } from '../i18n.js';
 import { apiJson } from '../lib.js';
 import { clearPassportSession, getPassportSession } from '../passport-client.js';
 import PageStateCard from '../components/PageStateCard.jsx';
@@ -33,6 +35,78 @@ function resolvePrimaryImage(eventItem) {
 }
 
 export default function EventCheckoutPage() {
+  const { language, t } = useI18n();
+  const copy = useMemo(() => (language === 'en'
+    ? {
+        brandEvents: 'Foremoz Events',
+        eyebrow: 'Event Checkout',
+        title: 'Register Event',
+        retryTitle: 'Event checkout is not ready yet',
+        retryDescription: 'The event data could not be loaded. Try again or return to the event list.',
+        retry: 'Try again',
+        backToEvents: 'Back to events',
+        reloading: 'Reloading event data...',
+        startsAt: 'Starts',
+        duration: 'Duration',
+        minutes: 'minutes',
+        price: 'Price',
+        cover: 'Event Cover',
+        description: 'Event Description',
+        photos: 'Event Photos',
+        schedule: 'Schedule',
+        organizerInfo: 'Information for the organizer',
+        chooseOption: 'Choose',
+        fieldLabel: 'Field {index}',
+        joinPrompt: 'To join this event, please sign in or create an account first.',
+        continuePayment: 'Continue to payment',
+        alreadyJoined: 'You have already joined this event.',
+        paymentSuccess: 'Payment completed. The next step is account authentication.',
+        requiredField: '{label} is required.',
+        signedInAs: 'Signed in',
+        notSignedIn: 'Not signed in',
+        identityMissing: 'Member identity was not found for payment processing.',
+        registerFailed: 'Failed to register for the event.',
+        eventNotSelected: 'No event has been selected yet.',
+        eventNotFound: 'Event not found.',
+        eventReloadFailed: 'Failed to load the event.',
+        eventCoverAlt: 'Event',
+        signOut: 'Sign out'
+      }
+    : {
+        brandEvents: 'Foremoz Events',
+        eyebrow: 'Event Checkout',
+        title: 'Register Event',
+        retryTitle: 'Checkout event belum siap',
+        retryDescription: 'Data event tidak berhasil dimuat. Coba lagi atau kembali ke daftar event.',
+        retry: 'Coba lagi',
+        backToEvents: 'Kembali ke events',
+        reloading: 'Memuat ulang data event...',
+        startsAt: 'Mulai',
+        duration: 'Durasi',
+        minutes: 'menit',
+        price: 'Harga',
+        cover: 'Event Cover',
+        description: 'Deskripsi Acara',
+        photos: 'Foto Event',
+        schedule: 'Schedule',
+        organizerInfo: 'Informasi untuk penyelenggara',
+        chooseOption: 'Pilih',
+        fieldLabel: 'Field {index}',
+        joinPrompt: 'Untuk join event, silakan Sign in atau Create account dulu.',
+        continuePayment: 'Lanjut ke pembayaran',
+        alreadyJoined: 'Kamu sudah join event ini.',
+        paymentSuccess: 'Pembayaran berhasil. Langkah berikutnya autentikasi akun.',
+        requiredField: '{label} wajib diisi.',
+        signedInAs: 'Signed in',
+        notSignedIn: 'Not signed in',
+        identityMissing: 'Identitas member tidak ditemukan untuk proses pembayaran.',
+        registerFailed: 'Gagal melakukan registrasi event.',
+        eventNotSelected: 'Event belum dipilih.',
+        eventNotFound: 'Event tidak ditemukan.',
+        eventReloadFailed: 'Gagal memuat event.',
+        eventCoverAlt: 'Event',
+        signOut: 'Sign out'
+      }), [language]);
   const navigate = useNavigate();
   const location = useLocation();
   const { account: accountParam, eventId: eventIdParam } = useParams();
@@ -146,7 +220,7 @@ export default function EventCheckoutPage() {
     async function loadEvent() {
       if (!eventId) {
         setEventItem(null);
-        setError('Event belum dipilih.');
+        setError(copy.eventNotSelected);
         setLoading(false);
         return;
       }
@@ -159,7 +233,7 @@ export default function EventCheckoutPage() {
         if (!mounted) return;
         setEventItem(selected || null);
         if (!selected) {
-          setError('Event tidak ditemukan.');
+          setError(copy.eventNotFound);
           return;
         }
         const selectedAccount = String(selected.account_slug || '').trim();
@@ -174,7 +248,7 @@ export default function EventCheckoutPage() {
         }
       } catch (err) {
         if (!mounted) return;
-        setError(err.message || 'Gagal memuat event.');
+        setError(err.message || copy.eventReloadFailed);
       } finally {
         if (mounted) setLoading(false);
       }
@@ -183,7 +257,7 @@ export default function EventCheckoutPage() {
     return () => {
       mounted = false;
     };
-  }, [accountParam, eventId, isAccountEventPath, isShortEventPath, loadVersion, navigate]);
+  }, [accountParam, copy.eventNotFound, copy.eventNotSelected, copy.eventReloadFailed, eventId, isAccountEventPath, isShortEventPath, loadVersion, navigate]);
 
   useEffect(() => {
     if (!eventId || typeof window === 'undefined') {
@@ -210,10 +284,10 @@ export default function EventCheckoutPage() {
       for (let i = 0; i < registrationFields.length; i += 1) {
         const field = registrationFields[i] || {};
         const fieldId = String(field.field_id || '');
-        const label = String(field.label || `Field ${i + 1}`);
+        const label = String(field.label || copy.fieldLabel.replace('{index}', String(i + 1)));
         const value = String(registrationAnswers[fieldId] || '').trim();
         if (field.required !== false && !value) {
-          setRegistrationError(`${label} wajib diisi.`);
+          setRegistrationError(copy.requiredField.replace('{label}', label));
           return;
         }
       }
@@ -231,13 +305,13 @@ export default function EventCheckoutPage() {
         ''
       ).trim();
       if (!memberIdentity) {
-        setError('Identitas member tidak ditemukan untuk proses pembayaran.');
+        setError(copy.identityMissing);
         return;
       }
       const paymentId = `pay_evt_${Date.now()}`;
       const answersByLabel = registrationFields.reduce((acc, field, index) => {
         const fieldId = String(field?.field_id || '');
-        const label = String(field?.label || `Field ${index + 1}`).trim();
+        const label = String(field?.label || copy.fieldLabel.replace('{index}', String(index + 1))).trim();
         if (!fieldId || !label) return acc;
         const value = String(registrationAnswers[fieldId] || '').trim();
         if (!value) return acc;
@@ -295,7 +369,7 @@ export default function EventCheckoutPage() {
       };
       localStorage.setItem(REGISTRATION_ANSWERS_KEY, JSON.stringify(nextAnswers));
     } catch (err) {
-      setError(err.message || 'Gagal melakukan registrasi event.');
+      setError(err.message || copy.registerFailed);
       return;
     }
     setAlreadyJoined(true);
@@ -307,11 +381,12 @@ export default function EventCheckoutPage() {
       <main className="dashboard" aria-busy="true">
         <header className="topbar">
           <div className="brand">
-            <Link to={accountHomeHref}>{accountInfo || 'Foremoz Events'}</Link>
+            <Link to={accountHomeHref}>{accountInfo || copy.brandEvents}</Link>
           </div>
+          <nav><LanguageSwitcher compact /></nav>
         </header>
         <section className="card wide page-skeleton-shell">
-          <p className="eyebrow">Event Checkout</p>
+          <p className="eyebrow">{copy.eyebrow}</p>
           <div className="page-skeleton-line page-skeleton-title" />
           <div className="entity-list">
             <div className="entity-row page-skeleton-card">
@@ -341,12 +416,12 @@ export default function EventCheckoutPage() {
     return (
       <PageStateCard
         shellClassName="dashboard"
-        eyebrow="Event Checkout"
-        title="Checkout event belum siap"
-        description="Data event tidak berhasil dimuat. Coba lagi atau kembali ke daftar event."
+        eyebrow={copy.eyebrow}
+        title={copy.retryTitle}
+        description={copy.retryDescription}
         actions={[
-          { label: 'Coba lagi', onClick: () => setLoadVersion((value) => value + 1) },
-          { label: 'Back to events', to: backToEvents, variant: 'ghost' }
+          { label: copy.retry, onClick: () => setLoadVersion((value) => value + 1) },
+          { label: copy.backToEvents, to: backToEvents, variant: 'ghost' }
         ]}
       >
         <p className="error">{error}</p>
@@ -360,11 +435,12 @@ export default function EventCheckoutPage() {
         <div className="brand">
           <Link to={accountHomeHref}>{accountInfo || '-'}</Link>
         </div>
+        <nav><LanguageSwitcher compact /></nav>
       </header>
       <section className="card wide">
-        <p className="eyebrow">Event Checkout</p>
-        <h1>Register Event</h1>
-        {loading ? <p className="feedback">Memuat ulang data event...</p> : null}
+        <p className="eyebrow">{copy.eyebrow}</p>
+        <h1>{copy.title}</h1>
+        {loading ? <p className="feedback">{copy.reloading}</p> : null}
         {error && eventItem ? <p className="error">{error}</p> : null}
 
         {eventItem ? (
@@ -372,32 +448,32 @@ export default function EventCheckoutPage() {
             <div className="entity-row">
               <div>
                 <strong>{eventItem.event_name || '-'}</strong>
-                <p>Mulai: {formatAppDateTime(eventItem.start_at)}</p>
-                <p>Durasi: {duration} menit</p>
-                <p>Harga: {formatIdr(price)}</p>
+                <p>{copy.startsAt}: {formatAppDateTime(eventItem.start_at)}</p>
+                <p>{copy.duration}: {duration} {copy.minutes}</p>
+                <p>{copy.price}: {formatIdr(price)}</p>
               </div>
             </div>
             <div className="card" style={{ borderStyle: 'dashed' }}>
-              <p className="eyebrow">Event Cover</p>
+              <p className="eyebrow">{copy.cover}</p>
               <img
                 className="passport-live-image"
                 src={resolvePrimaryImage(eventItem)}
-                alt={eventItem.event_name || 'Event'}
+                alt={eventItem.event_name || copy.eventCoverAlt}
               />
             </div>
             {eventItem.description ? (
               <div className="card" style={{ borderStyle: 'dashed' }}>
-                <p className="eyebrow">Deskripsi Acara</p>
+                <p className="eyebrow">{copy.description}</p>
                 <p className="sub">{eventItem.description}</p>
               </div>
             ) : null}
             {eventGallery.length > 0 ? (
               <div className="card" style={{ borderStyle: 'dashed' }}>
-                <p className="eyebrow">Foto Event</p>
+                <p className="eyebrow">{copy.photos}</p>
                 <div className="passport-live-grid">
                   {eventGallery.slice(0, 6).map((url, idx) => (
                     <article key={`${url}-${idx}`} className="passport-live-card">
-                      <img className="passport-live-image" src={url} alt={`${eventItem.event_name || 'Event'} ${idx + 1}`} />
+                      <img className="passport-live-image" src={url} alt={`${eventItem.event_name || copy.eventCoverAlt} ${idx + 1}`} />
                     </article>
                   ))}
                 </div>
@@ -405,7 +481,7 @@ export default function EventCheckoutPage() {
             ) : null}
             {scheduleItems.length > 0 ? (
               <div className="card" style={{ borderStyle: 'dashed' }}>
-                <p className="eyebrow">Schedule</p>
+                <p className="eyebrow">{copy.schedule}</p>
                 <div className="entity-list">
                   {scheduleItems.map((item, idx) => (
                     <div key={`${item.time || 'time'}-${idx}`} className="entity-row">
@@ -421,11 +497,11 @@ export default function EventCheckoutPage() {
             ) : null}
             {isAuthed && !paymentDone && registrationFields.length > 0 ? (
               <div className="card" style={{ borderStyle: 'dashed' }}>
-                <p className="eyebrow">Informasi untuk penyelenggara</p>
+                <p className="eyebrow">{copy.organizerInfo}</p>
                 {registrationFields.map((field, index) => {
                   const fieldId = String(field.field_id || `field_${index}`);
                   const type = String(field.type || 'free_type');
-                  const label = String(field.label || `Field ${index + 1}`);
+                  const label = String(field.label || copy.fieldLabel.replace('{index}', String(index + 1)));
                   const isRequired = field.required !== false;
                   const value = String(registrationAnswers[fieldId] || '');
                   if (type === 'date') {
@@ -449,7 +525,7 @@ export default function EventCheckoutPage() {
                           value={value}
                           onChange={(e) => setRegistrationAnswers((prev) => ({ ...prev, [fieldId]: e.target.value }))}
                         >
-                          <option value="">Pilih</option>
+                          <option value="">{copy.chooseOption}</option>
                           {options.map((opt, optIndex) => (
                             <option key={`${fieldId}-${optIndex}`} value={String(opt)}>
                               {String(opt)}
@@ -477,43 +553,43 @@ export default function EventCheckoutPage() {
 
         {!isAuthed ? (
           <div className="entity-list">
-            <p className="feedback">Untuk join event, silakan Sign in atau Create account dulu.</p>
+            <p className="feedback">{copy.joinPrompt}</p>
             <div className="hero-actions">
               <Link className="btn" to={signinHref}>
-                Sign in
+                {t('common.signIn')}
               </Link>
               <Link className="btn ghost" to={signupHref}>
-                Create account
+                {t('common.createAccount')}
               </Link>
               <button className="btn ghost" type="button" onClick={() => navigate(backToEvents)}>
-                Kembali ke events
+                {copy.backToEvents}
               </button>
             </div>
           </div>
         ) : !paymentDone ? (
           <div className="hero-actions">
             <button className="btn" type="button" disabled={!eventItem || loading} onClick={submitPayment}>
-              Lanjut ke pembayaran
+              {copy.continuePayment}
             </button>
             <button className="btn ghost" type="button" onClick={() => navigate(backToEvents)}>
-              Kembali ke events
+              {copy.backToEvents}
             </button>
           </div>
         ) : (
           <div className="entity-list">
-            <p className="feedback">{alreadyJoined ? 'Kamu sudah join event ini.' : 'Pembayaran berhasil. Langkah berikutnya autentikasi akun.'}</p>
+            <p className="feedback">{alreadyJoined ? copy.alreadyJoined : copy.paymentSuccess}</p>
             <button className="btn" type="button" onClick={() => navigate(backToEvents, { replace: true })}>
-              Kembali ke events
+              {copy.backToEvents}
             </button>
           </div>
         )}
       </section>
       <footer className="topbar">
         <div className="brand">
-          <Link to={backToEvents}>Foremoz Events</Link>
+          <Link to={backToEvents}>{copy.brandEvents}</Link>
         </div>
         <nav>
-          <span>{isAuthed ? `Signed in: ${signedInAs || 'Member'}` : 'Not signed in'}</span>
+          <span>{isAuthed ? `${copy.signedInAs}: ${signedInAs || 'Member'}` : copy.notSignedIn}</span>
           {isAuthed ? (
             <button
               className="btn ghost small"
@@ -523,7 +599,7 @@ export default function EventCheckoutPage() {
                 navigate(signinHref, { replace: true });
               }}
             >
-              Sign out
+              {copy.signOut}
             </button>
           ) : null}
         </nav>

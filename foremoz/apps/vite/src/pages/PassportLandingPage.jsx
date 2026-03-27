@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
+import LanguageSwitcher from '../components/LanguageSwitcher.jsx';
+import { useI18n } from '../i18n.js';
 import { apiJson } from '../lib.js';
 import { clearPassportSession, getPassportSession } from '../passport-client.js';
 import { getVerticalConfig, getVerticalLabel, guessVerticalSlugByEventText, listVerticalConfigs } from '../industry-jargon.js';
@@ -7,65 +9,213 @@ import { formatAppDateTime } from '../time.js';
 
 const JOINED_EVENTS_KEY = 'ff.events.joined';
 
-const fallbackEvents = [
-  {
-    title: 'Morning Strength Camp',
-    vertical: 'Fitness',
-    category: 'Strength Training',
-    host: 'Coach Rafi - Foremoz Fitness Center',
-    organizer: 'Foremoz Fitness Team',
-    time: 'Sedang berlangsung (06:00 - 07:30 WIB)',
-    status: 'Live',
-    image:
-      'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?auto=format&fit=crop&w=1200&q=80'
-  },
-  {
-    title: 'English Speaking Sprint',
-    vertical: 'Learning',
-    category: 'Language Practice',
-    host: 'Mentor Dita - Learning Hub Bandung',
-    organizer: 'Foremoz Learning Team',
-    time: 'Sedang berlangsung (09:00 - 10:30 WIB)',
-    status: 'Live',
-    image:
-      'https://images.unsplash.com/photo-1523240795612-9a054b0db644?auto=format&fit=crop&w=1200&q=80'
-  },
-  {
-    title: 'Urban Dance Rehearsal',
-    vertical: 'Arts',
-    category: 'Dance Rehearsal',
-    host: 'Studio Kroma - Creative Stage',
-    organizer: 'Foremoz Arts Team',
-    time: 'Sedang berlangsung (19:00 - 21:00 WIB)',
-    status: 'Live',
-    image:
-      'https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?auto=format&fit=crop&w=1200&q=80'
-  },
-  {
-    title: 'City Night Run Performance',
-    vertical: 'Performance',
-    category: 'Show',
-    host: 'Performer Nara - Central Venue',
-    organizer: 'Foremoz Performance Team',
-    time: 'Mulai 20:00 WIB',
-    status: 'Live',
-    image:
-      'https://images.unsplash.com/photo-1518609878373-06d740f60d8b?auto=format&fit=crop&w=1200&q=80'
-  },
-  {
-    title: 'Sunrise Heritage Tour',
-    vertical: 'Tourism',
-    category: 'Tour',
-    host: 'Guide Akbar - Old Town Route',
-    organizer: 'Foremoz Tourism Team',
-    time: 'Mulai 06:30 WIB',
-    status: 'Live',
-    image:
-      'https://images.unsplash.com/photo-1503220317375-aaad61436b1b?auto=format&fit=crop&w=1200&q=80'
-  }
-];
+function buildFallbackEvents(copy) {
+  return [
+    {
+      title: 'Morning Strength Camp',
+      vertical: 'Fitness',
+      category: 'Strength Training',
+      host: 'Coach Rafi - Foremoz Fitness Center',
+      organizer: 'Foremoz Fitness Team',
+      time: copy.liveNowMorning,
+      status: copy.liveStatus,
+      image:
+        'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?auto=format&fit=crop&w=1200&q=80'
+    },
+    {
+      title: 'English Speaking Sprint',
+      vertical: 'Learning',
+      category: 'Language Practice',
+      host: 'Mentor Dita - Learning Hub Bandung',
+      organizer: 'Foremoz Learning Team',
+      time: copy.liveNowLanguage,
+      status: copy.liveStatus,
+      image:
+        'https://images.unsplash.com/photo-1523240795612-9a054b0db644?auto=format&fit=crop&w=1200&q=80'
+    },
+    {
+      title: 'Urban Dance Rehearsal',
+      vertical: 'Arts',
+      category: 'Dance Rehearsal',
+      host: 'Studio Kroma - Creative Stage',
+      organizer: 'Foremoz Arts Team',
+      time: copy.liveNowDance,
+      status: copy.liveStatus,
+      image:
+        'https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?auto=format&fit=crop&w=1200&q=80'
+    },
+    {
+      title: 'City Night Run Performance',
+      vertical: 'Performance',
+      category: 'Show',
+      host: 'Performer Nara - Central Venue',
+      organizer: 'Foremoz Performance Team',
+      time: copy.startsAtNight,
+      status: copy.liveStatus,
+      image:
+        'https://images.unsplash.com/photo-1518609878373-06d740f60d8b?auto=format&fit=crop&w=1200&q=80'
+    },
+    {
+      title: 'Sunrise Heritage Tour',
+      vertical: 'Tourism',
+      category: 'Tour',
+      host: 'Guide Akbar - Old Town Route',
+      organizer: 'Foremoz Tourism Team',
+      time: copy.startsAtTour,
+      status: copy.liveStatus,
+      image:
+        'https://images.unsplash.com/photo-1503220317375-aaad61436b1b?auto=format&fit=crop&w=1200&q=80'
+    }
+  ];
+}
 
 export default function PassportLandingPage() {
+  const { language } = useI18n();
+  const copy = useMemo(() => (language === 'en'
+    ? {
+        passportTitle: 'Passport Member Profile',
+        accountTitle: 'Events @{account}',
+        globalTitle: 'Join Events Across {verticals}',
+        passportDescription: 'Show your event journey in one shareable profile.',
+        accountDescription: 'All events from this account live on one page.',
+        globalDescription: 'Pick your favorite event, register, and show up with the community.',
+        welcomeFallback: 'Member',
+        untitledEvent: 'Untitled Event',
+        venueFallback: 'Foremoz Venue',
+        organizerFallback: 'Foremoz Organizer',
+        startsAt: 'Starts',
+        scheduleTbd: 'Schedule not set yet',
+        loadError: 'Failed to load events',
+        brandPassport: 'Foremoz Passport',
+        brandEvents: 'Foremoz Events',
+        newHost: 'New Host',
+        welcome: 'Welcome {name}',
+        profile: 'Profile',
+        signOut: 'Sign out',
+        signIn: 'Sign in',
+        signInPassport: 'Sign in to Passport',
+        joinNow: 'Join Events Now',
+        exploreAll: 'Explore All Events',
+        backPremium: 'Back to Premium Events',
+        chipFastRegister: 'Fast registration',
+        chipActiveCommunity: 'Active community',
+        chipVisibleProgress: 'Visible progress',
+        tabEvents: 'Events',
+        tabMyEvents: 'My Events',
+        tabFaq: 'FAQ',
+        eventsEyebrow: 'Events',
+        premiumEvents: 'Premium events',
+        upcomingEvents: 'Upcoming events',
+        exploreEvents: 'Explore all events',
+        searchLabel: 'Search events',
+        searchPlaceholder: 'title, category, organizer...',
+        loadingEvents: 'Loading events...',
+        premiumPosted: 'Showing premium events that are already posted.',
+        category: 'Category',
+        organizer: 'Organizer',
+        joined: 'Joined',
+        register: 'Register',
+        noPremium: 'No premium events yet',
+        noPublished: 'No published events yet',
+        noPremiumDescription: 'Try Explore All Events or come back for the next premium event.',
+        noPublishedDescription: 'Check back soon, more events are on the way.',
+        myEventsEyebrow: 'My Events',
+        myEventsTitle: 'Events you have joined',
+        signInFirst: 'Sign in first to view My Events.',
+        openEvent: 'Open event',
+        noJoinedTitle: 'You have not joined any events yet',
+        noJoinedDescription: 'After you register for an event, it will appear here.',
+        faqEyebrow: 'FAQ',
+        faqTitle: 'How to join events',
+        faqStartTitle: 'Start from the event',
+        faqStep1: '1. Pick an event you like.',
+        faqStep2: '2. Register and show up at the event.',
+        faqStep3: '3. Your event history is saved to your profile automatically.',
+        faqPassportTitle: 'Do you need a passport first?',
+        faqPassportDescription: 'No. You can start from the event, and your profile will follow the journey automatically.',
+        createEyebrow: 'Create Events',
+        createTitle: 'Want to host your own event on Foremoz?',
+        createDescription: 'For hosts and owners who want to publish new events and manage tenant operations, continue to Foremoz Web.',
+        createButton: 'Create New Events',
+        liveStatus: 'Live',
+        liveNowMorning: 'Live now (06:00 - 07:30 WIB)',
+        liveNowLanguage: 'Live now (09:00 - 10:30 WIB)',
+        liveNowDance: 'Live now (19:00 - 21:00 WIB)',
+        startsAtNight: 'Starts 20:00 WIB',
+        startsAtTour: 'Starts 06:30 WIB'
+      }
+    : {
+        passportTitle: 'Passport Profile Member',
+        accountTitle: 'Event @{account}',
+        globalTitle: 'Ikut Event Lintas {verticals}',
+        passportDescription: 'Tunjukkan perjalanan event kamu di satu profile yang bisa dibagikan.',
+        accountDescription: 'Semua event dari account ini ada di satu halaman.',
+        globalDescription: 'Pilih event favoritmu, register, lalu hadir bersama komunitas.',
+        welcomeFallback: 'Member',
+        untitledEvent: 'Untitled Event',
+        venueFallback: 'Foremoz Venue',
+        organizerFallback: 'Foremoz Organizer',
+        startsAt: 'Mulai',
+        scheduleTbd: 'Jadwal belum ditentukan',
+        loadError: 'Gagal memuat event',
+        brandPassport: 'Foremoz Passport',
+        brandEvents: 'Foremoz Events',
+        newHost: 'New Host',
+        welcome: 'Welcome {name}',
+        profile: 'Profile',
+        signOut: 'Sign out',
+        signIn: 'Sign in',
+        signInPassport: 'Masuk ke Passport',
+        joinNow: 'Ikut Event Sekarang',
+        exploreAll: 'Explore Semua Event',
+        backPremium: 'Kembali ke Premium Events',
+        chipFastRegister: 'Register cepat',
+        chipActiveCommunity: 'Komunitas aktif',
+        chipVisibleProgress: 'Progress terlihat',
+        tabEvents: 'Events',
+        tabMyEvents: 'My Events',
+        tabFaq: 'FAQ',
+        eventsEyebrow: 'Events',
+        premiumEvents: 'Premium events',
+        upcomingEvents: 'Upcoming events',
+        exploreEvents: 'Explore semua event',
+        searchLabel: 'Cari event',
+        searchPlaceholder: 'judul, kategori, organizer...',
+        loadingEvents: 'Loading events...',
+        premiumPosted: 'Menampilkan event premium yang sudah diposting.',
+        category: 'Category',
+        organizer: 'Penyelenggara',
+        joined: 'Sudah joined',
+        register: 'Register',
+        noPremium: 'Belum ada premium event',
+        noPublished: 'Belum ada event published',
+        noPremiumDescription: 'Coba Explore Semua Event atau tunggu premium event berikutnya.',
+        noPublishedDescription: 'Coba lagi sebentar lagi, event baru akan segera hadir.',
+        myEventsEyebrow: 'My Events',
+        myEventsTitle: 'Event yang sudah kamu join',
+        signInFirst: 'Sign in dulu untuk lihat My Events.',
+        openEvent: 'Buka event',
+        noJoinedTitle: 'Belum ada event yang kamu join',
+        noJoinedDescription: 'Setelah register event, daftar event akan muncul di sini.',
+        faqEyebrow: 'FAQ',
+        faqTitle: 'Cara ikut event',
+        faqStartTitle: 'Mulai dari event',
+        faqStep1: '1) Pilih event yang kamu suka.',
+        faqStep2: '2) Register dan hadir di event.',
+        faqStep3: '3) Riwayat event langsung tersimpan di profile kamu.',
+        faqPassportTitle: 'Perlu buat passport dulu?',
+        faqPassportDescription: 'Tidak perlu. Kamu bisa mulai dari event, profile akan mengikuti perjalananmu otomatis.',
+        createEyebrow: 'Create Events',
+        createTitle: 'Ingin bikin event sendiri di Foremoz?',
+        createDescription: 'Untuk host/owner yang ingin publish event baru dan kelola operasional tenant, lanjut ke Foremoz Web.',
+        createButton: 'Create New Events',
+        liveStatus: 'Live',
+        liveNowMorning: 'Sedang berlangsung (06:00 - 07:30 WIB)',
+        liveNowLanguage: 'Sedang berlangsung (09:00 - 10:30 WIB)',
+        liveNowDance: 'Sedang berlangsung (19:00 - 21:00 WIB)',
+        startsAtNight: 'Mulai 20:00 WIB',
+        startsAtTour: 'Mulai 06:30 WIB'
+      }), [language]);
   const navigate = useNavigate();
   const location = useLocation();
   const { account: accountParam } = useParams();
@@ -75,6 +225,7 @@ export default function PassportLandingPage() {
   const isGlobalEventsSurface = !isPassportSurface && !isAccountSurface;
   const registerBase = isPassportSurface ? '/passport/register' : '/events/register';
   const profileHref = '/passport/dashboard';
+  const fallbackEvents = useMemo(() => buildFallbackEvents(copy), [copy]);
   const [events, setEvents] = useState(fallbackEvents);
   const [allEvents, setAllEvents] = useState([]);
   const [accountInfo, setAccountInfo] = useState(null);
@@ -94,15 +245,15 @@ export default function PassportLandingPage() {
       ? `/a/${normalizedAccount}/events`
       : 'foremoz.com/events';
   const title = isPassportSurface
-    ? 'Passport Profile Member'
+    ? copy.passportTitle
     : isAccountSurface
-      ? `Event @${normalizedAccount}`
-      : `Ikut Event Lintas ${verticalListText}`;
+      ? copy.accountTitle.replace('{account}', normalizedAccount)
+      : copy.globalTitle.replace('{verticals}', verticalListText);
   const description = isPassportSurface
-    ? 'Tunjukkan perjalanan event kamu di satu profile yang bisa dibagikan.'
+    ? copy.passportDescription
     : isAccountSurface
-      ? 'Semua event dari account ini ada di satu halaman.'
-      : 'Pilih event favoritmu, register, lalu hadir bersama komunitas.';
+      ? copy.accountDescription
+      : copy.globalDescription;
   const highlightedEventId = useMemo(() => {
     const params = new URLSearchParams(location.search);
     return params.get('event') || '';
@@ -117,7 +268,7 @@ export default function PassportLandingPage() {
     passportSession?.user?.fullName ||
     passportSession?.passport?.fullName ||
     passportSession?.user?.email ||
-    'Member';
+    copy.welcomeFallback;
 
   useEffect(() => {
     let isMounted = true;
@@ -134,19 +285,19 @@ export default function PassportLandingPage() {
           return {
             event_id: row.event_id || '',
             account_slug: row.account_slug || '',
-            title: row.event_name || 'Untitled Event',
+            title: row.event_name || copy.untitledEvent,
             vertical,
             category: guessCategory(row),
-            host: `${vocabularyCreator} - ${row.location || 'Foremoz Venue'}`,
+            host: `${vocabularyCreator} - ${row.location || copy.venueFallback}`,
             organizer:
               row.organizer_name ||
               row.host_name ||
               row.created_by_name ||
               row.tenant_name ||
-              'Foremoz Organizer',
-            time: row.start_at ? `Mulai ${formatAppDateTime(row.start_at)}` : 'Jadwal belum ditentukan',
+              copy.organizerFallback,
+            time: row.start_at ? `${copy.startsAt} ${formatAppDateTime(row.start_at)}` : copy.scheduleTbd,
             status: String(row.status || 'published').toUpperCase(),
-            image: row.image_url || fallbackEvents[0].image
+            image: row.image_url || fallbackEvents[0]?.image || ''
           };
         });
         const scopedMapped = isAccountSurface
@@ -164,19 +315,19 @@ export default function PassportLandingPage() {
             return {
               event_id: row.event_id || '',
               account_slug: row.account_slug || '',
-              title: row.event_name || 'Untitled Event',
+              title: row.event_name || copy.untitledEvent,
               vertical,
               category: guessCategory(row),
-              host: `${vocabularyCreator} - ${row.location || 'Foremoz Venue'}`,
+              host: `${vocabularyCreator} - ${row.location || copy.venueFallback}`,
               organizer:
                 row.organizer_name ||
                 row.host_name ||
                 row.created_by_name ||
                 row.tenant_name ||
-                'Foremoz Organizer',
-              time: row.start_at ? `Mulai ${formatAppDateTime(row.start_at)}` : 'Jadwal belum ditentukan',
+                copy.organizerFallback,
+              time: row.start_at ? `${copy.startsAt} ${formatAppDateTime(row.start_at)}` : copy.scheduleTbd,
               status: String(row.status || 'draft').toUpperCase(),
-              image: row.image_url || fallbackEvents[0].image
+              image: row.image_url || fallbackEvents[0]?.image || ''
             };
           });
           const scopedAllMapped = isAccountSurface
@@ -190,7 +341,7 @@ export default function PassportLandingPage() {
         }
       } catch (err) {
         if (!isMounted) return;
-        setError(err.message || 'Gagal memuat event');
+        setError(err.message || copy.loadError);
         setEvents(fallbackEvents);
         setAllEvents(fallbackEvents);
       } finally {
@@ -201,7 +352,7 @@ export default function PassportLandingPage() {
     return () => {
       isMounted = false;
     };
-  }, [isAccountSurface, normalizedAccount]);
+  }, [copy, fallbackEvents, isAccountSurface, normalizedAccount]);
 
   const orderedEvents = useMemo(() => {
     if (!highlightedEventId) return events;
@@ -314,18 +465,19 @@ export default function PassportLandingPage() {
   const accountDisplayName = String(accountInfo?.gym_name || '').trim() || normalizedAccount;
   const brandLabel = isAccountSurface
     ? accountDisplayName
-    : (isPassportSurface ? 'Foremoz Passport' : 'Foremoz Events');
+    : (isPassportSurface ? copy.brandPassport : copy.brandEvents);
 
   return (
     <main className="landing">
       <header className="topbar">
         <div className="brand">{brandLabel}</div>
         <nav>
-          {!isAccountSurface ? <Link to="/host">New Host</Link> : null}
+          {!isAccountSurface ? <Link to="/host">{copy.newHost}</Link> : null}
+          <LanguageSwitcher compact />
           {isAuthenticated ? (
             <>
-              <span>Welcome {welcomeName}</span>
-              <Link to={profileHref}>Profile</Link>
+              <span>{copy.welcome.replace('{name}', welcomeName)}</span>
+              <Link to={profileHref}>{copy.profile}</Link>
               <button
                 className="btn ghost small"
                 type="button"
@@ -346,11 +498,11 @@ export default function PassportLandingPage() {
                   navigate('/events', { replace: true });
                 }}
               >
-                Sign out
+                {copy.signOut}
               </button>
             </>
           ) : (
-            <Link to={isPassportSurface ? '/passport/signin' : accountMemberSigninHref || '/events/signin'}>Sign in</Link>
+            <Link to={isPassportSurface ? '/passport/signin' : accountMemberSigninHref || '/events/signin'}>{copy.signIn}</Link>
           )}
         </nav>
       </header>
@@ -362,24 +514,24 @@ export default function PassportLandingPage() {
           <p>{description}</p>
           <div className="hero-actions">
             <Link className="btn" to={isPassportSurface ? '/passport/signin' : accountMemberSigninHref || '/events/signin'}>
-              {isPassportSurface ? 'Masuk ke Passport' : 'Ikut Event Sekarang'}
+              {isPassportSurface ? copy.signInPassport : copy.joinNow}
             </Link>
             {!isPassportSurface && !isAccountSurface && !isExploreAllMode ? (
               <Link className="btn ghost" to="/events?explore=1">
-                Explore Semua Event
+                {copy.exploreAll}
               </Link>
             ) : null}
             {!isPassportSurface && !isAccountSurface && isExploreAllMode ? (
               <Link className="btn ghost" to="/events">
-                Kembali ke Premium Events
+                {copy.backPremium}
               </Link>
             ) : null}
           </div>
 
           <div className="passport-badge-list" style={{ marginTop: '0.75rem' }}>
-            <span className="passport-chip"><i className="fa-solid fa-calendar-check" /> Register cepat</span>
-            <span className="passport-chip"><i className="fa-solid fa-users" /> Komunitas aktif</span>
-            <span className="passport-chip"><i className="fa-solid fa-trophy" /> Progress terlihat</span>
+            <span className="passport-chip"><i className="fa-solid fa-calendar-check" /> {copy.chipFastRegister}</span>
+            <span className="passport-chip"><i className="fa-solid fa-users" /> {copy.chipActiveCommunity}</span>
+            <span className="passport-chip"><i className="fa-solid fa-trophy" /> {copy.chipVisibleProgress}</span>
           </div>
         </div>
       </section>
@@ -391,49 +543,49 @@ export default function PassportLandingPage() {
             className={`landing-tab ${activeTab === 'events' ? 'active' : ''}`}
             onClick={() => setActiveTab('events')}
           >
-            Events
+            {copy.tabEvents}
           </button>
           <button
             type="button"
             className={`landing-tab ${activeTab === 'my-events' ? 'active' : ''}`}
             onClick={() => setActiveTab('my-events')}
           >
-            My Events
+            {copy.tabMyEvents}
           </button>
           <button
             type="button"
             className={`landing-tab ${activeTab === 'faq' ? 'active' : ''}`}
             onClick={() => setActiveTab('faq')}
           >
-            FAQ
+            {copy.tabFaq}
           </button>
         </div>
 
         {activeTab === 'events' ? (
           <>
-            <p className="eyebrow">Events</p>
+            <p className="eyebrow">{copy.eventsEyebrow}</p>
             <h2 className="landing-title">
               {isGlobalEventsSurface
-                ? (isExploreAllMode ? 'Explore semua event' : 'Premium events')
-                : 'Upcoming events'}
+                ? (isExploreAllMode ? copy.exploreEvents : copy.premiumEvents)
+                : copy.upcomingEvents}
             </h2>
             {isGlobalEventsSurface && isExploreAllMode ? (
               <div className="card form" style={{ marginBottom: '1rem' }}>
                 <label>
-                  Cari event
+                  {copy.searchLabel}
                   <input
                     type="search"
-                    placeholder="judul, kategori, organizer..."
+                    placeholder={copy.searchPlaceholder}
                     value={searchQuery}
                     onChange={(event) => setSearchQuery(event.target.value)}
                   />
                 </label>
               </div>
             ) : null}
-            {loading ? <p className="feedback">Loading events...</p> : null}
+            {loading ? <p className="feedback">{copy.loadingEvents}</p> : null}
             {error ? <p className="feedback">{error}</p> : null}
             {isGlobalEventsSurface && !isExploreAllMode ? (
-              <p className="feedback">Menampilkan event premium yang sudah diposting.</p>
+              <p className="feedback">{copy.premiumPosted}</p>
             ) : null}
             <div className="passport-live-grid">
               {searchableEvents.map((event, idx) => (
@@ -444,12 +596,12 @@ export default function PassportLandingPage() {
                     <span className="passport-live-vertical"><i className={iconForVertical(event.vertical)} /> {event.vertical}</span>
                   </div>
                   <h3>{event.title}</h3>
-                  <p className="passport-live-category">Category: {event.category}</p>
+                  <p className="passport-live-category">{copy.category}: {event.category}</p>
                   <p className="passport-live-host">{event.host}</p>
-                  <p className="passport-live-host">Penyelenggara: {event.organizer || 'Foremoz Organizer'}</p>
+                  <p className="passport-live-host">{copy.organizer}: {event.organizer || copy.organizerFallback}</p>
                   <p className="passport-live-time">{event.time}</p>
                   {joinedEventIds.includes(String(event.event_id || '')) ? (
-                    <span className="passport-live-badge joined">Sudah joined</span>
+                    <span className="passport-live-badge joined">{copy.joined}</span>
                   ) : (
                     <Link
                       className="btn ghost small"
@@ -459,18 +611,18 @@ export default function PassportLandingPage() {
                           : `${registerBase}?event=${encodeURIComponent(event.event_id)}`)
                         : registerBase}
                     >
-                      Register
+                      {copy.register}
                     </Link>
                   )}
                 </article>
               ))}
               {!loading && searchableEvents.length === 0 ? (
                 <article className="passport-live-card">
-                  <h3>{isGlobalEventsSurface && !isExploreAllMode ? 'Belum ada premium event' : 'Belum ada event published'}</h3>
+                  <h3>{isGlobalEventsSurface && !isExploreAllMode ? copy.noPremium : copy.noPublished}</h3>
                   <p className="passport-live-time">
                     {isGlobalEventsSurface && !isExploreAllMode
-                      ? 'Coba Explore Semua Event atau tunggu premium event berikutnya.'
-                      : 'Coba lagi sebentar lagi, event baru akan segera hadir.'}
+                      ? copy.noPremiumDescription
+                      : copy.noPublishedDescription}
                   </p>
                 </article>
               ) : null}
@@ -478,9 +630,9 @@ export default function PassportLandingPage() {
           </>
         ) : activeTab === 'my-events' ? (
           <>
-            <p className="eyebrow">My Events</p>
-            <h2 className="landing-title">Event yang sudah kamu join</h2>
-            {!isAuthenticated ? <p className="feedback">Sign in dulu untuk lihat My Events.</p> : null}
+            <p className="eyebrow">{copy.myEventsEyebrow}</p>
+            <h2 className="landing-title">{copy.myEventsTitle}</h2>
+            {!isAuthenticated ? <p className="feedback">{copy.signInFirst}</p> : null}
             <div className="passport-live-grid">
               {isAuthenticated && joinedEvents.map((event, idx) => (
                 <article className="passport-live-card" key={event.event_id || `${event.title}-${idx}`}>
@@ -490,9 +642,9 @@ export default function PassportLandingPage() {
                     <span className="passport-live-vertical"><i className={iconForVertical(event.vertical)} /> {event.vertical}</span>
                   </div>
                   <h3>{event.title}</h3>
-                  <p className="passport-live-category">Category: {event.category}</p>
+                  <p className="passport-live-category">{copy.category}: {event.category}</p>
                   <p className="passport-live-host">{event.host}</p>
-                  <p className="passport-live-host">Penyelenggara: {event.organizer || 'Foremoz Organizer'}</p>
+                  <p className="passport-live-host">{copy.organizer}: {event.organizer || copy.organizerFallback}</p>
                   <p className="passport-live-time">{event.time}</p>
                   <Link
                     className="btn ghost small"
@@ -502,32 +654,32 @@ export default function PassportLandingPage() {
                         : `${registerBase}?event=${encodeURIComponent(event.event_id)}`)
                       : registerBase}
                   >
-                    Buka event
+                    {copy.openEvent}
                   </Link>
                 </article>
               ))}
               {isAuthenticated && !loading && joinedEvents.length === 0 ? (
                 <article className="passport-live-card">
-                  <h3>Belum ada event yang kamu join</h3>
-                  <p className="passport-live-time">Setelah register event, daftar event akan muncul di sini.</p>
+                  <h3>{copy.noJoinedTitle}</h3>
+                  <p className="passport-live-time">{copy.noJoinedDescription}</p>
                 </article>
               ) : null}
             </div>
           </>
         ) : (
           <>
-            <p className="eyebrow">FAQ</p>
-            <h2 className="landing-title">Cara ikut event</h2>
+            <p className="eyebrow">{copy.faqEyebrow}</p>
+            <h2 className="landing-title">{copy.faqTitle}</h2>
             <div className="feature-grid">
               <article className="feature-card">
-                <h3><i className="fa-solid fa-circle-play" /> Mulai dari event</h3>
-                <p>1) Pilih event yang kamu suka.</p>
-                <p>2) Register dan hadir di event.</p>
-                <p>3) Riwayat event langsung tersimpan di profile kamu.</p>
+                <h3><i className="fa-solid fa-circle-play" /> {copy.faqStartTitle}</h3>
+                <p>{copy.faqStep1}</p>
+                <p>{copy.faqStep2}</p>
+                <p>{copy.faqStep3}</p>
               </article>
               <article className="feature-card">
-                <h3><i className="fa-solid fa-id-card" /> Perlu buat passport dulu?</h3>
-                <p>Tidak perlu. Kamu bisa mulai dari event, profile akan mengikuti perjalananmu otomatis.</p>
+                <h3><i className="fa-solid fa-id-card" /> {copy.faqPassportTitle}</h3>
+                <p>{copy.faqPassportDescription}</p>
               </article>
             </div>
           </>
@@ -535,12 +687,12 @@ export default function PassportLandingPage() {
       </section>
 
       <section className="cta">
-        <p className="eyebrow">Create Events</p>
-        <h2>Ingin bikin event sendiri di Foremoz?</h2>
-        <p>Untuk host/owner yang ingin publish event baru dan kelola operasional tenant, lanjut ke Foremoz Web.</p>
+        <p className="eyebrow">{copy.createEyebrow}</p>
+        <h2>{copy.createTitle}</h2>
+        <p>{copy.createDescription}</p>
         <div className="hero-actions">
           <Link className="btn ghost" to="/host">
-            Create New Events
+            {copy.createButton}
           </Link>
         </div>
       </section>

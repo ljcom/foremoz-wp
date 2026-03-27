@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import LanguageSwitcher from '../components/LanguageSwitcher.jsx';
+import { useI18n } from '../i18n.js';
 import { apiJson } from '../lib.js';
 import { clearPassportSession, getPassportSession, passportApiJson } from '../passport-client.js';
 import PageStateCard from '../components/PageStateCard.jsx';
@@ -69,6 +71,126 @@ function normalizeSectionPrefs(raw) {
 }
 
 export default function PassportDashboardPage() {
+  const { language } = useI18n();
+  const copy = useMemo(() => (language === 'en'
+    ? {
+        loadError: 'Failed to load the passport dashboard.',
+        missingSession: 'Passport session was not found.',
+        pageEyebrow: 'Passport Dashboard',
+        pageTitle: 'The passport dashboard could not be loaded',
+        pageDescription: 'The passport data connection failed. Try again or return to the passport landing page.',
+        retry: 'Try again',
+        backToPassport: 'Back to passport',
+        emptyStatus: 'No profile status yet.',
+        context: 'Context',
+        showAllContexts: 'Show all contexts',
+        previewPublic: 'Preview Public',
+        signOut: 'Sign out',
+        joined: 'Joined',
+        following: 'Following',
+        plan: 'Plan',
+        account: 'Account',
+        interests: 'Interests',
+        uploadPhoto: 'Upload profile photo',
+        memberStatus: 'Member status',
+        statusPlaceholder: 'Example: Focused on marathon prep',
+        posts: 'Posts',
+        wins: 'Wins',
+        achievements: 'My Achievements',
+        achievementFallback: 'Achievement',
+        performanceUpdate: 'Performance update',
+        noAchievements: 'No achievements to showcase yet.',
+        upcomingEvents: 'Upcoming Events',
+        upcomingBadge: 'Upcoming',
+        eventHistory: 'Event History',
+        joinedBadge: 'Joined',
+        noUpcoming: 'No scheduled events yet.',
+        noHistory: 'No event history yet.',
+        settings: 'Settings (Public Visibility)',
+        showPublic: 'Show to public',
+        sectionLayout: 'Section Layout',
+        previewMode: 'Preview mode',
+        public: 'Public',
+        private: 'Private',
+        order: 'order',
+        pinnedHero: 'Pinned hero section',
+        standardSection: 'Standard section',
+        visibleInPreview: 'visible in preview',
+        hiddenInPreview: 'hidden in preview',
+        up: 'Up',
+        down: 'Down',
+        pinned: 'Pinned',
+        pin: 'Pin',
+        publicPreviewOutline: 'Public Preview Outline',
+        pinnedTop: 'Pinned at top of public narrative',
+        shownOrdered: 'Shown in ordered section flow',
+        publicPreview: 'public preview',
+        privatePreview: 'private preview',
+        hidden: 'hidden',
+        openAccount: 'Open account',
+        noneFollowing: 'No followed accounts yet.',
+        partialData: 'Some data is still missing. Try refreshing again.',
+        backToLanding: 'Back to landing'
+      }
+    : {
+        loadError: 'Gagal memuat passport dashboard.',
+        missingSession: 'Session passport tidak ditemukan.',
+        pageEyebrow: 'Passport Dashboard',
+        pageTitle: 'Dashboard passport belum bisa dimuat',
+        pageDescription: 'Koneksi data passport gagal. Coba lagi atau kembali ke landing passport.',
+        retry: 'Coba lagi',
+        backToPassport: 'Back to passport',
+        emptyStatus: 'Belum ada status profile.',
+        context: 'Context',
+        showAllContexts: 'Show all contexts',
+        previewPublic: 'Preview Public',
+        signOut: 'Sign out',
+        joined: 'Joined',
+        following: 'Following',
+        plan: 'Plan',
+        account: 'Account',
+        interests: 'Interests',
+        uploadPhoto: 'Upload foto diri',
+        memberStatus: 'Status member',
+        statusPlaceholder: 'Contoh: Lagi fokus marathon prep',
+        posts: 'Posts',
+        wins: 'Wins',
+        achievements: 'My Achievements',
+        achievementFallback: 'Achievement',
+        performanceUpdate: 'Performance update',
+        noAchievements: 'Belum ada pencapaian untuk dipamerkan.',
+        upcomingEvents: 'Upcoming Events',
+        upcomingBadge: 'Upcoming',
+        eventHistory: 'Event History',
+        joinedBadge: 'Joined',
+        noUpcoming: 'Belum ada event terjadwal.',
+        noHistory: 'Belum ada history event.',
+        settings: 'Settings (Public Visibility)',
+        showPublic: 'Tampilkan ke publik',
+        sectionLayout: 'Section Layout',
+        previewMode: 'Preview mode',
+        public: 'Public',
+        private: 'Private',
+        order: 'order',
+        pinnedHero: 'Pinned hero section',
+        standardSection: 'Standard section',
+        visibleInPreview: 'visible in preview',
+        hiddenInPreview: 'hidden in preview',
+        up: 'Up',
+        down: 'Down',
+        pinned: 'Pinned',
+        pin: 'Pin',
+        publicPreviewOutline: 'Public Preview Outline',
+        pinnedTop: 'Pinned at top of public narrative',
+        shownOrdered: 'Shown in ordered section flow',
+        publicPreview: 'public preview',
+        privatePreview: 'private preview',
+        hidden: 'hidden',
+        openAccount: 'Open account',
+        noneFollowing: 'Belum ada akun yang di-follow.',
+        partialData: 'Sebagian data belum tampil. Coba refresh lagi.',
+        backToLanding: 'Back to landing'
+      }), [language]);
   const navigate = useNavigate();
   const location = useLocation();
   const dashboardQuery = useMemo(() => new URLSearchParams(location.search || ''), [location.search]);
@@ -162,18 +284,18 @@ export default function PassportDashboardPage() {
         setPublicVisibilityHydrated(true);
         setApiStatus('ok');
       } catch (error) {
-        setApiError(error?.message || 'Gagal memuat passport dashboard.');
+        setApiError(error?.message || copy.loadError);
         setApiStatus('error');
       }
     }
 
     if (!passportId) {
-      setApiError('Session passport tidak ditemukan.');
+      setApiError(copy.missingSession);
       setApiStatus('error');
       return;
     }
     load();
-  }, [passportId, reloadVersion, tenantId, session?.passport?.planCode]);
+  }, [copy.loadError, copy.missingSession, passportId, reloadVersion, tenantId, session?.passport?.planCode]);
 
   const filteredJoinedEvents = useMemo(() => {
     if (!accountFilter) return joinedEvents;
@@ -350,8 +472,8 @@ export default function PassportDashboardPage() {
   }, [publicVisibilityHydrated, tenantId, passportId, publicAccount, publicVisibility]);
 
   const visibilityOptions = [
-    { key: 'showUpcomingEvents', label: 'Upcoming Events', icon: 'fa-solid fa-calendar-days' },
-    { key: 'showPastEvents', label: 'Event History', icon: 'fa-solid fa-clock-rotate-left' },
+    { key: 'showUpcomingEvents', label: copy.upcomingEvents, icon: 'fa-solid fa-calendar-days' },
+    { key: 'showPastEvents', label: copy.eventHistory, icon: 'fa-solid fa-clock-rotate-left' },
     { key: 'showRolesCapabilities', label: 'Roles', icon: 'fa-solid fa-user-check' },
     { key: 'showProgramsProducts', label: 'Programs', icon: 'fa-solid fa-layer-group' },
     { key: 'showAchievements', label: 'Achievements', icon: 'fa-solid fa-medal' },
@@ -362,11 +484,11 @@ export default function PassportDashboardPage() {
     { key: 'showPassportStats', label: 'Stats', icon: 'fa-solid fa-chart-line' }
   ];
   const dashboardTabs = [
-    { key: 'upcoming', label: 'Upcoming Events', icon: 'fa-solid fa-calendar-days' },
-    { key: 'history', label: 'Event History', icon: 'fa-solid fa-clock-rotate-left' },
-    { key: 'following', label: 'Following', icon: 'fa-solid fa-user-plus' },
+    { key: 'upcoming', label: copy.upcomingEvents, icon: 'fa-solid fa-calendar-days' },
+    { key: 'history', label: copy.eventHistory, icon: 'fa-solid fa-clock-rotate-left' },
+    { key: 'following', label: copy.following, icon: 'fa-solid fa-user-plus' },
     { key: 'profile', label: 'Profile', icon: 'fa-solid fa-id-card' },
-    { key: 'settings', label: 'Settings', icon: 'fa-solid fa-sliders' }
+    { key: 'settings', label: copy.settings, icon: 'fa-solid fa-sliders' }
   ];
   const visibilityMetaByKey = Object.fromEntries(visibilityOptions.map((item) => [item.key, item]));
   const orderedSectionPreview = sectionPrefs.sectionOrder.map((key) => {
@@ -458,12 +580,12 @@ export default function PassportDashboardPage() {
       <PageStateCard
         shellClassName="dashboard passport-fancy-dashboard"
         withBackdrop
-        eyebrow="Passport Dashboard"
-        title="Dashboard passport belum bisa dimuat"
-        description="Koneksi data passport gagal. Coba lagi atau kembali ke landing passport."
+        eyebrow={copy.pageEyebrow}
+        title={copy.pageTitle}
+        description={copy.pageDescription}
         actions={[
-          { label: 'Coba lagi', onClick: () => setReloadVersion((value) => value + 1) },
-          { label: 'Back to passport', to: authBase, variant: 'ghost' }
+          { label: copy.retry, onClick: () => setReloadVersion((value) => value + 1) },
+          { label: copy.backToPassport, to: authBase, variant: 'ghost' }
         ]}
       >
         {apiError ? <p className="error">{apiError}</p> : null}
@@ -477,15 +599,16 @@ export default function PassportDashboardPage() {
       <header className="dash-head card passport-hero-card">
         <div>
           <h1>{displayName}</h1>
-          <p>{memberStatus || 'Belum ada status profile.'}</p>
+          <p>{memberStatus || copy.emptyStatus}</p>
           {accountFilter ? (
             <p className="sub">
-              Context: <Link to={`/a/${encodeURIComponent(accountFilter)}`}>@{accountFilter}</Link>{' '}
-              <Link to={showAllContextsHref}>Show all contexts</Link>
+              {copy.context}: <Link to={`/a/${encodeURIComponent(accountFilter)}`}>@{accountFilter}</Link>{' '}
+              <Link to={showAllContextsHref}>{copy.showAllContexts}</Link>
             </p>
           ) : null}
         </div>
         <div className="meta">
+          <LanguageSwitcher compact />
           <button
             className="btn ghost"
             type="button"
@@ -495,17 +618,17 @@ export default function PassportDashboardPage() {
               }
             }}
           >
-            Preview Public
+            {copy.previewPublic}
           </button>
-          <button className="btn ghost" onClick={logout}>Sign out</button>
+          <button className="btn ghost" onClick={logout}>{copy.signOut}</button>
         </div>
       </header>
 
       <section className="card passport-context-strip">
-        <span className="passport-context-pill"><i className="fa-solid fa-ticket" /> Joined: {filteredJoinedEvents.length}</span>
-        <span className="passport-context-pill"><i className="fa-solid fa-users" /> Following: {followingItems.length}</span>
-        <span className="passport-context-pill"><i className="fa-solid fa-crown" /> Plan: {planCode}</span>
-        {accountFilter ? <span className="passport-context-pill"><i className="fa-solid fa-location-dot" /> Account: @{accountFilter}</span> : null}
+        <span className="passport-context-pill"><i className="fa-solid fa-ticket" /> {copy.joined}: {filteredJoinedEvents.length}</span>
+        <span className="passport-context-pill"><i className="fa-solid fa-users" /> {copy.following}: {followingItems.length}</span>
+        <span className="passport-context-pill"><i className="fa-solid fa-crown" /> {copy.plan}: {planCode}</span>
+        {accountFilter ? <span className="passport-context-pill"><i className="fa-solid fa-location-dot" /> {copy.account}: @{accountFilter}</span> : null}
       </section>
 
       <section className="card passport-panel-fancy">
@@ -537,17 +660,17 @@ export default function PassportDashboardPage() {
               <div>
                 <h2 style={{ margin: 0 }}>{displayName}</h2>
                 <p className="sub">Passport ID: {passportId || '-'}</p>
-                <p className="sub">Interests: {(profile?.sport_interests || []).join(', ') || '-'}</p>
+                <p className="sub">{copy.interests}: {(profile?.sport_interests || []).join(', ') || '-'}</p>
                 <label className="sub" style={{ display: 'block', marginTop: '0.5rem' }}>
-                  Upload foto diri
+                  {copy.uploadPhoto}
                   <input type="file" accept="image/*" onChange={onAvatarUpload} />
                 </label>
                 <label className="sub" style={{ display: 'block', marginTop: '0.5rem' }}>
-                  Status member
+                  {copy.memberStatus}
                   <input
                     value={memberStatus}
                     onChange={(event) => setMemberStatus(event.target.value)}
-                    placeholder="Contoh: Lagi fokus marathon prep"
+                    placeholder={copy.statusPlaceholder}
                   />
                 </label>
               </div>
@@ -564,28 +687,28 @@ export default function PassportDashboardPage() {
               <h3>{filteredJoinedEvents.length}</h3>
             </article>
             <article className="stat">
-              <p><i className="fa-solid fa-camera-retro" /> Posts</p>
+              <p><i className="fa-solid fa-camera-retro" /> {copy.posts}</p>
               <h3>{socialPosts.length}</h3>
             </article>
             <article className="stat">
-              <p><i className="fa-solid fa-trophy" /> Wins</p>
+              <p><i className="fa-solid fa-trophy" /> {copy.wins}</p>
               <h3>{performance.length}</h3>
             </article>
           </section>
 
           <section className="card passport-panel-fancy">
-            <p className="eyebrow"><i className="fa-solid fa-medal" /> My Achievements</p>
+            <p className="eyebrow"><i className="fa-solid fa-medal" /> {copy.achievements}</p>
             <div className="entity-list">
               {(performance || []).slice(0, 12).map((row) => (
                 <div key={row.log_id || row.recorded_at} className="entity-row">
                   <div>
-                    <strong><i className="fa-solid fa-award" /> {row.metric_name || 'Achievement'}</strong>
+                    <strong><i className="fa-solid fa-award" /> {row.metric_name || copy.achievementFallback}</strong>
                     <p>{row.metric_value || '-'}</p>
-                    <p>{row.note || 'Performance update'}</p>
+                    <p>{row.note || copy.performanceUpdate}</p>
                   </div>
                 </div>
               ))}
-              {performance.length === 0 ? <p className="sub">Belum ada pencapaian untuk dipamerkan.</p> : null}
+              {performance.length === 0 ? <p className="sub">{copy.noAchievements}</p> : null}
             </div>
           </section>
         </>
@@ -593,33 +716,33 @@ export default function PassportDashboardPage() {
 
       {dashboardTab === 'upcoming' ? (
         <section className="card passport-panel-fancy">
-          <p className="eyebrow"><i className="fa-solid fa-calendar-days" /> Upcoming Events</p>
+          <p className="eyebrow"><i className="fa-solid fa-calendar-days" /> {copy.upcomingEvents}</p>
           <div className="passport-live-grid">
             {upcomingEvents.map((row) => (
               <article key={row.event_id} className="passport-live-card">
                 <img className="passport-live-image" src={eventVisual(row.event_id)} alt={row.event_name || 'Event'} />
                 <div className="passport-live-head">
-                  <span className="passport-live-badge"><i className="fa-solid fa-calendar-days" /> Upcoming</span>
+                  <span className="passport-live-badge"><i className="fa-solid fa-calendar-days" /> {copy.upcomingBadge}</span>
                 </div>
                 <h3>{row.event_name || '-'}</h3>
                 <p className="passport-live-time"><i className="fa-regular fa-clock" /> {formatAppDateTime(row.start_at)}</p>
                 <p className="passport-live-participant"><i className="fa-solid fa-stopwatch" /> {Number(row.duration_minutes || 60)} min</p>
               </article>
             ))}
-            {upcomingEvents.length === 0 ? <p className="sub">Belum ada event terjadwal.</p> : null}
+            {upcomingEvents.length === 0 ? <p className="sub">{copy.noUpcoming}</p> : null}
           </div>
         </section>
       ) : null}
 
       {dashboardTab === 'history' ? (
         <section className="card passport-panel-fancy">
-          <p className="eyebrow"><i className="fa-solid fa-clock-rotate-left" /> Event History</p>
+          <p className="eyebrow"><i className="fa-solid fa-clock-rotate-left" /> {copy.eventHistory}</p>
           <div className="passport-live-grid">
             {pastEvents.map((row) => (
               <article key={row.event_id} className="passport-live-card">
                 <img className="passport-live-image" src={eventVisual(row.event_id)} alt={row.event_name || 'Event'} />
                 <div className="passport-live-head">
-                  <span className="passport-live-badge joined"><i className="fa-solid fa-circle-check" /> Joined</span>
+                  <span className="passport-live-badge joined"><i className="fa-solid fa-circle-check" /> {copy.joinedBadge}</span>
                   {eventScoresByEventId[String(row.event_id || '')]?.rank !== null && eventScoresByEventId[String(row.event_id || '')]?.rank !== undefined ? (
                     <span className="passport-live-badge"><i className="fa-solid fa-trophy" /> #{eventScoresByEventId[String(row.event_id || '')].rank}</span>
                   ) : null}
@@ -629,14 +752,14 @@ export default function PassportDashboardPage() {
                 <p className="passport-live-participant"><i className="fa-solid fa-star" /> {Number(eventScoresByEventId[String(row.event_id || '')]?.score_points || 0)} pts</p>
               </article>
             ))}
-            {pastEvents.length === 0 ? <p className="sub">Belum ada history event.</p> : null}
+            {pastEvents.length === 0 ? <p className="sub">{copy.noHistory}</p> : null}
           </div>
         </section>
       ) : null}
 
       {dashboardTab === 'settings' ? (
         <section className="card passport-panel-fancy">
-          <p className="eyebrow"><i className="fa-solid fa-globe" /> Settings (Public Visibility)</p>
+          <p className="eyebrow"><i className="fa-solid fa-globe" /> {copy.settings}</p>
           <label className="passport-toggle">
             <input
               type="checkbox"
@@ -645,7 +768,7 @@ export default function PassportDashboardPage() {
                 setPublicVisibility((prev) => ({ ...prev, allowPublicPublish: event.target.checked }))
               }
             />
-            <span><i className="fa-solid fa-earth-asia" /> Tampilkan ke publik</span>
+            <span><i className="fa-solid fa-earth-asia" /> {copy.showPublic}</span>
           </label>
           <div className="passport-toggle-grid">
             {visibilityOptions.map((item) => (
@@ -663,17 +786,17 @@ export default function PassportDashboardPage() {
             ))}
           </div>
           <div className="card" style={{ marginTop: '1rem', borderStyle: 'dashed' }}>
-            <p className="eyebrow"><i className="fa-solid fa-wand-magic-sparkles" /> Section Layout</p>
+            <p className="eyebrow"><i className="fa-solid fa-wand-magic-sparkles" /> {copy.sectionLayout}</p>
             <label className="passport-toggle" style={{ marginBottom: '0.75rem' }}>
-              <span><i className="fa-solid fa-eye" /> Preview mode</span>
+              <span><i className="fa-solid fa-eye" /> {copy.previewMode}</span>
               <select
                 value={sectionPrefs.previewMode}
                 onChange={(event) =>
                   setSectionPrefs((prev) => ({ ...prev, previewMode: event.target.value === 'private' ? 'private' : 'public' }))
                 }
               >
-                <option value="public">Public</option>
-                <option value="private">Private</option>
+                <option value="public">{copy.public}</option>
+                <option value="private">{copy.private}</option>
               </select>
             </label>
             <div className="entity-list">
@@ -682,22 +805,22 @@ export default function PassportDashboardPage() {
                   <div>
                     <strong><i className={item.icon} /> {item.label}</strong>
                     <p>
-                      order #{index + 1} | {item.isPinned ? 'Pinned hero section' : 'Standard section'} | {item.isVisibleInMode ? 'visible in preview' : 'hidden in preview'}
+                      {copy.order} #{index + 1} | {item.isPinned ? copy.pinnedHero : copy.standardSection} | {item.isVisibleInMode ? copy.visibleInPreview : copy.hiddenInPreview}
                     </p>
                   </div>
                   <div className="row-actions">
                     <button className="btn ghost small" type="button" onClick={() => moveSection(item.key, 'up')}>
-                      Up
+                      {copy.up}
                     </button>
                     <button className="btn ghost small" type="button" onClick={() => moveSection(item.key, 'down')}>
-                      Down
+                      {copy.down}
                     </button>
                     <button
                       className={`btn ghost small ${item.isPinned ? 'active' : ''}`}
                       type="button"
                       onClick={() => setSectionPrefs((prev) => ({ ...prev, pinnedSection: item.key }))}
                     >
-                      {item.isPinned ? 'Pinned' : 'Pin'}
+                      {item.isPinned ? copy.pinned : copy.pin}
                     </button>
                   </div>
                 </div>
@@ -705,7 +828,7 @@ export default function PassportDashboardPage() {
             </div>
           </div>
           <div className="card" style={{ marginTop: '1rem', borderStyle: 'dashed' }}>
-            <p className="eyebrow"><i className="fa-solid fa-panorama" /> Public Preview Outline</p>
+            <p className="eyebrow"><i className="fa-solid fa-panorama" /> {copy.publicPreviewOutline}</p>
             <div className="entity-list">
               {orderedSectionPreview.map((item) => (
                 <div
@@ -717,10 +840,10 @@ export default function PassportDashboardPage() {
                 >
                   <div>
                     <strong><i className={item.icon} /> {item.label}</strong>
-                    <p>{item.isPinned ? 'Pinned at top of public narrative' : 'Shown in ordered section flow'}</p>
+                    <p>{item.isPinned ? copy.pinnedTop : copy.shownOrdered}</p>
                   </div>
                   <span className="passport-chip">
-                    {item.isVisibleInMode ? (sectionPrefs.previewMode === 'public' ? 'public preview' : 'private preview') : 'hidden'}
+                    {item.isVisibleInMode ? (sectionPrefs.previewMode === 'public' ? copy.publicPreview : copy.privatePreview) : copy.hidden}
                   </span>
                 </div>
               ))}
@@ -741,18 +864,18 @@ export default function PassportDashboardPage() {
                   <p>{item.location}</p>
                 </div>
                 <Link className="btn ghost small" to={`/a/${encodeURIComponent(item.account)}`}>
-                  Open account
+                  {copy.openAccount}
                 </Link>
               </div>
             ))}
-            {followingItems.length === 0 ? <p className="sub">Belum ada akun yang di-follow.</p> : null}
+            {followingItems.length === 0 ? <p className="sub">{copy.noneFollowing}</p> : null}
           </div>
         </section>
       ) : null}
 
       <footer className="dash-foot">
-        {apiStatus === 'error' ? <p className="mini-note">Sebagian data belum tampil. Coba refresh lagi.</p> : null}
-        <Link to={authBase}>Back to landing</Link>
+        {apiStatus === 'error' ? <p className="mini-note">{copy.partialData}</p> : null}
+        <Link to={authBase}>{copy.backToLanding}</Link>
       </footer>
     </main>
   );
