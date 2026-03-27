@@ -1652,6 +1652,150 @@ code {
   color: #5a6d84;
 }
 
+.page-state-card {
+  margin-top: 2rem;
+  position: relative;
+  z-index: 1;
+}
+
+.page-state-card h1 {
+  margin-top: 0;
+}
+
+.page-state-actions {
+  flex-wrap: wrap;
+}
+
+.page-skeleton-shell,
+.page-skeleton-card {
+  overflow: hidden;
+}
+
+.page-skeleton-stack {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.page-skeleton-line,
+.page-skeleton-box,
+.page-skeleton-pill,
+.page-skeleton-tab,
+.page-skeleton-button,
+.page-skeleton-avatar {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(90deg, #eef3f9 0%, #ffffff 50%, #eef3f9 100%);
+  background-size: 220% 100%;
+  animation: pageSkeletonPulse 1.4s ease-in-out infinite;
+}
+
+.page-skeleton-line {
+  display: block;
+  height: 0.9rem;
+  border-radius: 999px;
+}
+
+.page-skeleton-title {
+  width: min(360px, 62%);
+  height: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.page-skeleton-line-lg {
+  width: 88%;
+}
+
+.page-skeleton-line-md {
+  width: 62%;
+}
+
+.page-skeleton-line-sm {
+  width: 42%;
+}
+
+.page-skeleton-box {
+  border-radius: 16px;
+}
+
+.page-skeleton-media {
+  width: 100%;
+  min-height: 220px;
+}
+
+.page-skeleton-avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+}
+
+.page-skeleton-avatar-public {
+  width: 180px;
+  height: 180px;
+  border-radius: 24px;
+}
+
+.page-skeleton-actions {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.page-skeleton-button {
+  width: 140px;
+  height: 40px;
+  border-radius: 12px;
+}
+
+.page-skeleton-button-sm {
+  width: 110px;
+}
+
+.page-skeleton-pill-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.page-skeleton-pill {
+  width: 120px;
+  height: 36px;
+  border-radius: 999px;
+}
+
+.page-skeleton-tabs {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.45rem;
+}
+
+.page-skeleton-tab {
+  height: 42px;
+  border-radius: 11px;
+}
+
+.page-skeleton-profile {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  flex-wrap: wrap;
+}
+
+.page-skeleton-grid {
+  margin-top: 0.2rem;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
+@keyframes pageSkeletonPulse {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
+}
+
 .search-panel {
   margin-top: 1rem;
   border: 1px solid #dbe3ef;
@@ -1900,6 +2044,11 @@ code {
   .search-box,
   .member-layout,
   .admin-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .page-skeleton-grid,
+  .page-skeleton-tabs {
     grid-template-columns: 1fr;
   }
 

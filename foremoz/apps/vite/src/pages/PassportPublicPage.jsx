@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { apiJson } from '../lib.js';
 import { getVerticalConfig, getVerticalLabel, guessVerticalSlugByEventText } from '../industry-jargon.js';
+import PageStateCard from '../components/PageStateCard.jsx';
 
 function hashInt(value) {
   let hash = 0;
@@ -89,6 +90,8 @@ export default function PassportPublicPage() {
   const [actionMessage, setActionMessage] = useState('');
   const [eventsTab, setEventsTab] = useState('upcoming');
   const upcomingCarouselRef = useRef(null);
+  const [loadError, setLoadError] = useState('');
+  const [reloadVersion, setReloadVersion] = useState(0);
 
   useEffect(() => {
     let mounted = true;
@@ -96,6 +99,7 @@ export default function PassportPublicPage() {
       try {
         setLoading(true);
         setNotFound(false);
+        setLoadError('');
         const result = await apiJson(`/v1/public/passport?account=${encodeURIComponent(account)}`);
         if (!mounted) return;
         const profileItem = result.profile || null;
@@ -112,11 +116,12 @@ export default function PassportPublicPage() {
           events_attended: Number(result?.stats?.events_attended || 0)
         });
         setNotFound(!profileItem && !ownerItem);
-      } catch {
+      } catch (error) {
         if (!mounted) return;
         setProfile(null);
         setOwnerSetup(null);
-        setNotFound(true);
+        setNotFound(false);
+        setLoadError(error?.message || 'Gagal memuat passport publik.');
         setPublicVisibility(normalizePublicVisibility({}));
         setEvents({ upcoming: [], past: [] });
       } finally {
@@ -127,7 +132,7 @@ export default function PassportPublicPage() {
     return () => {
       mounted = false;
     };
-  }, [account]);
+  }, [account, reloadVersion]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -273,6 +278,73 @@ export default function PassportPublicPage() {
     if (!node) return;
     const delta = direction === 'next' ? node.clientWidth * 0.85 : node.clientWidth * -0.85;
     node.scrollBy({ left: delta, behavior: 'smooth' });
+  }
+
+  if (loading && !profile && !ownerSetup && !notFound) {
+    return (
+      <main className="landing passport-fancy-public" aria-busy="true">
+        <div className="passport-bg-orbs" aria-hidden="true" />
+        <header className="topbar">
+          <div className="brand"><i className="fa-solid fa-id-card" /> Passport</div>
+          <nav>
+            <Link to="/events">Events</Link>
+            <Link to="/passport/signin">Sign in</Link>
+          </nav>
+        </header>
+
+        <section className="card passport-public-head passport-public-hero-card page-skeleton-card">
+          <div className="page-skeleton-avatar page-skeleton-avatar-public" />
+          <div className="page-skeleton-stack">
+            <div className="page-skeleton-line page-skeleton-title" />
+            <div className="page-skeleton-line page-skeleton-line-md" />
+            <div className="page-skeleton-line page-skeleton-line-sm" />
+            <div className="page-skeleton-pill-row">
+              <div className="page-skeleton-pill" />
+              <div className="page-skeleton-pill" />
+              <div className="page-skeleton-pill" />
+            </div>
+          </div>
+        </section>
+
+        <section className="card page-skeleton-card">
+          <div className="page-skeleton-stack">
+            <div className="page-skeleton-line page-skeleton-line-lg" />
+            <div className="page-skeleton-line" />
+            <div className="page-skeleton-line page-skeleton-line-sm" />
+          </div>
+        </section>
+
+        <section className="card page-skeleton-card">
+          <div className="page-skeleton-grid">
+            {[1, 2, 3].map((item) => (
+              <div key={item} className="passport-live-card page-skeleton-card">
+                <div className="page-skeleton-box page-skeleton-media" />
+                <div className="page-skeleton-line page-skeleton-line-md" />
+                <div className="page-skeleton-line page-skeleton-line-sm" />
+              </div>
+            ))}
+          </div>
+        </section>
+      </main>
+    );
+  }
+
+  if (!loading && loadError) {
+    return (
+      <PageStateCard
+        shellClassName="landing passport-fancy-public"
+        withBackdrop
+        eyebrow="Passport Public"
+        title="Passport public belum bisa dimuat"
+        description="Profile publik gagal diambil dari backend. Coba lagi atau kembali ke event listing."
+        actions={[
+          { label: 'Coba lagi', onClick: () => setReloadVersion((value) => value + 1) },
+          { label: 'Back to events', to: '/events', variant: 'ghost' }
+        ]}
+      >
+        <p className="error">{loadError}</p>
+      </PageStateCard>
+    );
   }
 
   if (!loading && notFound) {

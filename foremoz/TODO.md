@@ -109,12 +109,12 @@ Last audited terhadap isi folder: **2026-03-26** (`foremoz/apps/api`, `foremoz/a
   - [x] Review transaksi sudah dipisah ke mode detail read-only, tidak reuse form add transaction.
   - [x] Aksi confirm/reject tetap tersedia langsung dari mode detail transaksi.
 
-## QA / Hardening (28%)
+## QA / Hardening (34%)
 - [ ] Tambah test otomatis untuk flow penting:
   - Event CRUD + publish + public listing
   - Register event + participant count + check-in
   - Passport visibility toggle mempengaruhi `/p/:account`
-- [ ] Tambah error boundary/loading skeleton di halaman `/events/register`, `/passport/dashboard`, `/p/:account`.
+- [x] Tambah error boundary/loading skeleton di halaman `/events/register`, `/passport/dashboard`, `/p/:account`.
 - [ ] Audit konsistensi timezone untuk jadwal event (WIB/local vs UTC) di semua page.
 
 ## Experience Network Backlog (Whitepaper Sync) (36%)

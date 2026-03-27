@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { apiJson } from '../lib.js';
 import { clearPassportSession, getPassportSession, passportApiJson } from '../passport-client.js';
+import PageStateCard from '../components/PageStateCard.jsx';
 
 function formatEventDate(value) {
   const time = new Date(value || '').getTime();
@@ -103,11 +104,14 @@ export default function PassportDashboardPage() {
   const [publicVisibility, setPublicVisibility] = useState(() => normalizePublicVisibility({}));
   const [publicVisibilityHydrated, setPublicVisibilityHydrated] = useState(false);
   const [sectionPrefs, setSectionPrefs] = useState(() => normalizeSectionPrefs({}));
+  const [apiError, setApiError] = useState('');
+  const [reloadVersion, setReloadVersion] = useState(0);
 
   useEffect(() => {
     async function load() {
       try {
         setApiStatus('loading');
+        setApiError('');
         await passportApiJson('/v1/projections/run', {
           method: 'POST',
           body: JSON.stringify({ tenant_id: tenantId })
@@ -162,17 +166,19 @@ export default function PassportDashboardPage() {
         setPublicVisibility(normalizePublicVisibility(visibilityRes?.visibility || {}));
         setPublicVisibilityHydrated(true);
         setApiStatus('ok');
-      } catch {
+      } catch (error) {
+        setApiError(error?.message || 'Gagal memuat passport dashboard.');
         setApiStatus('error');
       }
     }
 
     if (!passportId) {
+      setApiError('Session passport tidak ditemukan.');
       setApiStatus('error');
       return;
     }
     load();
-  }, [passportId, tenantId, session?.passport?.planCode]);
+  }, [passportId, reloadVersion, tenantId, session?.passport?.planCode]);
 
   const filteredJoinedEvents = useMemo(() => {
     if (!accountFilter) return joinedEvents;
@@ -398,6 +404,76 @@ export default function PassportDashboardPage() {
       nextOrder[targetIndex] = temp;
       return { ...prev, sectionOrder: nextOrder };
     });
+  }
+
+  if (apiStatus === 'loading' && !profile) {
+    return (
+      <main className="dashboard passport-fancy-dashboard" aria-busy="true">
+        <div className="passport-bg-orbs" aria-hidden="true" />
+        <header className="dash-head card passport-hero-card page-skeleton-card">
+          <div className="page-skeleton-stack" style={{ flex: 1 }}>
+            <div className="page-skeleton-line page-skeleton-title" />
+            <div className="page-skeleton-line page-skeleton-line-md" />
+          </div>
+          <div className="page-skeleton-actions">
+            <div className="page-skeleton-button" />
+            <div className="page-skeleton-button page-skeleton-button-sm" />
+          </div>
+        </header>
+
+        <section className="card passport-context-strip page-skeleton-card">
+          {[1, 2, 3, 4].map((item) => (
+            <div key={item} className="page-skeleton-pill" />
+          ))}
+        </section>
+
+        <section className="card passport-panel-fancy page-skeleton-card">
+          <div className="page-skeleton-tabs">
+            {[1, 2, 3, 4, 5].map((item) => (
+              <div key={item} className="page-skeleton-tab" />
+            ))}
+          </div>
+        </section>
+
+        <section className="card passport-profile-card page-skeleton-card">
+          <div className="page-skeleton-profile">
+            <div className="page-skeleton-avatar" />
+            <div className="page-skeleton-stack" style={{ flex: 1 }}>
+              <div className="page-skeleton-line page-skeleton-line-lg" />
+              <div className="page-skeleton-line page-skeleton-line-md" />
+              <div className="page-skeleton-line page-skeleton-line-sm" />
+            </div>
+          </div>
+        </section>
+
+        <section className="stats-grid passport-stat-grid-fancy">
+          {[1, 2, 3, 4].map((item) => (
+            <article key={item} className="stat page-skeleton-card">
+              <div className="page-skeleton-line page-skeleton-line-sm" />
+              <div className="page-skeleton-line page-skeleton-line-md" />
+            </article>
+          ))}
+        </section>
+      </main>
+    );
+  }
+
+  if (apiStatus === 'error' && !profile) {
+    return (
+      <PageStateCard
+        shellClassName="dashboard passport-fancy-dashboard"
+        withBackdrop
+        eyebrow="Passport Dashboard"
+        title="Dashboard passport belum bisa dimuat"
+        description="Koneksi data passport gagal. Coba lagi atau kembali ke landing passport."
+        actions={[
+          { label: 'Coba lagi', onClick: () => setReloadVersion((value) => value + 1) },
+          { label: 'Back to passport', to: authBase, variant: 'ghost' }
+        ]}
+      >
+        {apiError ? <p className="error">{apiError}</p> : null}
+      </PageStateCard>
+    );
   }
 
   return (

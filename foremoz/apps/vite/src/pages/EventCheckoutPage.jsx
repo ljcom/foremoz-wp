@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { apiJson } from '../lib.js';
 import { clearPassportSession, getPassportSession } from '../passport-client.js';
+import PageStateCard from '../components/PageStateCard.jsx';
 
 const JOINED_EVENTS_KEY = 'ff.events.joined';
 const REGISTRATION_ANSWERS_KEY = 'ff.events.registration.answers';
@@ -51,6 +52,7 @@ export default function EventCheckoutPage() {
   const [alreadyJoined, setAlreadyJoined] = useState(false);
   const [registrationAnswers, setRegistrationAnswers] = useState({});
   const [registrationError, setRegistrationError] = useState('');
+  const [loadVersion, setLoadVersion] = useState(0);
   const eventId = useMemo(
     () => String(eventIdParam || new URLSearchParams(location.search).get('event') || '').trim(),
     [eventIdParam, location.search]
@@ -147,7 +149,12 @@ export default function EventCheckoutPage() {
   useEffect(() => {
     let mounted = true;
     async function loadEvent() {
-      if (!eventId) return;
+      if (!eventId) {
+        setEventItem(null);
+        setError('Event belum dipilih.');
+        setLoading(false);
+        return;
+      }
       try {
         setLoading(true);
         setError('');
@@ -181,7 +188,7 @@ export default function EventCheckoutPage() {
     return () => {
       mounted = false;
     };
-  }, [accountParam, eventId, isAccountEventPath, isShortEventPath, navigate]);
+  }, [accountParam, eventId, isAccountEventPath, isShortEventPath, loadVersion, navigate]);
 
   useEffect(() => {
     if (!eventId || typeof window === 'undefined') {
@@ -200,6 +207,7 @@ export default function EventCheckoutPage() {
 
   const duration = Number(eventItem?.duration_minutes || 60);
   const price = estimatePrice(duration);
+  const isInitialLoading = loading && !eventItem && !error;
 
   async function submitPayment() {
     if (!isAuthed) return;
@@ -299,6 +307,58 @@ export default function EventCheckoutPage() {
     setPaymentDone(true);
   }
 
+  if (isInitialLoading) {
+    return (
+      <main className="dashboard" aria-busy="true">
+        <header className="topbar">
+          <div className="brand">
+            <Link to={accountHomeHref}>{accountInfo || 'Foremoz Events'}</Link>
+          </div>
+        </header>
+        <section className="card wide page-skeleton-shell">
+          <p className="eyebrow">Event Checkout</p>
+          <div className="page-skeleton-line page-skeleton-title" />
+          <div className="entity-list">
+            <div className="entity-row page-skeleton-card">
+              <div className="page-skeleton-stack">
+                <div className="page-skeleton-line page-skeleton-line-lg" />
+                <div className="page-skeleton-line page-skeleton-line-md" />
+                <div className="page-skeleton-line page-skeleton-line-sm" />
+              </div>
+            </div>
+            <div className="card page-skeleton-card">
+              <div className="page-skeleton-box page-skeleton-media" />
+            </div>
+            <div className="card page-skeleton-card">
+              <div className="page-skeleton-stack">
+                <div className="page-skeleton-line page-skeleton-line-lg" />
+                <div className="page-skeleton-line" />
+                <div className="page-skeleton-line page-skeleton-line-sm" />
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+    );
+  }
+
+  if (!loading && error && !eventItem) {
+    return (
+      <PageStateCard
+        shellClassName="dashboard"
+        eyebrow="Event Checkout"
+        title="Checkout event belum siap"
+        description="Data event tidak berhasil dimuat. Coba lagi atau kembali ke daftar event."
+        actions={[
+          { label: 'Coba lagi', onClick: () => setLoadVersion((value) => value + 1) },
+          { label: 'Back to events', to: backToEvents, variant: 'ghost' }
+        ]}
+      >
+        <p className="error">{error}</p>
+      </PageStateCard>
+    );
+  }
+
   return (
     <main className="dashboard">
       <header className="topbar">
@@ -309,8 +369,8 @@ export default function EventCheckoutPage() {
       <section className="card wide">
         <p className="eyebrow">Event Checkout</p>
         <h1>Register Event</h1>
-        {loading ? <p className="feedback">Memuat data event...</p> : null}
-        {error ? <p className="error">{error}</p> : null}
+        {loading ? <p className="feedback">Memuat ulang data event...</p> : null}
+        {error && eventItem ? <p className="error">{error}</p> : null}
 
         {eventItem ? (
           <div className="entity-list">

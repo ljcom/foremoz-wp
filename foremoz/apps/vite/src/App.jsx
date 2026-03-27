@@ -26,6 +26,7 @@ import SalesProspectEditPage from './pages/SalesProspectEditPage.jsx';
 import PtPage from './pages/PtPage.jsx';
 import { accountPath, getAllowedEnvironments, getSession } from './lib.js';
 import { getPassportSession } from './passport-client.js';
+import PageErrorBoundary from './components/PageErrorBoundary.jsx';
 
 function roleHome(session) {
   const role = session?.role || 'admin';
@@ -164,17 +165,83 @@ export default function App() {
       <Route path="/web" element={<Navigate to="/host" replace />} />
       <Route path="/events" element={<PassportLandingPage />} />
       <Route path="/passport" element={<PassportLandingPage />} />
-      <Route path="/p/:account" element={<PassportPublicPage />} />
+      <Route
+        path="/p/:account"
+        element={
+          <PageErrorBoundary
+            shellClassName="landing passport-fancy-public"
+            withBackdrop
+            title="Passport public tidak bisa dibuka"
+            description="Coba reload halaman ini atau kembali ke daftar event."
+            homeHref="/events"
+            homeLabel="Back to events"
+          >
+            <PassportPublicPage />
+          </PageErrorBoundary>
+        }
+      />
       <Route path="/events/signup" element={<PassportSignUpPage />} />
       <Route path="/passport/signup" element={<PassportSignUpPage />} />
       <Route path="/events/signin" element={<PassportSignInPage />} />
       <Route path="/passport/signin" element={<PassportSignInPage />} />
       <Route path="/events/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/passport/forgot-password" element={<ForgotPasswordPage />} />
-      <Route path="/events/register" element={<EventCheckoutPage />} />
-      <Route path="/passport/register" element={<EventCheckoutPage />} />
-      <Route path="/e/:eventId" element={<EventCheckoutPage />} />
-      <Route path="/a/:account/e/:eventId" element={<EventCheckoutPage />} />
+      <Route
+        path="/events/register"
+        element={
+          <PageErrorBoundary
+            shellClassName="dashboard"
+            title="Checkout event bermasalah"
+            description="Halaman checkout gagal dirender. Reload atau kembali ke daftar event."
+            homeHref="/events"
+            homeLabel="Back to events"
+          >
+            <EventCheckoutPage />
+          </PageErrorBoundary>
+        }
+      />
+      <Route
+        path="/passport/register"
+        element={
+          <PageErrorBoundary
+            shellClassName="dashboard"
+            title="Checkout event bermasalah"
+            description="Halaman checkout gagal dirender. Reload atau kembali ke daftar event."
+            homeHref="/events"
+            homeLabel="Back to events"
+          >
+            <EventCheckoutPage />
+          </PageErrorBoundary>
+        }
+      />
+      <Route
+        path="/e/:eventId"
+        element={
+          <PageErrorBoundary
+            shellClassName="dashboard"
+            title="Checkout event bermasalah"
+            description="Halaman checkout gagal dirender. Reload atau kembali ke daftar event."
+            homeHref="/events"
+            homeLabel="Back to events"
+          >
+            <EventCheckoutPage />
+          </PageErrorBoundary>
+        }
+      />
+      <Route
+        path="/a/:account/e/:eventId"
+        element={
+          <PageErrorBoundary
+            shellClassName="dashboard"
+            title="Checkout event bermasalah"
+            description="Halaman checkout gagal dirender. Reload atau kembali ke daftar event."
+            homeHref="/events"
+            homeLabel="Back to events"
+          >
+            <EventCheckoutPage />
+          </PageErrorBoundary>
+        }
+      />
       <Route path="/a/:account/events" element={<PassportLandingPage />} />
       <Route
         path="/events/onboarding"
@@ -196,9 +263,18 @@ export default function App() {
         path="/events/dashboard"
         element={
           <PassportProtectedRoute>
-            <PassportRequireOnboarding>
-              <PassportDashboardPage />
-            </PassportRequireOnboarding>
+              <PassportRequireOnboarding>
+                <PageErrorBoundary
+                  shellClassName="dashboard passport-fancy-dashboard"
+                  withBackdrop
+                  title="Passport dashboard bermasalah"
+                  description="Dashboard passport gagal dirender. Reload halaman atau kembali ke landing."
+                  homeHref="/passport"
+                  homeLabel="Back to passport"
+                >
+                  <PassportDashboardPage />
+                </PageErrorBoundary>
+              </PassportRequireOnboarding>
           </PassportProtectedRoute>
         }
       />
@@ -206,9 +282,18 @@ export default function App() {
         path="/passport/dashboard"
         element={
           <PassportProtectedRoute>
-            <PassportRequireOnboarding>
-              <PassportDashboardPage />
-            </PassportRequireOnboarding>
+              <PassportRequireOnboarding>
+                <PageErrorBoundary
+                  shellClassName="dashboard passport-fancy-dashboard"
+                  withBackdrop
+                  title="Passport dashboard bermasalah"
+                  description="Dashboard passport gagal dirender. Reload halaman atau kembali ke landing."
+                  homeHref="/passport"
+                  homeLabel="Back to passport"
+                >
+                  <PassportDashboardPage />
+                </PageErrorBoundary>
+              </PassportRequireOnboarding>
           </PassportProtectedRoute>
         }
       />
