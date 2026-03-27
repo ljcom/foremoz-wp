@@ -12,6 +12,9 @@
 ## Identity
 - `paper/passport/`
 
+## Conference
+- `paper/conference/`
+
 ## Note
 - Folder `paper/coach/` telah dihapus.
 - Folder `paper/seminar/` dan `paper/workshop/` digabung menjadi `paper/industries/learning/`.
