@@ -1,5 +1,6 @@
 import nodemailer from 'nodemailer';
 import { config } from './config.js';
+import { formatAppDateTime as formatDateTime } from './time.js';
 
 let transporterPromise = null;
 
@@ -10,15 +11,6 @@ function escapeHtml(value) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
-}
-
-function formatDateTime(value) {
-  const date = new Date(value || '');
-  if (Number.isNaN(date.getTime())) return '-';
-  return new Intl.DateTimeFormat('id-ID', {
-    dateStyle: 'medium',
-    timeStyle: 'short'
-  }).format(date);
 }
 
 function isEmailDeliveryEnabled() {

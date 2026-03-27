@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { apiJson } from '../lib.js';
 import { clearPassportSession, getPassportSession } from '../passport-client.js';
 import PageStateCard from '../components/PageStateCard.jsx';
+import { formatAppDateTime } from '../time.js';
 
 const JOINED_EVENTS_KEY = 'ff.events.joined';
 const REGISTRATION_ANSWERS_KEY = 'ff.events.registration.answers';
@@ -14,12 +15,6 @@ function estimatePrice(durationMinutes) {
 
 function formatIdr(value) {
   return `IDR ${Number(value || 0).toLocaleString('id-ID')}`;
-}
-
-function formatDateTime(value) {
-  const date = new Date(value || '');
-  if (Number.isNaN(date.getTime())) return '-';
-  return date.toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
 }
 
 function resolveEventGallery(eventItem) {
@@ -377,7 +372,7 @@ export default function EventCheckoutPage() {
             <div className="entity-row">
               <div>
                 <strong>{eventItem.event_name || '-'}</strong>
-                <p>Mulai: {formatDateTime(eventItem.start_at)}</p>
+                <p>Mulai: {formatAppDateTime(eventItem.start_at)}</p>
                 <p>Durasi: {duration} menit</p>
                 <p>Harga: {formatIdr(price)}</p>
               </div>

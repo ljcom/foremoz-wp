@@ -11,6 +11,7 @@ import {
 } from '../lib.js';
 import { getVerticalLabel, guessVerticalSlugByText } from '../industry-jargon.js';
 import WorkspaceHeader from '../components/WorkspaceHeader.jsx';
+import { formatAppDateTime as formatDateTime } from '../time.js';
 
 function Stat({ label, value, iconClass, tone, hint }) {
   return (
@@ -31,14 +32,6 @@ function Stat({ label, value, iconClass, tone, hint }) {
 
 function toLowerText(value) {
   return String(value || '').trim().toLowerCase();
-}
-
-function formatDateTime(value) {
-  const raw = String(value || '').trim();
-  if (!raw) return '-';
-  const date = new Date(raw);
-  if (Number.isNaN(date.getTime())) return raw;
-  return date.toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
 }
 
 function formatIdr(value) {

@@ -2,6 +2,12 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { apiJson, clearSession, getAccountSlug, getAllowedEnvironments, getEnvironmentLabel, getSession } from '../lib.js';
 import WorkspaceHeader from '../components/WorkspaceHeader.jsx';
+import {
+  formatAppDateTime,
+  getAppDateKey,
+  getAppDateTimeInputValue,
+  toAppIsoFromDateTimeInput
+} from '../time.js';
 
 function Stat({ label, value, iconClass, tone, hint }) {
   return (
@@ -32,30 +38,6 @@ function parseCustomFieldsInput(raw, label) {
   } catch {
     throw new Error(`${label} custom_fields is invalid JSON object`);
   }
-}
-
-function toIso(value) {
-  const source = String(value || '').trim();
-  if (!source) return null;
-  const date = new Date(source);
-  if (Number.isNaN(date.getTime())) return null;
-  return date.toISOString();
-}
-
-function toInputDatetime(value) {
-  const source = String(value || '').trim();
-  if (!source) return '';
-  if (source.includes('T')) return source.slice(0, 16);
-  if (source.includes(' ')) return source.replace(' ', 'T').slice(0, 16);
-  return source.slice(0, 16);
-}
-
-function formatDateTime(value) {
-  const source = String(value || '').trim();
-  if (!source) return '-';
-  const date = new Date(source);
-  if (Number.isNaN(date.getTime())) return source;
-  return date.toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
 }
 
 export default function SalesPage() {
@@ -115,10 +97,10 @@ export default function SalesPage() {
   );
 
   const insightStats = useMemo(() => {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = getAppDateKey(new Date().toISOString());
     const totalProspect = items.length;
-    const followupToday = items.filter((item) => String(item.next_followup_at || '').slice(0, 10) === today).length;
-    const dealToday = items.filter((item) => String(item.converted_at || '').slice(0, 10) === today).length;
+    const followupToday = items.filter((item) => getAppDateKey(item.next_followup_at) === today).length;
+    const dealToday = items.filter((item) => getAppDateKey(item.converted_at) === today).length;
     const qualified = items.filter((item) => String(item.stage || '').toLowerCase() === 'qualified').length;
     return [
       { label: 'total prospect', value: totalProspect, iconClass: 'fa-solid fa-users', tone: 'tone-subscription', hint: 'all leads in pipeline' },
@@ -237,7 +219,7 @@ export default function SalesPage() {
           id_card: newForm.id_card.trim() || null,
           source: newForm.source.trim() || null,
           notes: newForm.notes.trim() || null,
-          next_followup_at: toIso(newForm.next_followup_at),
+          next_followup_at: toAppIsoFromDateTimeInput(newForm.next_followup_at),
           custom_fields: customFields
         })
       });
@@ -288,7 +270,7 @@ export default function SalesPage() {
     setFollowupForm({
       notes: '',
       stage: 'followup',
-      next_followup_at: toInputDatetime(item.next_followup_at),
+      next_followup_at: getAppDateTimeInputValue(item.next_followup_at),
       custom_fields_text: item.custom_fields ? JSON.stringify(item.custom_fields) : ''
     });
   }
@@ -309,7 +291,7 @@ export default function SalesPage() {
           owner_sales_id: userId || undefined,
           stage: followupForm.stage,
           notes: followupForm.notes.trim() || null,
-          next_followup_at: toIso(followupForm.next_followup_at),
+          next_followup_at: toAppIsoFromDateTimeInput(followupForm.next_followup_at),
           custom_fields: customFields
         })
       });
@@ -516,7 +498,7 @@ export default function SalesPage() {
                     <div>
                       <strong>{item.full_name}</strong>
                       <p>{item.email || '-'} | {item.phone || '-'} | {item.source || '-'}</p>
-                      <p>{item.stage} | followup: {formatDateTime(item.next_followup_at)} | converted: {item.converted_member_id || '-'}</p>
+                      <p>{item.stage} | followup: {formatAppDateTime(item.next_followup_at)} | converted: {item.converted_member_id || '-'}</p>
                     </div>
                   </div>
                   <div className="row-actions" style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
@@ -587,7 +569,7 @@ export default function SalesPage() {
                   <div className="entity-row" key={`${row.sequence}:${row.event_type}`}>
                     <div>
                       <strong>{row.event_type}</strong>
-                      <p>{formatDateTime(row.ts || row.data?.updated_at)}</p>
+                      <p>{formatAppDateTime(row.ts || row.data?.updated_at)}</p>
                       <p>{JSON.stringify(row.data || {})}</p>
                     </div>
                   </div>

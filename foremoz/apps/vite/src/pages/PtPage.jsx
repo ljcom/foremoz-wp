@@ -2,6 +2,12 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { apiJson, clearSession, getAccountSlug, getAllowedEnvironments, getEnvironmentLabel, getSession } from '../lib.js';
 import WorkspaceHeader from '../components/WorkspaceHeader.jsx';
+import {
+  formatAppDateTime,
+  getAppDateKey,
+  getAppNowDateTimeInput,
+  toAppIsoFromDateTimeInput
+} from '../time.js';
 
 function Stat({ label, value, iconClass, tone, hint }) {
   return (
@@ -52,7 +58,7 @@ export default function PtPage() {
   const [bookForm, setBookForm] = useState({
     pt_package_id: '',
     member_id: '',
-    session_at: new Date().toISOString().slice(0, 16),
+    session_at: getAppNowDateTimeInput(),
     activity_note: '',
     custom_fields_text: ''
   });
@@ -60,14 +66,14 @@ export default function PtPage() {
     pt_package_id: '',
     member_id: '',
     session_id: '',
-    completed_at: new Date().toISOString().slice(0, 16),
+    completed_at: getAppNowDateTimeInput(),
     activity_note: '',
     custom_fields_text: ''
   });
   const [activityForm, setActivityForm] = useState({
     pt_package_id: '',
     member_id: '',
-    session_at: new Date().toISOString().slice(0, 16),
+    session_at: getAppNowDateTimeInput(),
     activity_note: '',
     custom_fields_text: ''
   });
@@ -84,8 +90,8 @@ export default function PtPage() {
   const insightStats = useMemo(() => {
     const uniqueMembers = new Set(ptBalances.map((item) => String(item.member_id || '').trim()).filter(Boolean)).size;
     const remainingSessions = ptBalances.reduce((sum, row) => sum + Number(row.remaining_sessions || 0), 0);
-    const today = new Date().toISOString().slice(0, 10);
-    const todaySessions = ptActivityRows.filter((row) => String(row.session_at || '').slice(0, 10) === today).length;
+    const today = getAppDateKey(new Date().toISOString());
+    const todaySessions = ptActivityRows.filter((row) => getAppDateKey(row.session_at) === today).length;
     return [
       {
         label: 'active member',
@@ -178,11 +184,6 @@ export default function PtPage() {
     navigate(`/a/${accountSlug}`, { replace: true });
   }
 
-  function toIso(value) {
-    if (!value) return new Date().toISOString();
-    return new Date(value).toISOString();
-  }
-
   async function submitBookSession(e) {
     e.preventDefault();
     if (!bookForm.pt_package_id || !bookForm.member_id || !bookForm.session_at) {
@@ -202,7 +203,7 @@ export default function PtPage() {
           trainer_id: trainerId || undefined,
           pt_package_id: bookForm.pt_package_id,
           member_id: bookForm.member_id,
-          session_at: toIso(bookForm.session_at),
+          session_at: toAppIsoFromDateTimeInput(bookForm.session_at),
           activity_note: bookForm.activity_note || null,
           custom_fields: customFields
         })
@@ -235,7 +236,7 @@ export default function PtPage() {
           trainer_id: trainerId || undefined,
           member_id: completeForm.member_id,
           session_id: completeForm.session_id || null,
-          completed_at: toIso(completeForm.completed_at),
+          completed_at: toAppIsoFromDateTimeInput(completeForm.completed_at),
           activity_note: completeForm.activity_note || null,
           custom_fields: customFields
         })
@@ -268,7 +269,7 @@ export default function PtPage() {
           trainer_id: trainerId || undefined,
           pt_package_id: activityForm.pt_package_id || null,
           member_id: activityForm.member_id,
-          session_at: toIso(activityForm.session_at),
+          session_at: toAppIsoFromDateTimeInput(activityForm.session_at),
           activity_note: activityForm.activity_note,
           custom_fields: customFields
         })
@@ -381,7 +382,7 @@ export default function PtPage() {
             <div className="entity-row" key={item.activity_id}>
               <div>
                 <strong>{item.member_id} {item.pt_package_id ? `- ${item.pt_package_id}` : ''}</strong>
-                <p>{item.session_at} | {item.activity_type || 'activity_logged'}{item.session_id ? ` | session ${item.session_id}` : ''}</p>
+                <p>{formatAppDateTime(item.session_at)} | {item.activity_type || 'activity_logged'}{item.session_id ? ` | session ${item.session_id}` : ''}</p>
                 <p>{item.activity_note || '-'}</p>
                 <p>{item.custom_fields && Object.keys(item.custom_fields).length > 0 ? `custom_fields: ${JSON.stringify(item.custom_fields)}` : 'custom_fields: -'}</p>
               </div>

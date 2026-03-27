@@ -1,12 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { apiJson, clearSession, getSession, setSession } from '../lib.js';
-
-function formatPortalDate(value) {
-  const time = new Date(value || '').getTime();
-  if (!Number.isFinite(time) || Number.isNaN(time)) return '-';
-  return new Date(time).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
-}
+import { formatAppDateTime } from '../time.js';
 
 export default function MemberPortalPage() {
   const navigate = useNavigate();
@@ -242,7 +237,7 @@ export default function MemberPortalPage() {
                     <div>
                       <strong>{item.payment_id}</strong>
                       <p>{item.reference_type || '-'}:{item.reference_id || '-'}</p>
-                      <p>{formatPortalDate(item.recorded_at)}</p>
+                      <p>{formatAppDateTime(item.recorded_at)}</p>
                     </div>
                     <span className={`status ${item.status}`}>{item.status || '-'}</span>
                   </div>
@@ -273,7 +268,7 @@ export default function MemberPortalPage() {
                   </div>
                   <h3>{event.event_name || 'Untitled Event'}</h3>
                   <p className="passport-live-time">
-                    Mulai {event.start_at ? new Date(event.start_at).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' }) : '-'}
+                    Mulai {formatAppDateTime(event.start_at)}
                   </p>
                   <p className="passport-live-host">{event.location || '-'}</p>
                   <Link
@@ -301,7 +296,7 @@ export default function MemberPortalPage() {
                     <div>
                       <strong>{item.booking_id}</strong>
                       <p>{item.class_id || '-'} | {item.status || '-'}</p>
-                      <p>{formatPortalDate(item.booked_at)}</p>
+                      <p>{formatAppDateTime(item.booked_at)}</p>
                     </div>
                     <span className="passport-chip">{item.payment_id || 'no payment link'}</span>
                   </div>

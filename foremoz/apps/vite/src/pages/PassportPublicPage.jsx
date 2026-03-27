@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { apiJson } from '../lib.js';
 import { getVerticalConfig, getVerticalLabel, guessVerticalSlugByEventText } from '../industry-jargon.js';
 import PageStateCard from '../components/PageStateCard.jsx';
+import { formatAppDateTime } from '../time.js';
 
 function hashInt(value) {
   let hash = 0;
@@ -17,12 +18,6 @@ function titleFromAccount(account) {
   const raw = String(account || 'member').replace(/[-_]+/g, ' ').trim();
   if (!raw) return 'Member Foremoz';
   return raw.replace(/\b\w/g, (c) => c.toUpperCase());
-}
-
-function formatDateTime(value) {
-  const date = new Date(value || '');
-  if (Number.isNaN(date.getTime())) return '-';
-  return date.toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
 }
 
 function eventVisual(eventId) {
@@ -168,7 +163,7 @@ export default function PassportPublicPage() {
         id: String(item?.event_id || Math.random()),
         icon: isPast ? 'fa-solid fa-circle-check' : 'fa-solid fa-calendar-days',
         text: `${name} ${isPast ? 'joined' : 'scheduled'} ${item.event_name || 'event'}`,
-        time: formatDateTime(item.start_at)
+        time: formatAppDateTime(item.start_at)
       };
     });
   }, [history, name, upcoming]);
@@ -592,7 +587,7 @@ export default function PassportPublicPage() {
                     <span className="passport-live-vertical">{guessVertical(item)}</span>
                   </div>
                   <h3>{item.event_name || '-'}</h3>
-                  <p className="passport-live-time"><i className="fa-regular fa-clock" /> {formatDateTime(item.start_at)}</p>
+                  <p className="passport-live-time"><i className="fa-regular fa-clock" /> {formatAppDateTime(item.start_at)}</p>
                   <Link className="btn ghost small" to={`/a/${encodeURIComponent(item.account_slug || account)}/e/${encodeURIComponent(item.event_id)}`}>
                     Join Event
                   </Link>
@@ -612,7 +607,7 @@ export default function PassportPublicPage() {
                     <span className="passport-live-vertical">{guessVertical(item)}</span>
                   </div>
                   <h3>{item.event_name || '-'}</h3>
-                  <p className="passport-live-time"><i className="fa-regular fa-clock" /> {formatDateTime(item.start_at)}</p>
+                  <p className="passport-live-time"><i className="fa-regular fa-clock" /> {formatAppDateTime(item.start_at)}</p>
                 </article>
               ))}
               {history.length === 0 ? <p className="sub">Belum ada history events.</p> : null}

@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { apiJson } from '../lib.js';
 import { clearPassportSession, getPassportSession } from '../passport-client.js';
 import { getVerticalConfig, getVerticalLabel, guessVerticalSlugByEventText, listVerticalConfigs } from '../industry-jargon.js';
+import { formatAppDateTime } from '../time.js';
 
 const JOINED_EVENTS_KEY = 'ff.events.joined';
 
@@ -127,8 +128,6 @@ export default function PassportLandingPage() {
         const result = await apiJson('/v1/read/events?status=published&limit=24');
         const rows = Array.isArray(result.rows) ? result.rows : [];
         const mapped = rows.map((row) => {
-          const startAt = new Date(row.start_at || '');
-          const validStart = !Number.isNaN(startAt.getTime());
           const vertical = guessVertical(row);
           const verticalSlug = guessVerticalSlugByEventText(row, 'fitness');
           const vocabularyCreator = getVerticalConfig(verticalSlug)?.vocabulary?.creator || 'Creator';
@@ -145,9 +144,7 @@ export default function PassportLandingPage() {
               row.created_by_name ||
               row.tenant_name ||
               'Foremoz Organizer',
-            time: validStart
-              ? `Mulai ${startAt.toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' })}`
-              : 'Jadwal belum ditentukan',
+            time: row.start_at ? `Mulai ${formatAppDateTime(row.start_at)}` : 'Jadwal belum ditentukan',
             status: String(row.status || 'published').toUpperCase(),
             image: row.image_url || fallbackEvents[0].image
           };
@@ -161,8 +158,6 @@ export default function PassportLandingPage() {
           const allResult = await apiJson('/v1/read/events?status=all&limit=400');
           const allRows = Array.isArray(allResult.rows) ? allResult.rows : [];
           const allMapped = allRows.map((row) => {
-            const startAt = new Date(row.start_at || '');
-            const validStart = !Number.isNaN(startAt.getTime());
             const vertical = guessVertical(row);
             const verticalSlug = guessVerticalSlugByEventText(row, 'fitness');
             const vocabularyCreator = getVerticalConfig(verticalSlug)?.vocabulary?.creator || 'Creator';
@@ -179,9 +174,7 @@ export default function PassportLandingPage() {
                 row.created_by_name ||
                 row.tenant_name ||
                 'Foremoz Organizer',
-              time: validStart
-                ? `Mulai ${startAt.toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' })}`
-                : 'Jadwal belum ditentukan',
+              time: row.start_at ? `Mulai ${formatAppDateTime(row.start_at)}` : 'Jadwal belum ditentukan',
               status: String(row.status || 'draft').toUpperCase(),
               image: row.image_url || fallbackEvents[0].image
             };

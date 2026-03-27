@@ -5,10 +5,10 @@
 - Platform stability & routing: **88%**
 - Passport dashboard/public experience: **76%**
 - Admin operational workflow: **83%**
-- QA automation & hardening: **30%**
+- QA automation & hardening: **41%**
 - Experience Network whitepaper scope: **36%**
 
-Last audited terhadap isi folder: **2026-03-26** (`foremoz/apps/api`, `foremoz/apps/vite`, `foremoz/apps/eventdb-custom-json`)
+Last audited terhadap isi folder: **2026-03-27** (`foremoz/apps/api`, `foremoz/apps/vite`, `foremoz/apps/eventdb-custom-json`)
 
 ## High Priority (90%)
 - [~] Passport public page `/p/:account` sudah pakai real data inti.
@@ -115,7 +115,9 @@ Last audited terhadap isi folder: **2026-03-26** (`foremoz/apps/api`, `foremoz/a
   - Register event + participant count + check-in
   - Passport visibility toggle mempengaruhi `/p/:account`
 - [x] Tambah error boundary/loading skeleton di halaman `/events/register`, `/passport/dashboard`, `/p/:account`.
-- [ ] Audit konsistensi timezone untuk jadwal event (WIB/local vs UTC) di semua page.
+- [x] Audit konsistensi timezone untuk jadwal event (WIB/local vs UTC) di semua page.
+  - Formatter tanggal/jam utama sekarang pakai util shared `Asia/Jakarta` (`WIB`) di halaman event, passport, admin/CS, sales, PT, member portal, dan email operasional.
+  - Konversi `datetime-local` / `date` ke ISO backend juga disatukan agar tidak bergantung timezone browser operator.
 
 ## Experience Network Backlog (Whitepaper Sync) (36%)
 

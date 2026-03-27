@@ -3,12 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { apiJson } from '../lib.js';
 import { clearPassportSession, getPassportSession, passportApiJson } from '../passport-client.js';
 import PageStateCard from '../components/PageStateCard.jsx';
-
-function formatEventDate(value) {
-  const time = new Date(value || '').getTime();
-  if (!Number.isFinite(time) || Number.isNaN(time)) return '-';
-  return new Date(time).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
-}
+import { formatAppDateTime } from '../time.js';
 
 function postStorageKey(passportId) {
   return `ff.passport.posts.${passportId || 'unknown'}`;
@@ -607,7 +602,7 @@ export default function PassportDashboardPage() {
                   <span className="passport-live-badge"><i className="fa-solid fa-calendar-days" /> Upcoming</span>
                 </div>
                 <h3>{row.event_name || '-'}</h3>
-                <p className="passport-live-time"><i className="fa-regular fa-clock" /> {formatEventDate(row.start_at)}</p>
+                <p className="passport-live-time"><i className="fa-regular fa-clock" /> {formatAppDateTime(row.start_at)}</p>
                 <p className="passport-live-participant"><i className="fa-solid fa-stopwatch" /> {Number(row.duration_minutes || 60)} min</p>
               </article>
             ))}
@@ -630,7 +625,7 @@ export default function PassportDashboardPage() {
                   ) : null}
                 </div>
                 <h3>{row.event_name || '-'}</h3>
-                <p className="passport-live-time"><i className="fa-regular fa-clock" /> {formatEventDate(row.start_at)}</p>
+                <p className="passport-live-time"><i className="fa-regular fa-clock" /> {formatAppDateTime(row.start_at)}</p>
                 <p className="passport-live-participant"><i className="fa-solid fa-star" /> {Number(eventScoresByEventId[String(row.event_id || '')]?.score_points || 0)} pts</p>
               </article>
             ))}

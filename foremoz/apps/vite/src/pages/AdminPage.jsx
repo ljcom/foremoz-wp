@@ -3,6 +3,14 @@ import { Link, useNavigate } from 'react-router-dom';
 import { accountPath, apiJson, clearSession, getAccountSlug, getEnvironmentLabel, getSession, getAdminTabsByPlan, getAllowedEnvironments, getSessionPackagePlan } from '../lib.js';
 import { getVerticalConfig, getVerticalLabel, guessVerticalSlugByText } from '../industry-jargon.js';
 import WorkspaceHeader from '../components/WorkspaceHeader.jsx';
+import {
+  formatAppDate,
+  formatAppDateTime,
+  getAppDateInputValue,
+  getAppDateTimeInputValue,
+  toAppIsoFromDateInput,
+  toAppIsoFromDateTimeInput
+} from '../time.js';
 
 const ADMIN_TABS = [
   // { id: 'user', label: 'User' },
@@ -693,40 +701,26 @@ function createEmptyMemberForm() {
 }
 
 function toInputDatetime(value) {
-  const raw = String(value || '').trim();
-  if (!raw) return '';
-  if (raw.includes('T')) return raw.slice(0, 16);
-  if (raw.includes(' ')) return raw.replace(' ', 'T').slice(0, 16);
-  return raw.slice(0, 16);
+  return getAppDateTimeInputValue(value);
 }
 
 function toInputDate(value) {
-  const raw = String(value || '').trim();
-  if (!raw) return '';
-  if (raw.includes('T')) return raw.slice(0, 10);
-  if (raw.includes(' ')) return raw.slice(0, 10);
-  return raw.slice(0, 10);
+  return getAppDateInputValue(value);
 }
 
 function toApiDatetime(value) {
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return null;
-  return parsed.toISOString();
+  const raw = String(value || '').trim();
+  if (!raw) return null;
+  if (raw.includes(':')) return toAppIsoFromDateTimeInput(raw);
+  return toAppIsoFromDateInput(raw);
 }
 
 function formatClassDatetime(value) {
-  const raw = String(value || '').trim();
-  if (!raw) return '-';
-  if (raw.includes('T')) return raw.replace('T', ' ').slice(0, 16);
-  return raw.slice(0, 16);
+  return formatAppDateTime(value);
 }
 
 function formatDateOnly(value) {
-  const raw = String(value || '').trim();
-  if (!raw) return '-';
-  if (raw.includes('T')) return raw.slice(0, 10);
-  if (raw.includes(' ')) return raw.slice(0, 10);
-  return raw.slice(0, 10);
+  return formatAppDate(value);
 }
 
 function resolveEventImage(item) {
