@@ -1,3 +1,5 @@
+import LanguageSwitcher from './LanguageSwitcher.jsx';
+
 export default function WorkspaceHeader({
   eyebrow,
   title,
@@ -18,6 +20,7 @@ export default function WorkspaceHeader({
         <p>{subtitle}</p>
       </div>
       <div className="meta">
+        <LanguageSwitcher compact />
         {allowedEnv.length > 0 ? (
           <div className="env-switcher">
             <label className="env-lookup">
