@@ -119,6 +119,8 @@ const ACTIVITY_USAGE_PERIOD_OPTIONS = [
   { value: 'per_month', label: 'Per month' }
 ];
 
+const IDR_FORMATTER = new Intl.NumberFormat('id-ID');
+
 function createEmptyClassManualSession() {
   return { start_at: '', end_at: '' };
 }
@@ -913,7 +915,8 @@ function getActivityFieldGuide(classType) {
       classType: 'Open access: akses periode tanpa session wajib, contoh Gym Access 30 Hari atau Open Studio Access.',
       validityMode: 'Validity mode: biasanya `per_enrollment` atau `rolling`, supaya masa aktif tiap member dihitung dari waktu beli atau aktivasi.',
       capacityMode: 'Capacity mode: biasanya `none` kalau akses tidak dibatasi, atau `limited` kalau jumlah holder membership ingin dibatasi.',
-      quotaMode: 'Quota mode: pilih `none` kalau tidak ada aturan quota tambahan, atau `manual` bila admin ingin membatasi jumlah akses aktif.'
+      quotaMode: 'Quota mode: pilih `none` kalau tidak ada aturan quota tambahan, atau `manual` bila admin ingin membatasi jumlah akses aktif.',
+      recommendedPattern: 'Pola umum: `Price` = harga membership, lalu set `Validity Unit/Value` sesuai durasi akses, misalnya 1 bulan atau 30 hari.'
     };
   }
   if (normalizedType === 'session_pack') {
@@ -921,15 +924,152 @@ function getActivityFieldGuide(classType) {
       classType: 'Session pack: paket kredit/sesi yang dikonsumsi per pemakaian, contoh Paket 8 Sesi PT.',
       validityMode: 'Validity mode: biasanya `per_enrollment`, supaya expiry dihitung per user saat paket dibeli/diaktifkan.',
       capacityMode: 'Capacity mode: umumnya `none` karena yang dibatasi adalah usage credit, bukan slot kelas master.',
-      quotaMode: 'Quota mode: biasanya `none`, kecuali Anda ingin membatasi jumlah paket aktif yang bisa dijual.'
+      quotaMode: 'Quota mode: biasanya `none`, kecuali Anda ingin membatasi jumlah paket aktif yang bisa dijual.',
+      recommendedPattern: 'Contoh: Yoga 4x per bulan = `session_pack` dengan `Validity Unit = month`, `Validity Value = 1`, `Usage Limit = 4`.'
     };
   }
   return {
     classType: 'Scheduled: kelas dengan jadwal/batch tertentu, contoh Yoga Morning Class atau HIIT Batch April.',
     validityMode: 'Validity mode: biasanya `fixed`, karena semua peserta mengikuti periode kelas yang sama.',
     capacityMode: 'Capacity mode: biasanya `limited`, contoh maksimal 20 peserta per class.',
-    quotaMode: 'Quota mode: `manual` jika admin isi min/max quota sendiri, `auto` jika quota dipakai untuk trigger seperti auto start.'
+    quotaMode: 'Quota mode: `manual` jika admin isi min/max quota sendiri, `auto` jika quota dipakai untuk trigger seperti auto start.',
+    recommendedPattern: 'Kalau jualannya membership bulanan dengan batas hadir, simpan harga dan limit di `session_pack`, lalu simpan jadwal Senin/Kamis di `scheduled`.'
   };
+}
+
+function getClassAccessPresets(classType) {
+  const normalizedType = String(classType || 'scheduled').trim().toLowerCase();
+  if (normalizedType === 'open_access') {
+    return [
+      {
+        id: 'open-access-monthly',
+        label: 'Membership 1 bulan',
+        description: 'Akses unlimited selama 1 bulan sejak aktivasi.',
+        values: {
+          validity_mode: 'per_enrollment',
+          validity_unit: 'month',
+          validity_value: '1',
+          validity_anchor: 'activation',
+          usage_mode: 'unlimited',
+          usage_limit: '',
+          usage_period: 'entire_validity',
+          capacity_mode: 'none',
+          quota_mode: 'none'
+        }
+      },
+      {
+        id: 'open-access-30-days',
+        label: 'Gym 30 hari',
+        description: 'Akses unlimited 30 hari sejak aktivasi.',
+        values: {
+          validity_mode: 'per_enrollment',
+          validity_unit: 'day',
+          validity_value: '30',
+          validity_anchor: 'activation',
+          usage_mode: 'unlimited',
+          usage_limit: '',
+          usage_period: 'entire_validity',
+          capacity_mode: 'none',
+          quota_mode: 'none'
+        }
+      }
+    ];
+  }
+  if (normalizedType === 'session_pack') {
+    return [
+      {
+        id: 'session-pack-4-monthly',
+        label: '4x / bulan',
+        description: 'Cocok untuk Yoga 4x per bulan.',
+        values: {
+          validity_mode: 'per_enrollment',
+          validity_unit: 'month',
+          validity_value: '1',
+          validity_anchor: 'activation',
+          usage_mode: 'limited',
+          usage_limit: '4',
+          usage_period: 'entire_validity',
+          capacity_mode: 'none',
+          quota_mode: 'none'
+        }
+      },
+      {
+        id: 'session-pack-8-quarterly',
+        label: '8 sesi / 3 bulan',
+        description: 'Paket sesi fleksibel dengan masa aktif 3 bulan.',
+        values: {
+          validity_mode: 'per_enrollment',
+          validity_unit: 'month',
+          validity_value: '3',
+          validity_anchor: 'activation',
+          usage_mode: 'limited',
+          usage_limit: '8',
+          usage_period: 'entire_validity',
+          capacity_mode: 'none',
+          quota_mode: 'none'
+        }
+      }
+    ];
+  }
+  return [];
+}
+
+function formatActivityUnitSummary(unit, value) {
+  const normalizedUnit = String(unit || 'none').trim().toLowerCase();
+  const numericValue = Number(value || 0);
+  if (normalizedUnit === 'none') return 'tanpa expiry';
+  if (!Number.isFinite(numericValue) || numericValue <= 0) return '-';
+  if (normalizedUnit === 'day') return `${numericValue} hari`;
+  if (normalizedUnit === 'week') return `${numericValue} minggu`;
+  if (normalizedUnit === 'month') return `${numericValue} bulan`;
+  if (normalizedUnit === 'year') return `${numericValue} tahun`;
+  return `${numericValue} ${normalizedUnit}`;
+}
+
+function formatValidityAnchorSummary(anchor) {
+  const normalizedAnchor = String(anchor || 'activation').trim().toLowerCase();
+  if (normalizedAnchor === 'purchase') return 'mulai saat purchase';
+  if (normalizedAnchor === 'payment') return 'mulai saat payment confirmed';
+  if (normalizedAnchor === 'fixed_start') return 'mulai di fixed start date';
+  return 'mulai saat activation';
+}
+
+function formatUsageSummary(mode, limit, period) {
+  const normalizedMode = String(mode || 'unlimited').trim().toLowerCase();
+  if (normalizedMode !== 'limited') return 'unlimited';
+  const numericLimit = Number(limit || 0);
+  const safeLimit = Number.isFinite(numericLimit) && numericLimit > 0 ? numericLimit : 0;
+  const normalizedPeriod = String(period || 'entire_validity').trim().toLowerCase();
+  if (normalizedPeriod === 'per_day') return safeLimit > 0 ? `maks ${safeLimit} kali per hari` : 'limited per hari';
+  if (normalizedPeriod === 'per_week') return safeLimit > 0 ? `maks ${safeLimit} kali per minggu` : 'limited per minggu';
+  if (normalizedPeriod === 'per_month') return safeLimit > 0 ? `maks ${safeLimit} kali per bulan` : 'limited per bulan';
+  return safeLimit > 0 ? `maks ${safeLimit} kali selama masa aktif` : 'limited selama masa aktif';
+}
+
+function formatClassAccessConfigurationSummary(form) {
+  const classType = String(form?.class_type || 'scheduled').trim().toLowerCase();
+  if (classType === 'scheduled') return [];
+  const amount = Number(form?.price || 0);
+  const priceLabel = Number.isFinite(amount) && amount > 0
+    ? `Harga jual: Rp${IDR_FORMATTER.format(amount)} per enrollment.`
+    : 'Harga jual: gratis / belum diisi.';
+  const validityLabel = formatActivityUnitSummary(form?.validity_unit, form?.validity_value);
+  const anchorLabel = formatValidityAnchorSummary(form?.validity_anchor);
+  const usageLabel = formatUsageSummary(form?.usage_mode, form?.usage_limit, form?.usage_period);
+
+  if (classType === 'open_access') {
+    return [
+      priceLabel,
+      `Masa aktif: ${validityLabel}, ${anchorLabel}.`,
+      `Pemakaian: ${usageLabel}.`
+    ];
+  }
+
+  return [
+    priceLabel,
+    `Benefit: ${usageLabel}.`,
+    `Masa aktif paket: ${validityLabel}, ${anchorLabel}.`
+  ];
 }
 
 function formatActivityAccessSummary(item) {
@@ -2143,6 +2283,8 @@ export default function AdminPage() {
   const isSessionPackClassForm = classForm.class_type === 'session_pack';
   const showClassCoachFields = classForm.has_coach !== false;
   const classFieldGuide = useMemo(() => getActivityFieldGuide(classForm.class_type), [classForm.class_type]);
+  const classAccessPresets = useMemo(() => getClassAccessPresets(classForm.class_type), [classForm.class_type]);
+  const classAccessSummary = useMemo(() => formatClassAccessConfigurationSummary(classForm), [classForm]);
   const classCategoryExamples = useMemo(
     () => getClassCategoryExamplesByType(classForm.class_type),
     [classForm.class_type]
@@ -5579,6 +5721,33 @@ export default function AdminPage() {
                                     ? 'Untuk open access, masa aktif dan kuota dihitung per enrollment user.'
                                     : 'Untuk session pack, isi expiry dan jumlah sesi yang diberikan per enrollment user.'}
                                 </p>
+                                {classAccessPresets.length > 0 ? (
+                                  <div className="card" style={{ borderStyle: 'dashed', marginBottom: '0.75rem' }}>
+                                    <p className="eyebrow">Preset cepat</p>
+                                    <div className="row-actions" style={{ flexWrap: 'wrap', marginBottom: '0.5rem' }}>
+                                      {classAccessPresets.map((preset) => (
+                                        <button
+                                          key={preset.id}
+                                          className="btn ghost small"
+                                          type="button"
+                                          onClick={() =>
+                                            setClassForm((prev) => ({
+                                              ...prev,
+                                              ...preset.values
+                                            }))
+                                          }
+                                        >
+                                          {preset.label}
+                                        </button>
+                                      ))}
+                                    </div>
+                                    {classAccessPresets.map((preset) => (
+                                      <p key={`${preset.id}-description`} className="feedback">
+                                        <strong>{preset.label}:</strong> {preset.description}
+                                      </p>
+                                    ))}
+                                  </div>
+                                ) : null}
                                 <label>
                                   Validity Unit
                                   <select value={classForm.validity_unit} onChange={(e) => setClassForm((p) => ({ ...p, validity_unit: e.target.value }))}>
@@ -5620,6 +5789,14 @@ export default function AdminPage() {
                                     </label>
                                   </>
                                 ) : null}
+                                {classAccessSummary.length > 0 ? (
+                                  <div className="card" style={{ borderStyle: 'dashed', marginTop: '0.25rem' }}>
+                                    <p className="eyebrow">Ringkasan konfigurasi</p>
+                                    {classAccessSummary.map((line) => (
+                                      <p key={line} className="feedback">{line}</p>
+                                    ))}
+                                  </div>
+                                ) : null}
                               </>
                             )}
                           </div>
@@ -5631,6 +5808,7 @@ export default function AdminPage() {
                             <p className="feedback"><strong>Validity mode:</strong> {classFieldGuide.validityMode}</p>
                             <p className="feedback"><strong>Capacity mode:</strong> {classFieldGuide.capacityMode}</p>
                             <p className="feedback"><strong>Quota mode:</strong> {classFieldGuide.quotaMode}</p>
+                            <p className="feedback"><strong>Pola rekomendasi:</strong> {classFieldGuide.recommendedPattern}</p>
                           </div>
                         </aside>
                         </div>
