@@ -4325,34 +4325,10 @@ export default function AdminPage() {
                       Participants
                     </button>
                   </div>
-                  {eventEditTab === 'general' ? (
-                    <div className="card" style={{ marginBottom: '0.8rem', borderStyle: 'dashed' }}>
-                      <p className="eyebrow">AI Assist</p>
-                      <label>
-                        Brief Event
-                        <textarea
-                          rows={3}
-                          placeholder="Contoh: Saya mau mengadakan pameran lukisan di Artpreneur Jakarta tgl 1 April 2026, 8 pagi - 20 sore, topiknya budaya Indonesia."
-                          value={eventForm.brief_event}
-                          onChange={(e) => setEventForm((p) => ({ ...p, brief_event: e.target.value }))}
-                        />
-                      </label>
-                      <div className="row-actions">
-                        <button
-                          className="btn ghost small"
-                          type="button"
-                          disabled={eventAiWorking}
-                          onClick={aiGenerateDraftFromBrief}
-                        >
-                          Generate Draft From Brief
-                        </button>
-                      </div>
-                      {eventAiWorking ? <p className="feedback">AI assist running...</p> : null}
-                    </div>
-                  ) : null}
                   <form className="form" onSubmit={addEvent}>
                     {eventEditTab === 'general' ? (
-                      <>
+                      <div className="editor-with-guide">
+                        <div className="editor-main">
                         <label>Event Name<input value={eventForm.event_name} onChange={(e) => setEventForm((p) => ({ ...p, event_name: e.target.value }))} /></label>
                         <div className="row-actions" style={{ marginTop: '-0.2rem' }}>
                           <button
@@ -4586,7 +4562,36 @@ export default function AdminPage() {
                             ))}
                           </select>
                         </label>
-                      </>
+                        </div>
+                        <aside className="editor-guide">
+                          <div className="card" style={{ borderStyle: 'dashed' }}>
+                            <p className="eyebrow">AI Assist</p>
+                            <label>
+                              Brief Event
+                              <textarea
+                                rows={4}
+                                placeholder="Contoh: Saya mau mengadakan pameran lukisan di Artpreneur Jakarta tgl 1 April 2026, 8 pagi - 20 sore, topiknya budaya Indonesia."
+                                value={eventForm.brief_event}
+                                onChange={(e) => setEventForm((p) => ({ ...p, brief_event: e.target.value }))}
+                              />
+                            </label>
+                            <div className="row-actions">
+                              <button
+                                className="btn ghost small"
+                                type="button"
+                                disabled={eventAiWorking}
+                                onClick={aiGenerateDraftFromBrief}
+                              >
+                                Generate Draft From Brief
+                              </button>
+                            </div>
+                            <p className="feedback">
+                              Tulis tujuan event, lokasi, jam, topik, dan vibe yang Anda mau. Draft AI akan membantu mengisi nama, deskripsi, rundown, dan arahan awal lainnya.
+                            </p>
+                            {eventAiWorking ? <p className="feedback">AI assist running...</p> : null}
+                          </div>
+                        </aside>
+                      </div>
                     ) : null}
                     {eventEditTab === 'category' ? (
                       <div className="editor-with-guide">
