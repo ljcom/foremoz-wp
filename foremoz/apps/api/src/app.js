@@ -835,7 +835,7 @@ function normalizeActivityPayload(rawValue, fallback = {}) {
     registration_end: registrationEnd,
     validity_unit: validityUnit === 'none' ? null : validityUnit,
     validity_value: validityUnit === 'none' ? null : validityValue,
-    validity_anchor,
+    validity_anchor: validityAnchor,
     usage_mode: usageMode,
     usage_limit: usageLimit,
     usage_period: usagePeriod,
