@@ -354,3 +354,40 @@ Last audited terhadap isi folder: **2026-03-27** (`foremoz/apps/api`, `foremoz/a
   - [x] Buy membership submit ke backend (`payment.recorded` + `payment.confirmed` + `subscription.activated`).
   - [x] Booking class submit ke backend (`/v1/bookings/classes/create`) + menampilkan daftar booking member.
   - [x] Check-in/check-out event dari halaman member via selector event terdaftar.
+
+## Whitepaper Sync: Gamification (Yukai Chou Octalysis)
+- [x] Tambah section gamification di core whitepaper (`10_interaction_network.md`).
+- [x] Sinkronkan section gamification ke vertical whitepaper:
+  - `active/01-whitepaper/06_interaction_network.md`
+  - `learning/01-whitepaper/06_interaction_network.md`
+  - `tourism/01-whitepaper/06_interaction_network.md`
+  - `performance/01-whitepaper/06_interaction_network.md`
+- [ ] Definisikan event taxonomy gamification lintas vertical:
+  - `challenge.joined`
+  - `challenge.progressed`
+  - `challenge.completed`
+  - `badge.earned`
+  - `streak.updated`
+- [ ] Tambah projection/read model gamification:
+  - `passport_gamification_stats`
+  - `passport_badges`
+  - `passport_streaks`
+  - `passport_challenge_progress`
+- [ ] Rancang anti-abuse rules:
+  - idempotency guard untuk scoring/check-in
+  - anti-spam activity window
+  - anomaly flag untuk pattern tidak wajar
+- [ ] Tambah API read/write gamification:
+  - challenge catalog
+  - challenge enroll/progress
+  - badge/reward claim
+  - leaderboard query (scoped per tenant/vertical/window)
+- [ ] Integrasi UI v1:
+  - Passport dashboard: badge/streak/progress card
+  - Public profile: achievement showcase + privacy toggle
+  - Event page: active challenge + contribution status
+- [ ] Definisikan KPI dan eksperimen:
+  - D7/D30 retention
+  - repeat attendance rate
+  - challenge completion rate
+  - referral conversion uplift

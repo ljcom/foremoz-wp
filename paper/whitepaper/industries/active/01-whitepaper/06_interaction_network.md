@@ -82,3 +82,21 @@ Institution extension events:
 - coach/trainer bisa mulai independen tanpa infrastruktur berat.
 - host bisa ikut ekosistem tanpa harus menjadi system center.
 - institution tetap bisa scale di layer lanjutan pada Event OS yang sama.
+
+## Gamification Framework (Yukai Chou Octalysis)
+
+Untuk retensi dan repeat attendance, Active menerapkan gamification berbasis 8 Core Drives Octalysis:
+- epic meaning: challenge komunitas (mis. healthy month, charity workout)
+- accomplishment: streak latihan, milestone attendance, personal best progression
+- empowerment: participant memilih challenge path sesuai level dan goal
+- ownership: riwayat latihan dan badge tersimpan di Passport sebagai aset identitas
+- social influence: follow creator, referral partner workout, leaderboard komunitas
+- scarcity: slot challenge terbatas, akses kelas tertentu berbasis level/riwayat
+- unpredictability: seasonal challenge, surprise reward, rotating micro-goals
+- avoidance: reminder streak, nudges saat drop-off, deadline benefit
+
+Guardrail implementasi:
+- seluruh reward harus berbasis event log tervalidasi (`registration.created`, `checkin.logged`, `event.completed`)
+- sistem anti-gaming wajib mencegah check-in palsu dan spam activity
+- scoring dan badge harus bisa diaudit dari projection/read model
+- desain insentif difokuskan ke outcome Active (konsistensi latihan, recovery sehat, engagement komunitas)
