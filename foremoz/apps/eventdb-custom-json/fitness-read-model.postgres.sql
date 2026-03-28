@@ -131,9 +131,31 @@ CREATE TABLE IF NOT EXISTS read.rm_class_availability (
   branch_id TEXT NOT NULL,
   class_id TEXT NOT NULL,
   class_name TEXT NOT NULL,
-  start_at TIMESTAMPTZ NOT NULL,
-  end_at TIMESTAMPTZ NOT NULL,
+  title TEXT NOT NULL,
+  description TEXT,
+  class_type TEXT NOT NULL DEFAULT 'scheduled',
+  has_coach BOOLEAN NOT NULL DEFAULT FALSE,
+  coach_id TEXT,
+  category_id TEXT,
+  capacity_mode TEXT NOT NULL DEFAULT 'limited',
+  quota_mode TEXT NOT NULL DEFAULT 'none',
+  validity_mode TEXT NOT NULL DEFAULT 'fixed',
+  start_date DATE,
+  end_date DATE,
+  registration_start TIMESTAMPTZ,
+  registration_end TIMESTAMPTZ,
+  start_at TIMESTAMPTZ,
+  end_at TIMESTAMPTZ,
   capacity INTEGER NOT NULL,
+  usage_mode TEXT NOT NULL DEFAULT 'unlimited',
+  usage_limit INTEGER,
+  usage_period TEXT,
+  validity_unit TEXT,
+  validity_value INTEGER,
+  validity_anchor TEXT,
+  min_quota INTEGER,
+  max_quota INTEGER,
+  auto_start_when_quota_met BOOLEAN NOT NULL DEFAULT FALSE,
   booked_count INTEGER NOT NULL DEFAULT 0,
   available_slots INTEGER NOT NULL DEFAULT 0,
   updated_at TIMESTAMPTZ NOT NULL,
@@ -155,6 +177,30 @@ CREATE TABLE IF NOT EXISTS read.rm_booking_list (
   attendance_confirmed_at TIMESTAMPTZ,
   updated_at TIMESTAMPTZ NOT NULL,
   PRIMARY KEY (tenant_id, booking_id)
+);
+
+CREATE TABLE IF NOT EXISTS read.rm_activity_enrollment (
+  tenant_id TEXT NOT NULL,
+  branch_id TEXT,
+  enrollment_id TEXT NOT NULL,
+  class_id TEXT NOT NULL,
+  class_type TEXT NOT NULL DEFAULT 'scheduled',
+  member_id TEXT NOT NULL,
+  user_id TEXT NOT NULL,
+  payment_id TEXT,
+  legacy_subscription_id TEXT,
+  status TEXT NOT NULL,
+  purchased_at TIMESTAMPTZ NOT NULL,
+  enrolled_at TIMESTAMPTZ NOT NULL,
+  activated_at TIMESTAMPTZ,
+  valid_from TIMESTAMPTZ,
+  valid_until TIMESTAMPTZ,
+  usage_mode TEXT NOT NULL DEFAULT 'unlimited',
+  usage_limit INTEGER,
+  usage_period TEXT,
+  remaining_usage INTEGER,
+  updated_at TIMESTAMPTZ NOT NULL,
+  PRIMARY KEY (tenant_id, enrollment_id)
 );
 
 CREATE TABLE IF NOT EXISTS read.rm_member_self_booking (
@@ -329,6 +375,9 @@ CREATE INDEX IF NOT EXISTS idx_rm_member_branch ON read.rm_member (tenant_id, br
 CREATE INDEX IF NOT EXISTS idx_rm_member_auth_email ON read.rm_member_auth (tenant_id, email);
 CREATE INDEX IF NOT EXISTS idx_rm_subscription_member ON read.rm_subscription_active (tenant_id, member_id, status, end_date);
 CREATE INDEX IF NOT EXISTS idx_rm_subscription_payment ON read.rm_subscription_active (tenant_id, payment_id);
+CREATE INDEX IF NOT EXISTS idx_rm_activity_enrollment_member ON read.rm_activity_enrollment (tenant_id, member_id, status, valid_until);
+CREATE INDEX IF NOT EXISTS idx_rm_activity_enrollment_class ON read.rm_activity_enrollment (tenant_id, class_id, status, updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_rm_activity_enrollment_payment ON read.rm_activity_enrollment (tenant_id, payment_id);
 CREATE INDEX IF NOT EXISTS idx_rm_booking_class ON read.rm_booking_list (tenant_id, class_id, status, booked_at);
 CREATE INDEX IF NOT EXISTS idx_rm_booking_payment ON read.rm_booking_list (tenant_id, payment_id);
 CREATE INDEX IF NOT EXISTS idx_rm_payment_status ON read.rm_payment_queue (tenant_id, status, recorded_at);

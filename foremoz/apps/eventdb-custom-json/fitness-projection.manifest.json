@@ -17,6 +17,7 @@
     "subscription.frozen": ["read.rm_subscription_active", "read.rm_dashboard"],
     "subscription.unfrozen": ["read.rm_subscription_active", "read.rm_dashboard"],
     "subscription.expired": ["read.rm_subscription_active", "read.rm_dashboard"],
+    "activity.enrollment.upserted": ["read.rm_activity_enrollment", "read.rm_subscription_active", "read.rm_dashboard"],
 
     "payment.recorded": ["read.rm_payment_queue", "read.rm_payment_history", "read.rm_dashboard"],
     "payment.confirmed": ["read.rm_payment_queue", "read.rm_payment_history", "read.rm_dashboard"],

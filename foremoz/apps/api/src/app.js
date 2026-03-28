@@ -444,8 +444,19 @@ function normalizeClassSchedule(rawValue, fallback = {}) {
     ? fallback
     : {};
   const scheduleMode = String(source.schedule_mode ?? fallbackSource.schedule_mode ?? 'weekly').trim().toLowerCase();
-  if (!['weekly', 'manual'].includes(scheduleMode)) {
-    throw fail(400, 'BAD_REQUEST', 'schedule_mode must be either weekly or manual');
+  if (!['weekly', 'manual', 'none'].includes(scheduleMode)) {
+    throw fail(400, 'BAD_REQUEST', 'schedule_mode must be either weekly, manual, or none');
+  }
+  if (scheduleMode === 'none') {
+    return {
+      schedule_mode: 'none',
+      weekly_schedule: {
+        weekdays: [],
+        start_time: '',
+        end_time: ''
+      },
+      manual_schedule: []
+    };
   }
 
   const weeklyInput = source.weekly_schedule ?? fallbackSource.weekly_schedule ?? {};
@@ -508,6 +519,385 @@ function normalizeBoolean(value, fallback = true) {
   if (normalized === 'true' || normalized === 'yes' || normalized === '1') return true;
   if (normalized === 'false' || normalized === 'no' || normalized === '0') return false;
   return fallback;
+}
+
+const ACTIVITY_CLASS_TYPES = new Set(['scheduled', 'open_access', 'session_pack']);
+const ACTIVITY_CAPACITY_MODES = new Set(['limited', 'flexible', 'none']);
+const ACTIVITY_QUOTA_MODES = new Set(['none', 'manual', 'auto']);
+const ACTIVITY_VALIDITY_MODES = new Set(['fixed', 'rolling', 'per_enrollment']);
+const ACTIVITY_VALIDITY_UNITS = new Set(['day', 'week', 'month', 'year', 'none']);
+const ACTIVITY_VALIDITY_ANCHORS = new Set(['purchase', 'payment', 'activation', 'fixed_start']);
+const ACTIVITY_USAGE_MODES = new Set(['unlimited', 'limited']);
+const ACTIVITY_USAGE_PERIODS = new Set(['entire_validity', 'per_day', 'per_week', 'per_month']);
+const ACTIVITY_ENROLLMENT_STATUSES = new Set(['active', 'pending', 'expired', 'cancelled', 'completed']);
+
+function normalizeEnumValue(value, allowedValues, fieldName, fallback) {
+  if (value === undefined || value === null || value === '') {
+    if (fallback !== undefined) return fallback;
+    throw fail(400, 'BAD_REQUEST', `${fieldName} is required`);
+  }
+  const normalized = String(value).trim().toLowerCase();
+  if (!allowedValues.has(normalized)) {
+    throw fail(400, 'BAD_REQUEST', `${fieldName} is invalid`);
+  }
+  return normalized;
+}
+
+function normalizeOptionalText(value, fallback = null) {
+  if (value === undefined || value === null) return fallback;
+  const normalized = String(value).trim();
+  return normalized || fallback;
+}
+
+function normalizeOptionalInteger(value, fieldName, fallback = null, minimum = 0) {
+  if (value === undefined || value === null || value === '') return fallback;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < minimum) {
+    throw fail(400, 'BAD_REQUEST', `${fieldName} must be at least ${minimum}`);
+  }
+  return Math.floor(parsed);
+}
+
+function normalizeOptionalDate(value, fieldName, fallback = null) {
+  if (value === undefined || value === null || value === '') return fallback;
+  const raw = String(value).trim();
+  if (!raw) return fallback;
+  const dateOnlyMatch = raw.match(/^\d{4}-\d{2}-\d{2}$/);
+  if (dateOnlyMatch) return raw;
+  const parsed = new Date(raw);
+  if (Number.isNaN(parsed.getTime())) {
+    throw fail(400, 'BAD_REQUEST', `${fieldName} must be a valid date`);
+  }
+  return parsed.toISOString().slice(0, 10);
+}
+
+function toIsoStartOfDate(dateValue) {
+  const normalized = normalizeOptionalDate(dateValue, 'date', null);
+  if (!normalized) return null;
+  return new Date(`${normalized}T00:00:00.000Z`).toISOString();
+}
+
+function toIsoEndOfDate(dateValue) {
+  const normalized = normalizeOptionalDate(dateValue, 'date', null);
+  if (!normalized) return null;
+  const end = new Date(`${normalized}T00:00:00.000Z`);
+  end.setUTCDate(end.getUTCDate() + 1);
+  end.setUTCMilliseconds(end.getUTCMilliseconds() - 1);
+  return end.toISOString();
+}
+
+function addDurationToIso(anchorIso, unit, value) {
+  const parsedValue = Number(value || 0);
+  if (!anchorIso || !Number.isFinite(parsedValue) || parsedValue <= 0) return null;
+  const date = new Date(anchorIso);
+  if (Number.isNaN(date.getTime())) return null;
+  if (unit === 'day') {
+    date.setUTCDate(date.getUTCDate() + parsedValue);
+  } else if (unit === 'week') {
+    date.setUTCDate(date.getUTCDate() + (parsedValue * 7));
+  } else if (unit === 'month') {
+    date.setUTCMonth(date.getUTCMonth() + parsedValue);
+  } else if (unit === 'year') {
+    date.setUTCFullYear(date.getUTCFullYear() + parsedValue);
+  } else {
+    return null;
+  }
+  return date.toISOString();
+}
+
+function getActivityScheduleBounds({ classType, schedule, startDate, endDate }) {
+  if (classType !== 'scheduled') {
+    return { startAt: null, endAt: null };
+  }
+  const manualSchedule = Array.isArray(schedule?.manual_schedule) ? schedule.manual_schedule : [];
+  if (manualSchedule.length > 0) {
+    const sorted = [...manualSchedule].sort((left, right) => new Date(left.start_at).getTime() - new Date(right.start_at).getTime());
+    return {
+      startAt: sorted[0]?.start_at || null,
+      endAt: sorted[sorted.length - 1]?.end_at || null
+    };
+  }
+  return {
+    startAt: toIsoStartOfDate(startDate),
+    endAt: toIsoEndOfDate(endDate || startDate)
+  };
+}
+
+function normalizeActivityPayload(rawValue, fallback = {}) {
+  const source = rawValue && typeof rawValue === 'object' && !Array.isArray(rawValue) ? rawValue : {};
+  const latest = fallback && typeof fallback === 'object' && !Array.isArray(fallback) ? fallback : {};
+  const classType = normalizeEnumValue(
+    source.class_type ?? latest.class_type ?? 'scheduled',
+    ACTIVITY_CLASS_TYPES,
+    'class_type',
+    'scheduled'
+  );
+  const title = String(
+    source.class_name
+    ?? source.title
+    ?? latest.class_name
+    ?? latest.title
+    ?? ''
+  ).trim();
+  if (!title) {
+    throw fail(400, 'BAD_REQUEST', 'class_name is required');
+  }
+
+  const fallbackSchedule = {
+    schedule_mode: latest.schedule_mode || (classType === 'scheduled' ? 'weekly' : 'none'),
+    weekly_schedule: latest.weekly_schedule || {},
+    manual_schedule: latest.manual_schedule || []
+  };
+  const schedule = classType === 'scheduled'
+    ? normalizeClassSchedule({
+      schedule_mode: source.schedule_mode,
+      weekly_schedule: source.weekly_schedule,
+      manual_schedule: source.manual_schedule
+    }, fallbackSchedule)
+    : normalizeClassSchedule({ schedule_mode: 'none' });
+  const manualSchedule = Array.isArray(schedule.manual_schedule) ? schedule.manual_schedule : [];
+
+  let startDate = normalizeOptionalDate(
+    source.start_date ?? source.start_at,
+    'start_date',
+    latest.start_date || toDateOnly(latest.start_at || '') || null
+  );
+  let endDate = normalizeOptionalDate(
+    source.end_date ?? source.period_end_at,
+    'end_date',
+    latest.end_date || latest.period_end_at || toDateOnly(latest.end_at || '') || null
+  );
+  if (!startDate && manualSchedule.length > 0) {
+    startDate = toDateOnly(manualSchedule[0].start_at);
+  }
+  if (!endDate && manualSchedule.length > 0) {
+    endDate = toDateOnly(manualSchedule[manualSchedule.length - 1].end_at);
+  }
+  if (classType === 'scheduled' && !startDate) {
+    throw fail(400, 'BAD_REQUEST', 'start_date is required for scheduled class');
+  }
+  if (startDate && endDate && new Date(toIsoEndOfDate(endDate)).getTime() < new Date(toIsoStartOfDate(startDate)).getTime()) {
+    throw fail(400, 'BAD_REQUEST', 'end_date must be after or equal to start_date');
+  }
+
+  const hasCoach = normalizeBoolean(
+    source.has_coach,
+    Boolean(source.trainer_name ?? latest.trainer_name ?? source.coach_id ?? latest.coach_id ?? (source.coach_shares || latest.coach_shares || []).length)
+  );
+  const trainerName = hasCoach ? normalizeOptionalText(source.trainer_name ?? latest.trainer_name, null) : null;
+  const coachId = hasCoach ? normalizeOptionalText(source.coach_id ?? latest.coach_id, null) : null;
+  const coachShares = hasCoach
+    ? normalizeCoachShares(source.coach_shares, Array.isArray(latest.coach_shares) ? latest.coach_shares : [])
+    : [];
+  const description = normalizeOptionalText(source.description ?? latest.description, null);
+  const categoryValue = source.category === undefined ? latest.category : source.category;
+  const category = normalizeOptionalText(categoryValue, '');
+  const categoryId = normalizeOptionalText(source.category_id ?? latest.category_id ?? category, null);
+  const customFields = source.custom_fields === undefined
+    ? normalizeCustomFields(latest.custom_fields || {})
+    : normalizeCustomFields(source.custom_fields);
+
+  const capacityMode = normalizeEnumValue(
+    source.capacity_mode ?? latest.capacity_mode ?? (classType === 'scheduled' ? 'limited' : 'none'),
+    ACTIVITY_CAPACITY_MODES,
+    'capacity_mode',
+    classType === 'scheduled' ? 'limited' : 'none'
+  );
+  const quotaMode = normalizeEnumValue(
+    source.quota_mode ?? latest.quota_mode ?? (classType === 'scheduled' ? 'manual' : 'none'),
+    ACTIVITY_QUOTA_MODES,
+    'quota_mode',
+    classType === 'scheduled' ? 'manual' : 'none'
+  );
+  const validityMode = normalizeEnumValue(
+    source.validity_mode ?? latest.validity_mode ?? (classType === 'scheduled' ? 'fixed' : 'per_enrollment'),
+    ACTIVITY_VALIDITY_MODES,
+    'validity_mode',
+    classType === 'scheduled' ? 'fixed' : 'per_enrollment'
+  );
+  const usageLimitInput = normalizeOptionalInteger(source.usage_limit, 'usage_limit', latest.usage_limit ?? null, 1);
+  const defaultUsageMode = usageLimitInput || Number(latest.usage_limit || 0) > 0 || classType === 'session_pack'
+    ? 'limited'
+    : 'unlimited';
+  const usageMode = normalizeEnumValue(
+    source.usage_mode ?? latest.usage_mode ?? defaultUsageMode,
+    ACTIVITY_USAGE_MODES,
+    'usage_mode',
+    defaultUsageMode
+  );
+  const usageLimit = usageMode === 'limited'
+    ? normalizeOptionalInteger(source.usage_limit, 'usage_limit', latest.usage_limit ?? null, 1)
+    : null;
+  if (usageMode === 'limited' && !usageLimit) {
+    throw fail(400, 'BAD_REQUEST', 'usage_limit is required when usage_mode is limited');
+  }
+  const usagePeriod = usageMode === 'limited'
+    ? normalizeEnumValue(
+      source.usage_period ?? latest.usage_period ?? 'entire_validity',
+      ACTIVITY_USAGE_PERIODS,
+      'usage_period',
+      'entire_validity'
+    )
+    : null;
+  const validityUnit = normalizeEnumValue(
+    source.validity_unit ?? latest.validity_unit ?? (classType === 'scheduled' ? 'none' : 'none'),
+    ACTIVITY_VALIDITY_UNITS,
+    'validity_unit',
+    classType === 'scheduled' ? 'none' : 'none'
+  );
+  const validityValue = validityUnit === 'none'
+    ? null
+    : normalizeOptionalInteger(source.validity_value, 'validity_value', latest.validity_value ?? null, 1);
+  const validityAnchor = validityUnit === 'none'
+    ? null
+    : normalizeEnumValue(
+      source.validity_anchor ?? latest.validity_anchor ?? 'activation',
+      ACTIVITY_VALIDITY_ANCHORS,
+      'validity_anchor',
+      'activation'
+    );
+  if (validityUnit !== 'none' && !validityValue) {
+    throw fail(400, 'BAD_REQUEST', 'validity_value is required when validity_unit is set');
+  }
+
+  const legacyCapacityFallback = latest.capacity === undefined || latest.capacity === null || latest.capacity === ''
+    ? (classType === 'scheduled' ? 20 : 0)
+    : Number(latest.capacity || 0);
+  const capacity = classType === 'scheduled'
+    ? asPositiveInteger(source.capacity, 'capacity', legacyCapacityFallback || 20)
+    : asNonNegativeInteger(source.capacity, 'capacity', legacyCapacityFallback || 0);
+  const minQuota = normalizeOptionalInteger(source.min_quota, 'min_quota', latest.min_quota ?? null, 0);
+  const maxQuota = normalizeOptionalInteger(
+    source.max_quota,
+    'max_quota',
+    latest.max_quota ?? (classType === 'scheduled' ? capacity : null),
+    0
+  );
+  if (minQuota !== null && maxQuota !== null && minQuota > maxQuota) {
+    throw fail(400, 'BAD_REQUEST', 'min_quota must be less than or equal to max_quota');
+  }
+  const autoStartWhenQuotaMet = normalizeBoolean(
+    source.auto_start_when_quota_met,
+    Boolean(latest.auto_start_when_quota_met)
+  );
+  const registrationStart = normalizeOptionalDatetime(
+    source.registration_start,
+    'registration_start',
+    latest.registration_start || null
+  );
+  const registrationEnd = normalizeOptionalDatetime(
+    source.registration_end,
+    'registration_end',
+    latest.registration_end || null
+  );
+  if (registrationStart && registrationEnd && new Date(registrationEnd).getTime() < new Date(registrationStart).getTime()) {
+    throw fail(400, 'BAD_REQUEST', 'registration_end must be after registration_start');
+  }
+
+  const bounds = getActivityScheduleBounds({
+    classType,
+    schedule,
+    startDate,
+    endDate
+  });
+
+  return {
+    class_type: classType,
+    class_name: title,
+    title,
+    description,
+    trainer_name: trainerName,
+    has_coach: hasCoach,
+    coach_id: coachId,
+    coach_shares: coachShares,
+    category,
+    category_id: categoryId,
+    custom_fields: customFields,
+    schedule_mode: schedule.schedule_mode,
+    weekly_schedule: schedule.weekly_schedule,
+    manual_schedule: schedule.manual_schedule,
+    capacity,
+    capacity_mode: capacityMode,
+    quota_mode: quotaMode,
+    validity_mode: validityMode,
+    price: asNonNegativeInteger(source.price, 'price', Number(latest.price || 0)),
+    start_date: startDate,
+    end_date: endDate,
+    start_at: bounds.startAt,
+    end_at: bounds.endAt,
+    period_end_at: endDate || null,
+    max_meetings: asNonNegativeInteger(source.max_meetings, 'max_meetings', Number(latest.max_meetings || 0)),
+    registration_start: registrationStart,
+    registration_end: registrationEnd,
+    validity_unit: validityUnit === 'none' ? null : validityUnit,
+    validity_value: validityUnit === 'none' ? null : validityValue,
+    validity_anchor,
+    usage_mode: usageMode,
+    usage_limit: usageLimit,
+    usage_period: usagePeriod,
+    min_quota: minQuota,
+    max_quota: maxQuota,
+    auto_start_when_quota_met: autoStartWhenQuotaMet
+  };
+}
+
+function resolveEnrollmentAnchorTimestamp({ activity, paymentRow, purchasedAt, activatedAt }) {
+  const anchor = String(activity?.validity_anchor || 'activation').trim().toLowerCase();
+  if (anchor === 'purchase') return purchasedAt;
+  if (anchor === 'payment') {
+    return paymentRow?.reviewed_at || paymentRow?.recorded_at || purchasedAt;
+  }
+  if (anchor === 'fixed_start') {
+    return activity?.start_at || toIsoStartOfDate(activity?.start_date) || purchasedAt;
+  }
+  return activatedAt || purchasedAt;
+}
+
+function buildActivityEnrollmentState({ activity, memberId, purchasedAt, paymentRow, activatedAt, explicitStatus }) {
+  const classType = String(activity?.class_type || 'scheduled').trim().toLowerCase();
+  const effectivePurchasedAt = purchasedAt || new Date().toISOString();
+  const effectiveActivatedAt = activatedAt || (explicitStatus === 'pending' ? null : effectivePurchasedAt);
+  let validFrom = null;
+  let validUntil = null;
+  if (classType === 'scheduled') {
+    validFrom = activity.start_at || toIsoStartOfDate(activity.start_date) || effectivePurchasedAt;
+    validUntil = activity.end_at || toIsoEndOfDate(activity.end_date || activity.start_date) || validFrom;
+  } else {
+    validFrom = resolveEnrollmentAnchorTimestamp({
+      activity,
+      paymentRow,
+      purchasedAt: effectivePurchasedAt,
+      activatedAt: effectiveActivatedAt || effectivePurchasedAt
+    });
+    if (activity.validity_unit && activity.validity_value) {
+      validUntil = addDurationToIso(validFrom, activity.validity_unit, activity.validity_value);
+    } else if (activity.end_at || activity.end_date) {
+      validUntil = activity.end_at || toIsoEndOfDate(activity.end_date);
+    }
+  }
+  const usageMode = String(activity?.usage_mode || 'unlimited').trim().toLowerCase() === 'limited' ? 'limited' : 'unlimited';
+  const usageLimit = usageMode === 'limited' ? Number(activity?.usage_limit || 0) || null : null;
+  const status = ACTIVITY_ENROLLMENT_STATUSES.has(String(explicitStatus || '').trim().toLowerCase())
+    ? String(explicitStatus).trim().toLowerCase()
+    : 'active';
+
+  return {
+    enrollment_id: `enr_${Date.now()}_${randomUUID().slice(0, 8)}`,
+    member_id: memberId,
+    user_id: memberId,
+    class_id: activity.class_id,
+    class_type: classType,
+    status,
+    purchased_at: effectivePurchasedAt,
+    enrolled_at: effectivePurchasedAt,
+    activated_at: effectiveActivatedAt,
+    valid_from: validFrom,
+    valid_until: validUntil,
+    usage_mode: usageMode,
+    usage_limit: usageLimit,
+    usage_period: usageMode === 'limited' ? (activity.usage_period || 'entire_validity') : null,
+    remaining_usage: usageMode === 'limited' ? usageLimit : null
+  };
 }
 
 function participantIdentityKey(data) {
@@ -966,13 +1356,116 @@ async function getLatestClassScheduledData(tenantId, classId) {
 
 async function getClassAvailabilityRow(tenantId, classId) {
   const { rows } = await query(
-    `select tenant_id, branch_id, class_id, class_name, capacity, booked_count, available_slots, start_at, end_at
+    `select tenant_id, branch_id, class_id, class_name, title, description, class_type,
+            has_coach, coach_id, category_id, capacity_mode, quota_mode, validity_mode,
+            start_date, end_date, registration_start, registration_end, start_at, end_at,
+            capacity, usage_mode, usage_limit, usage_period, validity_unit, validity_value,
+            validity_anchor, min_quota, max_quota, auto_start_when_quota_met,
+            booked_count, available_slots
      from read.rm_class_availability
      where tenant_id = $1 and class_id = $2
      limit 1`,
     [tenantId, classId]
   );
   return rows[0] || null;
+}
+
+async function getLatestActivityEnrollment({ tenantId, classId, memberId }) {
+  if (!memberId) return null;
+  const { rows } = await query(
+    `select tenant_id, branch_id, enrollment_id, class_id, class_type, member_id, user_id,
+            payment_id, legacy_subscription_id, status, purchased_at, enrolled_at,
+            activated_at, valid_from, valid_until, usage_mode, usage_limit, usage_period,
+            remaining_usage, updated_at
+     from read.rm_activity_enrollment
+     where tenant_id = $1
+       and class_id = $2
+       and member_id = $3
+     order by updated_at desc
+     limit 1`,
+    [tenantId, classId, memberId]
+  );
+  return rows[0] || null;
+}
+
+async function listActivityEnrollments({ tenantId, classId = null, memberId = null, status = null, paymentId = null }) {
+  const params = [tenantId];
+  let sql = `select tenant_id, branch_id, enrollment_id, class_id, class_type, member_id, user_id,
+                    payment_id, legacy_subscription_id, status, purchased_at, enrolled_at,
+                    activated_at, valid_from, valid_until, usage_mode, usage_limit, usage_period,
+                    remaining_usage, updated_at
+             from read.rm_activity_enrollment
+             where tenant_id = $1`;
+  if (classId) {
+    params.push(classId);
+    sql += ` and class_id = $${params.length}`;
+  }
+  if (memberId) {
+    params.push(memberId);
+    sql += ` and member_id = $${params.length}`;
+  }
+  if (status && status !== 'all') {
+    params.push(String(status).trim().toLowerCase());
+    sql += ` and lower(status) = $${params.length}`;
+  }
+  if (paymentId) {
+    params.push(paymentId);
+    sql += ` and payment_id = $${params.length}`;
+  }
+  sql += ` order by updated_at desc`;
+  const { rows } = await query(sql, params);
+  return rows;
+}
+
+async function checkActivityAccess({ tenantId, classId, memberId, actionType = 'view', now = new Date().toISOString() }) {
+  const activity = await getClassAvailabilityRow(tenantId, classId);
+  if (!activity) {
+    return {
+      allowed: false,
+      reasons: ['activity_not_found'],
+      activity: null,
+      enrollment: null
+    };
+  }
+  const normalizedAction = String(actionType || 'view').trim().toLowerCase();
+  if (normalizedAction === 'view') {
+    return {
+      allowed: true,
+      reasons: [],
+      activity,
+      enrollment: null
+    };
+  }
+  const enrollment = await getLatestActivityEnrollment({ tenantId, classId, memberId });
+  const reasons = [];
+  if (!enrollment) {
+    reasons.push('enrollment_missing');
+  } else {
+    const status = String(enrollment.status || '').trim().toLowerCase();
+    if (status !== 'active') reasons.push('enrollment_inactive');
+    const nowTime = new Date(now).getTime();
+    if (enrollment.valid_from && new Date(enrollment.valid_from).getTime() > nowTime) {
+      reasons.push('not_yet_active');
+    }
+    if (enrollment.valid_until && new Date(enrollment.valid_until).getTime() < nowTime) {
+      reasons.push('expired');
+    }
+    if (String(enrollment.usage_mode || '').trim().toLowerCase() === 'limited' && Number(enrollment.remaining_usage || 0) <= 0) {
+      reasons.push('usage_exhausted');
+    }
+  }
+  if (String(activity.class_type || '').trim().toLowerCase() === 'scheduled' && (normalizedAction === 'book' || normalizedAction === 'checkin')) {
+    const availableSlots = Number(activity.available_slots);
+    if (!Number.isFinite(availableSlots) || availableSlots <= 0) {
+      reasons.push('capacity_full');
+    }
+  }
+  return {
+    allowed: reasons.length === 0,
+    reasons,
+    activity,
+    enrollment
+  };
 }
 
 async function findActiveClassBooking({ tenantId, classId, memberId }) {
@@ -1316,6 +1809,9 @@ async function ensureClassBookingRelation({ tenantId, branchId, actorId, classId
   }
 
   const latestClass = await getLatestClassScheduledData(tenantId, classId);
+  if (String(latestClass?.class_type || 'scheduled').trim().toLowerCase() !== 'scheduled') {
+    throw fail(409, 'ACTIVITY_NOT_BOOKABLE', `activity ${classId} is not a scheduled class`);
+  }
   const resolvedBranchId = branchId || latestClass?.branch_id || null;
   if (!resolvedBranchId) {
     throw fail(400, 'BAD_REQUEST', 'branch_id is required for class relation');
@@ -3543,8 +4039,11 @@ app.post('/v1/subscriptions/activate', async (req, res, next) => {
     const memberId = required(data.member_id, 'member_id');
     const planId = required(data.plan_id, 'plan_id');
     const paymentId = String(data.payment_id || '').trim();
+    const activityCandidateId = String(data.class_id || data.activity_id || planId || '').trim();
+    const activityRow = activityCandidateId ? await getClassAvailabilityRow(tenantId, activityCandidateId) : null;
+    let paymentRow = null;
     if (paymentId) {
-      const paymentRow = await getPaymentQueueRow({ tenantId, paymentId });
+      paymentRow = await getPaymentQueueRow({ tenantId, paymentId });
       if (!paymentRow) {
         throw fail(404, 'PAYMENT_NOT_FOUND', `payment ${paymentId} not found`);
       }
@@ -3553,10 +4052,10 @@ app.post('/v1/subscriptions/activate', async (req, res, next) => {
       }
       const referenceType = String(paymentRow.reference_type || '').trim().toLowerCase();
       const referenceId = String(paymentRow.reference_id || '').trim();
-      if (referenceType && referenceType !== 'membership_purchase') {
+      if (referenceType && !['membership_purchase', 'activity_purchase', 'open_access_purchase'].includes(referenceType)) {
         throw fail(409, 'PAYMENT_REFERENCE_INVALID', `payment ${paymentId} has invalid reference_type`);
       }
-      if (referenceId && referenceId !== planId) {
+      if (referenceId && ![planId, activityRow?.class_id].filter(Boolean).includes(referenceId)) {
         throw fail(409, 'PAYMENT_REFERENCE_MISMATCH', `payment ${paymentId} is linked to another membership plan`);
       }
       const paymentMemberId = String(paymentRow.member_id || '').trim().toLowerCase();
@@ -3564,27 +4063,173 @@ app.post('/v1/subscriptions/activate', async (req, res, next) => {
         throw fail(409, 'PAYMENT_MEMBER_MISMATCH', `payment ${paymentId} belongs to another member`);
       }
     }
+    const provisionalEnrollmentState = activityRow
+      ? buildActivityEnrollmentState({
+        activity: activityRow,
+        memberId,
+        purchasedAt: data.purchased_at || paymentRow?.recorded_at || new Date().toISOString(),
+        paymentRow,
+        activatedAt: data.activated_at || paymentRow?.reviewed_at || null,
+        explicitStatus: data.status || 'active'
+      })
+      : null;
+    const explicitStartDate = normalizeOptionalDate(data.start_date, 'start_date', null);
+    const explicitEndDate = normalizeOptionalDate(data.end_date, 'end_date', null);
+    const legacyStartDate = explicitStartDate
+      || (provisionalEnrollmentState ? toDateOnly(provisionalEnrollmentState.valid_from || '') : null)
+      || (activityRow ? toDateOnly(activityRow.start_date || activityRow.start_at || '') : null);
+    let legacyEndDate = explicitEndDate
+      || (provisionalEnrollmentState ? toDateOnly(provisionalEnrollmentState.valid_until || '') : null)
+      || (activityRow ? toDateOnly(activityRow.end_date || activityRow.end_at || '') : null);
+    if (!legacyEndDate && legacyStartDate && String(activityRow?.class_type || '').trim().toLowerCase() === 'open_access') {
+      legacyEndDate = legacyStartDate;
+    }
+    if (!legacyStartDate || !legacyEndDate) {
+      throw fail(400, 'BAD_REQUEST', 'start_date and end_date are required unless plan_id maps to an activity with validity');
+    }
     const event = await appendDomainEvent({
       tenantId,
-      branchId: data.branch_id || null,
+      branchId: data.branch_id || activityRow?.branch_id || null,
       actorId: data.actor_id || config.defaultActorId,
       eventType: 'subscription.activated',
       subjectKind: 'subscription',
       subjectId: subscriptionId,
       data: {
         tenant_id: tenantId,
-        branch_id: data.branch_id || null,
+        branch_id: data.branch_id || activityRow?.branch_id || null,
         subscription_id: subscriptionId,
         member_id: memberId,
         plan_id: planId,
-        start_date: required(data.start_date, 'start_date'),
-        end_date: required(data.end_date, 'end_date'),
+        class_id: activityRow?.class_id || null,
+        start_date: legacyStartDate,
+        end_date: legacyEndDate,
         status: data.status || 'active'
       },
       refs: { payment_id: paymentId || null },
       uniqueIds: [{ scope: 'subscription.subscription_id', value: subscriptionId }]
     });
-    return created(res, { event, payment_id: paymentId || null });
+    let enrollmentEvent = null;
+    if (activityRow && String(activityRow.class_type || '').trim().toLowerCase() === 'open_access') {
+      const enrollmentState = provisionalEnrollmentState || buildActivityEnrollmentState({
+        activity: activityRow,
+        memberId,
+        purchasedAt: data.purchased_at || paymentRow?.recorded_at || new Date().toISOString(),
+        paymentRow,
+        activatedAt: data.activated_at || paymentRow?.reviewed_at || null,
+        explicitStatus: data.status || 'active'
+      });
+      enrollmentEvent = await appendDomainEvent({
+        tenantId,
+        branchId: data.branch_id || activityRow.branch_id || null,
+        actorId: data.actor_id || config.defaultActorId,
+        eventType: 'activity.enrollment.upserted',
+        subjectKind: 'activity_enrollment',
+        subjectId: subscriptionId,
+        data: {
+          tenant_id: tenantId,
+          branch_id: data.branch_id || activityRow.branch_id || null,
+          enrollment_id: subscriptionId,
+          legacy_subscription_id: subscriptionId,
+          ...enrollmentState
+        },
+        refs: { payment_id: paymentId || null }
+      });
+    }
+    await runFitnessProjection({ tenantId, branchId: data.branch_id || activityRow?.branch_id || 'core' });
+    return created(res, {
+      event,
+      enrollment_event: enrollmentEvent,
+      payment_id: paymentId || null
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.post('/v1/activities/enroll', async (req, res, next) => {
+  try {
+    const data = req.body || {};
+    const tenantId = data.tenant_id || config.defaultTenantId;
+    const classId = required(data.class_id || data.activity_id, 'class_id');
+    const memberId = required(data.member_id || data.user_id, 'member_id');
+    const activityRow = await getClassAvailabilityRow(tenantId, classId);
+    if (!activityRow) {
+      throw fail(404, 'CLASS_NOT_FOUND', `class ${classId} not found`);
+    }
+    const paymentId = String(data.payment_id || '').trim();
+    let paymentRow = null;
+    if (paymentId) {
+      paymentRow = await getPaymentQueueRow({ tenantId, paymentId });
+      if (!paymentRow) {
+        throw fail(404, 'PAYMENT_NOT_FOUND', `payment ${paymentId} not found`);
+      }
+      if (String(paymentRow.status || '').toLowerCase() !== 'confirmed') {
+        throw fail(409, 'PAYMENT_NOT_CONFIRMED', `payment ${paymentId} is not confirmed`);
+      }
+      const referenceType = String(paymentRow.reference_type || '').trim().toLowerCase();
+      if (referenceType && !['activity_purchase', 'membership_purchase', 'session_pack_purchase', 'open_access_purchase'].includes(referenceType)) {
+        throw fail(409, 'PAYMENT_REFERENCE_INVALID', `payment ${paymentId} has invalid reference_type`);
+      }
+      const referenceId = String(paymentRow.reference_id || '').trim();
+      if (referenceId && referenceId !== classId) {
+        throw fail(409, 'PAYMENT_REFERENCE_MISMATCH', `payment ${paymentId} is linked to another activity`);
+      }
+    }
+
+    const enrollmentState = buildActivityEnrollmentState({
+      activity: activityRow,
+      memberId,
+      purchasedAt: data.purchased_at || paymentRow?.recorded_at || new Date().toISOString(),
+      paymentRow,
+      activatedAt: data.activated_at || paymentRow?.reviewed_at || null,
+      explicitStatus: data.status || 'active'
+    });
+    const enrollmentId = String(data.enrollment_id || enrollmentState.enrollment_id).trim();
+    const event = await appendDomainEvent({
+      tenantId,
+      branchId: data.branch_id || activityRow.branch_id || null,
+      actorId: data.actor_id || config.defaultActorId,
+      eventType: 'activity.enrollment.upserted',
+      subjectKind: 'activity_enrollment',
+      subjectId: enrollmentId,
+      data: {
+        tenant_id: tenantId,
+        branch_id: data.branch_id || activityRow.branch_id || null,
+        enrollment_id: enrollmentId,
+        legacy_subscription_id: data.legacy_subscription_id || null,
+        ...enrollmentState,
+        enrollment_id: enrollmentId
+      },
+      refs: { payment_id: paymentId || null },
+      uniqueIds: [{ scope: 'activity.enrollment_id', value: enrollmentId }]
+    });
+    await runFitnessProjection({ tenantId, branchId: data.branch_id || activityRow.branch_id || 'core' });
+    return created(res, {
+      event,
+      enrollment: {
+        enrollment_id: enrollmentId,
+        ...enrollmentState
+      }
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.post('/v1/activities/access-check', async (req, res, next) => {
+  try {
+    const data = req.body || {};
+    const tenantId = data.tenant_id || config.defaultTenantId;
+    const classId = required(data.class_id || data.activity_id, 'class_id');
+    const memberId = String(data.member_id || data.user_id || '').trim() || null;
+    const access = await checkActivityAccess({
+      tenantId,
+      classId,
+      memberId,
+      actionType: data.action_type || 'view',
+      now: data.now || new Date().toISOString()
+    });
+    return ok(res, access);
   } catch (error) {
     return next(error);
   }
@@ -3779,23 +4424,14 @@ app.get('/v1/admin/classes', async (req, res, next) => {
       params.push(branchId);
       sql += ` and branch_id = $2`;
     }
-    sql += ` order by start_at asc`;
+    sql += ` order by coalesce(start_at, registration_start, updated_at) asc nulls last, class_name asc`;
     const { rows } = await query(sql, params);
 
     const classIds = rows.map((row) => row.class_id).filter(Boolean);
-    let trainerByClassId = {};
-    let priceByClassId = {};
-    let coachSharesByClassId = {};
-    let periodEndByClassId = {};
-    let maxMeetingsByClassId = {};
-    let categoryByClassId = {};
-    let customFieldsByClassId = {};
-    let scheduleModeByClassId = {};
-    let weeklyScheduleByClassId = {};
-    let manualScheduleByClassId = {};
+    const latestByClassId = new Map();
     if (classIds.length > 0) {
       const namespaceId = resolveNamespaceId(tenantId);
-      const { rows: trainerRows } = await query(
+      const { rows: latestRows } = await query(
         `select distinct on (payload->'data'->>'class_id')
             payload->'data' as data
          from eventdb_event
@@ -3805,73 +4441,42 @@ app.get('/v1/admin/classes', async (req, res, next) => {
          order by payload->'data'->>'class_id', sequence desc`,
         [namespaceId, classIds]
       );
-      trainerByClassId = Object.fromEntries(
-        trainerRows.map((row) => [row.data?.class_id, row.data?.trainer_name || '']).filter(([classId]) => Boolean(classId))
-      );
-      priceByClassId = Object.fromEntries(
-        trainerRows.map((row) => [row.data?.class_id, Number(row.data?.price || 0)]).filter(([classId]) => Boolean(classId))
-      );
-      coachSharesByClassId = Object.fromEntries(
-        trainerRows
-          .map((row) => [row.data?.class_id, normalizeCoachShares(row.data?.coach_shares, [])])
-          .filter(([classId]) => Boolean(classId))
-      );
-      periodEndByClassId = Object.fromEntries(
-        trainerRows
-          .map((row) => [row.data?.class_id, row.data?.period_end_at || null])
-          .filter(([classId]) => Boolean(classId))
-      );
-      maxMeetingsByClassId = Object.fromEntries(
-        trainerRows
-          .map((row) => [row.data?.class_id, Number(row.data?.max_meetings || 0)])
-          .filter(([classId]) => Boolean(classId))
-      );
-      categoryByClassId = Object.fromEntries(
-        trainerRows
-          .map((row) => [row.data?.class_id, row.data?.category || ''])
-          .filter(([classId]) => Boolean(classId))
-      );
-      customFieldsByClassId = Object.fromEntries(
-        trainerRows
-          .map((row) => [row.data?.class_id, row.data?.custom_fields || {}])
-          .filter(([classId]) => Boolean(classId))
-      );
-      scheduleModeByClassId = Object.fromEntries(
-        trainerRows
-          .map((row) => [row.data?.class_id, String(row.data?.schedule_mode || 'weekly')])
-          .filter(([classId]) => Boolean(classId))
-      );
-      weeklyScheduleByClassId = Object.fromEntries(
-        trainerRows
-          .map((row) => [row.data?.class_id, normalizeClassSchedule({
-            schedule_mode: 'weekly',
-            weekly_schedule: row.data?.weekly_schedule
-          }).weekly_schedule])
-          .filter(([classId]) => Boolean(classId))
-      );
-      manualScheduleByClassId = Object.fromEntries(
-        trainerRows
-          .map((row) => [row.data?.class_id, normalizeClassSchedule({
-            schedule_mode: 'manual',
-            manual_schedule: row.data?.manual_schedule
-          }).manual_schedule])
-          .filter(([classId]) => Boolean(classId))
-      );
+      latestRows.forEach((row) => {
+        if (!row.data?.class_id) return;
+        latestByClassId.set(row.data.class_id, row.data);
+      });
     }
 
     return ok(res, {
       rows: rows.map((row) => ({
         ...row,
-        trainer_name: trainerByClassId[row.class_id] || '',
-        price: priceByClassId[row.class_id] || 0,
-        coach_shares: coachSharesByClassId[row.class_id] || [],
-        period_end_at: periodEndByClassId[row.class_id] || null,
-        max_meetings: maxMeetingsByClassId[row.class_id] || 0,
-        category: categoryByClassId[row.class_id] || '',
-        custom_fields: customFieldsByClassId[row.class_id] || {},
-        schedule_mode: scheduleModeByClassId[row.class_id] || 'weekly',
-        weekly_schedule: weeklyScheduleByClassId[row.class_id] || { weekdays: [], start_time: '', end_time: '' },
-        manual_schedule: manualScheduleByClassId[row.class_id] || []
+        ...(latestByClassId.get(row.class_id) || {}),
+        title: latestByClassId.get(row.class_id)?.title || row.title || row.class_name,
+        class_name: latestByClassId.get(row.class_id)?.class_name || row.class_name,
+        description: latestByClassId.get(row.class_id)?.description || row.description || null,
+        trainer_name: latestByClassId.get(row.class_id)?.trainer_name || '',
+        has_coach: latestByClassId.get(row.class_id)?.has_coach ?? row.has_coach ?? false,
+        coach_id: latestByClassId.get(row.class_id)?.coach_id || row.coach_id || null,
+        price: Number(latestByClassId.get(row.class_id)?.price || 0),
+        coach_shares: normalizeCoachShares(latestByClassId.get(row.class_id)?.coach_shares, []),
+        period_end_at: latestByClassId.get(row.class_id)?.period_end_at || row.end_date || null,
+        max_meetings: Number(latestByClassId.get(row.class_id)?.max_meetings || 0),
+        category: latestByClassId.get(row.class_id)?.category || row.category_id || '',
+        category_id: latestByClassId.get(row.class_id)?.category_id || row.category_id || null,
+        custom_fields: latestByClassId.get(row.class_id)?.custom_fields || {},
+        schedule_mode: latestByClassId.get(row.class_id)?.schedule_mode || (row.class_type === 'scheduled' ? 'weekly' : 'none'),
+        weekly_schedule: row.class_type === 'scheduled'
+          ? normalizeClassSchedule({
+            schedule_mode: 'weekly',
+            weekly_schedule: latestByClassId.get(row.class_id)?.weekly_schedule
+          }).weekly_schedule
+          : { weekdays: [], start_time: '', end_time: '' },
+        manual_schedule: row.class_type === 'scheduled'
+          ? normalizeClassSchedule({
+            schedule_mode: 'manual',
+            manual_schedule: latestByClassId.get(row.class_id)?.manual_schedule
+          }).manual_schedule
+          : []
       }))
     });
   } catch (error) {
@@ -3886,24 +4491,7 @@ app.post('/v1/admin/classes', async (req, res, next) => {
     await requireActiveTenantUser(req, tenantId);
     const branchId = required(data.branch_id, 'branch_id');
     const classId = data.class_id || `class_${Date.now()}_${randomUUID().slice(0, 8)}`;
-    const startAt = new Date(required(data.start_at, 'start_at'));
-    if (Number.isNaN(startAt.getTime())) {
-      throw fail(400, 'BAD_REQUEST', 'start_at must be a valid datetime');
-    }
-    const endAt = data.end_at ? new Date(data.end_at) : new Date(startAt.getTime() + 60 * 60 * 1000);
-    if (Number.isNaN(endAt.getTime())) {
-      throw fail(400, 'BAD_REQUEST', 'end_at must be a valid datetime');
-    }
-    const periodEndAt = normalizeOptionalDatetime(data.period_end_at, 'period_end_at', null);
-    if (periodEndAt && new Date(periodEndAt).getTime() < startAt.getTime()) {
-      throw fail(400, 'BAD_REQUEST', 'period_end_at must be after start_at');
-    }
-    const customFields = normalizeCustomFields(data.custom_fields);
-    const schedule = normalizeClassSchedule({
-      schedule_mode: data.schedule_mode,
-      weekly_schedule: data.weekly_schedule,
-      manual_schedule: data.manual_schedule
-    });
+    const activityPayload = normalizeActivityPayload(data);
 
     const event = await appendDomainEvent({
       tenantId,
@@ -3916,20 +4504,7 @@ app.post('/v1/admin/classes', async (req, res, next) => {
         tenant_id: tenantId,
         branch_id: branchId,
         class_id: classId,
-        class_name: required(data.class_name, 'class_name'),
-        trainer_name: data.trainer_name || null,
-        coach_shares: normalizeCoachShares(data.coach_shares, []),
-        price: asNonNegativeInteger(data.price, 'price', 0),
-        capacity: asPositiveInteger(data.capacity, 'capacity', 20),
-        start_at: startAt.toISOString(),
-        end_at: endAt.toISOString(),
-        period_end_at: periodEndAt,
-        max_meetings: asNonNegativeInteger(data.max_meetings, 'max_meetings', 0),
-        category: String(data.category || '').trim(),
-        custom_fields: customFields,
-        schedule_mode: schedule.schedule_mode,
-        weekly_schedule: schedule.weekly_schedule,
-        manual_schedule: schedule.manual_schedule
+        ...activityPayload
       },
       refs: {},
       uniqueIds: [{ scope: 'class.class_id', value: classId }]
@@ -3948,7 +4523,7 @@ app.patch('/v1/admin/classes/:classId', async (req, res, next) => {
     await requireActiveTenantUser(req, tenantId);
     const classId = required(req.params.classId, 'classId');
     const existing = await query(
-      `select tenant_id, branch_id, class_id, class_name, start_at, end_at, capacity
+      `select *
        from read.rm_class_availability
        where tenant_id = $1 and class_id = $2
        limit 1`,
@@ -3961,33 +4536,11 @@ app.patch('/v1/admin/classes/:classId', async (req, res, next) => {
 
     const latestScheduledData = await getLatestClassScheduledData(tenantId, classId);
     const branchId = data.branch_id || current.branch_id || latestScheduledData?.branch_id || 'core';
-
-    const startAtValue = data.start_at || current.start_at || latestScheduledData?.start_at;
-    const endAtValue = data.end_at || current.end_at || latestScheduledData?.end_at;
-    const startAt = new Date(startAtValue);
-    const endAt = new Date(endAtValue || new Date(startAt.getTime() + 60 * 60 * 1000).toISOString());
-    if (Number.isNaN(startAt.getTime()) || Number.isNaN(endAt.getTime())) {
-      throw fail(400, 'BAD_REQUEST', 'start_at/end_at must be valid datetime');
-    }
-    const periodEndAt = normalizeOptionalDatetime(
-      data.period_end_at,
-      'period_end_at',
-      latestScheduledData?.period_end_at || null
-    );
-    if (periodEndAt && new Date(periodEndAt).getTime() < startAt.getTime()) {
-      throw fail(400, 'BAD_REQUEST', 'period_end_at must be after start_at');
-    }
-    const customFields = data.custom_fields === undefined
-      ? latestScheduledData?.custom_fields || {}
-      : normalizeCustomFields(data.custom_fields);
-    const schedule = normalizeClassSchedule({
-      schedule_mode: data.schedule_mode,
-      weekly_schedule: data.weekly_schedule,
-      manual_schedule: data.manual_schedule
-    }, {
-      schedule_mode: latestScheduledData?.schedule_mode || 'weekly',
-      weekly_schedule: latestScheduledData?.weekly_schedule || {},
-      manual_schedule: latestScheduledData?.manual_schedule || []
+    const activityPayload = normalizeActivityPayload(data, {
+      ...current,
+      ...latestScheduledData,
+      class_name: latestScheduledData?.class_name || current.class_name,
+      title: latestScheduledData?.title || current.title || current.class_name
     });
 
     const event = await appendDomainEvent({
@@ -4001,23 +4554,7 @@ app.patch('/v1/admin/classes/:classId', async (req, res, next) => {
         tenant_id: tenantId,
         branch_id: branchId,
         class_id: classId,
-        class_name: data.class_name || current.class_name || latestScheduledData?.class_name,
-        trainer_name: data.trainer_name ?? latestScheduledData?.trainer_name ?? null,
-        coach_shares: normalizeCoachShares(
-          data.coach_shares,
-          Array.isArray(latestScheduledData?.coach_shares) ? latestScheduledData.coach_shares : []
-        ),
-        price: asNonNegativeInteger(data.price, 'price', Number(latestScheduledData?.price || 0)),
-        capacity: asPositiveInteger(data.capacity, 'capacity', current.capacity || latestScheduledData?.capacity || 20),
-        start_at: startAt.toISOString(),
-        end_at: endAt.toISOString(),
-        period_end_at: periodEndAt,
-        max_meetings: asNonNegativeInteger(data.max_meetings, 'max_meetings', Number(latestScheduledData?.max_meetings || 0)),
-        category: data.category === undefined ? String(latestScheduledData?.category || '') : String(data.category || '').trim(),
-        custom_fields: customFields,
-        schedule_mode: schedule.schedule_mode,
-        weekly_schedule: schedule.weekly_schedule,
-        manual_schedule: schedule.manual_schedule
+        ...activityPayload
       },
       refs: {}
     });
@@ -5227,6 +5764,9 @@ app.post('/v1/bookings/classes/create', async (req, res, next) => {
     if (!classRow) {
       throw fail(404, 'CLASS_NOT_FOUND', `class ${classId} not found`);
     }
+    if (String(classRow.class_type || 'scheduled').trim().toLowerCase() !== 'scheduled') {
+      throw fail(409, 'ACTIVITY_NOT_BOOKABLE', `activity ${classId} is not bookable`);
+    }
     const resolvedBranchId = String(data.branch_id || classRow.branch_id || '').trim();
     if (!resolvedBranchId) {
       throw fail(400, 'BAD_REQUEST', 'branch_id is required');
@@ -5242,6 +5782,15 @@ app.post('/v1/bookings/classes/create', async (req, res, next) => {
       const activeBooking = await findActiveClassBooking({ tenantId, classId, memberId });
       if (activeBooking) {
         throw fail(409, 'CLASS_ALREADY_BOOKED', `member ${memberId} already booked class ${classId}`);
+      }
+      const access = await checkActivityAccess({
+        tenantId,
+        classId,
+        memberId,
+        actionType: 'book'
+      });
+      if (access.enrollment && !access.allowed) {
+        throw fail(409, 'ACTIVITY_ACCESS_DENIED', access.reasons.join(', '));
       }
     }
     const paymentId = String(data.payment_id || '').trim();
@@ -6183,6 +6732,22 @@ app.get('/v1/read/subscriptions/active', async (req, res, next) => {
   }
 });
 
+app.get('/v1/read/activity-enrollments', async (req, res, next) => {
+  try {
+    const tenantId = req.query.tenant_id || config.defaultTenantId;
+    const rows = await listActivityEnrollments({
+      tenantId,
+      classId: req.query.class_id || null,
+      memberId: req.query.member_id || req.query.user_id || null,
+      status: req.query.status || 'all',
+      paymentId: req.query.payment_id || null
+    });
+    return ok(res, { rows });
+  } catch (error) {
+    return next(error);
+  }
+});
+
 app.get('/v1/read/class-availability', async (req, res, next) => {
   try {
     const tenantId = req.query.tenant_id || config.defaultTenantId;
@@ -6193,7 +6758,11 @@ app.get('/v1/read/class-availability', async (req, res, next) => {
       params.push(branchId);
       sql += ` and branch_id = $2`;
     }
-    sql += ` order by start_at asc`;
+    if (req.query.class_type) {
+      params.push(String(req.query.class_type).trim().toLowerCase());
+      sql += ` and lower(class_type) = $${params.length}`;
+    }
+    sql += ` order by coalesce(start_at, registration_start, updated_at) asc nulls last`;
     const { rows } = await query(sql, params);
     return ok(res, { rows });
   } catch (error) {
@@ -6251,7 +6820,7 @@ app.get('/v1/read/payments/:paymentId/links', async (req, res, next) => {
   try {
     const tenantId = req.query.tenant_id || config.defaultTenantId;
     const paymentId = required(req.params.paymentId, 'paymentId');
-    const [subscriptionRes, bookingRes, ptBalanceRes] = await Promise.all([
+    const [subscriptionRes, bookingRes, ptBalanceRes, enrollmentRes] = await Promise.all([
       query(
         `select tenant_id, subscription_id, member_id, plan_id, payment_id, end_date, status
          from read.rm_subscription_active
@@ -6275,13 +6844,22 @@ app.get('/v1/read/payments/:paymentId/links', async (req, res, next) => {
          order by updated_at desc
          limit 1`,
         [tenantId, paymentId]
+      ),
+      query(
+        `select tenant_id, enrollment_id, class_id, class_type, member_id, payment_id, status, valid_until
+         from read.rm_activity_enrollment
+         where tenant_id = $1 and payment_id = $2
+         order by updated_at desc
+         limit 1`,
+        [tenantId, paymentId]
       )
     ]);
     return ok(res, {
       payment_id: paymentId,
       subscription: subscriptionRes.rows[0] || null,
       booking: bookingRes.rows[0] || null,
-      pt_package: ptBalanceRes.rows[0] || null
+      pt_package: ptBalanceRes.rows[0] || null,
+      activity_enrollment: enrollmentRes.rows[0] || null
     });
   } catch (error) {
     return next(error);

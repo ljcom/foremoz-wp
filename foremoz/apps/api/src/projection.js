@@ -7,6 +7,16 @@ function toDateOnly(value) {
   return String(value || '').slice(0, 10);
 }
 
+function normalizeActivityClassType(value) {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (normalized === 'open_access' || normalized === 'session_pack') return normalized;
+  return 'scheduled';
+}
+
+function normalizeActivityUsageMode(value) {
+  return String(value || '').trim().toLowerCase() === 'limited' ? 'limited' : 'unlimited';
+}
+
 export async function runFitnessProjection({ tenantId, branchId }) {
   const namespaceId = resolveNamespaceId(tenantId);
   const chainId = resolveChainId(branchId);
@@ -31,6 +41,61 @@ export async function runFitnessProjection({ tenantId, branchId }) {
     await client.query(
       `alter table if exists read.rm_subscription_active
          add column if not exists payment_id text`
+    );
+    await client.query(
+      `create table if not exists read.rm_activity_enrollment (
+         tenant_id text not null,
+         branch_id text,
+         enrollment_id text not null,
+         class_id text not null,
+         class_type text not null default 'scheduled',
+         member_id text not null,
+         user_id text not null,
+         payment_id text,
+         legacy_subscription_id text,
+         status text not null,
+         purchased_at timestamptz not null,
+         enrolled_at timestamptz not null,
+         activated_at timestamptz,
+         valid_from timestamptz,
+         valid_until timestamptz,
+         usage_mode text not null default 'unlimited',
+         usage_limit integer,
+         usage_period text,
+         remaining_usage integer,
+         updated_at timestamptz not null,
+         primary key (tenant_id, enrollment_id)
+       )`
+    );
+    await client.query(
+      `alter table if exists read.rm_class_availability
+         add column if not exists title text not null default '',
+         add column if not exists description text,
+         add column if not exists class_type text not null default 'scheduled',
+         add column if not exists has_coach boolean not null default false,
+         add column if not exists coach_id text,
+         add column if not exists category_id text,
+         add column if not exists capacity_mode text not null default 'limited',
+         add column if not exists quota_mode text not null default 'none',
+         add column if not exists validity_mode text not null default 'fixed',
+         add column if not exists start_date date,
+         add column if not exists end_date date,
+         add column if not exists registration_start timestamptz,
+         add column if not exists registration_end timestamptz,
+         add column if not exists usage_mode text not null default 'unlimited',
+         add column if not exists usage_limit integer,
+         add column if not exists usage_period text,
+         add column if not exists validity_unit text,
+         add column if not exists validity_value integer,
+         add column if not exists validity_anchor text,
+         add column if not exists min_quota integer,
+         add column if not exists max_quota integer,
+         add column if not exists auto_start_when_quota_met boolean not null default false`
+    );
+    await client.query(
+      `alter table if exists read.rm_class_availability
+         alter column start_at drop not null,
+         alter column end_at drop not null`
     );
     await client.query(
       `alter table if exists read.rm_booking_list
@@ -59,6 +124,18 @@ export async function runFitnessProjection({ tenantId, branchId }) {
     await client.query(
       `create index if not exists idx_rm_subscription_payment
        on read.rm_subscription_active (tenant_id, payment_id)`
+    );
+    await client.query(
+      `create index if not exists idx_rm_activity_enrollment_member
+       on read.rm_activity_enrollment (tenant_id, member_id, status, valid_until)`
+    );
+    await client.query(
+      `create index if not exists idx_rm_activity_enrollment_class
+       on read.rm_activity_enrollment (tenant_id, class_id, status, updated_at desc)`
+    );
+    await client.query(
+      `create index if not exists idx_rm_activity_enrollment_payment
+       on read.rm_activity_enrollment (tenant_id, payment_id)`
     );
     await client.query(
       `create index if not exists idx_rm_booking_payment
@@ -344,6 +421,75 @@ export async function runFitnessProjection({ tenantId, branchId }) {
             eventTs
           ]
         );
+        const candidateClassIds = [...new Set(
+          [data.class_id, data.plan_id]
+            .map((item) => String(item || '').trim())
+            .filter(Boolean)
+        )];
+        if (candidateClassIds.length > 0) {
+          const { rows: activityRows } = await client.query(
+            `select class_id, class_type, usage_mode, usage_limit, usage_period
+             from read.rm_class_availability
+             where tenant_id = $1
+               and class_id = any($2::text[])
+             order by updated_at desc
+             limit 1`,
+            [tenant, candidateClassIds]
+          );
+          const activityRow = activityRows[0] || null;
+          if (activityRow) {
+            const classType = normalizeActivityClassType(activityRow.class_type);
+            await client.query(
+              `insert into read.rm_activity_enrollment (
+                 tenant_id, branch_id, enrollment_id, class_id, class_type, member_id, user_id,
+                 payment_id, legacy_subscription_id, status, purchased_at, enrolled_at,
+                 activated_at, valid_from, valid_until, usage_mode, usage_limit, usage_period,
+                 remaining_usage, updated_at
+               ) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$11,$12,$13,$14,$15,$16,$17,$18,$19)
+               on conflict (tenant_id, enrollment_id) do update set
+                 branch_id = excluded.branch_id,
+                 class_id = excluded.class_id,
+                 class_type = excluded.class_type,
+                 member_id = excluded.member_id,
+                 user_id = excluded.user_id,
+                 payment_id = excluded.payment_id,
+                 legacy_subscription_id = excluded.legacy_subscription_id,
+                 status = excluded.status,
+                 activated_at = excluded.activated_at,
+                 valid_from = excluded.valid_from,
+                 valid_until = excluded.valid_until,
+                 usage_mode = excluded.usage_mode,
+                 usage_limit = excluded.usage_limit,
+                 usage_period = excluded.usage_period,
+                 remaining_usage = excluded.remaining_usage,
+                 updated_at = excluded.updated_at`,
+              [
+                tenant,
+                branch,
+                data.subscription_id,
+                activityRow.class_id,
+                classType,
+                data.member_id,
+                data.member_id,
+                refs.payment_id || null,
+                data.subscription_id,
+                data.status || 'active',
+                data.start_date || eventTs,
+                data.start_date || eventTs,
+                data.start_date || null,
+                data.start_date || null,
+                data.end_date || null,
+                normalizeActivityUsageMode(activityRow.usage_mode),
+                activityRow.usage_limit ?? null,
+                activityRow.usage_period || null,
+                normalizeActivityUsageMode(activityRow.usage_mode) === 'limited'
+                  ? Number(activityRow.usage_limit || 0)
+                  : null,
+                eventTs
+              ]
+            );
+          }
+        }
         applied += 1;
         continue;
       }
@@ -394,6 +540,96 @@ export async function runFitnessProjection({ tenantId, branchId }) {
            where tenant_id = $1 and subscription_id = $2`,
           [tenant, data.subscription_id, eventTs]
         );
+        applied += 1;
+        continue;
+      }
+
+      if (event.event_type === 'activity.enrollment.upserted') {
+        const classType = normalizeActivityClassType(data.class_type);
+        const usageMode = normalizeActivityUsageMode(data.usage_mode);
+        await client.query(
+          `insert into read.rm_activity_enrollment (
+             tenant_id, branch_id, enrollment_id, class_id, class_type, member_id, user_id,
+             payment_id, legacy_subscription_id, status, purchased_at, enrolled_at,
+             activated_at, valid_from, valid_until, usage_mode, usage_limit, usage_period,
+             remaining_usage, updated_at
+           ) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
+           on conflict (tenant_id, enrollment_id) do update set
+             branch_id = excluded.branch_id,
+             class_id = excluded.class_id,
+             class_type = excluded.class_type,
+             member_id = excluded.member_id,
+             user_id = excluded.user_id,
+             payment_id = excluded.payment_id,
+             legacy_subscription_id = excluded.legacy_subscription_id,
+             status = excluded.status,
+             purchased_at = excluded.purchased_at,
+             enrolled_at = excluded.enrolled_at,
+             activated_at = excluded.activated_at,
+             valid_from = excluded.valid_from,
+             valid_until = excluded.valid_until,
+             usage_mode = excluded.usage_mode,
+             usage_limit = excluded.usage_limit,
+             usage_period = excluded.usage_period,
+             remaining_usage = excluded.remaining_usage,
+             updated_at = excluded.updated_at`,
+          [
+            tenant,
+            branch,
+            data.enrollment_id,
+            data.class_id,
+            classType,
+            data.member_id || data.user_id,
+            data.user_id || data.member_id,
+            refs.payment_id || data.payment_id || null,
+            data.legacy_subscription_id || null,
+            data.status || 'active',
+            data.purchased_at || eventTs,
+            data.enrolled_at || data.purchased_at || eventTs,
+            data.activated_at || null,
+            data.valid_from || null,
+            data.valid_until || null,
+            usageMode,
+            data.usage_limit ?? null,
+            data.usage_period || null,
+            usageMode === 'limited' ? Number(data.remaining_usage ?? data.usage_limit ?? 0) : null,
+            eventTs
+          ]
+        );
+
+        if (classType === 'open_access') {
+          const subscriptionId = String(data.legacy_subscription_id || data.enrollment_id || '').trim();
+          if (subscriptionId) {
+            await client.query(
+              `insert into read.rm_subscription_active (
+                 tenant_id, branch_id, subscription_id, member_id, plan_id, payment_id, status,
+                 start_date, end_date, freeze_until, updated_at
+               ) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,null,$10)
+               on conflict (tenant_id, subscription_id) do update set
+                 branch_id = excluded.branch_id,
+                 member_id = excluded.member_id,
+                 plan_id = excluded.plan_id,
+                 payment_id = excluded.payment_id,
+                 status = excluded.status,
+                 start_date = excluded.start_date,
+                 end_date = excluded.end_date,
+                 freeze_until = excluded.freeze_until,
+                 updated_at = excluded.updated_at`,
+              [
+                tenant,
+                branch,
+                subscriptionId,
+                data.member_id || data.user_id,
+                data.class_id,
+                refs.payment_id || data.payment_id || null,
+                data.status || 'active',
+                toDateOnly(data.valid_from || data.activated_at || data.purchased_at || eventTs),
+                toDateOnly(data.valid_until || data.valid_from || data.activated_at || data.purchased_at || eventTs),
+                eventTs
+              ]
+            );
+          }
+        }
         applied += 1;
         continue;
       }
@@ -527,20 +763,96 @@ export async function runFitnessProjection({ tenantId, branchId }) {
       }
 
       if (event.event_type === 'class.scheduled') {
+        const classType = normalizeActivityClassType(data.class_type);
+        const normalizedCapacity = Number(
+          data.capacity
+          ?? data.max_quota
+          ?? (classType === 'scheduled' ? 20 : 0)
+        );
         await client.query(
           `insert into read.rm_class_availability (
-             tenant_id, branch_id, class_id, class_name, start_at, end_at,
-             capacity, booked_count, available_slots, updated_at
-           ) values ($1,$2,$3,$4,$5,$6,$7,0,$7,$8)
+             tenant_id, branch_id, class_id, class_name, title, description, class_type,
+             has_coach, coach_id, category_id, capacity_mode, quota_mode, validity_mode,
+             start_date, end_date, registration_start, registration_end, start_at, end_at,
+             capacity, usage_mode, usage_limit, usage_period, validity_unit, validity_value,
+             validity_anchor, min_quota, max_quota, auto_start_when_quota_met,
+             booked_count, available_slots, updated_at
+           ) values (
+             $1,$2,$3,$4,$5,$6,$7,
+             $8,$9,$10,$11,$12,$13,
+             $14,$15,$16,$17,$18,$19,
+             $20,$21,$22,$23,$24,$25,
+             $26,$27,$28,$29,
+             0,
+             case when $7 = 'scheduled' then greatest(0, $20) else greatest(0, coalesce($28, 0)) end,
+             $30
+           )
            on conflict (tenant_id, class_id) do update set
              branch_id = excluded.branch_id,
              class_name = excluded.class_name,
+             title = excluded.title,
+             description = excluded.description,
+             class_type = excluded.class_type,
+             has_coach = excluded.has_coach,
+             coach_id = excluded.coach_id,
+             category_id = excluded.category_id,
+             capacity_mode = excluded.capacity_mode,
+             quota_mode = excluded.quota_mode,
+             validity_mode = excluded.validity_mode,
+             start_date = excluded.start_date,
+             end_date = excluded.end_date,
+             registration_start = excluded.registration_start,
+             registration_end = excluded.registration_end,
              start_at = excluded.start_at,
              end_at = excluded.end_at,
              capacity = excluded.capacity,
-             available_slots = greatest(0, excluded.capacity - read.rm_class_availability.booked_count),
+             usage_mode = excluded.usage_mode,
+             usage_limit = excluded.usage_limit,
+             usage_period = excluded.usage_period,
+             validity_unit = excluded.validity_unit,
+             validity_value = excluded.validity_value,
+             validity_anchor = excluded.validity_anchor,
+             min_quota = excluded.min_quota,
+             max_quota = excluded.max_quota,
+             auto_start_when_quota_met = excluded.auto_start_when_quota_met,
+             available_slots = case
+               when excluded.class_type = 'scheduled'
+                 then greatest(0, excluded.capacity - read.rm_class_availability.booked_count)
+               else greatest(0, coalesce(excluded.max_quota, 0) - read.rm_class_availability.booked_count)
+             end,
              updated_at = excluded.updated_at`,
-          [tenant, branch, data.class_id, data.class_name, data.start_at, data.end_at, data.capacity, eventTs]
+          [
+            tenant,
+            branch,
+            data.class_id,
+            data.class_name,
+            data.title || data.class_name,
+            data.description || null,
+            classType,
+            Boolean(data.has_coach),
+            data.coach_id || null,
+            data.category_id || data.category || null,
+            data.capacity_mode || 'limited',
+            data.quota_mode || 'none',
+            data.validity_mode || (classType === 'scheduled' ? 'fixed' : 'rolling'),
+            data.start_date || null,
+            data.end_date || null,
+            data.registration_start || null,
+            data.registration_end || null,
+            data.start_at || null,
+            data.end_at || null,
+            Number.isFinite(normalizedCapacity) ? normalizedCapacity : 0,
+            normalizeActivityUsageMode(data.usage_mode),
+            data.usage_limit ?? null,
+            data.usage_period || null,
+            data.validity_unit || null,
+            data.validity_value ?? null,
+            data.validity_anchor || null,
+            data.min_quota ?? null,
+            data.max_quota ?? null,
+            Boolean(data.auto_start_when_quota_met),
+            eventTs
+          ]
         );
         applied += 1;
         continue;
