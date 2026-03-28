@@ -5263,12 +5263,19 @@ export default function AdminPage() {
                             <select
                               value={classForm.class_type}
                               onChange={(e) =>
-                                setClassForm((prev) => ({
-                                  ...prev,
-                                  class_type: e.target.value,
-                                  has_coach: e.target.value === 'scheduled' ? prev.has_coach : false,
-                                  schedule_mode: e.target.value === 'scheduled' ? (prev.schedule_mode === 'none' ? 'weekly' : prev.schedule_mode) : 'none'
-                                }))
+                                setClassForm((prev) => {
+                                  const nextType = e.target.value;
+                                  const requiresCoachState = nextType === 'scheduled';
+                                  return {
+                                    ...prev,
+                                    class_type: nextType,
+                                    has_coach: requiresCoachState ? prev.has_coach : false,
+                                    coach_id: requiresCoachState ? prev.coach_id : '',
+                                    trainer_name: requiresCoachState ? prev.trainer_name : '',
+                                    coach_shares: requiresCoachState ? prev.coach_shares : [],
+                                    schedule_mode: nextType === 'scheduled' ? (prev.schedule_mode === 'none' ? 'weekly' : prev.schedule_mode) : 'none'
+                                  };
+                                })
                               }
                             >
                               {CLASS_TYPE_OPTIONS.map((item) => (
@@ -5295,7 +5302,15 @@ export default function AdminPage() {
                             <input
                               type="checkbox"
                               checked={showClassCoachFields}
-                              onChange={(e) => setClassForm((p) => ({ ...p, has_coach: e.target.checked, trainer_name: e.target.checked ? p.trainer_name : '', coach_shares: e.target.checked ? p.coach_shares : [] }))}
+                              onChange={(e) =>
+                                setClassForm((p) => ({
+                                  ...p,
+                                  has_coach: e.target.checked,
+                                  coach_id: e.target.checked ? p.coach_id : '',
+                                  trainer_name: e.target.checked ? '' : '',
+                                  coach_shares: e.target.checked ? [] : []
+                                }))
+                              }
                             />
                             <span>Activity ini punya coach</span>
                           </label>
@@ -5358,6 +5373,7 @@ export default function AdminPage() {
                                   }}
                                 />
                               </label>
+                              <p className="feedback">Tekan Enter untuk menambahkan nama manual ke daftar coach.</p>
                               <p className="feedback">Tersimpan sebagai: {classForm.trainer_name || '-'}</p>
                               {selectedClassTrainerTokens.length > 0 ? (
                                 <div className="card" style={{ borderStyle: 'dashed' }}>
