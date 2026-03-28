@@ -2341,6 +2341,7 @@ export default function AdminPage() {
         : '/v1/admin/classes';
       const classCategories = normalizeEventCategoriesForPayload(classForm.categories_text);
       const primaryCategory = classCategories[0] || '';
+      const capacityMode = isScheduledClassForm ? 'limited' : classForm.capacity_mode;
       await apiJson(endpoint, {
         method,
         body: JSON.stringify({
@@ -2361,7 +2362,7 @@ export default function AdminPage() {
           weekly_schedule: normalizedSchedule.weekly_schedule,
           manual_schedule: normalizedSchedule.manual_schedule,
           capacity: Number(classForm.capacity || 20),
-          capacity_mode: classForm.capacity_mode,
+          capacity_mode: capacityMode,
           quota_mode: classForm.quota_mode,
           validity_mode: classForm.validity_mode,
           price: Number(classForm.price || 0),
@@ -5636,17 +5637,14 @@ export default function AdminPage() {
                         {isScheduledClassForm ? (
                           <>
                             <label>Capacity<input type="number" min="1" value={classForm.capacity} onChange={(e) => setClassForm((p) => ({ ...p, capacity: e.target.value }))} /></label>
+                            <p className="feedback">
+                              Capacity = jumlah slot peserta untuk scheduled class. Mode kapasitas otomatis memakai `limited`.
+                            </p>
                             <label>Periode Mulai<input type="date" value={classForm.start_date} onChange={(e) => setClassForm((p) => ({ ...p, start_date: e.target.value }))} /></label>
                             <label>Periode Akhir<input type="date" value={classForm.end_date} onChange={(e) => setClassForm((p) => ({ ...p, end_date: e.target.value }))} /></label>
                             <label>Registration Start<input type="datetime-local" value={classForm.registration_start} onChange={(e) => setClassForm((p) => ({ ...p, registration_start: e.target.value }))} /></label>
                             <label>Registration End<input type="datetime-local" value={classForm.registration_end} onChange={(e) => setClassForm((p) => ({ ...p, registration_end: e.target.value }))} /></label>
                             <label>Jumlah Pertemuan Max<input type="number" min="0" value={classForm.max_meetings} onChange={(e) => setClassForm((p) => ({ ...p, max_meetings: e.target.value }))} /></label>
-                            <label>Capacity mode<select value={classForm.capacity_mode} onChange={(e) => setClassForm((p) => ({ ...p, capacity_mode: e.target.value }))}><option value="limited">limited</option><option value="flexible">flexible</option><option value="none">none</option></select></label>
-                            <p className="feedback">
-                              Capacity mode: `limited` = slot dibatasi angka kapasitas, contoh 20 peserta.
-                              `flexible` = tetap ada acuan kapasitas tapi bisa lebih longgar secara operasional.
-                              `none` = tidak pakai batas kapasitas. Untuk scheduled class biasanya pilih `limited`.
-                            </p>
                             <label>Quota mode<select value={classForm.quota_mode} onChange={(e) => setClassForm((p) => ({ ...p, quota_mode: e.target.value }))}><option value="manual">manual</option><option value="auto">auto</option><option value="none">none</option></select></label>
                             <p className="feedback">
                               Quota mode: `manual` = admin menentukan min/max quota sendiri.
