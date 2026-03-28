@@ -1920,6 +1920,24 @@ code {
   top: 1rem;
 }
 
+.editor-with-guide {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(280px, 0.9fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.editor-main {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.editor-guide {
+  align-self: start;
+  position: sticky;
+  top: 1rem;
+}
+
 .admin-panel h2 {
   margin-top: 0;
 }
@@ -2195,6 +2213,14 @@ code {
   }
 
   .class-general-guide {
+    position: static;
+  }
+
+  .editor-with-guide {
+    grid-template-columns: 1fr;
+  }
+
+  .editor-guide {
     position: static;
   }
 }

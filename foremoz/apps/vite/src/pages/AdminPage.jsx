@@ -4589,256 +4589,292 @@ export default function AdminPage() {
                       </>
                     ) : null}
                     {eventEditTab === 'category' ? (
-                      <div className="card" style={{ borderStyle: 'dashed' }}>
-                        <p className="eyebrow">Event category</p>
-                        <div className="row-actions" style={{ marginBottom: '0.5rem' }}>
-                          <button
-                            className="btn ghost small"
-                            type="button"
-                            disabled={eventAiWorking}
-                            onClick={aiSuggestCategory}
-                          >
-                            AI Suggest Category
-                          </button>
-                        </div>
-                        <p className="feedback">{eventCategoryInstruction}</p>
-                        <textarea
-                          rows={4}
-                          placeholder={eventCategoryPlaceholder}
-                          value={eventForm.categories_text}
-                          onChange={(e) => setEventForm((p) => ({ ...p, categories_text: e.target.value }))}
-                        />
-                        <p className="feedback">
-                          Preview: {normalizeEventCategoriesForPayload(eventForm.categories_text).join(' | ') || '-'}
-                        </p>
-                        <div>
-                          <p style={{ margin: 0, fontWeight: 600 }}>Award applicable?</p>
-                          <div style={{ display: 'grid', gap: '0.35rem', marginTop: '0.35rem' }}>
-                            <label style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', margin: 0 }}>
-                              <input
-                                type="radio"
-                                name="award_enabled"
-                                checked={isFreePlan ? true : isAwardEnabled(eventForm.award_enabled, true)}
-                                disabled={isFreePlan}
-                                onChange={() => setEventForm((p) => ({ ...p, award_enabled: true }))}
-                              />
-                              <span>Yes</span>
-                            </label>
-                            <label style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', margin: 0 }}>
-                              <input
-                                type="radio"
-                                name="award_enabled"
-                                checked={!isFreePlan && !isAwardEnabled(eventForm.award_enabled, true)}
-                                disabled={isFreePlan}
-                                onChange={() => setEventForm((p) => ({ ...p, award_enabled: false }))}
-                              />
-                              <span>No</span>
-                            </label>
-                          </div>
-                        </div>
-                        {isFreePlan ? (
-                          <p className="feedback">Award scope tersedia untuk paket Starter ke atas.</p>
-                        ) : (
-                          <p className="feedback">
-                            Setting saat ini: {isAwardEnabled(eventForm.award_enabled, true) ? formatEventAwardScopes(eventForm.award_scopes) : 'No award'}
-                          </p>
-                        )}
-                        {isFreePlan || isAwardEnabled(eventForm.award_enabled, true) ? (
-                          <>
+                      <div className="editor-with-guide">
+                        <div className="editor-main">
+                          <div className="card" style={{ borderStyle: 'dashed' }}>
+                            <p className="eyebrow">Event category</p>
+                            <div className="row-actions" style={{ marginBottom: '0.5rem' }}>
+                              <button
+                                className="btn ghost small"
+                                type="button"
+                                disabled={eventAiWorking}
+                                onClick={aiSuggestCategory}
+                              >
+                                AI Suggest Category
+                              </button>
+                            </div>
+                            <p className="feedback">{eventCategoryInstruction}</p>
+                            <textarea
+                              rows={4}
+                              placeholder={eventCategoryPlaceholder}
+                              value={eventForm.categories_text}
+                              onChange={(e) => setEventForm((p) => ({ ...p, categories_text: e.target.value }))}
+                            />
+                            <p className="feedback">
+                              Preview: {normalizeEventCategoriesForPayload(eventForm.categories_text).join(' | ') || '-'}
+                            </p>
                             <div>
-                              <p style={{ margin: 0, fontWeight: 600 }}>Award scope</p>
+                              <p style={{ margin: 0, fontWeight: 600 }}>Award applicable?</p>
                               <div style={{ display: 'grid', gap: '0.35rem', marginTop: '0.35rem' }}>
                                 <label style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', margin: 0 }}>
                                   <input
-                                    type="checkbox"
-                                    checked={normalizeEventAwardScopes(eventForm.award_scopes, ['overall']).includes('overall')}
+                                    type="radio"
+                                    name="award_enabled"
+                                    checked={isFreePlan ? true : isAwardEnabled(eventForm.award_enabled, true)}
                                     disabled={isFreePlan}
-                                    onChange={(e) =>
-                                      setEventForm((p) => {
-                                        const current = normalizeEventAwardScopes(p.award_scopes, ['overall']);
-                                        const next = e.target.checked
-                                          ? [...new Set([...current, 'overall'])]
-                                          : current.filter((scope) => scope !== 'overall');
-                                        return { ...p, award_scopes: normalizeEventAwardScopes(next, ['overall']) };
-                                      })
-                                    }
+                                    onChange={() => setEventForm((p) => ({ ...p, award_enabled: true }))}
                                   />
-                                  <span>Overall</span>
+                                  <span>Yes</span>
                                 </label>
                                 <label style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', margin: 0 }}>
                                   <input
-                                    type="checkbox"
-                                    checked={normalizeEventAwardScopes(eventForm.award_scopes, ['overall']).includes('category')}
+                                    type="radio"
+                                    name="award_enabled"
+                                    checked={!isFreePlan && !isAwardEnabled(eventForm.award_enabled, true)}
                                     disabled={isFreePlan}
-                                    onChange={(e) =>
-                                      setEventForm((p) => {
-                                        const current = normalizeEventAwardScopes(p.award_scopes, ['overall']);
-                                        const next = e.target.checked
-                                          ? [...new Set([...current, 'category'])]
-                                          : current.filter((scope) => scope !== 'category');
-                                        return { ...p, award_scopes: normalizeEventAwardScopes(next, ['overall']) };
-                                      })
-                                    }
+                                    onChange={() => setEventForm((p) => ({ ...p, award_enabled: false }))}
                                   />
-                                  <span>Per kategori</span>
+                                  <span>No</span>
                                 </label>
                               </div>
                             </div>
-                            <label>
-                              Top N
-                              <input
-                                type="number"
-                                min="1"
-                                step="1"
-                                value={isFreePlan ? '1' : eventForm.award_top_n || '1'}
-                                disabled={isFreePlan}
-                                onChange={(e) => setEventForm((p) => ({ ...p, award_top_n: e.target.value }))}
-                              />
-                            </label>
-                            {isFreePlan ? <p className="feedback">Top N award tersedia untuk paket Starter ke atas.</p> : null}
-                          </>
-                        ) : (
-                          <p className="feedback">Award dinonaktifkan untuk event ini.</p>
-                        )}
+                            {isFreePlan ? (
+                              <p className="feedback">Award scope tersedia untuk paket Starter ke atas.</p>
+                            ) : (
+                              <p className="feedback">
+                                Setting saat ini: {isAwardEnabled(eventForm.award_enabled, true) ? formatEventAwardScopes(eventForm.award_scopes) : 'No award'}
+                              </p>
+                            )}
+                            {isFreePlan || isAwardEnabled(eventForm.award_enabled, true) ? (
+                              <>
+                                <div>
+                                  <p style={{ margin: 0, fontWeight: 600 }}>Award scope</p>
+                                  <div style={{ display: 'grid', gap: '0.35rem', marginTop: '0.35rem' }}>
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', margin: 0 }}>
+                                      <input
+                                        type="checkbox"
+                                        checked={normalizeEventAwardScopes(eventForm.award_scopes, ['overall']).includes('overall')}
+                                        disabled={isFreePlan}
+                                        onChange={(e) =>
+                                          setEventForm((p) => {
+                                            const current = normalizeEventAwardScopes(p.award_scopes, ['overall']);
+                                            const next = e.target.checked
+                                              ? [...new Set([...current, 'overall'])]
+                                              : current.filter((scope) => scope !== 'overall');
+                                            return { ...p, award_scopes: normalizeEventAwardScopes(next, ['overall']) };
+                                          })
+                                        }
+                                      />
+                                      <span>Overall</span>
+                                    </label>
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', margin: 0 }}>
+                                      <input
+                                        type="checkbox"
+                                        checked={normalizeEventAwardScopes(eventForm.award_scopes, ['overall']).includes('category')}
+                                        disabled={isFreePlan}
+                                        onChange={(e) =>
+                                          setEventForm((p) => {
+                                            const current = normalizeEventAwardScopes(p.award_scopes, ['overall']);
+                                            const next = e.target.checked
+                                              ? [...new Set([...current, 'category'])]
+                                              : current.filter((scope) => scope !== 'category');
+                                            return { ...p, award_scopes: normalizeEventAwardScopes(next, ['overall']) };
+                                          })
+                                        }
+                                      />
+                                      <span>Per kategori</span>
+                                    </label>
+                                  </div>
+                                </div>
+                                <label>
+                                  Top N
+                                  <input
+                                    type="number"
+                                    min="1"
+                                    step="1"
+                                    value={isFreePlan ? '1' : eventForm.award_top_n || '1'}
+                                    disabled={isFreePlan}
+                                    onChange={(e) => setEventForm((p) => ({ ...p, award_top_n: e.target.value }))}
+                                  />
+                                </label>
+                                {isFreePlan ? <p className="feedback">Top N award tersedia untuk paket Starter ke atas.</p> : null}
+                              </>
+                            ) : (
+                              <p className="feedback">Award dinonaktifkan untuk event ini.</p>
+                            )}
+                          </div>
+                        </div>
+                        <aside className="editor-guide">
+                          <div className="card" style={{ borderStyle: 'dashed' }}>
+                            <p className="eyebrow">Panduan cepat</p>
+                            <p className="feedback">
+                              <strong>Category:</strong> isi dengan label yang dipakai untuk grouping event, misalnya `fun run`, `seminar`, `workshop`, atau `competition`.
+                            </p>
+                            <p className="feedback">
+                              <strong>Award:</strong> aktifkan jika event punya ranking atau pemenang. Gunakan `overall` untuk juara umum dan `per kategori` jika pemenang dibedakan menurut kategori event.
+                            </p>
+                            <p className="feedback">
+                              <strong>Top N:</strong> jumlah pemenang yang ingin ditampilkan atau diproses. Untuk event biasa tanpa leaderboard, award bisa dimatikan.
+                            </p>
+                          </div>
+                        </aside>
                       </div>
                     ) : null}
                     {eventEditTab === 'custom_fields' ? (
-                      <div className="card" style={{ borderStyle: 'dashed' }}>
-                      <p className="eyebrow">Registration fields</p>
-                      <p className="feedback">Informasi yang dikumpulkan saat member register event.</p>
-                      <div className="row-actions" style={{ marginBottom: '0.5rem' }}>
-                        <button
-                          className="btn ghost small"
-                          type="button"
-                          disabled={eventAiWorking}
-                          onClick={aiSuggestFields}
-                        >
-                          AI Suggest Fields
-                        </button>
-                      </div>
-                      <div className="row-actions" style={{ marginBottom: '0.5rem' }}>
-                        <button
-                          className="btn ghost small"
-                          type="button"
-                          onClick={() =>
-                            setEventForm((prev) => ({
-                              ...prev,
-                              registration_fields: [...(prev.registration_fields || []), createRegistrationField('free_type')]
-                            }))
-                          }
-                        >
-                          + free type
-                        </button>
-                        <button
-                          className="btn ghost small"
-                          type="button"
-                          onClick={() =>
-                            setEventForm((prev) => ({
-                              ...prev,
-                              registration_fields: [...(prev.registration_fields || []), createRegistrationField('date')]
-                            }))
-                          }
-                        >
-                          + date
-                        </button>
-                        <button
-                          className="btn ghost small"
-                          type="button"
-                          onClick={() =>
-                            setEventForm((prev) => ({
-                              ...prev,
-                              registration_fields: [...(prev.registration_fields || []), createRegistrationField('lookup')]
-                            }))
-                          }
-                        >
-                          + lookup
-                        </button>
-                      </div>
-                      {(eventForm.registration_fields || []).length === 0 ? (
-                        <p className="feedback">Belum ada custom field. Contoh: Kota, Tahu dari mana?, Sekolah, Jenis kelamin.</p>
-                      ) : (
-                        <div className="entity-list">
-                          {(eventForm.registration_fields || []).map((field, index) => (
-                            <div key={field.field_id || index} className="card" style={{ marginBottom: '0.5rem' }}>
-                              <label>
-                                Label
-                                <input
-                                  value={field.label || ''}
-                                  onChange={(e) =>
-                                    setEventForm((prev) => ({
-                                      ...prev,
-                                      registration_fields: (prev.registration_fields || []).map((item, idx) =>
-                                        idx === index ? { ...item, label: e.target.value } : item
-                                      )
-                                    }))
-                                  }
-                                />
-                              </label>
-                              <label>
-                                Type
-                                <select
-                                  value={field.type || 'free_type'}
-                                  onChange={(e) =>
-                                    setEventForm((prev) => ({
-                                      ...prev,
-                                      registration_fields: (prev.registration_fields || []).map((item, idx) =>
-                                        idx === index ? { ...item, type: e.target.value } : item
-                                      )
-                                    }))
-                                  }
-                                >
-                                  <option value="free_type">free type</option>
-                                  <option value="date">date</option>
-                                  <option value="lookup">lookup</option>
-                                </select>
-                              </label>
-                              <div className="row-actions" style={{ justifyContent: 'space-between' }}>
-                                <span className="feedback" style={{ margin: 0 }}>Required field</span>
-                                <input
-                                  type="checkbox"
-                                  checked={field.required !== false}
-                                  onChange={(e) =>
-                                    setEventForm((prev) => ({
-                                      ...prev,
-                                      registration_fields: (prev.registration_fields || []).map((item, idx) =>
-                                        idx === index ? { ...item, required: e.target.checked } : item
-                                      )
-                                    }))
-                                  }
-                                />
-                              </div>
-                              {String(field.type || 'free_type') === 'lookup' ? (
-                                <label>
-                                  Options (pisahkan dengan koma)
-                                  <input
-                                    value={field.options_text || ''}
-                                    onChange={(e) =>
-                                      setEventForm((prev) => ({
-                                        ...prev,
-                                        registration_fields: (prev.registration_fields || []).map((item, idx) =>
-                                          idx === index ? { ...item, options_text: e.target.value } : item
-                                        )
-                                      }))
-                                    }
-                                  />
-                                </label>
-                              ) : null}
+                      <div className="editor-with-guide">
+                        <div className="editor-main">
+                          <div className="card" style={{ borderStyle: 'dashed' }}>
+                            <p className="eyebrow">Registration fields</p>
+                            <p className="feedback">Informasi yang dikumpulkan saat member register event.</p>
+                            <div className="row-actions" style={{ marginBottom: '0.5rem' }}>
+                              <button
+                                className="btn ghost small"
+                                type="button"
+                                disabled={eventAiWorking}
+                                onClick={aiSuggestFields}
+                              >
+                                AI Suggest Fields
+                              </button>
+                            </div>
+                            <div className="row-actions" style={{ marginBottom: '0.5rem' }}>
                               <button
                                 className="btn ghost small"
                                 type="button"
                                 onClick={() =>
                                   setEventForm((prev) => ({
                                     ...prev,
-                                    registration_fields: (prev.registration_fields || []).filter((_, idx) => idx !== index)
+                                    registration_fields: [...(prev.registration_fields || []), createRegistrationField('free_type')]
                                   }))
                                 }
                               >
-                                Hapus field
+                                + free type
+                              </button>
+                              <button
+                                className="btn ghost small"
+                                type="button"
+                                onClick={() =>
+                                  setEventForm((prev) => ({
+                                    ...prev,
+                                    registration_fields: [...(prev.registration_fields || []), createRegistrationField('date')]
+                                  }))
+                                }
+                              >
+                                + date
+                              </button>
+                              <button
+                                className="btn ghost small"
+                                type="button"
+                                onClick={() =>
+                                  setEventForm((prev) => ({
+                                    ...prev,
+                                    registration_fields: [...(prev.registration_fields || []), createRegistrationField('lookup')]
+                                  }))
+                                }
+                              >
+                                + lookup
                               </button>
                             </div>
-                          ))}
+                            {(eventForm.registration_fields || []).length === 0 ? (
+                              <p className="feedback">Belum ada custom field. Contoh: Kota, Tahu dari mana?, Sekolah, Jenis kelamin.</p>
+                            ) : (
+                              <div className="entity-list">
+                                {(eventForm.registration_fields || []).map((field, index) => (
+                                  <div key={field.field_id || index} className="card" style={{ marginBottom: '0.5rem' }}>
+                                    <label>
+                                      Label
+                                      <input
+                                        value={field.label || ''}
+                                        onChange={(e) =>
+                                          setEventForm((prev) => ({
+                                            ...prev,
+                                            registration_fields: (prev.registration_fields || []).map((item, idx) =>
+                                              idx === index ? { ...item, label: e.target.value } : item
+                                            )
+                                          }))
+                                        }
+                                      />
+                                    </label>
+                                    <label>
+                                      Type
+                                      <select
+                                        value={field.type || 'free_type'}
+                                        onChange={(e) =>
+                                          setEventForm((prev) => ({
+                                            ...prev,
+                                            registration_fields: (prev.registration_fields || []).map((item, idx) =>
+                                              idx === index ? { ...item, type: e.target.value } : item
+                                            )
+                                          }))
+                                        }
+                                      >
+                                        <option value="free_type">free type</option>
+                                        <option value="date">date</option>
+                                        <option value="lookup">lookup</option>
+                                      </select>
+                                    </label>
+                                    <div className="row-actions" style={{ justifyContent: 'space-between' }}>
+                                      <span className="feedback" style={{ margin: 0 }}>Required field</span>
+                                      <input
+                                        type="checkbox"
+                                        checked={field.required !== false}
+                                        onChange={(e) =>
+                                          setEventForm((prev) => ({
+                                            ...prev,
+                                            registration_fields: (prev.registration_fields || []).map((item, idx) =>
+                                              idx === index ? { ...item, required: e.target.checked } : item
+                                            )
+                                          }))
+                                        }
+                                      />
+                                    </div>
+                                    {String(field.type || 'free_type') === 'lookup' ? (
+                                      <label>
+                                        Options (pisahkan dengan koma)
+                                        <input
+                                          value={field.options_text || ''}
+                                          onChange={(e) =>
+                                            setEventForm((prev) => ({
+                                              ...prev,
+                                              registration_fields: (prev.registration_fields || []).map((item, idx) =>
+                                                idx === index ? { ...item, options_text: e.target.value } : item
+                                              )
+                                            }))
+                                          }
+                                        />
+                                      </label>
+                                    ) : null}
+                                    <button
+                                      className="btn ghost small"
+                                      type="button"
+                                      onClick={() =>
+                                        setEventForm((prev) => ({
+                                          ...prev,
+                                          registration_fields: (prev.registration_fields || []).filter((_, idx) => idx !== index)
+                                        }))
+                                      }
+                                    >
+                                      Hapus field
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      )}
+                        <aside className="editor-guide">
+                          <div className="card" style={{ borderStyle: 'dashed' }}>
+                            <p className="eyebrow">Panduan cepat</p>
+                            <p className="feedback">
+                              <strong>Gunakan seperlunya:</strong> tambah field hanya jika benar-benar dibutuhkan saat registrasi. Terlalu banyak field biasanya menurunkan conversion.
+                            </p>
+                            <p className="feedback">
+                              <strong>free type:</strong> untuk jawaban bebas seperti kota, sekolah, atau nama komunitas. <strong>date:</strong> untuk tanggal lahir atau tanggal kedatangan. <strong>lookup:</strong> untuk pilihan tetap seperti gender, ukuran jersey, atau sumber info.
+                            </p>
+                            <p className="feedback">
+                              <strong>Required:</strong> aktifkan hanya untuk data yang wajib secara operasional. Kalau field hanya untuk insight tambahan, lebih aman dibuat opsional.
+                            </p>
+                          </div>
+                        </aside>
                       </div>
                     ) : null}
                     {eventEditTab === 'participants' ? (
@@ -5564,51 +5600,72 @@ export default function AdminPage() {
                       </>
                     ) : null}
                     {classEditTab === 'category' ? (
-                      <div className="card" style={{ borderStyle: 'dashed' }}>
-                        <p className="eyebrow">Class category</p>
-                        <div className="card" style={{ borderStyle: 'dashed', marginBottom: '0.75rem' }}>
-                          <p className="eyebrow">Panduan cepat</p>
-                          <p className="feedback">
-                            <strong>Category ID:</strong> pakai slug stabil untuk grouping dan filter, huruf kecil dengan underscore bila perlu.
-                            Contoh: `yoga`, `gym_access`, `pt_pack`, `pilates_reformer`.
-                          </p>
-                          <p className="feedback">
-                            <strong>Category:</strong> label yang tampil ke admin atau user.
-                            Contoh: `Yoga`, `Gym Access`, `PT Pack`, `Pilates Reformer`.
-                          </p>
-                          <p className="feedback">
-                            <strong>Kapan dibedakan:</strong> buat category baru jika activity perlu grup listing, filter, atau pelaporan yang berbeda.
-                            Kalau hanya beda jam atau coach, biasanya tidak perlu category baru.
-                          </p>
+                      <div className="editor-with-guide">
+                        <div className="editor-main">
+                          <div className="card" style={{ borderStyle: 'dashed' }}>
+                            <p className="eyebrow">Class category</p>
+                            <label>
+                              Category ID
+                              <input
+                                value={classForm.category_id}
+                                placeholder="Contoh: yoga, gym_access, pt_pack"
+                                onChange={(e) => setClassForm((p) => ({ ...p, category_id: e.target.value }))}
+                              />
+                            </label>
+                            <label>
+                              Category
+                              <input
+                                value={classForm.category}
+                                placeholder="Contoh: HIIT, Yoga, Boxing"
+                                onChange={(e) => setClassForm((p) => ({ ...p, category: e.target.value }))}
+                              />
+                            </label>
+                          </div>
                         </div>
-                        <label>
-                          Category ID
-                          <input
-                            value={classForm.category_id}
-                            placeholder="Contoh: yoga, gym_access, pt_pack"
-                            onChange={(e) => setClassForm((p) => ({ ...p, category_id: e.target.value }))}
-                          />
-                        </label>
-                        <label>
-                          Category
-                          <input
-                            value={classForm.category}
-                            placeholder="Contoh: HIIT, Yoga, Boxing"
-                            onChange={(e) => setClassForm((p) => ({ ...p, category: e.target.value }))}
-                          />
-                        </label>
+                        <aside className="editor-guide">
+                          <div className="card" style={{ borderStyle: 'dashed' }}>
+                            <p className="eyebrow">Panduan cepat</p>
+                            <p className="feedback">
+                              <strong>Category ID:</strong> pakai slug stabil untuk grouping dan filter, huruf kecil dengan underscore bila perlu. Contoh: `yoga`, `gym_access`, `pt_pack`, `pilates_reformer`.
+                            </p>
+                            <p className="feedback">
+                              <strong>Category:</strong> label yang tampil ke admin atau user. Contoh: `Yoga`, `Gym Access`, `PT Pack`, `Pilates Reformer`.
+                            </p>
+                            <p className="feedback">
+                              <strong>Kapan dibedakan:</strong> buat category baru jika activity perlu grup listing, filter, atau pelaporan yang berbeda. Kalau hanya beda jam atau coach, biasanya tidak perlu category baru.
+                            </p>
+                          </div>
+                        </aside>
                       </div>
                     ) : null}
                     {classEditTab === 'custom_fields' ? (
-                      <div className="card" style={{ borderStyle: 'dashed' }}>
-                        <p className="eyebrow">Custom fields</p>
-                        <p className="feedback">Metadata tambahan untuk operasional class dalam format JSON object.</p>
-                        <textarea
-                          rows={8}
-                          placeholder={'{\n  "level": "beginner",\n  "room": "Studio A"\n}'}
-                          value={classForm.custom_fields_text}
-                          onChange={(e) => setClassForm((p) => ({ ...p, custom_fields_text: e.target.value }))}
-                        />
+                      <div className="editor-with-guide">
+                        <div className="editor-main">
+                          <div className="card" style={{ borderStyle: 'dashed' }}>
+                            <p className="eyebrow">Custom fields</p>
+                            <p className="feedback">Metadata tambahan untuk operasional class dalam format JSON object.</p>
+                            <textarea
+                              rows={8}
+                              placeholder={'{\n  "level": "beginner",\n  "room": "Studio A"\n}'}
+                              value={classForm.custom_fields_text}
+                              onChange={(e) => setClassForm((p) => ({ ...p, custom_fields_text: e.target.value }))}
+                            />
+                          </div>
+                        </div>
+                        <aside className="editor-guide">
+                          <div className="card" style={{ borderStyle: 'dashed' }}>
+                            <p className="eyebrow">Panduan cepat</p>
+                            <p className="feedback">
+                              <strong>Gunakan untuk metadata operasional:</strong> misalnya level class, room, equipment, dress code, atau tag internal lain yang tidak perlu jadi field utama.
+                            </p>
+                            <p className="feedback">
+                              <strong>Format:</strong> isi dalam bentuk JSON object. Contoh: <code>{'{"level":"beginner","room":"Studio A"}'}</code>.
+                            </p>
+                            <p className="feedback">
+                              <strong>Pisahkan dari category:</strong> jika nilainya dipakai untuk filter utama, lebih baik masuk `category`. Jika hanya atribut tambahan, simpan di `custom_fields`.
+                            </p>
+                          </div>
+                        </aside>
                       </div>
                     ) : null}
                     {classEditTab === 'participants' ? (
