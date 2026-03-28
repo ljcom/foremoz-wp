@@ -53,7 +53,7 @@ export default function WebLandingPage() {
   const eventsEnabled = isPassportEventsEnabled();
   const publicHome = getPublicHomePath();
   const isMockupOpenAccess = (import.meta.env.VITE_MOCKUP_OPEN_ACCESS ?? 'false') === 'true';
-  const topNavVerticals = listVerticalConfigs().slice(0, 5);
+  const topNavVerticals = listVerticalConfigs();
   const verticalCards = listVerticalConfigs().map((item) => {
     const visual = visualForVertical(item.slug);
     return {

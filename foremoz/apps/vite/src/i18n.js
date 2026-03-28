@@ -1,4 +1,5 @@
 import { createContext, createElement, useContext, useEffect, useMemo, useState } from 'react';
+import { isLanguageEnabled } from './stage.js';
 
 const LANGUAGE_STORAGE_KEY = 'foremoz.language';
 const DEFAULT_LANGUAGE = 'id';
@@ -184,6 +185,7 @@ function interpolate(template, vars = {}) {
 }
 
 function resolveInitialLanguage() {
+  if (!isLanguageEnabled()) return DEFAULT_LANGUAGE;
   if (typeof window === 'undefined') return DEFAULT_LANGUAGE;
   const params = new URLSearchParams(window.location.search || '');
   const fromQuery = normalizeLanguage(params.get('lang'));
@@ -202,22 +204,34 @@ const I18nContext = createContext({
 
 export function I18nProvider({ children }) {
   const [language, setLanguageState] = useState(resolveInitialLanguage);
+  const languageEnabled = isLanguageEnabled();
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    if (!languageEnabled) {
+      window.localStorage.setItem(LANGUAGE_STORAGE_KEY, DEFAULT_LANGUAGE);
+      document.documentElement.lang = DEFAULT_LANGUAGE;
+      document.documentElement.setAttribute('data-language', DEFAULT_LANGUAGE);
+      return;
+    }
     window.localStorage.setItem(LANGUAGE_STORAGE_KEY, language);
     document.documentElement.lang = language;
     document.documentElement.setAttribute('data-language', language);
-  }, [language]);
+  }, [language, languageEnabled]);
 
   const value = useMemo(() => {
     function setLanguage(nextLanguage) {
+      if (!languageEnabled) {
+        setLanguageState(DEFAULT_LANGUAGE);
+        return;
+      }
       const normalized = normalizeLanguage(nextLanguage) || DEFAULT_LANGUAGE;
       setLanguageState(normalized);
     }
 
     function t(key, vars = {}) {
-      const table = translations[language] || translations[DEFAULT_LANGUAGE];
+      const activeLanguage = languageEnabled ? language : DEFAULT_LANGUAGE;
+      const table = translations[activeLanguage] || translations[DEFAULT_LANGUAGE];
       const fallbackTable = translations[DEFAULT_LANGUAGE];
       const template = table?.[key] ?? fallbackTable?.[key] ?? key;
       return interpolate(template, vars);
@@ -227,9 +241,9 @@ export function I18nProvider({ children }) {
       language,
       setLanguage,
       t,
-      supportedLanguages: SUPPORTED_LANGUAGES
+      supportedLanguages: languageEnabled ? SUPPORTED_LANGUAGES : [DEFAULT_LANGUAGE]
     };
-  }, [language]);
+  }, [language, languageEnabled]);
 
   return createElement(I18nContext.Provider, { value }, children);
 }
