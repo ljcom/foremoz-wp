@@ -1902,6 +1902,24 @@ code {
   gap: 0.8rem;
 }
 
+.class-general-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(280px, 0.9fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.class-general-main {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.class-general-guide {
+  align-self: start;
+  position: sticky;
+  top: 1rem;
+}
+
 .admin-panel h2 {
   margin-top: 0;
 }
@@ -2170,5 +2188,13 @@ code {
   .passport-context-strip,
   .passport-dash-tabbar {
     grid-template-columns: 1fr;
+  }
+
+  .class-general-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .class-general-guide {
+    position: static;
   }
 }

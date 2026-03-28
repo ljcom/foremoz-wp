@@ -571,6 +571,10 @@ function normalizeOptionalDate(value, fieldName, fallback = null) {
   return parsed.toISOString().slice(0, 10);
 }
 
+function toDateOnly(value) {
+  return normalizeOptionalDate(value, 'date', null);
+}
+
 function toIsoStartOfDate(dateValue) {
   const normalized = normalizeOptionalDate(dateValue, 'date', null);
   if (!normalized) return null;

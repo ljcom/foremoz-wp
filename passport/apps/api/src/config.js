@@ -1,6 +1,11 @@
 import dotenv from 'dotenv';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-dotenv.config();
+const currentDir = dirname(fileURLToPath(import.meta.url));
+const envPath = resolve(currentDir, '../.env');
+
+dotenv.config({ path: envPath });
 
 function parseBoolean(value, fallback = false) {
   if (value === undefined) return fallback;

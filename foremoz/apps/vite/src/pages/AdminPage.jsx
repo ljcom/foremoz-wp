@@ -5158,156 +5158,169 @@ export default function AdminPage() {
                   <form className="form" onSubmit={addClass}>
                     {classEditTab === 'general' ? (
                       <>
-                        <label>
-                          Class Type
-                          <select
-                            value={classForm.class_type}
-                            onChange={(e) =>
-                              setClassForm((prev) => ({
-                                ...prev,
-                                class_type: e.target.value,
-                                has_coach: e.target.value === 'scheduled' ? prev.has_coach : false,
-                                schedule_mode: e.target.value === 'scheduled' ? (prev.schedule_mode === 'none' ? 'weekly' : prev.schedule_mode) : 'none'
-                              }))
-                            }
-                          >
-                            {CLASS_TYPE_OPTIONS.map((item) => (
-                              <option key={item.value} value={item.value}>{item.label}</option>
-                            ))}
-                          </select>
-                        </label>
-                        <p className="feedback">
-                          `scheduled` = kelas dengan jadwal tertentu, contoh: Yoga Morning Class.
-                          `open_access` = akses masuk/periode tanpa coach wajib, contoh: Gym Access 30 Hari.
-                          `session_pack` = paket kredit/sesi, contoh: Paket 8 Sesi PT.
-                        </p>
-                        <div className="card" style={{ borderStyle: 'dashed' }}>
-                          <p className="eyebrow">Panduan cepat</p>
-                          <p className="feedback"><strong>Class Type:</strong> {classFieldGuide.classType}</p>
-                          <p className="feedback"><strong>Validity mode:</strong> {classFieldGuide.validityMode}</p>
-                          <p className="feedback"><strong>Capacity mode:</strong> {classFieldGuide.capacityMode}</p>
-                          <p className="feedback"><strong>Quota mode:</strong> {classFieldGuide.quotaMode}</p>
-                        </div>
-                        <label>Class Name<input value={classForm.class_name} onChange={(e) => setClassForm((p) => ({ ...p, class_name: e.target.value }))} /></label>
-                        <label>
-                          Description
-                          <textarea
-                            rows={4}
-                            value={classForm.description}
-                            placeholder="Jelaskan activity ini secara singkat"
-                            onChange={(e) => setClassForm((p) => ({ ...p, description: e.target.value }))}
-                          />
-                        </label>
-                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                          <input
-                            type="checkbox"
-                            checked={showClassCoachFields}
-                            onChange={(e) => setClassForm((p) => ({ ...p, has_coach: e.target.checked, trainer_name: e.target.checked ? p.trainer_name : '', coach_shares: e.target.checked ? p.coach_shares : [] }))}
-                          />
-                          <span>Activity ini punya coach</span>
-                        </label>
-                        {showClassCoachFields ? (
-                          <div className="card" style={{ borderStyle: 'dashed' }}>
-                            <p className="eyebrow">{creatorLabel} Name (token input)</p>
-                            <label>
-                              Primary coach_id
-                              <input value={classForm.coach_id} onChange={(e) => setClassForm((p) => ({ ...p, coach_id: e.target.value }))} placeholder="Optional internal coach/user id" />
-                            </label>
-                            <div className="row-actions" style={{ marginBottom: '0.5rem' }}>
-                              {selectedClassTrainerTokens.length === 0 ? <span className="feedback">Belum ada {creatorLabelLower} dipilih.</span> : null}
-                              {selectedClassTrainerTokens.map((name) => (
-                                <span key={name} className="passport-chip">
-                                  {name}
-                                  <button
-                                    type="button"
-                                    className="btn ghost small"
-                                    style={{ marginLeft: '0.35rem' }}
-                                    onClick={() => removeClassTrainerToken(name)}
-                                  >
-                                    x
-                                  </button>
-                                </span>
+                        <div className="class-general-layout">
+                        <div className="class-general-main">
+                          <label>
+                            Class Type
+                            <select
+                              value={classForm.class_type}
+                              onChange={(e) =>
+                                setClassForm((prev) => ({
+                                  ...prev,
+                                  class_type: e.target.value,
+                                  has_coach: e.target.value === 'scheduled' ? prev.has_coach : false,
+                                  schedule_mode: e.target.value === 'scheduled' ? (prev.schedule_mode === 'none' ? 'weekly' : prev.schedule_mode) : 'none'
+                                }))
+                              }
+                            >
+                              {CLASS_TYPE_OPTIONS.map((item) => (
+                                <option key={item.value} value={item.value}>{item.label}</option>
                               ))}
-                            </div>
-                            {availableClassTrainerOptions.length > 0 ? (
+                            </select>
+                          </label>
+                          <p className="feedback">
+                            `scheduled` = kelas dengan jadwal tertentu, contoh: Yoga Morning Class.
+                            `open_access` = akses masuk/periode tanpa coach wajib, contoh: Gym Access 30 Hari.
+                            `session_pack` = paket kredit/sesi, contoh: Paket 8 Sesi PT.
+                          </p>
+                          <label>Class Name<input value={classForm.class_name} onChange={(e) => setClassForm((p) => ({ ...p, class_name: e.target.value }))} /></label>
+                          <label>
+                            Description
+                            <textarea
+                              rows={4}
+                              value={classForm.description}
+                              placeholder="Jelaskan activity ini secara singkat"
+                              onChange={(e) => setClassForm((p) => ({ ...p, description: e.target.value }))}
+                            />
+                          </label>
+                          <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <input
+                              type="checkbox"
+                              checked={showClassCoachFields}
+                              onChange={(e) => setClassForm((p) => ({ ...p, has_coach: e.target.checked, trainer_name: e.target.checked ? p.trainer_name : '', coach_shares: e.target.checked ? p.coach_shares : [] }))}
+                            />
+                            <span>Activity ini punya coach</span>
+                          </label>
+                          {showClassCoachFields ? (
+                            <div className="card" style={{ borderStyle: 'dashed' }}>
+                              <p className="eyebrow">{creatorLabel} Name (token input)</p>
                               <label>
-                                Pilih dari {creatorLabelLower} aktif
-                                <select
-                                  value=""
-                                  onChange={(e) => {
-                                    if (e.target.value) addClassTrainerToken(e.target.value);
-                                  }}
-                                >
-                                  <option value="">Pilih {creatorLabelLower}...</option>
-                                  {availableClassTrainerOptions.map((name) => (
-                                    <option key={name} value={name}>
-                                      {name}
-                                    </option>
-                                  ))}
-                                </select>
+                                Primary coach_id
+                                <input value={classForm.coach_id} onChange={(e) => setClassForm((p) => ({ ...p, coach_id: e.target.value }))} placeholder="Optional internal coach/user id" />
                               </label>
-                            ) : (
-                              <p className="feedback">
-                                Belum ada {creatorLabelLower} aktif di tenant. Tambahkan user role `pt` atau `owner`, atau isi manual.
-                              </p>
-                            )}
-                            <label>
-                              Tambah manual
-                              <input
-                                value={classTrainerDraft}
-                                placeholder={`Ketik nama ${creatorLabelLower} lalu Enter`}
-                                onChange={(e) => setClassTrainerDraft(e.target.value)}
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') {
-                                    e.preventDefault();
-                                    addClassTrainerToken(classTrainerDraft);
-                                  }
-                                }}
-                              />
-                            </label>
-                            <p className="feedback">Tersimpan sebagai: {classForm.trainer_name || '-'}</p>
-                            {selectedClassTrainerTokens.length > 0 ? (
-                              <div className="card" style={{ borderStyle: 'dashed' }}>
-                                <p className="eyebrow">{creatorLabel} Share</p>
-                                <p className="feedback">Masukkan % komisi/share per coach yang terlibat. Total boleh kurang dari atau sama dengan 100%.</p>
-                                <div className="entity-list">
-                                  {selectedClassTrainerTokens.map((coachName) => {
-                                    const currentRow = (classForm.coach_shares || []).find((item) => item.coach_name === coachName) || { coach_name: coachName, share_percent: '' };
-                                    return (
-                                      <div key={`class-share-${coachName}`} className="entity-row">
-                                        <div>
-                                          <strong>{coachName}</strong>
-                                          <p>% dari class</p>
-                                        </div>
-                                        <input
-                                          type="number"
-                                          min="0"
-                                          max="100"
-                                          step="0.01"
-                                          value={currentRow.share_percent || ''}
-                                          placeholder="contoh: 25"
-                                          onChange={(e) =>
-                                            setClassForm((prev) => ({
-                                              ...prev,
-                                              coach_shares: syncCoachSharesWithTrainerNames(
-                                                prev.trainer_name,
-                                                upsertCoachShareValue(prev.coach_shares, coachName, e.target.value)
-                                              )
-                                            }))
-                                          }
-                                        />
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                                <p className="feedback">Total share terisi: {Number(totalClassCoachShare || 0).toFixed(2)}%</p>
+                              <div className="row-actions" style={{ marginBottom: '0.5rem' }}>
+                                {selectedClassTrainerTokens.length === 0 ? <span className="feedback">Belum ada {creatorLabelLower} dipilih.</span> : null}
+                                {selectedClassTrainerTokens.map((name) => (
+                                  <span key={name} className="passport-chip">
+                                    {name}
+                                    <button
+                                      type="button"
+                                      className="btn ghost small"
+                                      style={{ marginLeft: '0.35rem' }}
+                                      onClick={() => removeClassTrainerToken(name)}
+                                    >
+                                      x
+                                    </button>
+                                  </span>
+                                ))}
                               </div>
-                            ) : null}
+                              {availableClassTrainerOptions.length > 0 ? (
+                                <label>
+                                  Pilih dari {creatorLabelLower} aktif
+                                  <select
+                                    value=""
+                                    onChange={(e) => {
+                                      if (e.target.value) addClassTrainerToken(e.target.value);
+                                    }}
+                                  >
+                                    <option value="">Pilih {creatorLabelLower}...</option>
+                                    {availableClassTrainerOptions.map((name) => (
+                                      <option key={name} value={name}>
+                                        {name}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </label>
+                              ) : (
+                                <p className="feedback">
+                                  Belum ada {creatorLabelLower} aktif di tenant. Tambahkan user role `pt` atau `owner`, atau isi manual.
+                                </p>
+                              )}
+                              <label>
+                                Tambah manual
+                                <input
+                                  value={classTrainerDraft}
+                                  placeholder={`Ketik nama ${creatorLabelLower} lalu Enter`}
+                                  onChange={(e) => setClassTrainerDraft(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                      e.preventDefault();
+                                      addClassTrainerToken(classTrainerDraft);
+                                    }
+                                  }}
+                                />
+                              </label>
+                              <p className="feedback">Tersimpan sebagai: {classForm.trainer_name || '-'}</p>
+                              {selectedClassTrainerTokens.length > 0 ? (
+                                <div className="card" style={{ borderStyle: 'dashed' }}>
+                                  <p className="eyebrow">{creatorLabel} Share</p>
+                                  <p className="feedback">Masukkan % komisi/share per coach yang terlibat. Total boleh kurang dari atau sama dengan 100%.</p>
+                                  <div className="entity-list">
+                                    {selectedClassTrainerTokens.map((coachName) => {
+                                      const currentRow = (classForm.coach_shares || []).find((item) => item.coach_name === coachName) || { coach_name: coachName, share_percent: '' };
+                                      return (
+                                        <div key={`class-share-${coachName}`} className="entity-row">
+                                          <div>
+                                            <strong>{coachName}</strong>
+                                            <p>% dari class</p>
+                                          </div>
+                                          <input
+                                            type="number"
+                                            min="0"
+                                            max="100"
+                                            step="0.01"
+                                            value={currentRow.share_percent || ''}
+                                            placeholder="contoh: 25"
+                                            onChange={(e) =>
+                                              setClassForm((prev) => ({
+                                                ...prev,
+                                                coach_shares: syncCoachSharesWithTrainerNames(
+                                                  prev.trainer_name,
+                                                  upsertCoachShareValue(prev.coach_shares, coachName, e.target.value)
+                                                )
+                                              }))
+                                            }
+                                          />
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                  <p className="feedback">Total share terisi: {Number(totalClassCoachShare || 0).toFixed(2)}%</p>
+                                </div>
+                              ) : null}
+                            </div>
+                          ) : (
+                            <p className="feedback">Mode ini tidak mewajibkan coach. Cocok untuk gym access, open studio, atau paket sesi generik.</p>
+                          )}
+                          <label>Price<input type="number" min="0" value={classForm.price} onChange={(e) => setClassForm((p) => ({ ...p, price: e.target.value }))} /></label>
+                          {!isScheduledClassForm ? (
+                            <p className="feedback">
+                              Price adalah harga per enrollment/pembelian.
+                              Lama akses ditentukan oleh `Validity Unit` + `Validity Value`.
+                              Kalau `No expiry`, harga ini berarti akses tanpa batas waktu sampai dinonaktifkan manual.
+                            </p>
+                          ) : null}
+                        </div>
+                        <aside className="class-general-guide">
+                          <div className="card" style={{ borderStyle: 'dashed' }}>
+                            <p className="eyebrow">Panduan cepat</p>
+                            <p className="feedback"><strong>Class Type:</strong> {classFieldGuide.classType}</p>
+                            <p className="feedback"><strong>Validity mode:</strong> {classFieldGuide.validityMode}</p>
+                            <p className="feedback"><strong>Capacity mode:</strong> {classFieldGuide.capacityMode}</p>
+                            <p className="feedback"><strong>Quota mode:</strong> {classFieldGuide.quotaMode}</p>
                           </div>
-                        ) : (
-                          <p className="feedback">Mode ini tidak mewajibkan coach. Cocok untuk gym access, open studio, atau paket sesi generik.</p>
-                        )}
-                        <label>Price<input type="number" min="0" value={classForm.price} onChange={(e) => setClassForm((p) => ({ ...p, price: e.target.value }))} /></label>
+                        </aside>
+                        </div>
                         {isScheduledClassForm ? (
                           <>
                             <label>Capacity<input type="number" min="1" value={classForm.capacity} onChange={(e) => setClassForm((p) => ({ ...p, capacity: e.target.value }))} /></label>
