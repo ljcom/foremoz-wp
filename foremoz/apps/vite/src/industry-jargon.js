@@ -1,4 +1,5 @@
 import settings from './industry-jargon.settings.json';
+import { isAllVerticalsEnabled } from './stage.js';
 
 const DEFAULT_VERTICAL_ORDER = ['fitness', 'sport', 'learning', 'performance', 'arts', 'tourism'];
 
@@ -19,6 +20,10 @@ export function getIndustryJargonSettings() {
 
 export function listVerticalSlugs() {
   const keys = Object.keys(settings?.verticals || {});
+  if (!isAllVerticalsEnabled()) {
+    if (keys.includes('fitness')) return ['fitness'];
+    return keys.length > 0 ? [keys[0]] : [];
+  }
   const ordered = DEFAULT_VERTICAL_ORDER.filter((slug) => keys.includes(slug));
   const rest = keys.filter((slug) => !ordered.includes(slug));
   return [...ordered, ...rest];

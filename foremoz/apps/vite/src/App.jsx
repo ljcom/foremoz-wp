@@ -27,6 +27,7 @@ import PtPage from './pages/PtPage.jsx';
 import { accountPath, getAllowedEnvironments, getSession } from './lib.js';
 import { getPassportSession } from './passport-client.js';
 import PageErrorBoundary from './components/PageErrorBoundary.jsx';
+import { getPublicHomePath, isPassportEventsEnabled } from './stage.js';
 
 function roleHome(session) {
   const role = session?.role || 'admin';
@@ -130,6 +131,7 @@ function LegacyPtRedirect() {
 }
 
 function PassportProtectedRoute({ children }) {
+  if (!isPassportEventsEnabled()) return <Navigate to="/fitness" replace />;
   const location = useLocation();
   const session = getPassportSession();
   const authBase = location.pathname.startsWith('/passport') ? '/passport' : '/events';
@@ -140,6 +142,7 @@ function PassportProtectedRoute({ children }) {
 }
 
 function PassportRequireOnboarding({ children }) {
+  if (!isPassportEventsEnabled()) return <Navigate to="/fitness" replace />;
   const location = useLocation();
   const session = getPassportSession();
   const authBase = location.pathname.startsWith('/passport') ? '/passport' : '/events';
@@ -149,6 +152,7 @@ function PassportRequireOnboarding({ children }) {
 }
 
 function LegacyMemberPortalRedirect() {
+  if (!isPassportEventsEnabled()) return <Navigate to="/fitness" replace />;
   const { account } = useParams();
   const query = new URLSearchParams();
   if (account) query.set('account', account);
@@ -157,92 +161,105 @@ function LegacyMemberPortalRedirect() {
 }
 
 export default function App() {
+  const eventsEnabled = isPassportEventsEnabled();
+  const publicHome = getPublicHomePath();
+
   return (
     <Routes>
-      <Route path="/" element={<Navigate to="/events" replace />} />
+      <Route path="/" element={<Navigate to={publicHome} replace />} />
       <Route path="/host" element={<WebLandingPage />} />
       <Route path="/newevent" element={<Navigate to="/host" replace />} />
       <Route path="/web" element={<Navigate to="/host" replace />} />
-      <Route path="/events" element={<PassportLandingPage />} />
-      <Route path="/passport" element={<PassportLandingPage />} />
+      <Route path="/events" element={eventsEnabled ? <PassportLandingPage /> : <Navigate to="/fitness" replace />} />
+      <Route path="/passport" element={eventsEnabled ? <PassportLandingPage /> : <Navigate to="/fitness" replace />} />
       <Route
         path="/p/:account"
         element={
-          <PageErrorBoundary
-            shellClassName="landing passport-fancy-public"
-            withBackdrop
-            title="Passport public tidak bisa dibuka"
-            description="Coba reload halaman ini atau kembali ke daftar event."
-            homeHref="/events"
-            homeLabel="Back to events"
-          >
-            <PassportPublicPage />
-          </PageErrorBoundary>
+          eventsEnabled ? (
+            <PageErrorBoundary
+              shellClassName="landing passport-fancy-public"
+              withBackdrop
+              title="Passport public tidak bisa dibuka"
+              description="Coba reload halaman ini atau kembali ke daftar event."
+              homeHref="/events"
+              homeLabel="Back to events"
+            >
+              <PassportPublicPage />
+            </PageErrorBoundary>
+          ) : <Navigate to="/fitness" replace />
         }
       />
-      <Route path="/events/signup" element={<PassportSignUpPage />} />
-      <Route path="/passport/signup" element={<PassportSignUpPage />} />
-      <Route path="/events/signin" element={<PassportSignInPage />} />
-      <Route path="/passport/signin" element={<PassportSignInPage />} />
-      <Route path="/events/forgot-password" element={<ForgotPasswordPage />} />
-      <Route path="/passport/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/events/signup" element={eventsEnabled ? <PassportSignUpPage /> : <Navigate to="/fitness" replace />} />
+      <Route path="/passport/signup" element={eventsEnabled ? <PassportSignUpPage /> : <Navigate to="/fitness" replace />} />
+      <Route path="/events/signin" element={eventsEnabled ? <PassportSignInPage /> : <Navigate to="/fitness" replace />} />
+      <Route path="/passport/signin" element={eventsEnabled ? <PassportSignInPage /> : <Navigate to="/fitness" replace />} />
+      <Route path="/events/forgot-password" element={eventsEnabled ? <ForgotPasswordPage /> : <Navigate to="/fitness" replace />} />
+      <Route path="/passport/forgot-password" element={eventsEnabled ? <ForgotPasswordPage /> : <Navigate to="/fitness" replace />} />
       <Route
         path="/events/register"
         element={
-          <PageErrorBoundary
-            shellClassName="dashboard"
-            title="Checkout event bermasalah"
-            description="Halaman checkout gagal dirender. Reload atau kembali ke daftar event."
-            homeHref="/events"
-            homeLabel="Back to events"
-          >
-            <EventCheckoutPage />
-          </PageErrorBoundary>
+          eventsEnabled ? (
+            <PageErrorBoundary
+              shellClassName="dashboard"
+              title="Checkout event bermasalah"
+              description="Halaman checkout gagal dirender. Reload atau kembali ke daftar event."
+              homeHref="/events"
+              homeLabel="Back to events"
+            >
+              <EventCheckoutPage />
+            </PageErrorBoundary>
+          ) : <Navigate to="/fitness" replace />
         }
       />
       <Route
         path="/passport/register"
         element={
-          <PageErrorBoundary
-            shellClassName="dashboard"
-            title="Checkout event bermasalah"
-            description="Halaman checkout gagal dirender. Reload atau kembali ke daftar event."
-            homeHref="/events"
-            homeLabel="Back to events"
-          >
-            <EventCheckoutPage />
-          </PageErrorBoundary>
+          eventsEnabled ? (
+            <PageErrorBoundary
+              shellClassName="dashboard"
+              title="Checkout event bermasalah"
+              description="Halaman checkout gagal dirender. Reload atau kembali ke daftar event."
+              homeHref="/events"
+              homeLabel="Back to events"
+            >
+              <EventCheckoutPage />
+            </PageErrorBoundary>
+          ) : <Navigate to="/fitness" replace />
         }
       />
       <Route
         path="/e/:eventId"
         element={
-          <PageErrorBoundary
-            shellClassName="dashboard"
-            title="Checkout event bermasalah"
-            description="Halaman checkout gagal dirender. Reload atau kembali ke daftar event."
-            homeHref="/events"
-            homeLabel="Back to events"
-          >
-            <EventCheckoutPage />
-          </PageErrorBoundary>
+          eventsEnabled ? (
+            <PageErrorBoundary
+              shellClassName="dashboard"
+              title="Checkout event bermasalah"
+              description="Halaman checkout gagal dirender. Reload atau kembali ke daftar event."
+              homeHref="/events"
+              homeLabel="Back to events"
+            >
+              <EventCheckoutPage />
+            </PageErrorBoundary>
+          ) : <Navigate to="/fitness" replace />
         }
       />
       <Route
         path="/a/:account/e/:eventId"
         element={
-          <PageErrorBoundary
-            shellClassName="dashboard"
-            title="Checkout event bermasalah"
-            description="Halaman checkout gagal dirender. Reload atau kembali ke daftar event."
-            homeHref="/events"
-            homeLabel="Back to events"
-          >
-            <EventCheckoutPage />
-          </PageErrorBoundary>
+          eventsEnabled ? (
+            <PageErrorBoundary
+              shellClassName="dashboard"
+              title="Checkout event bermasalah"
+              description="Halaman checkout gagal dirender. Reload atau kembali ke daftar event."
+              homeHref="/events"
+              homeLabel="Back to events"
+            >
+              <EventCheckoutPage />
+            </PageErrorBoundary>
+          ) : <Navigate to="/fitness" replace />
         }
       />
-      <Route path="/a/:account/events" element={<PassportLandingPage />} />
+      <Route path="/a/:account/events" element={eventsEnabled ? <PassportLandingPage /> : <Navigate to="/fitness" replace />} />
       <Route
         path="/events/onboarding"
         element={
@@ -429,7 +446,7 @@ export default function App() {
         path="/a/:account/member/portal"
         element={<LegacyMemberPortalRedirect />}
       />
-      <Route path="/member/portal" element={<Navigate to="/passport/dashboard" replace />} />
+      <Route path="/member/portal" element={<Navigate to={eventsEnabled ? '/passport/dashboard' : '/fitness'} replace />} />
 
       <Route path="/dashboard" element={<Navigate to={roleHome(getSession())} replace />} />
       <Route path="/dashboard/admin" element={<Navigate to={accountPath(getSession(), '/admin/dashboard')} replace />} />
@@ -437,7 +454,7 @@ export default function App() {
       <Route path="/sales" element={<Navigate to={accountPath(getSession(), '/sales/dashboard')} replace />} />
       <Route path="/pt" element={<Navigate to={accountPath(getSession(), '/pt/dashboard')} replace />} />
 
-      <Route path="*" element={<Navigate to="/events" replace />} />
+      <Route path="*" element={<Navigate to={publicHome} replace />} />
     </Routes>
   );
 }

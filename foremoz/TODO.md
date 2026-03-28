@@ -391,3 +391,15 @@ Last audited terhadap isi folder: **2026-03-27** (`foremoz/apps/api`, `foremoz/a
   - repeat attendance rate
   - challenge completion rate
   - referral conversion uplift
+
+## Stage Rollout Implementation
+- [x] Tambah env `STAGE` pada `.env.example` (Vite + API).
+- [x] Terapkan stage gates di frontend route/public surface:
+  - `STAGE=1`: disable language, disable passport, disable `/events`, fokus fitness.
+  - `STAGE=2`: buka semua vertical.
+  - `STAGE=3`: buka passport + `/events`.
+  - `STAGE=4`: buka language switcher.
+- [~] Validasi stage gates pada seluruh entry point:
+  - [x] `/`, wildcard, `/events`, `/passport`, `/a/:account/events`.
+  - [~] Secondary links di page lain masih perlu audit final agar tidak menampilkan CTA yang belum aktif.
+- [ ] Tambah smoke test matrix per stage (1..4) untuk routing dan visibility surface utama.

@@ -1,6 +1,8 @@
 import { useI18n } from '../i18n.js';
+import { isLanguageEnabled } from '../stage.js';
 
 export default function LanguageSwitcher({ compact = false }) {
+  if (!isLanguageEnabled()) return null;
   const { language, setLanguage, supportedLanguages, t } = useI18n();
 
   return (

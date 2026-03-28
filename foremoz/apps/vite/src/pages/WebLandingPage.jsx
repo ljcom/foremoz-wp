@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { listVerticalConfigs } from '../industry-jargon.js';
 import LanguageSwitcher from '../components/LanguageSwitcher.jsx';
 import { useI18n } from '../i18n.js';
+import { getPublicHomePath, isPassportEventsEnabled } from '../stage.js';
 
 function visualForVertical(slug) {
   const key = String(slug || '').toLowerCase();
@@ -49,6 +50,8 @@ function visualForVertical(slug) {
 
 export default function WebLandingPage() {
   const { t } = useI18n();
+  const eventsEnabled = isPassportEventsEnabled();
+  const publicHome = getPublicHomePath();
   const isMockupOpenAccess = (import.meta.env.VITE_MOCKUP_OPEN_ACCESS ?? 'false') === 'true';
   const topNavVerticals = listVerticalConfigs().slice(0, 5);
   const verticalCards = listVerticalConfigs().map((item) => {
@@ -65,7 +68,7 @@ export default function WebLandingPage() {
       <header className="topbar">
         <div className="brand">Foremoz</div>
         <nav>
-          <Link to="/events">{t('common.events')}</Link>
+          {eventsEnabled ? <Link to="/events">{t('common.events')}</Link> : null}
           {topNavVerticals.map((item) => (
             <Link key={item.slug} className="topbar-industry-link" to={`/${item.slug}`}>
               {item.label}
@@ -84,7 +87,7 @@ export default function WebLandingPage() {
           <h1>{t('web.hero.title')}</h1>
           <p>{t('web.hero.description')}</p>
           <div className="hero-actions">
-            <Link className="btn" to="/events">
+            <Link className="btn" to={publicHome}>
               {t('web.hero.browse')}
             </Link>
             {isMockupOpenAccess ? (
@@ -169,7 +172,7 @@ export default function WebLandingPage() {
         <p className="eyebrow">{t('web.cta.eyebrow')}</p>
         <h2>{t('web.cta.title')}</h2>
         <div className="hero-actions">
-          <Link className="btn" to="/events">
+          <Link className="btn" to={publicHome}>
             {t('web.cta.browse')}
           </Link>
           <Link className="btn ghost" to="/signin">
