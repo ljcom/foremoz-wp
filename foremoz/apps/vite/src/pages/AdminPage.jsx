@@ -5149,6 +5149,11 @@ export default function AdminPage() {
                             ))}
                           </select>
                         </label>
+                        <p className="feedback">
+                          `scheduled` = kelas dengan jadwal tertentu, contoh: Yoga Morning Class.
+                          `open_access` = akses masuk/periode tanpa coach wajib, contoh: Gym Access 30 Hari.
+                          `session_pack` = paket kredit/sesi, contoh: Paket 8 Sesi PT.
+                        </p>
                         <label>Class Name<input value={classForm.class_name} onChange={(e) => setClassForm((p) => ({ ...p, class_name: e.target.value }))} /></label>
                         <label>
                           Description
@@ -5278,7 +5283,17 @@ export default function AdminPage() {
                             <label>Registration End<input type="datetime-local" value={classForm.registration_end} onChange={(e) => setClassForm((p) => ({ ...p, registration_end: e.target.value }))} /></label>
                             <label>Jumlah Pertemuan Max<input type="number" min="0" value={classForm.max_meetings} onChange={(e) => setClassForm((p) => ({ ...p, max_meetings: e.target.value }))} /></label>
                             <label>Capacity mode<select value={classForm.capacity_mode} onChange={(e) => setClassForm((p) => ({ ...p, capacity_mode: e.target.value }))}><option value="limited">limited</option><option value="flexible">flexible</option><option value="none">none</option></select></label>
+                            <p className="feedback">
+                              Capacity mode: `limited` = slot dibatasi angka kapasitas, contoh 20 peserta.
+                              `flexible` = tetap ada acuan kapasitas tapi bisa lebih longgar secara operasional.
+                              `none` = tidak pakai batas kapasitas. Untuk scheduled class biasanya pilih `limited`.
+                            </p>
                             <label>Quota mode<select value={classForm.quota_mode} onChange={(e) => setClassForm((p) => ({ ...p, quota_mode: e.target.value }))}><option value="manual">manual</option><option value="auto">auto</option><option value="none">none</option></select></label>
+                            <p className="feedback">
+                              Quota mode: `manual` = admin menentukan min/max quota sendiri.
+                              `auto` = sistem bisa memakai angka quota untuk trigger otomatis, misalnya auto start saat minimum peserta terpenuhi.
+                              `none` = tidak pakai quota logic tambahan.
+                            </p>
                             <label>Min quota<input type="number" min="0" value={classForm.min_quota} onChange={(e) => setClassForm((p) => ({ ...p, min_quota: e.target.value }))} /></label>
                             <label>Max quota<input type="number" min="0" value={classForm.max_quota} onChange={(e) => setClassForm((p) => ({ ...p, max_quota: e.target.value }))} /></label>
                             <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -5289,8 +5304,23 @@ export default function AdminPage() {
                         ) : (
                           <>
                             <label>Validity mode<select value={classForm.validity_mode} onChange={(e) => setClassForm((p) => ({ ...p, validity_mode: e.target.value }))}><option value="per_enrollment">per_enrollment</option><option value="rolling">rolling</option><option value="fixed">fixed</option></select></label>
+                            <p className="feedback">
+                              Validity mode: `per_enrollment` = masa aktif dihitung per user saat beli/aktivasi, contoh Gym Access 30 Hari per member.
+                              `rolling` = mirip berjalan dari anchor tertentu seperti payment/activation.
+                              `fixed` = semua user ikut periode master yang sama, contoh akses hanya untuk April 2026.
+                            </p>
                             <label>Capacity mode<select value={classForm.capacity_mode} onChange={(e) => setClassForm((p) => ({ ...p, capacity_mode: e.target.value }))}><option value="none">none</option><option value="limited">limited</option><option value="flexible">flexible</option></select></label>
+                            <p className="feedback">
+                              Capacity mode: `none` = tidak ada batas peserta/holder.
+                              `limited` = jumlah holder/enrollment bisa dibatasi.
+                              `flexible` = ada target kapasitas tapi masih bisa dilonggarkan oleh operasional.
+                            </p>
                             <label>Quota mode<select value={classForm.quota_mode} onChange={(e) => setClassForm((p) => ({ ...p, quota_mode: e.target.value }))}><option value="none">none</option><option value="manual">manual</option><option value="auto">auto</option></select></label>
+                            <p className="feedback">
+                              Quota mode: `none` = tidak ada quota tambahan.
+                              `manual` = admin isi batas sendiri, misalnya hanya 100 membership aktif.
+                              `auto` = sistem bisa memicu rule otomatis berdasarkan quota yang terpenuhi.
+                            </p>
                           </>
                         )}
                       </>
