@@ -869,6 +869,32 @@ function formatClassTypeLabel(value) {
   return CLASS_TYPE_OPTIONS.find((item) => item.value === value)?.label || sentenceCase(String(value || 'scheduled').replace(/_/g, ' '));
 }
 
+function getActivityFieldGuide(classType) {
+  const normalizedType = String(classType || 'scheduled').trim().toLowerCase();
+  if (normalizedType === 'open_access') {
+    return {
+      classType: 'Open access: akses periode tanpa session wajib, contoh Gym Access 30 Hari atau Open Studio Access.',
+      validityMode: 'Validity mode: biasanya `per_enrollment` atau `rolling`, supaya masa aktif tiap member dihitung dari waktu beli atau aktivasi.',
+      capacityMode: 'Capacity mode: biasanya `none` kalau akses tidak dibatasi, atau `limited` kalau jumlah holder membership ingin dibatasi.',
+      quotaMode: 'Quota mode: pilih `none` kalau tidak ada aturan quota tambahan, atau `manual` bila admin ingin membatasi jumlah akses aktif.'
+    };
+  }
+  if (normalizedType === 'session_pack') {
+    return {
+      classType: 'Session pack: paket kredit/sesi yang dikonsumsi per pemakaian, contoh Paket 8 Sesi PT.',
+      validityMode: 'Validity mode: biasanya `per_enrollment`, supaya expiry dihitung per user saat paket dibeli/diaktifkan.',
+      capacityMode: 'Capacity mode: umumnya `none` karena yang dibatasi adalah usage credit, bukan slot kelas master.',
+      quotaMode: 'Quota mode: biasanya `none`, kecuali Anda ingin membatasi jumlah paket aktif yang bisa dijual.'
+    };
+  }
+  return {
+    classType: 'Scheduled: kelas dengan jadwal/batch tertentu, contoh Yoga Morning Class atau HIIT Batch April.',
+    validityMode: 'Validity mode: biasanya `fixed`, karena semua peserta mengikuti periode kelas yang sama.',
+    capacityMode: 'Capacity mode: biasanya `limited`, contoh maksimal 20 peserta per class.',
+    quotaMode: 'Quota mode: `manual` jika admin isi min/max quota sendiri, `auto` jika quota dipakai untuk trigger seperti auto start.'
+  };
+}
+
 function formatActivityAccessSummary(item) {
   const classType = String(item?.class_type || 'scheduled').trim().toLowerCase();
   if (classType === 'open_access') {
@@ -2064,6 +2090,7 @@ export default function AdminPage() {
   const isOpenAccessClassForm = classForm.class_type === 'open_access';
   const isSessionPackClassForm = classForm.class_type === 'session_pack';
   const showClassCoachFields = classForm.has_coach !== false;
+  const classFieldGuide = useMemo(() => getActivityFieldGuide(classForm.class_type), [classForm.class_type]);
   const totalClassCoachShare = useMemo(() => sumCoachSharePercent(classForm.coach_shares), [classForm.coach_shares]);
   const availableClassTrainerOptions = useMemo(
     () => trainerNameOptions.filter((name) => !selectedClassTrainerTokens.includes(name)),
@@ -5154,6 +5181,13 @@ export default function AdminPage() {
                           `open_access` = akses masuk/periode tanpa coach wajib, contoh: Gym Access 30 Hari.
                           `session_pack` = paket kredit/sesi, contoh: Paket 8 Sesi PT.
                         </p>
+                        <div className="card" style={{ borderStyle: 'dashed' }}>
+                          <p className="eyebrow">Panduan cepat</p>
+                          <p className="feedback"><strong>Class Type:</strong> {classFieldGuide.classType}</p>
+                          <p className="feedback"><strong>Validity mode:</strong> {classFieldGuide.validityMode}</p>
+                          <p className="feedback"><strong>Capacity mode:</strong> {classFieldGuide.capacityMode}</p>
+                          <p className="feedback"><strong>Quota mode:</strong> {classFieldGuide.quotaMode}</p>
+                        </div>
                         <label>Class Name<input value={classForm.class_name} onChange={(e) => setClassForm((p) => ({ ...p, class_name: e.target.value }))} /></label>
                         <label>
                           Description
