@@ -617,6 +617,7 @@ function createEmptyClassForm() {
     category: '',
     category_id: '',
     custom_fields_text: '',
+    registration_fields: [],
     schedule_mode: 'weekly',
     weekly_days: [],
     weekly_start_time: '',
@@ -643,6 +644,29 @@ function createEmptyClassForm() {
     max_quota: '',
     auto_start_when_quota_met: false
   };
+}
+
+function splitClassCustomFields(value) {
+  const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  const registrationFields = Array.isArray(source.registration_fields)
+    ? source.registration_fields.map(toRegistrationFieldForm)
+    : [];
+  const { registration_fields: _registrationFields, ...rest } = source;
+  return {
+    registration_fields: registrationFields,
+    metadata_text: Object.keys(rest).length > 0 ? JSON.stringify(rest, null, 2) : ''
+  };
+}
+
+function buildClassCustomFieldsPayload(formValue) {
+  const base = parseCustomFieldsInput(formValue?.custom_fields_text || '', 'class');
+  const registrationFields = normalizeRegistrationFieldsForPayload(formValue?.registration_fields);
+  if (registrationFields.length > 0) {
+    base.registration_fields = registrationFields;
+  } else {
+    delete base.registration_fields;
+  }
+  return base;
 }
 
 function toCoachShareFormRows(value) {
@@ -2296,7 +2320,7 @@ export default function AdminPage() {
           coach_shares: showClassCoachFields ? normalizeCoachSharesForPayload(classForm.coach_shares, 'coach') : [],
           category: classForm.category || '',
           category_id: classForm.category_id || '',
-          custom_fields: parseCustomFieldsInput(classForm.custom_fields_text, 'class'),
+          custom_fields: buildClassCustomFieldsPayload(classForm),
           schedule_mode: normalizedSchedule.schedule_mode,
           weekly_schedule: normalizedSchedule.weekly_schedule,
           manual_schedule: normalizedSchedule.manual_schedule,
@@ -2331,10 +2355,11 @@ export default function AdminPage() {
       setClassMode('list');
       await loadClasses();
     } catch (error) {
-      if (String(error?.message || '').toLowerCase().includes('custom_fields')) {
+      const message = String(error?.message || '').toLowerCase();
+      if (message.includes('custom_fields') || message.includes('registration field') || message.includes('lookup options')) {
         setClassEditTab('custom_fields');
       }
-      if (String(error?.message || '').toLowerCase().includes('schedule')) {
+      if (message.includes('schedule')) {
         setClassEditTab('general');
       }
       setFeedback(error.message);
@@ -2345,6 +2370,7 @@ export default function AdminPage() {
 
   function viewClass(item) {
     const trainerName = item.trainer_name || '';
+    const classCustomFields = splitClassCustomFields(item.custom_fields);
     setClassForm({
       class_type: item.class_type || 'scheduled',
       class_name: item.class_name || '',
@@ -2356,7 +2382,8 @@ export default function AdminPage() {
       coach_shares: syncCoachSharesWithTrainerNames(trainerName, item.coach_shares),
       category: item.category || '',
       category_id: item.category_id || '',
-      custom_fields_text: item.custom_fields && Object.keys(item.custom_fields).length > 0 ? JSON.stringify(item.custom_fields, null, 2) : '',
+      custom_fields_text: classCustomFields.metadata_text,
+      registration_fields: classCustomFields.registration_fields,
       schedule_mode: item.schedule_mode || (item.class_type === 'scheduled' ? 'weekly' : 'none'),
       weekly_days: Array.isArray(item.weekly_schedule?.weekdays) ? item.weekly_schedule.weekdays : [],
       weekly_start_time: String(item.weekly_schedule?.start_time || ''),
@@ -5647,27 +5674,160 @@ export default function AdminPage() {
                       <div className="editor-with-guide">
                         <div className="editor-main">
                           <div className="card" style={{ borderStyle: 'dashed' }}>
-                            <p className="eyebrow">Custom fields</p>
-                            <p className="feedback">Metadata tambahan untuk operasional class dalam format JSON object.</p>
-                            <textarea
-                              rows={8}
-                              placeholder={'{\n  "level": "beginner",\n  "room": "Studio A"\n}'}
-                              value={classForm.custom_fields_text}
-                              onChange={(e) => setClassForm((p) => ({ ...p, custom_fields_text: e.target.value }))}
-                            />
+                            <p className="eyebrow">Registration fields</p>
+                            <p className="feedback">Informasi yang dikumpulkan saat member booking atau mendaftar class.</p>
+                            <div className="row-actions" style={{ marginBottom: '0.5rem' }}>
+                              <button
+                                className="btn ghost small"
+                                type="button"
+                                onClick={() =>
+                                  setClassForm((prev) => ({
+                                    ...prev,
+                                    registration_fields: suggestRegistrationFieldsFromText(
+                                      [prev.class_name, prev.description, prev.category, prev.category_id].join(' ')
+                                    )
+                                  }))
+                                }
+                              >
+                                AI Suggest Fields
+                              </button>
+                            </div>
+                            <div className="row-actions" style={{ marginBottom: '0.5rem' }}>
+                              <button
+                                className="btn ghost small"
+                                type="button"
+                                onClick={() =>
+                                  setClassForm((prev) => ({
+                                    ...prev,
+                                    registration_fields: [...(prev.registration_fields || []), createRegistrationField('free_type')]
+                                  }))
+                                }
+                              >
+                                + free type
+                              </button>
+                              <button
+                                className="btn ghost small"
+                                type="button"
+                                onClick={() =>
+                                  setClassForm((prev) => ({
+                                    ...prev,
+                                    registration_fields: [...(prev.registration_fields || []), createRegistrationField('date')]
+                                  }))
+                                }
+                              >
+                                + date
+                              </button>
+                              <button
+                                className="btn ghost small"
+                                type="button"
+                                onClick={() =>
+                                  setClassForm((prev) => ({
+                                    ...prev,
+                                    registration_fields: [...(prev.registration_fields || []), createRegistrationField('lookup')]
+                                  }))
+                                }
+                              >
+                                + lookup
+                              </button>
+                            </div>
+                            {(classForm.registration_fields || []).length === 0 ? (
+                              <p className="feedback">Belum ada custom field. Contoh: Kota, Tahu dari mana?, Sekolah, Jenis kelamin.</p>
+                            ) : (
+                              <div className="entity-list">
+                                {(classForm.registration_fields || []).map((field, index) => (
+                                  <div key={field.field_id || index} className="card" style={{ marginBottom: '0.5rem' }}>
+                                    <label>
+                                      Label
+                                      <input
+                                        value={field.label || ''}
+                                        onChange={(e) =>
+                                          setClassForm((prev) => ({
+                                            ...prev,
+                                            registration_fields: (prev.registration_fields || []).map((item, idx) =>
+                                              idx === index ? { ...item, label: e.target.value } : item
+                                            )
+                                          }))
+                                        }
+                                      />
+                                    </label>
+                                    <label>
+                                      Type
+                                      <select
+                                        value={field.type || 'free_type'}
+                                        onChange={(e) =>
+                                          setClassForm((prev) => ({
+                                            ...prev,
+                                            registration_fields: (prev.registration_fields || []).map((item, idx) =>
+                                              idx === index ? { ...item, type: e.target.value } : item
+                                            )
+                                          }))
+                                        }
+                                      >
+                                        <option value="free_type">free type</option>
+                                        <option value="date">date</option>
+                                        <option value="lookup">lookup</option>
+                                      </select>
+                                    </label>
+                                    <div className="row-actions" style={{ justifyContent: 'space-between' }}>
+                                      <span className="feedback" style={{ margin: 0 }}>Required field</span>
+                                      <input
+                                        type="checkbox"
+                                        checked={field.required !== false}
+                                        onChange={(e) =>
+                                          setClassForm((prev) => ({
+                                            ...prev,
+                                            registration_fields: (prev.registration_fields || []).map((item, idx) =>
+                                              idx === index ? { ...item, required: e.target.checked } : item
+                                            )
+                                          }))
+                                        }
+                                      />
+                                    </div>
+                                    {String(field.type || 'free_type') === 'lookup' ? (
+                                      <label>
+                                        Options (pisahkan dengan koma)
+                                        <input
+                                          value={field.options_text || ''}
+                                          onChange={(e) =>
+                                            setClassForm((prev) => ({
+                                              ...prev,
+                                              registration_fields: (prev.registration_fields || []).map((item, idx) =>
+                                                idx === index ? { ...item, options_text: e.target.value } : item
+                                              )
+                                            }))
+                                          }
+                                        />
+                                      </label>
+                                    ) : null}
+                                    <button
+                                      className="btn ghost small"
+                                      type="button"
+                                      onClick={() =>
+                                        setClassForm((prev) => ({
+                                          ...prev,
+                                          registration_fields: (prev.registration_fields || []).filter((_, idx) => idx !== index)
+                                        }))
+                                      }
+                                    >
+                                      Hapus field
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         </div>
                         <aside className="editor-guide">
                           <div className="card" style={{ borderStyle: 'dashed' }}>
                             <p className="eyebrow">Panduan cepat</p>
                             <p className="feedback">
-                              <strong>Gunakan untuk metadata operasional:</strong> misalnya level class, room, equipment, dress code, atau tag internal lain yang tidak perlu jadi field utama.
+                              <strong>Gunakan seperlunya:</strong> tambah field hanya jika benar-benar dibutuhkan saat booking class. Terlalu banyak field biasanya menurunkan conversion.
                             </p>
                             <p className="feedback">
-                              <strong>Format:</strong> isi dalam bentuk JSON object. Contoh: <code>{'{"level":"beginner","room":"Studio A"}'}</code>.
+                              <strong>free type:</strong> untuk jawaban bebas seperti kota, sekolah, atau nama komunitas. <strong>date:</strong> untuk tanggal lahir atau tanggal mulai preferensi. <strong>lookup:</strong> untuk pilihan tetap seperti level, gender, atau sumber info.
                             </p>
                             <p className="feedback">
-                              <strong>Pisahkan dari category:</strong> jika nilainya dipakai untuk filter utama, lebih baik masuk `category`. Jika hanya atribut tambahan, simpan di `custom_fields`.
+                              <strong>Required:</strong> aktifkan hanya untuk data yang wajib secara operasional. Kalau field hanya untuk insight tambahan, lebih aman dibuat opsional.
                             </p>
                           </div>
                         </aside>
