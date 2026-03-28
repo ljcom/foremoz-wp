@@ -11,6 +11,7 @@ import {
 } from '../lib.js';
 import { getVerticalLabel, guessVerticalSlugByText } from '../industry-jargon.js';
 import WorkspaceHeader from '../components/WorkspaceHeader.jsx';
+import { useI18n } from '../i18n.js';
 import { formatAppDateTime as formatDateTime } from '../time.js';
 
 function Stat({ label, value, iconClass, tone, hint }) {
@@ -95,6 +96,88 @@ function isSameBookingMember(member, booking) {
 }
 
 export default function DashboardPage() {
+  const { language } = useI18n();
+  const copy = useMemo(() => (language === 'en'
+    ? {
+        eyebrow: 'Operational',
+        welcome: 'Welcome, {name}',
+        envAdmin: 'settings',
+        envCs: 'customer service',
+        statsActiveMembers: 'Active Members',
+        statsActiveMembersHint: 'active subscriptions',
+        statsCheckins: 'Today Check-ins',
+        statsCheckinsHint: 'recorded visits',
+        statsBookings: 'Today Bookings',
+        statsBookingsHint: 'filled class slots',
+        statsPayments: 'Pending Payments',
+        statsPaymentsHint: 'awaiting confirmation',
+        loadingDashboard: 'Loading dashboard...',
+        workspaceEyebrow: 'Workspace',
+        choosePanel: 'Choose Panel',
+        workspacePanelAria: 'Workspace panel',
+        tabMember: 'Member',
+        tabEvent: 'Event',
+        tabClass: 'Class',
+        memberSearchEyebrow: 'Membership Search',
+        memberSearchTitle: 'Search Members',
+        scanQr: 'Scan QR/Barcode',
+        memberRelation: 'Member relation',
+        activeClass: 'Active class',
+        activeEvent: 'Active event',
+        chooseClass: 'Choose class...',
+        chooseEvent: 'Choose event...',
+        searchBy: 'Search by',
+        searchAll: 'All',
+        searchName: 'Name',
+        searchPhone: 'Phone',
+        keyword: 'Keyword',
+        keywordPlaceholder: 'Name, phone, ID card, member ID',
+        panelContext: 'Panel context',
+        noneSelected: 'not selected yet',
+        loadingMemberLinks: 'Loading member links to active events/classes...',
+        activeEventsSection: 'Active events',
+        activeClassesSection: 'Active classes'
+      }
+    : {
+        eyebrow: 'Operational',
+        welcome: 'Selamat datang, {name}',
+        envAdmin: 'settings',
+        envCs: 'customer service',
+        statsActiveMembers: 'Member Aktif',
+        statsActiveMembersHint: 'berlangganan aktif',
+        statsCheckins: 'Check-in Hari Ini',
+        statsCheckinsHint: 'kunjungan tercatat',
+        statsBookings: 'Booking Hari Ini',
+        statsBookingsHint: 'slot kelas terisi',
+        statsPayments: 'Pending Payment',
+        statsPaymentsHint: 'menunggu konfirmasi',
+        loadingDashboard: 'Memuat dashboard...',
+        workspaceEyebrow: 'Workspace',
+        choosePanel: 'Pilih Panel',
+        workspacePanelAria: 'Workspace panel',
+        tabMember: 'Member',
+        tabEvent: 'Event',
+        tabClass: 'Class',
+        memberSearchEyebrow: 'Membership Search',
+        memberSearchTitle: 'Cari Member',
+        scanQr: 'Scan QR/Barcode',
+        memberRelation: 'Relasi member',
+        activeClass: 'Class aktif',
+        activeEvent: 'Event aktif',
+        chooseClass: 'Pilih class...',
+        chooseEvent: 'Pilih event...',
+        searchBy: 'Cari berdasarkan',
+        searchAll: 'Semua',
+        searchName: 'Nama',
+        searchPhone: 'No. HP',
+        keyword: 'Kata kunci',
+        keywordPlaceholder: 'Nama, no HP, ID card, member ID',
+        panelContext: 'Konteks panel',
+        noneSelected: 'belum dipilih',
+        loadingMemberLinks: 'Memuat keterkaitan member dengan event/class aktif...',
+        activeEventsSection: 'Event aktif',
+        activeClassesSection: 'Class aktif'
+      }), [language]);
   const navigate = useNavigate();
   const session = getSession();
   const [searchBy, setSearchBy] = useState('all');
@@ -376,35 +459,35 @@ export default function DashboardPage() {
   const stats = useMemo(
     () => [
       {
-        label: 'Member Aktif',
+        label: copy.statsActiveMembers,
         value: dashboardRow?.active_subscription_count ?? 0,
         iconClass: 'fa-solid fa-id-card',
         tone: 'tone-subscription',
-        hint: 'berlangganan aktif'
+        hint: copy.statsActiveMembersHint
       },
       {
-        label: 'Check-in Hari Ini',
+        label: copy.statsCheckins,
         value: dashboardRow?.today_checkin_count ?? 0,
         iconClass: 'fa-solid fa-door-open',
         tone: 'tone-checkin',
-        hint: 'kunjungan tercatat'
+        hint: copy.statsCheckinsHint
       },
       {
-        label: 'Booking Hari Ini',
+        label: copy.statsBookings,
         value: dashboardRow?.today_booking_count ?? 0,
         iconClass: 'fa-solid fa-calendar-check',
         tone: 'tone-booking',
-        hint: 'slot kelas terisi'
+        hint: copy.statsBookingsHint
       },
       {
-        label: 'Pending Payment',
+        label: copy.statsPayments,
         value: dashboardRow?.pending_payment_count ?? 0,
         iconClass: 'fa-solid fa-money-bill',
         tone: 'tone-payment',
-        hint: 'menunggu konfirmasi'
+        hint: copy.statsPaymentsHint
       }
     ],
-    [dashboardRow]
+    [copy.statsActiveMembers, copy.statsActiveMembersHint, copy.statsBookings, copy.statsBookingsHint, copy.statsCheckins, copy.statsCheckinsHint, copy.statsPayments, copy.statsPaymentsHint, dashboardRow]
   );
 
   const searchSource = members;
@@ -928,14 +1011,14 @@ export default function DashboardPage() {
   return (
     <main className="dashboard">
       <WorkspaceHeader
-        eyebrow="Operational"
+        eyebrow={copy.eyebrow}
         title={session?.tenant?.gym_name || `Foremoz ${inferredVerticalLabel} Tenant`}
-        subtitle={`Selamat datang, ${fullName}`}
+        subtitle={copy.welcome.replace('{name}', fullName)}
         allowedEnv={allowedEnv}
         targetEnv={targetEnv}
         getEnvironmentLabel={(env) => {
-          if (env === 'admin') return 'settings';
-          if (env === 'cs') return 'customer service';
+          if (env === 'admin') return copy.envAdmin;
+          if (env === 'cs') return copy.envCs;
           return env;
         }}
         onSelectEnv={(env) => {
@@ -951,19 +1034,19 @@ export default function DashboardPage() {
         ))}
       </section>
 
-      {loading ? <p className="feedback">Memuat dashboard...</p> : null}
+      {loading ? <p className="feedback">{copy.loadingDashboard}</p> : null}
       {error ? <p className="error">{error}</p> : null}
 
       <section className="card search-panel">
         <div className="panel-head workspace-panel-head">
           <div>
-            <p className="eyebrow">Workspace</p>
-            <h2>Pilih Panel</h2>
+            <p className="eyebrow">{copy.workspaceEyebrow}</p>
+            <h2>{copy.choosePanel}</h2>
           </div>
         </div>
-        <div className="landing-tabs" role="tablist" aria-label="Workspace panel">
+        <div className="landing-tabs" role="tablist" aria-label={copy.workspacePanelAria}>
           <button type="button" className={`landing-tab ${workspaceTab === 'member' ? 'active' : ''}`} onClick={() => setWorkspaceTab('member')}>
-            Member
+            {copy.tabMember}
           </button>
           <button
             type="button"
@@ -973,7 +1056,7 @@ export default function DashboardPage() {
               setSelectedExperienceType('event');
             }}
           >
-            Event
+            {copy.tabEvent}
           </button>
           {showClassWorkspace ? (
             <button
@@ -984,7 +1067,7 @@ export default function DashboardPage() {
                 setSelectedExperienceType('class');
               }}
             >
-              Class
+              {copy.tabClass}
             </button>
           ) : null}
         </div>
@@ -994,17 +1077,17 @@ export default function DashboardPage() {
         <section className="card search-panel">
           <div className="panel-head">
             <div>
-              <p className="eyebrow">Membership Search</p>
-              <h2>Cari Member</h2>
+              <p className="eyebrow">{copy.memberSearchEyebrow}</p>
+              <h2>{copy.memberSearchTitle}</h2>
             </div>
             <button className="btn ghost" onClick={scanQrCode}>
-              Scan QR/Barcode
+              {copy.scanQr}
             </button>
           </div>
 
           <div className="search-box">
             <label>
-              Relasi member
+              {copy.memberRelation}
               <select
                 value={selectedExperienceType}
                 onChange={(e) => {
@@ -1019,14 +1102,14 @@ export default function DashboardPage() {
               </select>
             </label>
             <label>
-              {selectedExperienceType === 'class' ? 'Class aktif' : 'Event aktif'}
+              {selectedExperienceType === 'class' ? copy.activeClass : copy.activeEvent}
               <select
                 value={selectedExperienceId}
                 onChange={(e) => {
                   setSelectedExperienceId(e.target.value);
                 }}
               >
-                <option value="">{selectedExperienceType === 'class' ? 'Pilih class...' : 'Pilih event...'}</option>
+                <option value="">{selectedExperienceType === 'class' ? copy.chooseClass : copy.chooseEvent}</option>
                 {(selectedExperienceType === 'class' ? classes : events).map((item) => {
                   const id = selectedExperienceType === 'class' ? item.class_id : item.event_id;
                   const label = selectedExperienceType === 'class'
@@ -1041,24 +1124,24 @@ export default function DashboardPage() {
               </select>
             </label>
             <label>
-              Cari berdasarkan
+              {copy.searchBy}
               <select value={searchBy} onChange={(e) => setSearchBy(e.target.value)}>
-                <option value="all">Semua</option>
-                <option value="full_name">Nama</option>
-                <option value="phone">No. HP</option>
+                <option value="all">{copy.searchAll}</option>
+                <option value="full_name">{copy.searchName}</option>
+                <option value="phone">{copy.searchPhone}</option>
                 <option value="ktp_number">ID Card</option>
                 <option value="member_id">Member ID</option>
               </select>
             </label>
             <label>
-              Kata kunci
-              <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Nama, no HP, ID card, member ID" />
+              {copy.keyword}
+              <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={copy.keywordPlaceholder} />
             </label>
           </div>
           <p className="sub" style={{ marginTop: '0.5rem' }}>
-            Konteks panel: {selectedExperienceLabel || 'belum dipilih'}
+            {copy.panelContext}: {selectedExperienceLabel || copy.noneSelected}
           </p>
-          {participantSearchLoading ? <p className="feedback">Memuat keterkaitan member dengan event/class aktif...</p> : null}
+          {participantSearchLoading ? <p className="feedback">{copy.loadingMemberLinks}</p> : null}
 
           <div className="search-result-list">
             {searchResults.length > 0 ? (
@@ -1090,7 +1173,7 @@ export default function DashboardPage() {
 
                     {cardEvents.length > 0 ? (
                       <div className="member-row-section">
-                        <span className="member-row-section-title">Event aktif</span>
+                        <span className="member-row-section-title">{copy.activeEventsSection}</span>
                         <div className="member-row-actions">
                           {cardEvents.map((item) => (
                             <button
@@ -1121,7 +1204,7 @@ export default function DashboardPage() {
 
                     {cardClasses.length > 0 ? (
                       <div className="member-row-section">
-                        <span className="member-row-section-title">Class aktif</span>
+                        <span className="member-row-section-title">{copy.activeClassesSection}</span>
                         <div className="member-row-actions">
                           {cardClasses.map((item) => (
                             <button
