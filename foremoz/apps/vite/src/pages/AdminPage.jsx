@@ -616,6 +616,7 @@ function createEmptyClassForm() {
     coach_shares: [],
     category: '',
     category_id: '',
+    categories_text: '',
     custom_fields_text: '',
     registration_fields: [],
     schedule_mode: 'weekly',
@@ -646,21 +647,33 @@ function createEmptyClassForm() {
   };
 }
 
-function splitClassCustomFields(value) {
+function splitClassCustomFields(value, primaryCategory = '') {
   const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
   const registrationFields = Array.isArray(source.registration_fields)
     ? source.registration_fields.map(toRegistrationFieldForm)
     : [];
-  const { registration_fields: _registrationFields, ...rest } = source;
+  const storedCategoryTags = Array.isArray(source.category_tags) ? source.category_tags : [];
+  const categoryTags = [...new Set([
+    ...storedCategoryTags.map((item) => String(item || '').trim()).filter(Boolean),
+    String(primaryCategory || '').trim()
+  ].filter(Boolean))];
+  const { registration_fields: _registrationFields, category_tags: _categoryTags, ...rest } = source;
   return {
     registration_fields: registrationFields,
-    metadata_text: Object.keys(rest).length > 0 ? JSON.stringify(rest, null, 2) : ''
+    metadata_text: Object.keys(rest).length > 0 ? JSON.stringify(rest, null, 2) : '',
+    categories_text: categoryTags.join(', ')
   };
 }
 
 function buildClassCustomFieldsPayload(formValue) {
   const base = parseCustomFieldsInput(formValue?.custom_fields_text || '', 'class');
+  const categoryTags = normalizeEventCategoriesForPayload(formValue?.categories_text || '');
   const registrationFields = normalizeRegistrationFieldsForPayload(formValue?.registration_fields);
+  if (categoryTags.length > 0) {
+    base.category_tags = categoryTags;
+  } else {
+    delete base.category_tags;
+  }
   if (registrationFields.length > 0) {
     base.registration_fields = registrationFields;
   } else {
@@ -1286,6 +1299,21 @@ function getEventCategoryExamplesByIndustry(industrySlug) {
   if (slug === 'arts') return ['Pameran Lukis', 'Gallery Opening', 'Art Talk'];
   if (slug === 'tourism') return ['City Tour', 'Sunrise Trip', 'Family Package'];
   return ['Running 5K', 'Running 10K', 'Beginner Friendly'];
+}
+
+function getClassCategoryExamplesByType(classType) {
+  const normalized = String(classType || 'scheduled').trim().toLowerCase();
+  if (normalized === 'open_access') return ['Gym Access', 'Open Studio', 'Membership'];
+  if (normalized === 'session_pack') return ['PT Pack', 'Pilates Pack', 'Reformer Pack'];
+  return ['Yoga', 'HIIT', 'Boxing'];
+}
+
+function toCategoryId(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
 }
 
 function formatRegistrationAnswers(value) {
@@ -2115,6 +2143,12 @@ export default function AdminPage() {
   const isSessionPackClassForm = classForm.class_type === 'session_pack';
   const showClassCoachFields = classForm.has_coach !== false;
   const classFieldGuide = useMemo(() => getActivityFieldGuide(classForm.class_type), [classForm.class_type]);
+  const classCategoryExamples = useMemo(
+    () => getClassCategoryExamplesByType(classForm.class_type),
+    [classForm.class_type]
+  );
+  const classCategoryInstruction = `Pisahkan dengan koma atau baris baru. Contoh: ${classCategoryExamples[0]}, ${classCategoryExamples[1]}.`;
+  const classCategoryPlaceholder = `${classCategoryExamples[0]}, ${classCategoryExamples[1]}\n${classCategoryExamples[2]}`;
   const totalClassCoachShare = useMemo(() => sumCoachSharePercent(classForm.coach_shares), [classForm.coach_shares]);
   const availableClassTrainerOptions = useMemo(
     () => trainerNameOptions.filter((name) => !selectedClassTrainerTokens.includes(name)),
@@ -2305,6 +2339,8 @@ export default function AdminPage() {
       const endpoint = editingClassId
         ? `/v1/admin/classes/${encodeURIComponent(editingClassId)}`
         : '/v1/admin/classes';
+      const classCategories = normalizeEventCategoriesForPayload(classForm.categories_text);
+      const primaryCategory = classCategories[0] || '';
       await apiJson(endpoint, {
         method,
         body: JSON.stringify({
@@ -2318,8 +2354,8 @@ export default function AdminPage() {
           coach_id: classForm.coach_id || null,
           trainer_name: showClassCoachFields ? classForm.trainer_name : '',
           coach_shares: showClassCoachFields ? normalizeCoachSharesForPayload(classForm.coach_shares, 'coach') : [],
-          category: classForm.category || '',
-          category_id: classForm.category_id || '',
+          category: primaryCategory,
+          category_id: primaryCategory ? toCategoryId(primaryCategory) : '',
           custom_fields: buildClassCustomFieldsPayload(classForm),
           schedule_mode: normalizedSchedule.schedule_mode,
           weekly_schedule: normalizedSchedule.weekly_schedule,
@@ -2370,7 +2406,7 @@ export default function AdminPage() {
 
   function viewClass(item) {
     const trainerName = item.trainer_name || '';
-    const classCustomFields = splitClassCustomFields(item.custom_fields);
+    const classCustomFields = splitClassCustomFields(item.custom_fields, item.category || '');
     setClassForm({
       class_type: item.class_type || 'scheduled',
       class_name: item.class_name || '',
@@ -2382,6 +2418,7 @@ export default function AdminPage() {
       coach_shares: syncCoachSharesWithTrainerNames(trainerName, item.coach_shares),
       category: item.category || '',
       category_id: item.category_id || '',
+      categories_text: classCustomFields.categories_text,
       custom_fields_text: classCustomFields.metadata_text,
       registration_fields: classCustomFields.registration_fields,
       schedule_mode: item.schedule_mode || (item.class_type === 'scheduled' ? 'weekly' : 'none'),
@@ -5636,32 +5673,41 @@ export default function AdminPage() {
                         <div className="editor-main">
                           <div className="card" style={{ borderStyle: 'dashed' }}>
                             <p className="eyebrow">Class category</p>
-                            <label>
-                              Category ID
-                              <input
-                                value={classForm.category_id}
-                                placeholder="Contoh: yoga, gym_access, pt_pack"
-                                onChange={(e) => setClassForm((p) => ({ ...p, category_id: e.target.value }))}
-                              />
-                            </label>
-                            <label>
-                              Category
-                              <input
-                                value={classForm.category}
-                                placeholder="Contoh: HIIT, Yoga, Boxing"
-                                onChange={(e) => setClassForm((p) => ({ ...p, category: e.target.value }))}
-                              />
-                            </label>
+                            <div className="row-actions" style={{ marginBottom: '0.5rem' }}>
+                              <button
+                                className="btn ghost small"
+                                type="button"
+                                onClick={() => {
+                                  const categories = suggestCategoriesFromText(
+                                    [classForm.class_name, classForm.description, classForm.categories_text].join(' ')
+                                  );
+                                  setClassForm((prev) => ({ ...prev, categories_text: categories.join(', ') }));
+                                  setFeedback(`ai.assist: Category suggestion -> ${categories.join(', ')}`);
+                                }}
+                              >
+                                AI Suggest Category
+                              </button>
+                            </div>
+                            <p className="feedback">{classCategoryInstruction}</p>
+                            <textarea
+                              rows={4}
+                              placeholder={classCategoryPlaceholder}
+                              value={classForm.categories_text}
+                              onChange={(e) => setClassForm((p) => ({ ...p, categories_text: e.target.value }))}
+                            />
+                            <p className="feedback">
+                              Preview: {normalizeEventCategoriesForPayload(classForm.categories_text).join(' | ') || '-'}
+                            </p>
                           </div>
                         </div>
                         <aside className="editor-guide">
                           <div className="card" style={{ borderStyle: 'dashed' }}>
                             <p className="eyebrow">Panduan cepat</p>
                             <p className="feedback">
-                              <strong>Category ID:</strong> pakai slug stabil untuk grouping dan filter, huruf kecil dengan underscore bila perlu. Contoh: `yoga`, `gym_access`, `pt_pack`, `pilates_reformer`.
+                              <strong>Kategori pertama:</strong> akan dipakai sebagai kategori utama class untuk listing dan filter utama.
                             </p>
                             <p className="feedback">
-                              <strong>Category:</strong> label yang tampil ke admin atau user. Contoh: `Yoga`, `Gym Access`, `PT Pack`, `Pilates Reformer`.
+                              <strong>Kategori berikutnya:</strong> tetap disimpan sebagai tag tambahan agar konteks class tidak hilang.
                             </p>
                             <p className="feedback">
                               <strong>Kapan dibedakan:</strong> buat category baru jika activity perlu grup listing, filter, atau pelaporan yang berbeda. Kalau hanya beda jam atau coach, biasanya tidak perlu category baru.
