@@ -27,7 +27,7 @@ import PtPage from './pages/PtPage.jsx';
 import { accountPath, getAllowedEnvironments, getSession } from './lib.js';
 import { getPassportSession } from './passport-client.js';
 import PageErrorBoundary from './components/PageErrorBoundary.jsx';
-import { getPublicHomePath, isPassportEventsEnabled } from './stage.js';
+import { getAppStage, getRootHomePath, isPassportEventsEnabled } from './stage.js';
 
 function roleHome(session) {
   const role = session?.role || 'admin';
@@ -131,7 +131,7 @@ function LegacyPtRedirect() {
 }
 
 function PassportProtectedRoute({ children }) {
-  if (!isPassportEventsEnabled()) return <Navigate to="/fitness" replace />;
+  if (!isPassportEventsEnabled()) return <Navigate to={getRootHomePath()} replace />;
   const location = useLocation();
   const session = getPassportSession();
   const authBase = location.pathname.startsWith('/passport') ? '/passport' : '/events';
@@ -142,7 +142,7 @@ function PassportProtectedRoute({ children }) {
 }
 
 function PassportRequireOnboarding({ children }) {
-  if (!isPassportEventsEnabled()) return <Navigate to="/fitness" replace />;
+  if (!isPassportEventsEnabled()) return <Navigate to={getRootHomePath()} replace />;
   const location = useLocation();
   const session = getPassportSession();
   const authBase = location.pathname.startsWith('/passport') ? '/passport' : '/events';
@@ -152,7 +152,7 @@ function PassportRequireOnboarding({ children }) {
 }
 
 function LegacyMemberPortalRedirect() {
-  if (!isPassportEventsEnabled()) return <Navigate to="/fitness" replace />;
+  if (!isPassportEventsEnabled()) return <Navigate to={getRootHomePath()} replace />;
   const { account } = useParams();
   const query = new URLSearchParams();
   if (account) query.set('account', account);
@@ -161,17 +161,18 @@ function LegacyMemberPortalRedirect() {
 }
 
 export default function App() {
+  const stage = getAppStage();
   const eventsEnabled = isPassportEventsEnabled();
-  const publicHome = getPublicHomePath();
+  const rootHome = getRootHomePath();
 
   return (
     <Routes>
-      <Route path="/" element={<Navigate to={publicHome} replace />} />
-      <Route path="/host" element={<WebLandingPage />} />
+      <Route path="/" element={<Navigate to={rootHome} replace />} />
+      <Route path="/host" element={stage <= 1 ? <Navigate to="/fitness" replace /> : <WebLandingPage />} />
       <Route path="/newevent" element={<Navigate to="/host" replace />} />
       <Route path="/web" element={<Navigate to="/host" replace />} />
-      <Route path="/events" element={eventsEnabled ? <PassportLandingPage /> : <Navigate to="/fitness" replace />} />
-      <Route path="/passport" element={eventsEnabled ? <PassportLandingPage /> : <Navigate to="/fitness" replace />} />
+      <Route path="/events" element={eventsEnabled ? <PassportLandingPage /> : <Navigate to={rootHome} replace />} />
+      <Route path="/passport" element={eventsEnabled ? <PassportLandingPage /> : <Navigate to={rootHome} replace />} />
       <Route
         path="/p/:account"
         element={
@@ -186,15 +187,15 @@ export default function App() {
             >
               <PassportPublicPage />
             </PageErrorBoundary>
-          ) : <Navigate to="/fitness" replace />
+          ) : <Navigate to={rootHome} replace />
         }
       />
-      <Route path="/events/signup" element={eventsEnabled ? <PassportSignUpPage /> : <Navigate to="/fitness" replace />} />
-      <Route path="/passport/signup" element={eventsEnabled ? <PassportSignUpPage /> : <Navigate to="/fitness" replace />} />
-      <Route path="/events/signin" element={eventsEnabled ? <PassportSignInPage /> : <Navigate to="/fitness" replace />} />
-      <Route path="/passport/signin" element={eventsEnabled ? <PassportSignInPage /> : <Navigate to="/fitness" replace />} />
-      <Route path="/events/forgot-password" element={eventsEnabled ? <ForgotPasswordPage /> : <Navigate to="/fitness" replace />} />
-      <Route path="/passport/forgot-password" element={eventsEnabled ? <ForgotPasswordPage /> : <Navigate to="/fitness" replace />} />
+      <Route path="/events/signup" element={eventsEnabled ? <PassportSignUpPage /> : <Navigate to={rootHome} replace />} />
+      <Route path="/passport/signup" element={eventsEnabled ? <PassportSignUpPage /> : <Navigate to={rootHome} replace />} />
+      <Route path="/events/signin" element={eventsEnabled ? <PassportSignInPage /> : <Navigate to={rootHome} replace />} />
+      <Route path="/passport/signin" element={eventsEnabled ? <PassportSignInPage /> : <Navigate to={rootHome} replace />} />
+      <Route path="/events/forgot-password" element={eventsEnabled ? <ForgotPasswordPage /> : <Navigate to={rootHome} replace />} />
+      <Route path="/passport/forgot-password" element={eventsEnabled ? <ForgotPasswordPage /> : <Navigate to={rootHome} replace />} />
       <Route
         path="/events/register"
         element={
@@ -208,7 +209,7 @@ export default function App() {
             >
               <EventCheckoutPage />
             </PageErrorBoundary>
-          ) : <Navigate to="/fitness" replace />
+          ) : <Navigate to={rootHome} replace />
         }
       />
       <Route
@@ -224,7 +225,7 @@ export default function App() {
             >
               <EventCheckoutPage />
             </PageErrorBoundary>
-          ) : <Navigate to="/fitness" replace />
+          ) : <Navigate to={rootHome} replace />
         }
       />
       <Route
@@ -240,7 +241,7 @@ export default function App() {
             >
               <EventCheckoutPage />
             </PageErrorBoundary>
-          ) : <Navigate to="/fitness" replace />
+          ) : <Navigate to={rootHome} replace />
         }
       />
       <Route
@@ -256,10 +257,10 @@ export default function App() {
             >
               <EventCheckoutPage />
             </PageErrorBoundary>
-          ) : <Navigate to="/fitness" replace />
+          ) : <Navigate to={rootHome} replace />
         }
       />
-      <Route path="/a/:account/events" element={eventsEnabled ? <PassportLandingPage /> : <Navigate to="/fitness" replace />} />
+      <Route path="/a/:account/events" element={eventsEnabled ? <PassportLandingPage /> : <Navigate to={rootHome} replace />} />
       <Route
         path="/events/onboarding"
         element={
@@ -446,7 +447,7 @@ export default function App() {
         path="/a/:account/member/portal"
         element={<LegacyMemberPortalRedirect />}
       />
-      <Route path="/member/portal" element={<Navigate to={eventsEnabled ? '/passport/dashboard' : '/fitness'} replace />} />
+      <Route path="/member/portal" element={<Navigate to={eventsEnabled ? '/passport/dashboard' : rootHome} replace />} />
 
       <Route path="/dashboard" element={<Navigate to={roleHome(getSession())} replace />} />
       <Route path="/dashboard/admin" element={<Navigate to={accountPath(getSession(), '/admin/dashboard')} replace />} />
@@ -454,7 +455,7 @@ export default function App() {
       <Route path="/sales" element={<Navigate to={accountPath(getSession(), '/sales/dashboard')} replace />} />
       <Route path="/pt" element={<Navigate to={accountPath(getSession(), '/pt/dashboard')} replace />} />
 
-      <Route path="*" element={<Navigate to={publicHome} replace />} />
+      <Route path="*" element={<Navigate to={rootHome} replace />} />
     </Routes>
   );
 }

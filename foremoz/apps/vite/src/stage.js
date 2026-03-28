@@ -25,6 +25,13 @@ export function isLanguageEnabled() {
   return getAppStage() >= 4;
 }
 
+export function getRootHomePath() {
+  const stage = getAppStage();
+  if (stage <= 1) return '/fitness';
+  if (stage === 2) return '/host';
+  return '/events';
+}
+
 export function getPublicHomePath() {
   return isPassportEventsEnabled() ? '/events' : '/fitness';
 }
