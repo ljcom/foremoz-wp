@@ -18,13 +18,13 @@ const PLANS = [
     key: 'free',
     name: 'Free',
     price: 'IDR 0 / bulan',
-    note: 'One-time event + check-in/check-out.'
+    note: 'Event sekali pakai + check-in/check-out.'
   },
   {
     key: 'starter',
     name: 'Starter',
     price: 'IDR 499.000 / bulan',
-    note: 'Event + program + CS + product + check-in/check-out.'
+    note: 'Event + program + CS + produk + check-in/check-out.'
   },
   {
     key: 'growth',
@@ -36,7 +36,7 @@ const PLANS = [
     key: 'multi_branch',
     name: 'Multi-branch',
     price: 'IDR 3.490.000 / bulan',
-    note: 'Growth + multi location operations.'
+    note: 'Growth + operasional multi lokasi.'
   },
   {
     key: 'enterprise',
@@ -106,12 +106,12 @@ function openDashboardInNewTab(accountSlug) {
 function formatActivationFeedback(result, fullName) {
   const safeName = String(fullName || '').trim() || 'user';
   if (result?.email_delivery?.sent) {
-    return `owner.user.created ${safeName}. Activation email sent.`;
+    return `User ${safeName} berhasil dibuat. Email aktivasi sudah dikirim.`;
   }
   if (result?.activation?.activation_url) {
-    return `owner.user.created ${safeName}. Email not sent from this server, gunakan activation link manual: ${result.activation.activation_url}`;
+    return `User ${safeName} berhasil dibuat. Email belum terkirim dari server ini, gunakan activation link manual: ${result.activation.activation_url}`;
   }
-  return `owner.user.created ${safeName}. Pending activation.`;
+  return `User ${safeName} berhasil dibuat dan menunggu aktivasi.`;
 }
 
 function sentenceCase(value) {
@@ -261,7 +261,7 @@ export default function WebOwnerPage() {
       setAiWorking(true);
       const keywordCandidates = buildBusinessImageKeywords();
       if (keywordCandidates.length === 0) {
-        throw new Error('Isi display name atau city dulu agar gambar bisnis bisa digenerate.');
+        throw new Error('Isi nama bisnis atau kota dulu agar gambar bisnis bisa digenerate.');
       }
       let keyword = keywordCandidates[0];
       let photos = [];
@@ -290,9 +290,9 @@ export default function WebOwnerPage() {
         ...prev,
         photo_url: nextPhotoUrl || prev.photo_url
       }));
-      setFeedback(`ai.assist: Business profile image diisi dari Pexels (${keyword}).`);
+      setFeedback(`AI Assist: gambar profil bisnis diisi dari Pexels (${keyword}).`);
     } catch (error) {
-      setFeedback(error.message || 'ai.assist: Gagal mengambil gambar business profile.');
+      setFeedback(error.message || 'AI Assist: gagal mengambil gambar profil bisnis.');
     } finally {
       setAiWorking(false);
     }
@@ -327,9 +327,9 @@ export default function WebOwnerPage() {
         throw new Error('Upload berhasil tapi URL gambar tidak tersedia.');
       }
       setSetupForm((prev) => ({ ...prev, photo_url: imageUrl }));
-      setFeedback('owner.image.uploaded: Business profile image berhasil diunggah ke S3.');
+      setFeedback('Gambar profil bisnis berhasil diunggah ke S3.');
     } catch (error) {
-      setFeedback(error.message || 'Gagal upload business profile image.');
+      setFeedback(error.message || 'Gagal upload gambar profil bisnis.');
     }
   }
 
@@ -504,9 +504,7 @@ export default function WebOwnerPage() {
 
       await persistSetup(payload);
       await refreshOwnerData(payload.tenant_id);
-      setFeedback(
-        `owner.setup.saved package ${payload.package_plan} namespace foremoz:${payload.tenant_id} chain branch:${payload.branch_id}`
-      );
+      setFeedback(`Setup owner berhasil disimpan. Paket aktif: ${payload.package_plan}.`);
       setMenu('profile');
       navigate('/host/owner', { replace: true });
     } catch (error) {
@@ -535,7 +533,7 @@ export default function WebOwnerPage() {
       };
       await persistSetup(payload);
       await refreshOwnerData(payload.tenant_id);
-      setFeedback(`owner.setup.updated gym_name ${payload.gym_name}`);
+      setFeedback(`Profil bisnis berhasil diperbarui: ${payload.gym_name}`);
     } catch (error) {
       setFeedback(error.message);
     } finally {
@@ -578,7 +576,7 @@ export default function WebOwnerPage() {
       });
       setBranchMode('list');
       await refreshOwnerData(setupForm.tenant_id || tenantSeed);
-      setFeedback(`owner.branch.created ${branchId} -> /a/${derivedSlug}`);
+      setFeedback(`Cabang berhasil dibuat: ${branchId} -> /a/${derivedSlug}`);
     } catch (error) {
       setFeedback(error.message);
     } finally {
@@ -639,7 +637,7 @@ export default function WebOwnerPage() {
       setBranchMode('list');
       setEditingBranchId('');
       await refreshOwnerData(setupForm.tenant_id || tenantSeed);
-      setFeedback(`owner.branch.updated ${branchId}`);
+      setFeedback(`Cabang berhasil diperbarui: ${branchId}`);
     } catch (error) {
       setFeedback(error.message);
     } finally {
@@ -650,7 +648,7 @@ export default function WebOwnerPage() {
   async function deactivateBranch(row) {
     const branchId = String(row?.branch_id || '').trim().toLowerCase();
     if (!branchId) return;
-    const confirmed = window.confirm(`Deactivate branch "${branchId}"? Branch tidak akan muncul di URL publik.`);
+    const confirmed = window.confirm(`Nonaktifkan cabang "${branchId}"? Cabang tidak akan muncul di URL publik.`);
     if (!confirmed) return;
     try {
       setLoading(true);
@@ -661,7 +659,7 @@ export default function WebOwnerPage() {
         })
       });
       await refreshOwnerData(setupForm.tenant_id || tenantSeed);
-      setFeedback(`owner.branch.deactivated ${branchId}`);
+      setFeedback(`Cabang dinonaktifkan: ${branchId}`);
     } catch (error) {
       setFeedback(error.message);
     } finally {
@@ -681,7 +679,7 @@ export default function WebOwnerPage() {
         })
       });
       await refreshOwnerData(setupForm.tenant_id || tenantSeed);
-      setFeedback(`owner.branch.reactivated ${branchId}`);
+      setFeedback(`Cabang diaktifkan lagi: ${branchId}`);
     } catch (error) {
       setFeedback(error.message);
     } finally {
@@ -705,7 +703,7 @@ export default function WebOwnerPage() {
           note: saasForm.note
         })
       });
-      setFeedback(`owner.saas.extended +${saasForm.months} month(s)`);
+      setFeedback(`Masa aktif paket berhasil ditambah ${saasForm.months} bulan.`);
       setSaasForm({ months: '1', note: '' });
       await refreshOwnerData(setupForm.tenant_id || tenantSeed);
     } catch (error) {
@@ -736,7 +734,7 @@ export default function WebOwnerPage() {
       };
       await persistSetup(payload);
       await refreshOwnerData(payload.tenant_id);
-      setFeedback(`owner.package.changed ${payload.package_plan}`);
+      setFeedback(`Paket berhasil diganti ke ${payload.package_plan}.`);
     } catch (error) {
       setFeedback(error.message);
     } finally {
@@ -746,7 +744,7 @@ export default function WebOwnerPage() {
 
   function sendEnterpriseRequest() {
     if (!enterpriseRequest.requester_name || !enterpriseRequest.requester_email || !enterpriseRequest.requirement) {
-      setFeedback('Lengkapi requester_name, requester_email, dan requirement.');
+      setFeedback('Lengkapi nama PIC, email PIC, dan kebutuhan enterprise.');
       return;
     }
 
@@ -768,7 +766,7 @@ export default function WebOwnerPage() {
 
     const mailto = `mailto:${ENTERPRISE_REQUEST_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     window.location.href = mailto;
-    setFeedback(`enterprise.request.sent to ${ENTERPRISE_REQUEST_EMAIL}`);
+    setFeedback(`Request enterprise berhasil dikirim ke ${ENTERPRISE_REQUEST_EMAIL}.`);
   }
 
   async function activateStarterTrialFromAddUser() {
@@ -918,7 +916,7 @@ export default function WebOwnerPage() {
         })
       });
       setEditingUserId('');
-      setFeedback(`owner.user.updated ${userId}`);
+      setFeedback(`User berhasil diperbarui: ${userId}`);
       await refreshOwnerData(setupForm.tenant_id || tenantSeed);
     } catch (error) {
       setFeedback(error.message);
@@ -939,7 +937,7 @@ export default function WebOwnerPage() {
       await apiJson(`/v1/owner/users/${encodeURIComponent(userId)}?tenant_id=${encodeURIComponent(setupForm.tenant_id || tenantSeed)}`, {
         method: 'DELETE'
       });
-      setFeedback(`owner.user.deleted ${userId}`);
+      setFeedback(`User berhasil dihapus: ${userId}`);
       await refreshOwnerData(setupForm.tenant_id || tenantSeed);
     } catch (error) {
       setFeedback(error.message);
@@ -962,11 +960,11 @@ export default function WebOwnerPage() {
         setFeedback(`Akun ${user.email} sudah aktif.`);
       } else {
         if (result?.email_delivery?.sent) {
-          setFeedback(`Activation email dikirim ulang ke ${user.email}.`);
+          setFeedback(`Email aktivasi berhasil dikirim ulang ke ${user.email}.`);
         } else if (result?.activation?.activation_url) {
           setFeedback(`Email belum terkirim dari server ini. Gunakan activation link manual: ${result.activation.activation_url}`);
         } else {
-          setFeedback(`Activation user ${user.email} sudah di-refresh.`);
+          setFeedback(`Status aktivasi user ${user.email} berhasil di-refresh.`);
         }
       }
       await refreshOwnerData(setupForm.tenant_id || tenantSeed);
@@ -996,7 +994,7 @@ export default function WebOwnerPage() {
       });
       clearSession();
       setOwnerSetup(null);
-      setFeedback(`owner.account.deleted ${tenantId}`);
+      setFeedback(`Akun tenant berhasil dihapus permanen: ${tenantId}`);
       navigate('/host', { replace: true });
     } catch (error) {
       setFeedback(error.message);
@@ -1009,12 +1007,12 @@ export default function WebOwnerPage() {
     <main className="dashboard">
       <header className="dash-head card">
         <div>
-          <p className="eyebrow">Web Owner</p>
-          <h1>{isSetupReady ? 'Owner control panel' : 'Owner setup'}</h1>
+          <p className="eyebrow">Panel Owner</p>
+          <h1>{isSetupReady ? 'Panel kontrol owner' : 'Setup owner'}</h1>
           <p>
             {isSetupReady
-              ? 'Kelola tenant per topik: profile, package, dan user.'
-              : 'Lengkapi nama bisnis/organisasi dan slug akun sebelum masuk control panel.'}
+              ? 'Kelola tenant per topik: profil, paket, cabang, dan user.'
+              : 'Lengkapi nama bisnis/organisasi dan slug akun sebelum masuk panel kontrol.'}
           </p>
         </div>
         <div className="meta">
@@ -1023,10 +1021,10 @@ export default function WebOwnerPage() {
               className="btn ghost"
               onClick={() => openDashboardInNewTab(setupForm.account_slug)}
             >
-              Jump to dashboard
+              Buka dashboard
             </button>
           ) : null}
-          <button className="btn ghost" onClick={signOut}>Sign out</button>
+          <button className="btn ghost" onClick={signOut}>Keluar</button>
         </div>
       </header>
 
@@ -1039,7 +1037,7 @@ export default function WebOwnerPage() {
 
           {step === 1 ? (
             <div>
-              <p className="eyebrow">Step 1</p>
+              <p className="eyebrow">Langkah 1</p>
               <h2>Profil tenant</h2>
               <form
                 className="form"
@@ -1057,7 +1055,7 @@ export default function WebOwnerPage() {
                   />
                 </label>
                 <label>
-                  Industry
+                  Industri
                   <select
                     value={setupForm.industry_slug}
                     onChange={(e) => setSetupForm((p) => ({ ...p, industry_slug: e.target.value }))}
@@ -1070,7 +1068,7 @@ export default function WebOwnerPage() {
                   </select>
                 </label>
                 <label>
-                  Account slug
+                  Slug akun
                   <input
                     placeholder="contoh: foremoz-cilandak"
                     value={setupForm.account_slug}
@@ -1082,7 +1080,7 @@ export default function WebOwnerPage() {
             </div>
           ) : (
             <form className="form" onSubmit={submitWizard}>
-              <p className="eyebrow">Step 2</p>
+              <p className="eyebrow">Langkah 2</p>
               <h2>Pilih paket</h2>
               <div className="plan-grid">
                 {PLANS.map((plan) => (
@@ -1100,16 +1098,16 @@ export default function WebOwnerPage() {
               </div>
               {setupForm.package_plan === 'enterprise' ? (
                 <>
-                  <p className="eyebrow">Enterprise Request Form</p>
+                  <p className="eyebrow">Form request enterprise</p>
                   <label>
-                    requester_name
+                    Nama PIC
                     <input
                       value={enterpriseRequest.requester_name}
                       onChange={(e) => setEnterpriseRequest((p) => ({ ...p, requester_name: e.target.value }))}
                     />
                   </label>
                   <label>
-                    requester_email
+                    Email PIC
                     <input
                       type="email"
                       value={enterpriseRequest.requester_email}
@@ -1117,21 +1115,21 @@ export default function WebOwnerPage() {
                     />
                   </label>
                   <label>
-                    phone
+                    No. telepon
                     <input
                       value={enterpriseRequest.phone}
                       onChange={(e) => setEnterpriseRequest((p) => ({ ...p, phone: e.target.value }))}
                     />
                   </label>
                   <label>
-                    company_name
+                    Nama perusahaan
                     <input
                       value={enterpriseRequest.company_name}
                       onChange={(e) => setEnterpriseRequest((p) => ({ ...p, company_name: e.target.value }))}
                     />
                   </label>
                   <label>
-                    location_count
+                    Jumlah lokasi
                     <input
                       type="number"
                       min="1"
@@ -1140,7 +1138,7 @@ export default function WebOwnerPage() {
                     />
                   </label>
                   <label>
-                    requirement
+                    Kebutuhan
                     <textarea
                       rows={4}
                       value={enterpriseRequest.requirement}
@@ -1165,9 +1163,9 @@ export default function WebOwnerPage() {
       ) : (
         <section className="workspace" style={{ marginTop: '1rem' }}>
           <aside className="sidebar card">
-            <p className="eyebrow">Owner Menu</p>
+            <p className="eyebrow">Menu owner</p>
             <button className={`side-item ${menu === 'profile' ? 'active' : ''}`} onClick={() => setMenu('profile')}>
-              Business profile
+              Profil bisnis
             </button>
             <button
               className={`side-item ${menu === 'branch' ? 'active' : ''}`}
@@ -1176,7 +1174,7 @@ export default function WebOwnerPage() {
                 setBranchMode('list');
               }}
             >
-              Branch
+              Cabang
             </button>
             <button className={`side-item ${menu === 'package' ? 'active' : ''}`} onClick={() => setMenu('package')}>
               Paket dan SaaS
@@ -1188,33 +1186,33 @@ export default function WebOwnerPage() {
                 setUserMode('list');
               }}
             >
-              User access
+              Akses user
             </button>
             <button className={`side-item ${menu === 'danger' ? 'active' : ''}`} onClick={() => setMenu('danger')}>
-              Danger zone
+              Zona bahaya
             </button>
           </aside>
 
           <article className="card admin-panel" style={{ flex: 1 }}>
             {menu === 'profile' ? (
               <>
-                <p className="eyebrow">Business Profile</p>
+                <p className="eyebrow">Profil bisnis</p>
                 <h2>Perbarui nama bisnis / organisasi</h2>
                 <form className="form" onSubmit={submitRenameGym}>
                   <label>
-                    display_name
+                    Nama bisnis / organisasi
                     <input value={setupForm.gym_name} onChange={(e) => setSetupForm((p) => ({ ...p, gym_name: e.target.value }))} />
                   </label>
                   <label>
-                    address
+                    Alamat
                     <input value={setupForm.address} onChange={(e) => setSetupForm((p) => ({ ...p, address: e.target.value }))} />
                   </label>
                   <label>
-                    city
+                    Kota
                     <input value={setupForm.city} onChange={(e) => setSetupForm((p) => ({ ...p, city: e.target.value }))} />
                   </label>
                   <label>
-                    photo_url
+                    URL foto
                     <input
                       type="url"
                       placeholder="https://..."
@@ -1228,7 +1226,7 @@ export default function WebOwnerPage() {
                       type="button"
                       onClick={() => businessImageInputRef.current?.click()}
                     >
-                      Upload Image
+                      Upload gambar
                     </button>
                     <input
                       ref={businessImageInputRef}
@@ -1249,14 +1247,14 @@ export default function WebOwnerPage() {
                       disabled={aiWorking}
                       onClick={aiFillBusinessGallery}
                     >
-                      AI Fill Gallery
+                      AI cari gambar
                     </button>
                   </div>
                   {setupForm.photo_url ? (
                     <div className="photo-preview-box">
                       <img
                         src={setupForm.photo_url}
-                        alt="Business preview"
+                        alt="Preview bisnis"
                         className="photo-preview-image"
                         onError={(e) => {
                           e.currentTarget.style.display = 'none';
@@ -1265,11 +1263,11 @@ export default function WebOwnerPage() {
                     </div>
                   ) : null}
                   <label>
-                    account_slug (read only)
+                    Slug akun (read only)
                     <input value={setupForm.account_slug} disabled readOnly />
                   </label>
                   <div className="member-actions">
-                    <button className="btn" type="submit" disabled={loading}>Save profile</button>
+                    <button className="btn" type="submit" disabled={loading}>Simpan profil</button>
                   </div>
                 </form>
               </>
@@ -1277,11 +1275,11 @@ export default function WebOwnerPage() {
 
             {menu === 'branch' ? (
               <>
-                <p className="eyebrow">Branch</p>
+                <p className="eyebrow">Cabang</p>
                 {branchMode === 'list' ? (
                   <>
                     <div className="panel-head">
-                      <h2>Branch list</h2>
+                      <h2>Daftar cabang</h2>
                       <div style={{ display: 'flex', gap: '0.5rem' }}>
                         <select
                           value={branchStatusFilter}
@@ -1289,12 +1287,12 @@ export default function WebOwnerPage() {
                           disabled={loading}
                           aria-label="branch status filter"
                         >
-                          <option value="active">Status: Active</option>
-                          <option value="all">Status: All</option>
-                          <option value="inactive">Status: Inactive</option>
+                          <option value="active">Status: Aktif</option>
+                          <option value="all">Status: Semua</option>
+                          <option value="inactive">Status: Nonaktif</option>
                         </select>
                         <button className="btn" type="button" onClick={openAddBranchForm} disabled={loading}>
-                          Add branch
+                          Tambah cabang
                         </button>
                       </div>
                     </div>
@@ -1308,7 +1306,7 @@ export default function WebOwnerPage() {
                           <div>
                             <strong>{row.branch_name || row.branch_id}</strong>
                             <p>
-                              {row.branch_id} - /a/{row.account_slug} {row.is_primary ? '(Primary)' : ''} [{row.status || 'active'}]
+                              {row.branch_id} - /a/{row.account_slug} {row.is_primary ? '(Utama)' : ''} [{row.status || 'active'}]
                             </p>
                           </div>
                           <div style={{ display: 'flex', gap: '0.5rem' }}>
@@ -1319,19 +1317,19 @@ export default function WebOwnerPage() {
                             ) : null}
                             {!row.is_primary && String(row.status || '').toLowerCase() === 'active' ? (
                               <button className="btn ghost" type="button" onClick={() => deactivateBranch(row)} disabled={loading}>
-                                Deactivate
+                                Nonaktifkan
                               </button>
                             ) : null}
                             {!row.is_primary && String(row.status || '').toLowerCase() === 'inactive' ? (
                               <button className="btn ghost" type="button" onClick={() => reactivateBranch(row)} disabled={loading}>
-                                Reactivate
+                                Aktifkan lagi
                               </button>
                             ) : null}
                             <a className="btn ghost" href={`/a/${row.account_slug}`} target="_blank" rel="noreferrer">
-                              Open public
+                              Buka publik
                             </a>
                             <a className="btn ghost" href={`/a/${row.account_slug}/admin/dashboard`} target="_blank" rel="noreferrer">
-                              Open dashboard
+                              Buka dashboard
                             </a>
                           </div>
                         </div>
@@ -1341,13 +1339,13 @@ export default function WebOwnerPage() {
                 ) : branchMode === 'add' ? (
                   <form className="form" onSubmit={submitBranch}>
                     <div className="panel-head">
-                      <h2>Add branch</h2>
+                      <h2>Tambah cabang</h2>
                       <button className="btn ghost" type="button" onClick={() => setBranchMode('list')} disabled={loading}>
-                        Back to list
+                        Kembali ke daftar
                       </button>
                     </div>
                     <label>
-                      branch_id
+                      ID cabang
                       <input
                         value={branchForm.branch_id}
                         onChange={(e) => setBranchForm((p) => ({ ...p, branch_id: String(e.target.value || '').trim().toLowerCase() }))}
@@ -1355,7 +1353,7 @@ export default function WebOwnerPage() {
                       />
                     </label>
                     <label>
-                      branch_name
+                      Nama cabang
                       <input
                         value={branchForm.branch_name}
                         onChange={(e) => setBranchForm((p) => ({ ...p, branch_name: e.target.value }))}
@@ -1363,7 +1361,7 @@ export default function WebOwnerPage() {
                       />
                     </label>
                     <label>
-                      branch_account_slug
+                      Slug akun cabang
                       <input
                         value={branchForm.account_slug}
                         onChange={(e) => setBranchForm((p) => ({ ...p, account_slug: normalizeSlug(e.target.value) }))}
@@ -1371,7 +1369,7 @@ export default function WebOwnerPage() {
                       />
                     </label>
                     <label>
-                      address
+                      Alamat
                       <input
                         value={branchForm.address}
                         onChange={(e) => setBranchForm((p) => ({ ...p, address: e.target.value }))}
@@ -1379,7 +1377,7 @@ export default function WebOwnerPage() {
                       />
                     </label>
                     <label>
-                      city
+                      Kota
                       <input
                         value={branchForm.city}
                         onChange={(e) => setBranchForm((p) => ({ ...p, city: e.target.value }))}
@@ -1387,7 +1385,7 @@ export default function WebOwnerPage() {
                       />
                     </label>
                     <label>
-                      photo_url
+                      URL foto
                       <input
                         type="url"
                         value={branchForm.photo_url}
@@ -1399,51 +1397,51 @@ export default function WebOwnerPage() {
                       URL branch: /a/{normalizeSlug((branchForm.account_slug || branchForm.branch_id || '').replace(/_/g, '-')) || '-'}
                     </p>
                     <button className="btn" type="submit" disabled={loading}>
-                      Add branch
+                      Simpan cabang
                     </button>
                   </form>
                 ) : (
                   <form className="form" onSubmit={submitEditBranch}>
                     <div className="panel-head">
-                      <h2>Edit branch</h2>
+                      <h2>Edit cabang</h2>
                       <button className="btn ghost" type="button" onClick={() => setBranchMode('list')} disabled={loading}>
-                        Back to list
+                        Kembali ke daftar
                       </button>
                     </div>
                     <label>
-                      branch_id (read only)
+                      ID cabang (read only)
                       <input value={branchForm.branch_id} disabled readOnly />
                     </label>
                     <label>
-                      branch_name
+                      Nama cabang
                       <input
                         value={branchForm.branch_name}
                         onChange={(e) => setBranchForm((p) => ({ ...p, branch_name: e.target.value }))}
                       />
                     </label>
                     <label>
-                      branch_account_slug
+                      Slug akun cabang
                       <input
                         value={branchForm.account_slug}
                         onChange={(e) => setBranchForm((p) => ({ ...p, account_slug: normalizeSlug(e.target.value) }))}
                       />
                     </label>
                     <label>
-                      address
+                      Alamat
                       <input
                         value={branchForm.address}
                         onChange={(e) => setBranchForm((p) => ({ ...p, address: e.target.value }))}
                       />
                     </label>
                     <label>
-                      city
+                      Kota
                       <input
                         value={branchForm.city}
                         onChange={(e) => setBranchForm((p) => ({ ...p, city: e.target.value }))}
                       />
                     </label>
                     <label>
-                      photo_url
+                      URL foto
                       <input
                         type="url"
                         value={branchForm.photo_url}
@@ -1452,7 +1450,7 @@ export default function WebOwnerPage() {
                       />
                     </label>
                     <button className="btn" type="submit" disabled={loading}>
-                      Save branch
+                      Simpan cabang
                     </button>
                   </form>
                 )}
@@ -1463,8 +1461,8 @@ export default function WebOwnerPage() {
               <>
                 <p className="eyebrow">Paket dan SaaS</p>
                 <h2>Paket</h2>
-                {saasInfo ? <p className="feedback">Total extended months: {saasInfo.total_months || 0}</p> : null}
-                <p className="muted">Current package: {setupForm.package_plan}</p>
+                {saasInfo ? <p className="feedback">Total bulan aktif tambahan: {saasInfo.total_months || 0}</p> : null}
+                <p className="muted">Paket aktif saat ini: {setupForm.package_plan}</p>
                 {setupForm.package_plan === 'free' ? (
                   <p className="feedback">
                     Paket free aktif, jadi tidak perlu perpanjangan.
@@ -1472,7 +1470,7 @@ export default function WebOwnerPage() {
                 ) : (
                   <form className="form" onSubmit={submitSaas}>
                     <label>
-                      tambah_bulan
+                      Tambah bulan
                       <select value={saasForm.months} onChange={(e) => setSaasForm((p) => ({ ...p, months: e.target.value }))}>
                         <option value="1">1</option>
                         <option value="3">3</option>
@@ -1481,7 +1479,7 @@ export default function WebOwnerPage() {
                       </select>
                     </label>
                     <label>
-                      note
+                      Catatan
                       <input value={saasForm.note} onChange={(e) => setSaasForm((p) => ({ ...p, note: e.target.value }))} />
                     </label>
                     <p className="feedback">
@@ -1491,7 +1489,7 @@ export default function WebOwnerPage() {
                   </form>
                 )}
                 <form className="form" onSubmit={changePackage}>
-                  <p className="eyebrow">Change package</p>
+                  <p className="eyebrow">Ganti paket</p>
                   <div className="plan-grid">
                     {PLANS.map((plan) => (
                       <button
@@ -1508,16 +1506,16 @@ export default function WebOwnerPage() {
                   </div>
                   {setupForm.package_plan === 'enterprise' ? (
                     <>
-                      <p className="eyebrow">Enterprise Request Form</p>
+                      <p className="eyebrow">Form request enterprise</p>
                       <label>
-                        requester_name
+                        Nama PIC
                         <input
                           value={enterpriseRequest.requester_name}
                           onChange={(e) => setEnterpriseRequest((p) => ({ ...p, requester_name: e.target.value }))}
                         />
                       </label>
                       <label>
-                        requester_email
+                        Email PIC
                         <input
                           type="email"
                           value={enterpriseRequest.requester_email}
@@ -1525,21 +1523,21 @@ export default function WebOwnerPage() {
                         />
                       </label>
                       <label>
-                        phone
+                        No. telepon
                         <input
                           value={enterpriseRequest.phone}
                           onChange={(e) => setEnterpriseRequest((p) => ({ ...p, phone: e.target.value }))}
                         />
                       </label>
                       <label>
-                        company_name
+                        Nama perusahaan
                         <input
                           value={enterpriseRequest.company_name}
                           onChange={(e) => setEnterpriseRequest((p) => ({ ...p, company_name: e.target.value }))}
                         />
                       </label>
                       <label>
-                        location_count
+                        Jumlah lokasi
                         <input
                           type="number"
                           min="1"
@@ -1548,7 +1546,7 @@ export default function WebOwnerPage() {
                         />
                       </label>
                       <label>
-                        requirement
+                        Kebutuhan
                         <textarea
                           rows={4}
                           value={enterpriseRequest.requirement}
@@ -1564,7 +1562,7 @@ export default function WebOwnerPage() {
                       <p className="feedback">
                         Harga paket terpilih: {formatIdr(selectedPlanMonthlyPrice)} / bulan
                       </p>
-                      <button className="btn" type="submit" disabled={loading}>Change paket</button>
+                      <button className="btn" type="submit" disabled={loading}>Ganti paket</button>
                     </>
                   )}
                 </form>
@@ -1573,11 +1571,11 @@ export default function WebOwnerPage() {
 
             {menu === 'users' ? (
               <>
-                <p className="eyebrow">User access</p>
+                <p className="eyebrow">Akses user</p>
                 {userMode === 'list' ? (
                   <>
                     <div className="panel-head">
-                      <h2>Add/edit/delete user</h2>
+                      <h2>Kelola user</h2>
                       <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginLeft: 'auto' }}>
                         <button
                           className="btn"
@@ -1585,7 +1583,7 @@ export default function WebOwnerPage() {
                           onClick={() => openPresetAddUser('cs')}
                           disabled={loading}
                         >
-                          Add CS
+                          Tambah CS
                         </button>
                         <button
                           className="btn ghost"
@@ -1593,7 +1591,7 @@ export default function WebOwnerPage() {
                           onClick={() => openPresetAddUser('pt')}
                           disabled={loading}
                         >
-                          {`Add ${creatorLabel}`}
+                          {`Tambah ${creatorLabel}`}
                         </button>
                         <button
                           className="btn ghost"
@@ -1601,7 +1599,7 @@ export default function WebOwnerPage() {
                           onClick={() => openPresetAddUser('sales')}
                           disabled={loading}
                         >
-                          Add Influencer/Sales
+                          Tambah Influencer / Sales
                         </button>
                       </div>
                     </div>
@@ -1632,11 +1630,11 @@ export default function WebOwnerPage() {
                           <div style={{ display: 'flex', gap: '0.5rem' }}>
                             {editingUserId !== u.user_id && String(u.status || '').trim().toLowerCase() === 'pending_activation' ? (
                               <button className="btn ghost" onClick={() => resendUserActivation(u)} disabled={loading}>
-                                Resend activation
+                                Kirim ulang aktivasi
                               </button>
                             ) : null}
                             {editingUserId === u.user_id ? (
-                              <button className="btn" onClick={() => saveEditUser(u.user_id)} disabled={loading}>Save</button>
+                              <button className="btn" onClick={() => saveEditUser(u.user_id)} disabled={loading}>Simpan</button>
                             ) : (
                               <button className="btn ghost" onClick={() => startEditUser(u)} disabled={loading}>Edit</button>
                             )}
@@ -1646,7 +1644,7 @@ export default function WebOwnerPage() {
                               disabled={loading || String(u.role || '').trim().toLowerCase() === 'owner'}
                               title={String(u.role || '').trim().toLowerCase() === 'owner' ? 'Owner tidak bisa dihapus' : ''}
                             >
-                              Delete
+                              Hapus
                             </button>
                           </div>
                         </div>
@@ -1656,29 +1654,29 @@ export default function WebOwnerPage() {
                 ) : (
                   <>
                     <div className="panel-head">
-                      <h2>{`Add ${addUserRoleLabel}`}</h2>
+                      <h2>{`Tambah ${addUserRoleLabel}`}</h2>
                       <button className="btn ghost" type="button" onClick={() => setUserMode('list')} disabled={loading}>
-                        Back to list
+                        Kembali ke daftar
                       </button>
                     </div>
                     <form className="form" autoComplete="off" onSubmit={submitUser}>
                       <p className="mini-note">User baru akan masuk status pending activation sampai verifikasi email selesai.</p>
                       <label>
-                        full_name
+                        Nama lengkap
                         <input value={userForm.full_name} onChange={(e) => setUserForm((p) => ({ ...p, full_name: e.target.value }))} />
                       </label>
                       <label>
-                        email
+                        Email
                         <input type="email" value={userForm.email} onChange={(e) => setUserForm((p) => ({ ...p, email: e.target.value }))} />
                       </label>
                       <label>
-                        password
+                        Password sementara
                         <input type="password" value={userForm.password} onChange={(e) => setUserForm((p) => ({ ...p, password: e.target.value }))} />
                       </label>
                       <p className="mini-note">
                         Role user: {String(userForm.role || newUserRolePreset || '-').toUpperCase()}
                       </p>
-                      <button className="btn" type="submit" disabled={loading}>Add user</button>
+                      <button className="btn" type="submit" disabled={loading}>Tambah user</button>
                     </form>
                   </>
                 )}
@@ -1687,14 +1685,14 @@ export default function WebOwnerPage() {
 
             {menu === 'danger' ? (
               <>
-                <p className="eyebrow">Danger zone</p>
-                <h2>Delete account permanently</h2>
+                <p className="eyebrow">Zona bahaya</p>
+                <h2>Hapus akun permanen</h2>
                 <p className="error">
                   Ini akan menghapus seluruh data tenant (event stream + read model) dan tidak bisa di-undo.
                 </p>
                 <form className="form" onSubmit={deleteAccountPermanently}>
                   <label>
-                    Type exactly: DELETE {setupForm.tenant_id || tenantSeed}
+                    Ketik persis: DELETE {setupForm.tenant_id || tenantSeed}
                     <input
                       value={dangerConfirm}
                       onChange={(e) => setDangerConfirm(e.target.value)}
@@ -1702,7 +1700,7 @@ export default function WebOwnerPage() {
                     />
                   </label>
                   <button className="btn ghost" type="submit" disabled={loading}>
-                    Delete account permanently
+                    Hapus akun permanen
                   </button>
                 </form>
               </>
@@ -1714,7 +1712,7 @@ export default function WebOwnerPage() {
       {feedback ? <p className="feedback">{feedback}</p> : null}
 
       <footer className="dash-foot">
-        <Link to="/host">Back to host landing</Link>
+        <Link to="/host">Kembali ke halaman host</Link>
       </footer>
     </main>
   );
