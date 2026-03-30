@@ -25,12 +25,15 @@
       ]
     },
     "tag": {
-      "definition": "Flexible secondary label used for search, discovery, and lightweight filtering.",
+      "definition": "Flexible free-type secondary label used mainly for SEO, search, discovery, and lightweight filtering.",
       "characteristics": [
         "many",
         "optional",
         "contextual",
-        "more flexible than category"
+        "more flexible than category",
+        "free_type",
+        "seo_oriented",
+        "not_operational"
       ],
       "should_be": [
         "marketing label",
@@ -42,7 +45,9 @@
       "should_not_be": [
         "primary business type",
         "replacement for division",
-        "replacement for schedule rundown"
+        "replacement for schedule rundown",
+        "source of award logic",
+        "source of quota or pricing logic"
       ]
     },
     "division": {
@@ -83,7 +88,8 @@
     "recommended_model": "hybrid",
     "rules": [
       "Category should come from a managed master list.",
-      "Tag may stay flexible and multi-value.",
+      "Tag should stay free-type and multi-value.",
+      "Tag is intended for SEO, search, and discovery, not for business logic.",
       "Division should live in its own tab or dedicated structure.",
       "Session should live in schedule or rundown, not in category."
     ]
@@ -91,7 +97,9 @@
   "event": {
     "primary_category_model": {
       "allow_single_primary_category": true,
-      "allow_additional_tags": true
+      "allow_additional_tags": true,
+      "tag_input_type": "free_type",
+      "tag_purpose": ["seo", "search", "discovery"]
     },
     "master_categories": [
       {
@@ -169,7 +177,9 @@
   "class": {
     "primary_category_model": {
       "allow_single_primary_category": true,
-      "allow_additional_tags": true
+      "allow_additional_tags": true,
+      "tag_input_type": "free_type",
+      "tag_purpose": ["seo", "search", "discovery"]
     },
     "master_categories": [
       {
@@ -244,7 +254,7 @@
       "use": "category"
     },
     {
-      "question": "Is this only a supporting search/filter label?",
+      "question": "Is this only a supporting SEO, search, or discovery label?",
       "use": "tag"
     },
     {
