@@ -6203,7 +6203,6 @@ export default function AdminPage() {
                             <div className="card" style={{ borderStyle: 'dashed' }}>
                               <p className="eyebrow">Panduan cepat</p>
                               <p className="feedback"><strong>Deskripsi:</strong> {classFieldGuide.classType}</p>
-                              <p className="feedback"><strong>Validity mode:</strong> {classFieldGuide.validityMode}</p>
                               <p className="feedback"><strong>Quota / capacity:</strong> {classFieldGuide.capacityMode}</p>
                               <p className="feedback"><strong>Quota detail:</strong> {classFieldGuide.quotaMode}</p>
                               <p className="feedback"><strong>Pola rekomendasi:</strong> {classFieldGuide.recommendedPattern}</p>
@@ -6308,12 +6307,6 @@ export default function AdminPage() {
                           </>
                         ) : (
                           <>
-                            <label>Validity mode<select value={classForm.validity_mode} onChange={(e) => setClassForm((p) => ({ ...p, validity_mode: e.target.value }))}><option value="per_enrollment">per_enrollment</option><option value="rolling">rolling</option><option value="fixed">fixed</option></select></label>
-                            <p className="feedback">
-                              Validity mode: `per_enrollment` = masa aktif dihitung per user saat beli/aktivasi, contoh Gym Access 30 Hari per member.
-                              `rolling` = mirip berjalan dari anchor tertentu seperti payment/activation.
-                              `fixed` = semua user ikut periode master yang sama, contoh akses hanya untuk April 2026.
-                            </p>
                             <label>Capacity mode<select value={classForm.capacity_mode} onChange={(e) => setClassForm((p) => ({ ...p, capacity_mode: e.target.value }))}><option value="none">none</option><option value="limited">limited</option><option value="flexible">flexible</option></select></label>
                             <p className="feedback">
                               Capacity mode: `none` = tidak ada batas peserta/holder.
