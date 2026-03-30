@@ -609,16 +609,18 @@ export default function PassportLandingPage() {
                   {joinedEventIds.includes(String(event.event_id || '')) ? (
                     <span className="passport-live-badge joined">{copy.joined}</span>
                   ) : (
-                    <Link
-                      className="btn ghost small"
-                      to={event.event_id
-                        ? (event.account_slug
-                          ? `/a/${encodeURIComponent(event.account_slug)}/e/${encodeURIComponent(event.event_id)}`
-                          : `${registerBase}?event=${encodeURIComponent(event.event_id)}`)
-                        : registerBase}
-                    >
-                      {copy.register}
-                    </Link>
+                    <div style={{ marginTop: '1.25rem' }}>
+                      <Link
+                        className="btn ghost small"
+                        to={event.event_id
+                          ? (event.account_slug
+                            ? `/a/${encodeURIComponent(event.account_slug)}/e/${encodeURIComponent(event.event_id)}`
+                            : `${registerBase}?event=${encodeURIComponent(event.event_id)}`)
+                          : registerBase}
+                      >
+                        {copy.register}
+                      </Link>
+                    </div>
                   )}
                 </article>
               ))}
@@ -658,16 +660,18 @@ export default function PassportLandingPage() {
                   <p className="passport-live-host">{event.host}</p>
                   <p className="passport-live-host">{copy.organizer}: {event.organizer || copy.organizerFallback}</p>
                   <p className="passport-live-time">{event.time}</p>
-                  <Link
-                    className="btn ghost small"
-                    to={event.event_id
-                      ? (event.account_slug
-                        ? `/a/${encodeURIComponent(event.account_slug)}/e/${encodeURIComponent(event.event_id)}`
-                        : `${registerBase}?event=${encodeURIComponent(event.event_id)}`)
-                      : registerBase}
-                  >
-                    {copy.openEvent}
-                  </Link>
+                  <div style={{ marginTop: '1.25rem' }}>
+                    <Link
+                      className="btn ghost small"
+                      to={event.event_id
+                        ? (event.account_slug
+                          ? `/a/${encodeURIComponent(event.account_slug)}/e/${encodeURIComponent(event.event_id)}`
+                          : `${registerBase}?event=${encodeURIComponent(event.event_id)}`)
+                        : registerBase}
+                    >
+                      {copy.openEvent}
+                    </Link>
+                  </div>
                 </article>
               ))}
               {isAuthenticated && !loading && joinedEvents.length === 0 ? (
