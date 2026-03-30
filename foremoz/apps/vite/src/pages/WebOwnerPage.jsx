@@ -129,6 +129,15 @@ function readFileAsDataUrl(file) {
   });
 }
 
+function shuffleList(items) {
+  const next = Array.isArray(items) ? [...items] : [];
+  for (let i = next.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [next[i], next[j]] = [next[j], next[i]];
+  }
+  return next;
+}
+
 export default function WebOwnerPage() {
   const navigate = useNavigate();
   const session = getSession();
@@ -226,7 +235,7 @@ export default function WebOwnerPage() {
     return [...new Set(keywords)];
   }
 
-  async function fetchPexelsPhotos(keyword, perPage = 4) {
+  async function fetchPexelsPhotos(keyword, perPage = 20) {
     const query = String(keyword || '').trim() || 'fitness studio';
     const result = await apiJson(
       `/v1/ai/pexels/search?tenant_id=${encodeURIComponent(setupForm.tenant_id || tenantSeed)}&query=${encodeURIComponent(query)}&per_page=${encodeURIComponent(perPage)}`
@@ -247,7 +256,7 @@ export default function WebOwnerPage() {
       for (const candidate of keywordCandidates) {
         keyword = candidate;
         try {
-          photos = await fetchPexelsPhotos(candidate, 6);
+          photos = await fetchPexelsPhotos(candidate, 20);
         } catch (error) {
           lastError = error;
           photos = [];
@@ -259,7 +268,7 @@ export default function WebOwnerPage() {
         setFeedback('ai.assist: Pexels tidak menemukan gambar untuk business profile ini.');
         return;
       }
-      const urls = photos
+      const urls = shuffleList(photos)
         .map((item) => item?.image_url || '')
         .map((item) => String(item || '').trim())
         .filter(Boolean);

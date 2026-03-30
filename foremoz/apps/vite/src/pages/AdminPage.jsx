@@ -1762,6 +1762,15 @@ function readFileAsDataUrl(file) {
   });
 }
 
+function shuffleList(items) {
+  const next = Array.isArray(items) ? [...items] : [];
+  for (let i = next.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [next[i], next[j]] = [next[j], next[i]];
+  }
+  return next;
+}
+
 function getStorageKey(entity, accountSlug) {
   return `ff.admin.${entity}.${accountSlug || 'foremoz-gym'}`;
 }
@@ -3115,7 +3124,7 @@ export default function AdminPage() {
     return [...new Set(keywords)];
   }
 
-  async function fetchPexelsPhotos(keyword, perPage = 4) {
+  async function fetchPexelsPhotos(keyword, perPage = 20) {
     const query = String(keyword || '').trim() || 'fitness event';
     const result = await apiJson(
       `/v1/ai/pexels/search?tenant_id=${encodeURIComponent(tenantId)}&query=${encodeURIComponent(query)}&per_page=${encodeURIComponent(perPage)}`
@@ -3278,7 +3287,7 @@ export default function AdminPage() {
       for (const candidate of keywordCandidates) {
         keyword = candidate;
         try {
-          photos = await fetchPexelsPhotos(candidate, 6);
+          photos = await fetchPexelsPhotos(candidate, 20);
         } catch (error) {
           lastError = error;
           photos = [];
@@ -3292,7 +3301,7 @@ export default function AdminPage() {
         setFeedback('ai.assist: Pexels tidak menemukan gambar dari keyword yang dicoba.');
         return;
       }
-      const urls = photos
+      const urls = shuffleList(photos)
         .map((item) => item?.image_url || '')
         .map((item) => String(item || '').trim())
         .filter(Boolean);
@@ -3357,7 +3366,7 @@ export default function AdminPage() {
       for (const candidate of keywordCandidates) {
         keyword = candidate;
         try {
-          photos = await fetchPexelsPhotos(candidate, 6);
+          photos = await fetchPexelsPhotos(candidate, 20);
         } catch (error) {
           lastError = error;
           photos = [];
@@ -3369,7 +3378,7 @@ export default function AdminPage() {
         setFeedback('ai.assist: Pexels tidak menemukan gambar untuk program ini.');
         return;
       }
-      const urls = photos
+      const urls = shuffleList(photos)
         .map((item) => item?.image_url || '')
         .map((item) => String(item || '').trim())
         .filter(Boolean);
