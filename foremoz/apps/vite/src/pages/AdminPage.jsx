@@ -614,6 +614,9 @@ function createEmptyClassForm() {
     class_name: '',
     title: '',
     description: '',
+    location: '',
+    image_url: '',
+    gallery_images_text: '',
     has_coach: true,
     coach_id: '',
     trainer_name: '',
@@ -774,13 +777,19 @@ function splitClassCustomFields(value, primaryCategory = '') {
     registration_fields: _registrationFields,
     category_tags: _categoryTags,
     registration_mode: _registrationMode,
+    location: _location,
+    image_url: _imageUrl,
+    gallery_images: _galleryImages,
     ...rest
   } = source;
   return {
     registration_fields: registrationFields,
     metadata_text: Object.keys(rest).length > 0 ? JSON.stringify(rest, null, 2) : '',
     categories_text: categoryTags.join(', '),
-    registration_mode: normalizedRegistrationMode
+    registration_mode: normalizedRegistrationMode,
+    location: String(source.location || ''),
+    image_url: String(source.image_url || ''),
+    gallery_images_text: Array.isArray(source.gallery_images) ? source.gallery_images.join('\n') : ''
   };
 }
 
@@ -803,6 +812,22 @@ function buildClassCustomFieldsPayload(formValue) {
     base.registration_mode = registrationMode;
   } else {
     delete base.registration_mode;
+  }
+  if (String(formValue?.location || '').trim()) {
+    base.location = String(formValue.location || '').trim();
+  } else {
+    delete base.location;
+  }
+  if (String(formValue?.image_url || '').trim()) {
+    base.image_url = String(formValue.image_url || '').trim();
+  } else {
+    delete base.image_url;
+  }
+  const galleryImages = normalizeGalleryImagesForPayload(formValue?.gallery_images_text);
+  if (galleryImages.length > 0) {
+    base.gallery_images = galleryImages;
+  } else {
+    delete base.gallery_images;
   }
   return base;
 }
@@ -1892,6 +1917,8 @@ export default function AdminPage() {
   const [classForm, setClassForm] = useState(() => createEmptyClassForm());
   const [classTemplateWizard, setClassTemplateWizard] = useState(() => createEmptyClassTemplateWizard());
   const [classTrainerDraft, setClassTrainerDraft] = useState('');
+  const [classAiWorking, setClassAiWorking] = useState(false);
+  const classImageFileInputRef = useRef(null);
   const [memberRelationDraft, setMemberRelationDraft] = useState('');
   const [trainerForm, setTrainerForm] = useState({ trainer_name: '', phone: '', specialization: '' });
   const [productForm, setProductForm] = useState({ product_name: '', category: 'retail', price: '', stock: '' });
@@ -2867,6 +2894,9 @@ export default function AdminPage() {
       class_name: item.class_name || '',
       title: item.title || item.class_name || '',
       description: item.description || '',
+      location: classCustomFields.location,
+      image_url: classCustomFields.image_url,
+      gallery_images_text: classCustomFields.gallery_images_text,
       has_coach: item.has_coach !== false,
       coach_id: item.coach_id || '',
       trainer_name: trainerName,
@@ -3036,6 +3066,26 @@ export default function AdminPage() {
       `${categories[0]} ${locationToken} event`.trim(),
       `${String(eventForm.categories_text || '').split(',')[0] || categories[0]} ${locationToken}`.trim(),
       `${String(eventForm.brief_event || '').trim()} ${locationToken}`.trim()
+    ]
+      .map((item) => String(item || '').replace(/\s+/g, ' ').trim())
+      .filter((item) => item.length >= 3);
+    return [...new Set(keywords)];
+  }
+
+  function buildClassImageKeywords() {
+    const source = [
+      classForm.class_name,
+      classForm.categories_text,
+      classForm.location,
+      classForm.description
+    ].join(' ');
+    const categories = suggestCategoriesFromText(source);
+    const locationToken = String(classForm.location || '').trim().split(/[,\s]+/)[0] || 'fitness';
+    const keywords = [
+      `${String(classForm.class_name || '').trim()} ${locationToken}`.trim(),
+      `${categories[0]} ${locationToken} class`.trim(),
+      `${String(classForm.categories_text || '').split(',')[0] || categories[0]} ${locationToken}`.trim(),
+      `${String(classForm.description || '').trim()} ${locationToken}`.trim()
     ]
       .map((item) => String(item || '').replace(/\s+/g, ' ').trim())
       .filter((item) => item.length >= 3);
@@ -3239,6 +3289,83 @@ export default function AdminPage() {
       setFeedback('event.image.uploaded: Cover image berhasil diunggah ke S3.');
     } catch (error) {
       setFeedback(error.message || 'Gagal upload cover image.');
+    }
+  }
+
+  async function aiFillClassGalleryFromPexels() {
+    try {
+      setClassAiWorking(true);
+      const keywordCandidates = buildClassImageKeywords();
+      if (keywordCandidates.length === 0) {
+        throw new Error('Isi Class Name atau Description dulu agar gallery bisa digenerate.');
+      }
+      let keyword = keywordCandidates[0];
+      let photos = [];
+      let lastError = null;
+      for (const candidate of keywordCandidates) {
+        keyword = candidate;
+        try {
+          photos = await fetchPexelsPhotos(candidate, 6);
+        } catch (error) {
+          lastError = error;
+          photos = [];
+        }
+        if (photos.length > 0) break;
+      }
+      if (photos.length === 0) {
+        if (lastError) throw lastError;
+        setFeedback('ai.assist: Pexels tidak menemukan gambar untuk class ini.');
+        return;
+      }
+      const urls = photos
+        .map((item) => item?.image_url || '')
+        .map((item) => String(item || '').trim())
+        .filter(Boolean);
+      setClassForm((prev) => ({
+        ...prev,
+        image_url: urls[0] || prev.image_url,
+        gallery_images_text: urls.join('\n')
+      }));
+      setFeedback(`ai.assist: Gallery class diisi ${urls.length} gambar dari Pexels (${keyword}).`);
+    } catch (error) {
+      setFeedback(error.message || 'ai.assist: Gagal mengambil gambar class dari Pexels.');
+    } finally {
+      setClassAiWorking(false);
+    }
+  }
+
+  async function uploadOwnClassImage(file) {
+    try {
+      const selected = file || null;
+      if (!selected) return;
+      if (!String(selected.type || '').startsWith('image/')) {
+        throw new Error('File harus berupa gambar.');
+      }
+      const maxBytes = 5 * 1024 * 1024;
+      if (Number(selected.size || 0) > maxBytes) {
+        throw new Error('Ukuran gambar maksimal 5MB.');
+      }
+      const dataUrl = await readFileAsDataUrl(selected);
+      if (!dataUrl) {
+        throw new Error('Gagal memproses gambar.');
+      }
+      const uploadRes = await apiJson('/v1/admin/uploads/image', {
+        method: 'POST',
+        body: JSON.stringify({
+          tenant_id: tenantId,
+          folder: 'classes',
+          filename: selected.name || 'class-cover-image',
+          data_url: dataUrl
+        })
+      });
+      const imageUrl = String(uploadRes?.url || '').trim();
+      if (!imageUrl) {
+        throw new Error('Upload berhasil tapi URL gambar tidak tersedia.');
+      }
+      setClassForm((prev) => ({ ...prev, image_url: imageUrl }));
+      setFeedback('class.image.uploaded: Cover image berhasil diunggah ke S3.');
+    } catch (error) {
+      setFeedback(error.message || 'Gagal upload cover image class.');
     }
   }
 
@@ -6143,6 +6270,49 @@ export default function AdminPage() {
                                 Kalau `No expiry`, harga ini berarti akses tanpa batas waktu sampai dinonaktifkan manual.
                               </p>
                             ) : null}
+                            <label>Location<input value={classForm.location} onChange={(e) => setClassForm((p) => ({ ...p, location: e.target.value }))} /></label>
+                            <label>Image URL<input value={classForm.image_url} onChange={(e) => setClassForm((p) => ({ ...p, image_url: e.target.value }))} /></label>
+                            <div className="row-actions" style={{ marginTop: '-0.2rem' }}>
+                              <button
+                                className="btn ghost small"
+                                type="button"
+                                onClick={() => classImageFileInputRef.current?.click()}
+                              >
+                                Upload Cover Image
+                              </button>
+                              <input
+                                ref={classImageFileInputRef}
+                                type="file"
+                                accept="image/*"
+                                style={{ display: 'none' }}
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0] || null;
+                                  if (file) {
+                                    uploadOwnClassImage(file);
+                                  }
+                                  e.target.value = '';
+                                }}
+                              />
+                            </div>
+                            <div className="row-actions" style={{ marginTop: '-0.2rem' }}>
+                              <button
+                                className="btn ghost small"
+                                type="button"
+                                disabled={classAiWorking}
+                                onClick={aiFillClassGalleryFromPexels}
+                              >
+                                AI Fill Gallery
+                              </button>
+                            </div>
+                            <label>
+                              Gallery Images (satu URL per baris)
+                              <textarea
+                                rows={4}
+                                placeholder={'https://...\nhttps://...'}
+                                value={classForm.gallery_images_text}
+                                onChange={(e) => setClassForm((p) => ({ ...p, gallery_images_text: e.target.value }))}
+                              />
+                            </label>
                             <div className="card" style={{ borderStyle: 'dashed' }}>
                               <p className="eyebrow">{isScheduledClassForm ? 'Schedule' : 'Access rules'}</p>
                               {isScheduledClassForm ? (
