@@ -5,8 +5,20 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:stg1": "VITE_STAGE=1 vite",
+    "dev:stg2": "VITE_STAGE=2 vite",
+    "dev:stg3": "VITE_STAGE=3 vite",
+    "dev:stg4": "VITE_STAGE=4 vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "build:stg1": "VITE_STAGE=1 vite build",
+    "build:stg2": "VITE_STAGE=2 vite build",
+    "build:stg3": "VITE_STAGE=3 vite build",
+    "build:stg4": "VITE_STAGE=4 vite build",
+    "preview": "vite preview",
+    "preview:stg1": "VITE_STAGE=1 vite preview",
+    "preview:stg2": "VITE_STAGE=2 vite preview",
+    "preview:stg3": "VITE_STAGE=3 vite preview",
+    "preview:stg4": "VITE_STAGE=4 vite preview"
   },
   "dependencies": {
     "react": "^18.3.1",

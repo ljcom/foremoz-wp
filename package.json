@@ -8,10 +8,22 @@
     "setup:fitness": "node ./scripts/workspace.mjs setup fitness",
     "setup:passport": "node ./scripts/workspace.mjs setup passport",
     "dev:fitness": "node ./scripts/workspace.mjs dev fitness",
+    "dev:fitness:stg1": "VITE_STAGE=1 node ./scripts/workspace.mjs dev fitness",
+    "dev:fitness:stg2": "VITE_STAGE=2 node ./scripts/workspace.mjs dev fitness",
+    "dev:fitness:stg3": "VITE_STAGE=3 node ./scripts/workspace.mjs dev fitness",
+    "dev:fitness:stg4": "VITE_STAGE=4 node ./scripts/workspace.mjs dev fitness",
     "dev:fitness:mockup": "VITE_APP_MODE=mock VITE_MOCKUP_OPEN_ACCESS=true node ./scripts/workspace.mjs dev fitness",
     "dev:passport": "node ./scripts/workspace.mjs dev passport",
     "dev:passport:mockup": "VITE_APP_MODE=mock VITE_MOCKUP_OPEN_ACCESS=true node ./scripts/workspace.mjs dev passport",
     "dev:all": "node ./scripts/workspace.mjs dev all",
-    "dev:all:mockup": "VITE_APP_MODE=mock VITE_MOCKUP_OPEN_ACCESS=true node ./scripts/workspace.mjs dev all"
+    "dev:all:stg1": "VITE_STAGE=1 node ./scripts/workspace.mjs dev all",
+    "dev:all:stg2": "VITE_STAGE=2 node ./scripts/workspace.mjs dev all",
+    "dev:all:stg3": "VITE_STAGE=3 node ./scripts/workspace.mjs dev all",
+    "dev:all:stg4": "VITE_STAGE=4 node ./scripts/workspace.mjs dev all",
+    "dev:all:mockup": "VITE_APP_MODE=mock VITE_MOCKUP_OPEN_ACCESS=true node ./scripts/workspace.mjs dev all",
+    "build:frontend:stg1": "npm --prefix ./foremoz/apps/vite run build:stg1",
+    "build:frontend:stg2": "npm --prefix ./foremoz/apps/vite run build:stg2",
+    "build:frontend:stg3": "npm --prefix ./foremoz/apps/vite run build:stg3",
+    "build:frontend:stg4": "npm --prefix ./foremoz/apps/vite run build:stg4"
   }
 }
