@@ -701,9 +701,11 @@ export default function PassportPublicPage() {
                   </div>
                   <h3>{item.event_name || '-'}</h3>
                   <p className="passport-live-time"><i className="fa-regular fa-clock" /> {formatAppDateTime(item.start_at)}</p>
-                  <Link className="btn ghost small" style={{ display: 'inline-flex', marginTop: '3rem' }} to={`/a/${encodeURIComponent(item.account_slug || account)}/e/${encodeURIComponent(item.event_id)}`}>
-                    {copy.joinEvent}
-                  </Link>
+                  <div style={{ marginTop: '3rem' }}>
+                    <Link className="btn ghost small" to={`/a/${encodeURIComponent(item.account_slug || account)}/e/${encodeURIComponent(item.event_id)}`}>
+                      {copy.joinEvent}
+                    </Link>
+                  </div>
                 </article>
               ))}
               {upcoming.length === 0 ? <p className="sub">{copy.noUpcoming}</p> : null}
