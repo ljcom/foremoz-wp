@@ -51,6 +51,7 @@ function readFileAsDataUrl(file) {
 
 export default function PtPage() {
   const PT_TABS = [
+    { id: 'profile', label: 'Coach profile' },
     { id: 'book', label: 'Book session' },
     { id: 'complete', label: 'Complete session' },
     { id: 'member', label: 'Member' },
@@ -64,7 +65,7 @@ export default function PtPage() {
   const branchId = session?.branch?.id || 'core';
   const trainerId = session?.user?.userId || null;
   const [targetEnv, setTargetEnv] = useState('pt');
-  const [activeTab, setActiveTab] = useState('book');
+  const [activeTab, setActiveTab] = useState('profile');
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [profileSaving, setProfileSaving] = useState(false);
@@ -444,50 +445,6 @@ export default function PtPage() {
       </section>
 
       <section className="card admin-main" style={{ marginTop: '1rem' }}>
-        <h2>Coach profile</h2>
-        <form className="form" onSubmit={submitProfile}>
-          <div style={{ display: 'grid', gap: '1rem', gridTemplateColumns: 'minmax(140px, 180px) minmax(0, 1fr)', alignItems: 'start' }}>
-            <div>
-              <div className="photo-preview-box" style={{ width: '100%', aspectRatio: '1 / 1', borderRadius: '1rem', overflow: 'hidden' }}>
-                {profileForm.photo_url ? (
-                  <img src={profileForm.photo_url} alt={profileForm.full_name || 'Coach'} className="photo-preview-image" />
-                ) : (
-                  <div className="empty-photo-preview">Belum ada foto</div>
-                )}
-              </div>
-            </div>
-            <div style={{ display: 'grid', gap: '0.9rem' }}>
-              <label>
-                Coach Name
-                <input
-                  value={profileForm.full_name}
-                  onChange={(e) => setProfileForm((prev) => ({ ...prev, full_name: e.target.value }))}
-                  placeholder="Nama coach"
-                />
-              </label>
-              <label>
-                Profile Image URL
-                <input
-                  value={profileForm.photo_url}
-                  onChange={(e) => setProfileForm((prev) => ({ ...prev, photo_url: e.target.value }))}
-                  placeholder="https://..."
-                />
-              </label>
-              <label>
-                Upload Profile Image
-                <input type="file" accept="image/*" onChange={onProfileImageUpload} />
-              </label>
-              <div>
-                <button className="btn" type="submit" disabled={profileSaving}>
-                  {profileSaving ? 'Saving...' : 'Save coach profile'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </form>
-      </section>
-
-      <section className="card admin-main" style={{ marginTop: '1rem' }}>
         <div className="landing-tabs" role="tablist" aria-label="PT workspace tabs">
           {PT_TABS.map((tab) => (
             <button
@@ -502,6 +459,51 @@ export default function PtPage() {
             </button>
           ))}
         </div>
+        {activeTab === 'profile' ? (
+          <div style={{ marginTop: '1rem' }}>
+            <h2>Coach profile</h2>
+            <form className="form" onSubmit={submitProfile}>
+              <div style={{ display: 'grid', gap: '1rem', gridTemplateColumns: 'minmax(140px, 180px) minmax(0, 1fr)', alignItems: 'start' }}>
+                <div>
+                  <div className="photo-preview-box" style={{ width: '100%', aspectRatio: '1 / 1', borderRadius: '1rem', overflow: 'hidden' }}>
+                    {profileForm.photo_url ? (
+                      <img src={profileForm.photo_url} alt={profileForm.full_name || 'Coach'} className="photo-preview-image" />
+                    ) : (
+                      <div className="empty-photo-preview">Belum ada foto</div>
+                    )}
+                  </div>
+                </div>
+                <div style={{ display: 'grid', gap: '0.9rem' }}>
+                  <label>
+                    Coach Name
+                    <input
+                      value={profileForm.full_name}
+                      onChange={(e) => setProfileForm((prev) => ({ ...prev, full_name: e.target.value }))}
+                      placeholder="Nama coach"
+                    />
+                  </label>
+                  <label>
+                    Profile Image URL
+                    <input
+                      value={profileForm.photo_url}
+                      onChange={(e) => setProfileForm((prev) => ({ ...prev, photo_url: e.target.value }))}
+                      placeholder="https://..."
+                    />
+                  </label>
+                  <label>
+                    Upload Profile Image
+                    <input type="file" accept="image/*" onChange={onProfileImageUpload} />
+                  </label>
+                  <div>
+                    <button className="btn" type="submit" disabled={profileSaving}>
+                      {profileSaving ? 'Saving...' : 'Save coach profile'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </form>
+          </div>
+        ) : null}
         {activeTab === 'book' ? (
           <div style={{ marginTop: '1rem' }}>
             <h2>Book session</h2>
