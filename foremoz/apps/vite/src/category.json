@@ -1,0 +1,259 @@
+{
+  "version": "1.0.0",
+  "purpose": "Master reference for category, tag, division, and session usage across event and class editors.",
+  "principles": {
+    "category": {
+      "definition": "Primary business classification used for catalog grouping, filtering, reporting, and top-level navigation.",
+      "characteristics": [
+        "stable",
+        "limited",
+        "human-readable",
+        "shared across many records"
+      ],
+      "should_be": [
+        "type of experience",
+        "theme or discipline",
+        "top-level grouping"
+      ],
+      "should_not_be": [
+        "coach name",
+        "day or schedule label",
+        "price plan",
+        "usage limit",
+        "competition bracket",
+        "session order"
+      ]
+    },
+    "tag": {
+      "definition": "Flexible secondary label used for search, discovery, and lightweight filtering.",
+      "characteristics": [
+        "many",
+        "optional",
+        "contextual",
+        "more flexible than category"
+      ],
+      "should_be": [
+        "marketing label",
+        "distance",
+        "audience level",
+        "city or area",
+        "special attribute"
+      ],
+      "should_not_be": [
+        "primary business type",
+        "replacement for division",
+        "replacement for schedule rundown"
+      ]
+    },
+    "division": {
+      "definition": "Structured competitive grouping that affects award, ranking, leaderboard, participant segmentation, or event operations.",
+      "characteristics": [
+        "operational",
+        "structured",
+        "award-aware",
+        "competition-specific"
+      ],
+      "examples": [
+        "5K",
+        "10K",
+        "Half Marathon",
+        "Marathon",
+        "Men Open",
+        "Women Open",
+        "Age Group 40+"
+      ]
+    },
+    "session": {
+      "definition": "Time-based segment within a schedule or rundown.",
+      "characteristics": [
+        "time-based",
+        "ordered",
+        "belongs in rundown"
+      ],
+      "examples": [
+        "Day 1",
+        "Day 2",
+        "Opening",
+        "Panel A",
+        "Workshop Room B"
+      ]
+    }
+  },
+  "governance": {
+    "recommended_model": "hybrid",
+    "rules": [
+      "Category should come from a managed master list.",
+      "Tag may stay flexible and multi-value.",
+      "Division should live in its own tab or dedicated structure.",
+      "Session should live in schedule or rundown, not in category."
+    ]
+  },
+  "event": {
+    "primary_category_model": {
+      "allow_single_primary_category": true,
+      "allow_additional_tags": true
+    },
+    "master_categories": [
+      {
+        "id": "running",
+        "label": "Running",
+        "aliases": ["run", "fun run", "race run"],
+        "tags_suggested": ["5K", "10K", "Half Marathon", "Marathon", "Beginner Friendly", "Night Run"]
+      },
+      {
+        "id": "cycling",
+        "label": "Cycling",
+        "aliases": ["bike", "ride", "bicycle"],
+        "tags_suggested": ["Road", "MTB", "Community Ride", "Gran Fondo"]
+      },
+      {
+        "id": "competition",
+        "label": "Competition",
+        "aliases": ["race", "contest", "tournament"],
+        "tags_suggested": ["Qualifier", "Final", "Open Category", "Age Group"]
+      },
+      {
+        "id": "conference",
+        "label": "Conference",
+        "aliases": ["summit", "forum"],
+        "tags_suggested": ["Business", "Leadership", "Technology", "Networking"]
+      },
+      {
+        "id": "seminar",
+        "label": "Seminar",
+        "aliases": ["talk", "lecture"],
+        "tags_suggested": ["Beginner", "Expert", "Case Study"]
+      },
+      {
+        "id": "workshop",
+        "label": "Workshop",
+        "aliases": ["masterclass", "bootcamp"],
+        "tags_suggested": ["Hands-on", "Interactive", "Certification"]
+      },
+      {
+        "id": "community_gathering",
+        "label": "Community Gathering",
+        "aliases": ["meetup", "komunitas", "gathering"],
+        "tags_suggested": ["Networking", "Casual", "Members Only"]
+      },
+      {
+        "id": "class_training",
+        "label": "Class / Training",
+        "aliases": ["training", "course", "pelatihan"],
+        "tags_suggested": ["Beginner", "Intermediate", "Advanced"]
+      },
+      {
+        "id": "exhibition",
+        "label": "Exhibition",
+        "aliases": ["expo", "showcase", "gallery"],
+        "tags_suggested": ["Art", "Product Showcase", "Opening Night"]
+      }
+    ],
+    "examples": [
+      {
+        "name": "Foremoz Run 2026",
+        "primary_category": "Running",
+        "tags": ["5K", "10K", "Marathon", "Jakarta"],
+        "division": ["5K", "10K", "Marathon"],
+        "session_handling": "Use schedule/rundown for race pack collection, flag-off, and award ceremony."
+      },
+      {
+        "name": "Foremoz Business Summit 2026",
+        "primary_category": "Conference",
+        "tags": ["Technology", "Networking"],
+        "division": [],
+        "session_handling": "Use schedule/rundown for Day 1, Day 2, keynote, and breakout sessions."
+      }
+    ]
+  },
+  "class": {
+    "primary_category_model": {
+      "allow_single_primary_category": true,
+      "allow_additional_tags": true
+    },
+    "master_categories": [
+      {
+        "id": "gym_access",
+        "label": "Gym Access",
+        "aliases": ["membership", "open gym", "open access"],
+        "tags_suggested": ["30 Days", "Monthly", "Unlimited", "All Access"]
+      },
+      {
+        "id": "yoga",
+        "label": "Yoga",
+        "aliases": ["vinyasa", "hatha", "yin yoga"],
+        "tags_suggested": ["Beginner", "Morning", "Flexibility", "Recovery"]
+      },
+      {
+        "id": "pilates",
+        "label": "Pilates",
+        "aliases": ["mat pilates", "reformer"],
+        "tags_suggested": ["Core", "Posture", "Beginner Friendly"]
+      },
+      {
+        "id": "hiit",
+        "label": "HIIT",
+        "aliases": ["interval", "high intensity"],
+        "tags_suggested": ["Fat Burn", "Cardio", "Express"]
+      },
+      {
+        "id": "strength_training",
+        "label": "Strength Training",
+        "aliases": ["strength", "weight training"],
+        "tags_suggested": ["Barbell", "Functional", "Intermediate"]
+      },
+      {
+        "id": "dance_fitness",
+        "label": "Dance Fitness",
+        "aliases": ["zumba", "dance cardio"],
+        "tags_suggested": ["Fun", "Cardio", "All Levels"]
+      },
+      {
+        "id": "personal_training",
+        "label": "Personal Training",
+        "aliases": ["pt", "private coaching"],
+        "tags_suggested": ["4 Sessions", "8 Sessions", "Private", "Program Based"]
+      },
+      {
+        "id": "recovery_mobility",
+        "label": "Recovery / Mobility",
+        "aliases": ["stretching", "mobility", "recovery"],
+        "tags_suggested": ["Recovery", "Mobility", "Low Impact"]
+      }
+    ],
+    "examples": [
+      {
+        "name": "Yoga Morning Mon-Thu",
+        "primary_category": "Yoga",
+        "tags": ["Morning", "Beginner", "Mon-Thu"],
+        "division": [],
+        "session_handling": "Use schedule for meeting days and time. Do not use category for weekdays."
+      },
+      {
+        "name": "Gym Access 30 Hari",
+        "primary_category": "Gym Access",
+        "tags": ["30 Days", "Unlimited"],
+        "division": [],
+        "session_handling": "No session object needed unless there is a fixed booking calendar."
+      }
+    ]
+  },
+  "decision_guide": [
+    {
+      "question": "Is this the main type of activity shown in catalog and reports?",
+      "use": "category"
+    },
+    {
+      "question": "Is this only a supporting search/filter label?",
+      "use": "tag"
+    },
+    {
+      "question": "Does this affect award, leaderboard, or participant grouping?",
+      "use": "division"
+    },
+    {
+      "question": "Is this only a day, slot, agenda item, or rundown segment?",
+      "use": "session"
+    }
+  ]
+}
