@@ -1,6 +1,5 @@
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { useParams } from 'react-router-dom';
+import { useMemo, useState } from 'react';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import AuthLayout from '../components/AuthLayout.jsx';
 import TurnstileWidget from '../components/TurnstileWidget.jsx';
 import { useI18n } from '../i18n.js';
@@ -10,6 +9,14 @@ export default function MemberSignUpPage() {
   const { t } = useI18n();
   const navigate = useNavigate();
   const { account } = useParams();
+  const [searchParams] = useSearchParams();
+  const nextPath = String(searchParams.get('next') || '').trim();
+  const alternateQuery = useMemo(() => {
+    const params = new URLSearchParams();
+    if (nextPath) params.set('next', nextPath);
+    const query = params.toString();
+    return query ? `?${query}` : '';
+  }, [nextPath]);
   const [form, setForm] = useState({ fullName: '', phone: '', email: '', password: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -77,7 +84,7 @@ export default function MemberSignUpPage() {
         }
       });
 
-      navigate(`/a/${account || tenantId}/member/portal`, { replace: true });
+      navigate(nextPath || `/a/${account || tenantId}/member/portal`, { replace: true });
     } catch (err) {
       setError(err.message);
       setTurnstileResetSignal((value) => value + 1);
@@ -90,7 +97,7 @@ export default function MemberSignUpPage() {
     <AuthLayout
       title={t('auth.memberSignup.title')}
       subtitle={t('auth.memberSignup.subtitle', { accountSuffix: account ? ` @${account}` : '' })}
-      alternateHref={`/a/${account || 'tn_001'}/member/signin`}
+      alternateHref={`/a/${account || 'tn_001'}/member/signin${alternateQuery}`}
       alternateText={t('auth.memberSignup.alternate')}
     >
       <form className="card form" onSubmit={submit}>

@@ -5,6 +5,7 @@ import { useI18n } from '../i18n.js';
 import { apiJson } from '../lib.js';
 import { clearPassportSession, getPassportSession } from '../passport-client.js';
 import PageStateCard from '../components/PageStateCard.jsx';
+import { isPassportEventsEnabled } from '../stage.js';
 import { formatAppDateTime } from '../time.js';
 
 const JOINED_EVENTS_KEY = 'ff.events.joined';
@@ -113,7 +114,9 @@ export default function EventCheckoutPage() {
   const isPassportSurface = location.pathname.startsWith('/passport');
   const isShortEventPath = location.pathname.startsWith('/e/');
   const isAccountEventPath = location.pathname.startsWith('/a/') && location.pathname.includes('/e/');
-  const authBase = isPassportSurface ? '/passport' : '/events';
+  const accountAuthBase = accountParam ? `/a/${encodeURIComponent(accountParam)}/member` : '/a/tn_001/member';
+  const authBase = isAccountEventPath ? accountAuthBase : (isPassportSurface ? '/passport' : '/events');
+  const passportEventsEnabled = isPassportEventsEnabled();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [paymentDone, setPaymentDone] = useState(false);
@@ -136,9 +139,12 @@ export default function EventCheckoutPage() {
     return `${base}${eventId ? `?event=${encodeURIComponent(eventId)}` : ''}`;
   }, [accountSlug, authBase, eventId, isAccountEventPath, isShortEventPath]);
   const backToEvents = useMemo(() => {
-    if (accountSlug) return `/a/${encodeURIComponent(accountSlug)}/events`;
+    if (accountSlug) {
+      if (passportEventsEnabled) return `/a/${encodeURIComponent(accountSlug)}/events`;
+      return `/a/${encodeURIComponent(accountSlug)}`;
+    }
     return '/events';
-  }, [accountSlug]);
+  }, [accountSlug, passportEventsEnabled]);
   const signinHref = useMemo(() => {
     const params = new URLSearchParams();
     if (eventId) params.set('event', eventId);

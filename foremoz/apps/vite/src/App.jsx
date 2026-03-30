@@ -247,17 +247,15 @@ export default function App() {
       <Route
         path="/a/:account/e/:eventId"
         element={
-          eventsEnabled ? (
-            <PageErrorBoundary
-              shellClassName="dashboard"
-              title="Checkout event bermasalah"
-              description="Halaman checkout gagal dirender. Reload atau kembali ke daftar event."
-              homeHref="/events"
-              homeLabel="Back to events"
-            >
-              <EventCheckoutPage />
-            </PageErrorBoundary>
-          ) : <Navigate to={rootHome} replace />
+          <PageErrorBoundary
+            shellClassName="dashboard"
+            title="Checkout event bermasalah"
+            description="Halaman checkout gagal dirender. Reload atau kembali ke daftar event."
+            homeHref="/host"
+            homeLabel="Back to home"
+          >
+            <EventCheckoutPage />
+          </PageErrorBoundary>
         }
       />
       <Route path="/a/:account/events" element={eventsEnabled ? <PassportLandingPage /> : <Navigate to={rootHome} replace />} />

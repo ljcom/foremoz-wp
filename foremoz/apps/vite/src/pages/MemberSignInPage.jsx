@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import AuthLayout from '../components/AuthLayout.jsx';
 import TurnstileWidget from '../components/TurnstileWidget.jsx';
@@ -11,7 +11,14 @@ export default function MemberSignInPage() {
   const navigate = useNavigate();
   const { account } = useParams();
   const [searchParams] = useSearchParams();
+  const nextPath = String(searchParams.get('next') || '').trim();
   const resetNotice = String(searchParams.get('reset') || '').trim() === '1';
+  const alternateQuery = useMemo(() => {
+    const params = new URLSearchParams();
+    if (nextPath) params.set('next', nextPath);
+    const query = params.toString();
+    return query ? `?${query}` : '';
+  }, [nextPath]);
   const [form, setForm] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -64,7 +71,7 @@ export default function MemberSignInPage() {
             expiresIn: 86400
           }
         });
-        navigate(`/a/${account || tenantId}/member/portal`, { replace: true });
+        navigate(nextPath || `/a/${account || tenantId}/member/portal`, { replace: true });
         return;
       }
 
@@ -156,7 +163,7 @@ export default function MemberSignInPage() {
         }
       });
 
-      navigate(`/a/${account || tenantId}/member/portal`, { replace: true });
+      navigate(nextPath || `/a/${account || tenantId}/member/portal`, { replace: true });
     } catch (err) {
       setError(err.message);
       setTurnstileResetSignal((value) => value + 1);
@@ -169,7 +176,7 @@ export default function MemberSignInPage() {
     <AuthLayout
       title={t('auth.memberSignIn.title')}
       subtitle={t('auth.memberSignIn.subtitle', { accountSuffix: account ? ` @${account}` : '' })}
-      alternateHref={`/a/${account || 'tn_001'}/member/signup`}
+      alternateHref={`/a/${account || 'tn_001'}/member/signup${alternateQuery}`}
       alternateText={t('auth.memberSignIn.alternate')}
     >
       <form className="card form" onSubmit={submit}>
