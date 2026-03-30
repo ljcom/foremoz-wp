@@ -91,12 +91,6 @@ const CLASS_WEEKDAYS = [
   { value: 'sat', label: 'Sat' }
 ];
 
-const CLASS_TYPE_OPTIONS = [
-  { value: 'scheduled', label: 'Scheduled' },
-  { value: 'open_access', label: 'Open access' },
-  { value: 'session_pack', label: 'Session pack' }
-];
-
 const ACTIVITY_VALIDITY_UNIT_OPTIONS = [
   { value: 'none', label: 'No expiry' },
   { value: 'day', label: 'Day' },
@@ -621,7 +615,8 @@ function createEmptyClassForm() {
     categories_text: '',
     custom_fields_text: '',
     registration_fields: [],
-    schedule_mode: 'weekly',
+    schedule_mode: 'everyday',
+    registration_period_mode: 'no',
     weekly_days: [],
     weekly_start_time: '',
     weekly_end_time: '',
@@ -646,6 +641,17 @@ function createEmptyClassForm() {
     min_quota: '',
     max_quota: '',
     auto_start_when_quota_met: false
+  };
+}
+
+function createEmptyClassTemplateWizard() {
+  return {
+    template: '',
+    title: '',
+    duration_months: '1',
+    usage_limit: '8',
+    price: '0',
+    coach_name: ''
   };
 }
 
@@ -823,6 +829,21 @@ function toApiDatetime(value) {
   return toAppIsoFromDateInput(raw);
 }
 
+function getTodayInputDate() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function addMonthsToInputDate(dateInput, monthsToAdd) {
+  const base = String(dateInput || '').trim() || getTodayInputDate();
+  const parsedMonths = Number(monthsToAdd || 0);
+  const date = new Date(`${base}T00:00:00.000Z`);
+  if (Number.isNaN(date.getTime())) return base;
+  if (Number.isFinite(parsedMonths) && parsedMonths > 0) {
+    date.setUTCMonth(date.getUTCMonth() + parsedMonths);
+  }
+  return date.toISOString().slice(0, 10);
+}
+
 function formatClassDatetime(value) {
   return formatAppDateTime(value);
 }
@@ -843,8 +864,8 @@ function formatIdr(value) {
 }
 
 function normalizeClassScheduleForPayload(form) {
-  const scheduleMode = String(form?.schedule_mode || 'weekly').trim().toLowerCase();
-  if (!['weekly', 'manual', 'none'].includes(scheduleMode)) {
+  const scheduleMode = String(form?.schedule_mode || 'everyday').trim().toLowerCase();
+  if (!['everyday', 'weekly', 'manual', 'none'].includes(scheduleMode)) {
     throw new Error('schedule_mode class tidak valid');
   }
   if (scheduleMode === 'none') {
@@ -854,6 +875,22 @@ function normalizeClassScheduleForPayload(form) {
         weekdays: [],
         start_time: '',
         end_time: ''
+      },
+      manual_schedule: []
+    };
+  }
+  if (scheduleMode === 'everyday') {
+    const startTime = String(form?.weekly_start_time || '').trim();
+    const endTime = String(form?.weekly_end_time || '').trim();
+    if (!startTime || !endTime) {
+      throw new Error('Jam mulai dan akhir wajib diisi untuk schedule everyday');
+    }
+    return {
+      schedule_mode: 'everyday',
+      weekly_schedule: {
+        weekdays: ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'],
+        start_time: startTime,
+        end_time: endTime
       },
       manual_schedule: []
     };
@@ -931,8 +968,8 @@ function getActivityFieldGuide(classType) {
   return {
     classType: 'Scheduled: kelas dengan jadwal/batch tertentu, contoh Yoga Morning Class atau HIIT Batch April.',
     validityMode: 'Validity mode: biasanya `fixed`, karena semua peserta mengikuti periode kelas yang sama.',
-    capacityMode: 'Capacity mode: biasanya `limited`, contoh maksimal 20 peserta per class.',
-    quotaMode: 'Quota mode: `manual` jika admin isi min/max quota sendiri, `auto` jika quota dipakai untuk trigger seperti auto start.',
+    capacityMode: 'Quota / capacity: pilih `no` jika class tidak dibatasi peserta, atau `limited` lalu isi min quota dan max quota.',
+    quotaMode: 'Min quota adalah target minimum peserta. Max quota adalah batas booking. Auto start bisa dipakai jika class ingin aktif otomatis saat min quota terpenuhi.',
     recommendedPattern: 'Kalau jualannya membership bulanan dengan batas hadir, simpan harga dan limit di `session_pack`, lalu simpan jadwal Senin/Kamis di `scheduled`.'
   };
 }
@@ -1071,7 +1108,6 @@ function formatClassAccessConfigurationSummary(form) {
     `Masa aktif paket: ${validityLabel}, ${anchorLabel}.`
   ];
 }
-
 function formatActivityAccessSummary(item) {
   const classType = String(item?.class_type || 'scheduled').trim().toLowerCase();
   if (classType === 'open_access') {
@@ -1095,6 +1131,12 @@ function formatClassScheduleSummary(item) {
     return formatActivityAccessSummary(item);
   }
   const scheduleMode = String(item?.schedule_mode || 'weekly').trim().toLowerCase();
+  if (scheduleMode === 'everyday') {
+    const weeklySchedule = item?.weekly_schedule || {};
+    return weeklySchedule.start_time && weeklySchedule.end_time
+      ? `Everyday | ${weeklySchedule.start_time}-${weeklySchedule.end_time}`
+      : 'Everyday';
+  }
   if (scheduleMode === 'manual') {
     const total = Array.isArray(item?.manual_schedule) ? item.manual_schedule.length : 0;
     return total > 0 ? `Manual (${total} sesi)` : 'Manual';
@@ -1670,6 +1712,7 @@ export default function AdminPage() {
   const [eventAiWorking, setEventAiWorking] = useState(false);
   const eventImageFileInputRef = useRef(null);
   const [classForm, setClassForm] = useState(() => createEmptyClassForm());
+  const [classTemplateWizard, setClassTemplateWizard] = useState(() => createEmptyClassTemplateWizard());
   const [classTrainerDraft, setClassTrainerDraft] = useState('');
   const [memberRelationDraft, setMemberRelationDraft] = useState('');
   const [trainerForm, setTrainerForm] = useState({ trainer_name: '', phone: '', specialization: '' });
@@ -1839,7 +1882,7 @@ export default function AdminPage() {
           category: item.category || '',
           category_id: item.category_id || '',
           custom_fields: item.custom_fields || {},
-          schedule_mode: item.schedule_mode || (item.class_type === 'scheduled' ? 'weekly' : 'none'),
+          schedule_mode: item.schedule_mode || (item.class_type === 'scheduled' ? 'everyday' : 'none'),
           weekly_schedule: item.weekly_schedule || { weekdays: [], start_time: '', end_time: '' },
           manual_schedule: Array.isArray(item.manual_schedule) ? item.manual_schedule : [],
           capacity: String(item.capacity || '20'),
@@ -2204,7 +2247,6 @@ export default function AdminPage() {
   const filteredClasses = classes.filter((item) =>
     String(item.class_name || '').toLowerCase().includes(classQuery.toLowerCase()) ||
     String(item.trainer_name || '').toLowerCase().includes(classQuery.toLowerCase()) ||
-    String(item.class_type || '').toLowerCase().includes(classQuery.toLowerCase()) ||
     String(item.price || '').toLowerCase().includes(classQuery.toLowerCase()) ||
     String(item.start_date || '').toLowerCase().includes(classQuery.toLowerCase())
   );
@@ -2433,6 +2475,13 @@ export default function AdminPage() {
 
   async function addClass(e) {
     e.preventDefault();
+    const registrationPeriodMode = isScheduledClassForm
+      ? String(classForm.registration_period_mode || 'no').trim().toLowerCase()
+      : 'no';
+    const scheduledCapacityMode = isScheduledClassForm
+      ? String(classForm.capacity_mode || 'limited').trim().toLowerCase()
+      : String(classForm.capacity_mode || 'none').trim().toLowerCase();
+    const hasLimitedScheduledCapacity = isScheduledClassForm && scheduledCapacityMode === 'limited';
     if (!String(classForm.class_name || '').trim()) {
       setClassEditTab('general');
       setFeedback('class_name wajib diisi');
@@ -2463,6 +2512,32 @@ export default function AdminPage() {
       setFeedback('periode akhir harus setelah periode mulai');
       return;
     }
+    if (isScheduledClassForm && registrationPeriodMode === 'range_date') {
+      if (!String(classForm.registration_start || '').trim() || !String(classForm.registration_end || '').trim()) {
+        setClassEditTab('general');
+        setFeedback('registration start dan registration end wajib diisi');
+        return;
+      }
+      if (new Date(toApiDatetime(classForm.registration_end)).getTime() < new Date(toApiDatetime(classForm.registration_start)).getTime()) {
+        setClassEditTab('general');
+        setFeedback('registration end harus setelah registration start');
+        return;
+      }
+    }
+    if (hasLimitedScheduledCapacity) {
+      const maxQuota = Number(classForm.max_quota || 0);
+      const minQuota = Number(classForm.min_quota || 0);
+      if (!Number.isFinite(maxQuota) || maxQuota <= 0) {
+        setClassEditTab('general');
+        setFeedback('max quota wajib diisi untuk quota/capacity limited');
+        return;
+      }
+      if (Number.isFinite(minQuota) && minQuota > maxQuota) {
+        setClassEditTab('general');
+        setFeedback('min quota tidak boleh lebih besar dari max quota');
+        return;
+      }
+    }
     let normalizedSchedule;
     try {
       normalizedSchedule = normalizeClassScheduleForPayload({
@@ -2483,7 +2558,12 @@ export default function AdminPage() {
         : '/v1/admin/classes';
       const classCategories = normalizeEventCategoriesForPayload(classForm.categories_text);
       const primaryCategory = classCategories[0] || '';
-      const capacityMode = isScheduledClassForm ? 'limited' : classForm.capacity_mode;
+      const capacityMode = isScheduledClassForm ? scheduledCapacityMode : classForm.capacity_mode;
+      const normalizedCapacity = isScheduledClassForm
+        ? (hasLimitedScheduledCapacity
+            ? Number(classForm.max_quota || classForm.capacity || 0)
+            : 0)
+        : Number(classForm.capacity || 20);
       await apiJson(endpoint, {
         method,
         body: JSON.stringify({
@@ -2503,15 +2583,21 @@ export default function AdminPage() {
           schedule_mode: normalizedSchedule.schedule_mode,
           weekly_schedule: normalizedSchedule.weekly_schedule,
           manual_schedule: normalizedSchedule.manual_schedule,
-          capacity: Number(classForm.capacity || 20),
+          capacity: normalizedCapacity,
           capacity_mode: capacityMode,
-          quota_mode: classForm.quota_mode,
+          quota_mode: isScheduledClassForm
+            ? (hasLimitedScheduledCapacity ? 'manual' : 'none')
+            : classForm.quota_mode,
           validity_mode: classForm.validity_mode,
           price: Number(classForm.price || 0),
           start_date: classForm.start_date || null,
           end_date: classForm.end_date || null,
-          registration_start: classForm.registration_start ? toApiDatetime(classForm.registration_start) : null,
-          registration_end: classForm.registration_end ? toApiDatetime(classForm.registration_end) : null,
+          registration_start: registrationPeriodMode === 'range_date' && classForm.registration_start
+            ? toApiDatetime(classForm.registration_start)
+            : null,
+          registration_end: registrationPeriodMode === 'range_date' && classForm.registration_end
+            ? toApiDatetime(classForm.registration_end)
+            : null,
           max_meetings: Number(classForm.max_meetings || 0),
           validity_unit: classForm.validity_unit,
           validity_value: classForm.validity_value ? Number(classForm.validity_value) : null,
@@ -2519,14 +2605,15 @@ export default function AdminPage() {
           usage_mode: classForm.usage_mode,
           usage_limit: classForm.usage_limit ? Number(classForm.usage_limit) : null,
           usage_period: classForm.usage_period,
-          min_quota: classForm.min_quota ? Number(classForm.min_quota) : null,
-          max_quota: classForm.max_quota ? Number(classForm.max_quota) : null,
-          auto_start_when_quota_met: classForm.auto_start_when_quota_met
+          min_quota: hasLimitedScheduledCapacity && classForm.min_quota ? Number(classForm.min_quota) : null,
+          max_quota: hasLimitedScheduledCapacity && classForm.max_quota ? Number(classForm.max_quota) : null,
+          auto_start_when_quota_met: hasLimitedScheduledCapacity && classForm.auto_start_when_quota_met
         })
       });
 
       setFeedback(editingClassId ? `class.updated: ${classForm.class_name}` : `class.scheduled: ${classForm.class_name}`);
       setClassForm(createEmptyClassForm());
+      setClassTemplateWizard(createEmptyClassTemplateWizard());
       setClassTrainerDraft('');
       setEditingClassId('');
       setClassParticipants([]);
@@ -2564,7 +2651,8 @@ export default function AdminPage() {
       categories_text: classCustomFields.categories_text,
       custom_fields_text: classCustomFields.metadata_text,
       registration_fields: classCustomFields.registration_fields,
-      schedule_mode: item.schedule_mode || (item.class_type === 'scheduled' ? 'weekly' : 'none'),
+      schedule_mode: item.schedule_mode || (item.class_type === 'scheduled' ? 'everyday' : 'none'),
+      registration_period_mode: item.registration_start || item.registration_end ? 'range_date' : 'no',
       weekly_days: Array.isArray(item.weekly_schedule?.weekdays) ? item.weekly_schedule.weekdays : [],
       weekly_start_time: String(item.weekly_schedule?.start_time || ''),
       weekly_end_time: String(item.weekly_schedule?.end_time || ''),
@@ -2574,8 +2662,10 @@ export default function AdminPage() {
             end_at: toInputDatetime(session.end_at || '')
           }))
         : [createEmptyClassManualSession()],
-      capacity: item.capacity || '20',
-      capacity_mode: item.capacity_mode || 'limited',
+      capacity: item.capacity || item.max_quota || '20',
+      capacity_mode: item.class_type === 'scheduled'
+        ? ((item.capacity_mode === 'none' && !item.max_quota && !item.min_quota) ? 'none' : 'limited')
+        : (item.capacity_mode || 'limited'),
       quota_mode: item.quota_mode || 'manual',
       validity_mode: item.validity_mode || 'fixed',
       price: String(item.price || '0'),
@@ -2604,6 +2694,124 @@ export default function AdminPage() {
 
   function startAddClass() {
     setClassForm(createEmptyClassForm());
+    setClassTemplateWizard(createEmptyClassTemplateWizard());
+    setClassTrainerDraft('');
+    setEditingClassId('');
+    setClassParticipants([]);
+    setClassEditTab('general');
+    setClassMode('add');
+  }
+
+  function openClassTemplateWizard(template) {
+    if (template === 'custom') {
+      startAddClass();
+      return;
+    }
+    setClassTemplateWizard((prev) => ({
+      ...createEmptyClassTemplateWizard(),
+      template,
+      coach_name: prev.template === template ? prev.coach_name : '',
+      title: prev.template === template ? prev.title : ''
+    }));
+  }
+
+  function applyClassTemplateWizard() {
+    const template = String(classTemplateWizard.template || '').trim();
+    if (!template) {
+      setFeedback('Pilih template dulu.');
+      return;
+    }
+    const durationMonths = Math.max(1, Number(classTemplateWizard.duration_months || 1) || 1);
+    const usageLimit = Math.max(1, Number(classTemplateWizard.usage_limit || 1) || 1);
+    const coachName = String(classTemplateWizard.coach_name || '').trim();
+    const title = String(classTemplateWizard.title || '').trim();
+    const today = getTodayInputDate();
+
+    if ((template === 'personal_training' || template === 'activity_class') && !coachName) {
+      setFeedback(`Pilih ${creatorLabelLower} dulu untuk template ini.`);
+      return;
+    }
+
+    if (template === 'membership') {
+      setClassForm({
+        ...createEmptyClassForm(),
+        class_type: 'open_access',
+        class_name: title || `Gym Access ${durationMonths} Bulan`,
+        description: 'Template membership / gym access tanpa coach dan tanpa schedule wajib.',
+        has_coach: false,
+        coach_id: '',
+        trainer_name: '',
+        coach_shares: [],
+        categories_text: 'membership, gym access',
+        schedule_mode: 'none',
+        price: String(classTemplateWizard.price || '0'),
+        validity_mode: 'per_enrollment',
+        validity_unit: 'month',
+        validity_value: String(durationMonths),
+        validity_anchor: 'activation',
+        usage_mode: 'unlimited',
+        usage_limit: '',
+        usage_period: 'entire_validity',
+        capacity_mode: 'none',
+        quota_mode: 'none',
+        min_quota: '',
+        max_quota: '',
+        registration_period_mode: 'no'
+      });
+    } else if (template === 'personal_training') {
+      setClassForm({
+        ...createEmptyClassForm(),
+        class_type: 'session_pack',
+        class_name: title || `Paket PT ${usageLimit} Sesi`,
+        description: 'Template personal training dengan coach tertentu dan saldo sesi per member.',
+        has_coach: true,
+        trainer_name: coachName,
+        coach_shares: syncCoachSharesWithTrainerNames(coachName, []),
+        categories_text: 'personal training, pt',
+        schedule_mode: 'none',
+        price: String(classTemplateWizard.price || '0'),
+        validity_mode: 'per_enrollment',
+        validity_unit: 'month',
+        validity_value: String(durationMonths),
+        validity_anchor: 'activation',
+        usage_mode: 'limited',
+        usage_limit: String(usageLimit),
+        usage_period: 'entire_validity',
+        capacity_mode: 'none',
+        quota_mode: 'none',
+        min_quota: '',
+        max_quota: '',
+        registration_period_mode: 'no'
+      });
+    } else if (template === 'activity_class') {
+      setClassForm({
+        ...createEmptyClassForm(),
+        class_type: 'scheduled',
+        class_name: title || 'Activity Class',
+        description: 'Template class berjadwal untuk yoga, aerobic, dan class group sejenis.',
+        has_coach: true,
+        trainer_name: coachName,
+        coach_shares: syncCoachSharesWithTrainerNames(coachName, []),
+        categories_text: 'activity class, yoga, aerobic',
+        schedule_mode: 'everyday',
+        weekly_start_time: '07:00',
+        weekly_end_time: '08:00',
+        price: String(classTemplateWizard.price || '0'),
+        start_date: today,
+        end_date: addMonthsToInputDate(today, durationMonths),
+        max_meetings: String(usageLimit),
+        capacity_mode: 'limited',
+        quota_mode: 'manual',
+        min_quota: '',
+        max_quota: '20',
+        capacity: '20',
+        registration_period_mode: 'no'
+      });
+    } else {
+      startAddClass();
+      return;
+    }
+
     setClassTrainerDraft('');
     setEditingClassId('');
     setClassParticipants([]);
@@ -5308,7 +5516,6 @@ export default function AdminPage() {
                       <thead>
                         <tr>
                           <th className="admin-data-head">Class Name</th>
-                          <th className="admin-data-head">Type</th>
                           <th className="admin-data-head">Coach</th>
                           <th className="admin-data-head">Capacity</th>
                           <th className="admin-data-head">Price</th>
@@ -5322,7 +5529,6 @@ export default function AdminPage() {
                         {filteredClasses.map((item, idx) => (
                           <tr key={item.class_id} className={idx % 2 === 0 ? 'admin-data-row' : 'admin-data-row admin-data-row-alt'}>
                             <td className="admin-data-cell">{item.class_name}</td>
-                            <td className="admin-data-cell">{formatClassTypeLabel(item.class_type)}</td>
                             <td className="admin-data-cell">{item.has_coach !== false ? (item.trainer_name || item.coach_id || '-') : 'No coach'}</td>
                             <td className="admin-data-cell">
                               {item.class_type === 'scheduled'
@@ -5400,441 +5606,513 @@ export default function AdminPage() {
                     {classEditTab === 'general' ? (
                       <>
                         <div className="class-general-layout">
-                        <div className="class-general-main">
-                          <label>
-                            Class Type
-                            <select
-                              value={classForm.class_type}
-                              onChange={(e) =>
-                                setClassForm((prev) => {
-                                  const nextType = e.target.value;
-                                  const requiresCoachState = nextType === 'scheduled';
-                                  return {
-                                    ...prev,
-                                    class_type: nextType,
-                                    has_coach: requiresCoachState ? prev.has_coach : false,
-                                    coach_id: requiresCoachState ? prev.coach_id : '',
-                                    trainer_name: requiresCoachState ? prev.trainer_name : '',
-                                    coach_shares: requiresCoachState ? prev.coach_shares : [],
-                                    schedule_mode: nextType === 'scheduled' ? (prev.schedule_mode === 'none' ? 'weekly' : prev.schedule_mode) : 'none'
-                                  };
-                                })
-                              }
-                            >
-                              {CLASS_TYPE_OPTIONS.map((item) => (
-                                <option key={item.value} value={item.value}>{item.label}</option>
-                              ))}
-                            </select>
-                          </label>
-                          <p className="feedback">
-                            `scheduled` = kelas dengan jadwal tertentu, contoh: Yoga Morning Class.
-                            `open_access` = akses masuk/periode tanpa coach wajib, contoh: Gym Access 30 Hari.
-                            `session_pack` = paket kredit/sesi, contoh: Paket 8 Sesi PT.
-                          </p>
-                          <label>Class Name<input value={classForm.class_name} onChange={(e) => setClassForm((p) => ({ ...p, class_name: e.target.value }))} /></label>
-                          <label>
-                            Description
-                            <textarea
-                              rows={4}
-                              value={classForm.description}
-                              placeholder="Jelaskan activity ini secara singkat"
-                              onChange={(e) => setClassForm((p) => ({ ...p, description: e.target.value }))}
-                            />
-                          </label>
-                          <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                            <input
-                              type="checkbox"
-                              checked={showClassCoachFields}
-                              onChange={(e) =>
-                                setClassForm((p) => ({
-                                  ...p,
-                                  has_coach: e.target.checked,
-                                  coach_id: e.target.checked ? p.coach_id : '',
-                                  trainer_name: e.target.checked ? '' : '',
-                                  coach_shares: e.target.checked ? [] : []
-                                }))
-                              }
-                            />
-                            <span>Activity ini punya coach</span>
-                          </label>
-                          {showClassCoachFields ? (
-                            <div className="card" style={{ borderStyle: 'dashed' }}>
-                              <p className="eyebrow">{creatorLabel} Name (token input)</p>
-                              <label>
-                                Primary coach_id
-                                <input value={classForm.coach_id} onChange={(e) => setClassForm((p) => ({ ...p, coach_id: e.target.value }))} placeholder="Optional internal coach/user id" />
-                              </label>
-                              <div className="row-actions" style={{ marginBottom: '0.5rem' }}>
-                                {selectedClassTrainerTokens.length === 0 ? <span className="feedback">Belum ada {creatorLabelLower} dipilih.</span> : null}
-                                {selectedClassTrainerTokens.map((name) => (
-                                  <span key={name} className="passport-chip">
-                                    {name}
-                                    <button
-                                      type="button"
-                                      className="btn ghost small"
-                                      style={{ marginLeft: '0.35rem' }}
-                                      onClick={() => removeClassTrainerToken(name)}
-                                    >
-                                      x
-                                    </button>
-                                  </span>
-                                ))}
-                              </div>
-                              {availableClassTrainerOptions.length > 0 ? (
+                          <div className="class-general-main">
+                            <label>Class Name<input value={classForm.class_name} onChange={(e) => setClassForm((p) => ({ ...p, class_name: e.target.value }))} /></label>
+                            <label>
+                              Description
+                              <textarea
+                                rows={4}
+                                value={classForm.description}
+                                placeholder="Jelaskan activity ini secara singkat"
+                                onChange={(e) => setClassForm((p) => ({ ...p, description: e.target.value }))}
+                              />
+                            </label>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                              <input
+                                type="checkbox"
+                                checked={showClassCoachFields}
+                                onChange={(e) =>
+                                  setClassForm((p) => ({
+                                    ...p,
+                                    has_coach: e.target.checked,
+                                    coach_id: e.target.checked ? p.coach_id : '',
+                                    trainer_name: e.target.checked ? p.trainer_name : '',
+                                    coach_shares: e.target.checked ? p.coach_shares : []
+                                  }))
+                                }
+                              />
+                              <span>Activity ini punya coach</span>
+                            </label>
+                            {showClassCoachFields ? (
+                              <div className="card" style={{ borderStyle: 'dashed' }}>
+                                <p className="eyebrow">{creatorLabel} Name (token input)</p>
                                 <label>
-                                  Pilih dari {creatorLabelLower} aktif
-                                  <select
-                                    value=""
-                                    onChange={(e) => {
-                                      if (e.target.value) addClassTrainerToken(e.target.value);
-                                    }}
-                                  >
-                                    <option value="">Pilih {creatorLabelLower}...</option>
-                                    {availableClassTrainerOptions.map((name) => (
-                                      <option key={name} value={name}>
-                                        {name}
-                                      </option>
-                                    ))}
-                                  </select>
+                                  Primary coach_id
+                                  <input value={classForm.coach_id} onChange={(e) => setClassForm((p) => ({ ...p, coach_id: e.target.value }))} placeholder="Optional internal coach/user id" />
                                 </label>
-                              ) : (
-                                <p className="feedback">
-                                  Belum ada {creatorLabelLower} aktif di tenant. Tambahkan user role `pt` atau `owner`, atau isi manual.
-                                </p>
-                              )}
-                              <label>
-                                Tambah manual
-                                <input
-                                  value={classTrainerDraft}
-                                  placeholder={`Ketik nama ${creatorLabelLower} lalu Enter`}
-                                  onChange={(e) => setClassTrainerDraft(e.target.value)}
-                                  onKeyDown={(e) => {
-                                    if (e.key === 'Enter') {
-                                      e.preventDefault();
-                                      addClassTrainerToken(classTrainerDraft);
-                                    }
-                                  }}
-                                />
-                              </label>
-                              <p className="feedback">Tekan Enter untuk menambahkan nama manual ke daftar coach.</p>
-                              <p className="feedback">Tersimpan sebagai: {classForm.trainer_name || '-'}</p>
-                              {selectedClassTrainerTokens.length > 0 ? (
-                                <div className="card" style={{ borderStyle: 'dashed' }}>
-                                  <p className="eyebrow">{creatorLabel} Share</p>
-                                  <p className="feedback">Masukkan % komisi/share per coach yang terlibat. Total boleh kurang dari atau sama dengan 100%.</p>
-                                  <div className="entity-list">
-                                    {selectedClassTrainerTokens.map((coachName) => {
-                                      const currentRow = (classForm.coach_shares || []).find((item) => item.coach_name === coachName) || { coach_name: coachName, share_percent: '' };
-                                      return (
-                                        <div key={`class-share-${coachName}`} className="entity-row">
-                                          <div>
-                                            <strong>{coachName}</strong>
-                                            <p>% dari class</p>
-                                          </div>
-                                          <input
-                                            type="number"
-                                            min="0"
-                                            max="100"
-                                            step="0.01"
-                                            value={currentRow.share_percent || ''}
-                                            placeholder="contoh: 25"
-                                            onChange={(e) =>
-                                              setClassForm((prev) => ({
-                                                ...prev,
-                                                coach_shares: syncCoachSharesWithTrainerNames(
-                                                  prev.trainer_name,
-                                                  upsertCoachShareValue(prev.coach_shares, coachName, e.target.value)
-                                                )
-                                              }))
-                                            }
-                                          />
-                                        </div>
-                                      );
-                                    })}
-                                  </div>
-                                  <p className="feedback">Total share terisi: {Number(totalClassCoachShare || 0).toFixed(2)}%</p>
+                                <div className="row-actions" style={{ marginBottom: '0.5rem' }}>
+                                  {selectedClassTrainerTokens.length === 0 ? <span className="feedback">Belum ada {creatorLabelLower} dipilih.</span> : null}
+                                  {selectedClassTrainerTokens.map((name) => (
+                                    <span key={name} className="passport-chip">
+                                      {name}
+                                      <button
+                                        type="button"
+                                        className="btn ghost small"
+                                        style={{ marginLeft: '0.35rem' }}
+                                        onClick={() => removeClassTrainerToken(name)}
+                                      >
+                                        x
+                                      </button>
+                                    </span>
+                                  ))}
                                 </div>
-                              ) : null}
-                            </div>
-                          ) : (
-                            <p className="feedback">Mode ini tidak mewajibkan coach. Cocok untuk gym access, open studio, atau paket sesi generik.</p>
-                          )}
-                          <label>Price<input type="number" min="0" value={classForm.price} onChange={(e) => setClassForm((p) => ({ ...p, price: e.target.value }))} /></label>
-                          {!isScheduledClassForm ? (
-                            <p className="feedback">
-                              Price adalah harga per enrollment/pembelian.
-                              Lama akses ditentukan oleh `Validity Unit` + `Validity Value`.
-                              Kalau `No expiry`, harga ini berarti akses tanpa batas waktu sampai dinonaktifkan manual.
-                            </p>
-                          ) : null}
-                          <div className="card" style={{ borderStyle: 'dashed' }}>
-                            <p className="eyebrow">{isScheduledClassForm ? 'Schedule' : 'Access rules'}</p>
-                            {isScheduledClassForm ? (
-                              <>
-                                <div style={{ display: 'grid', gap: '0.35rem', marginBottom: '0.75rem' }}>
-                                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', margin: 0 }}>
-                                    <input
-                                      type="radio"
-                                      name="class_schedule_mode"
-                                      checked={classForm.schedule_mode === 'weekly'}
-                                      onChange={() => setClassForm((prev) => ({ ...prev, schedule_mode: 'weekly' }))}
-                                    />
-                                    <span>Day of week + jam</span>
+                                {availableClassTrainerOptions.length > 0 ? (
+                                  <label>
+                                    Pilih dari {creatorLabelLower} aktif
+                                    <select
+                                      value=""
+                                      onChange={(e) => {
+                                        if (e.target.value) addClassTrainerToken(e.target.value);
+                                      }}
+                                    >
+                                      <option value="">Pilih {creatorLabelLower}...</option>
+                                      {availableClassTrainerOptions.map((name) => (
+                                        <option key={name} value={name}>
+                                          {name}
+                                        </option>
+                                      ))}
+                                    </select>
                                   </label>
-                                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', margin: 0 }}>
-                                    <input
-                                      type="radio"
-                                      name="class_schedule_mode"
-                                      checked={classForm.schedule_mode === 'manual'}
-                                      onChange={() =>
-                                        setClassForm((prev) => ({
-                                          ...prev,
-                                          schedule_mode: 'manual',
-                                          manual_schedule: Array.isArray(prev.manual_schedule) && prev.manual_schedule.length > 0
-                                            ? prev.manual_schedule
-                                            : [createEmptyClassManualSession()]
-                                        }))
+                                ) : (
+                                  <p className="feedback">
+                                    Belum ada {creatorLabelLower} aktif di tenant. Tambahkan user role `pt` atau `owner`, atau isi manual.
+                                  </p>
+                                )}
+                                <label>
+                                  Tambah manual
+                                  <input
+                                    value={classTrainerDraft}
+                                    placeholder={`Ketik nama ${creatorLabelLower} lalu Enter`}
+                                    onChange={(e) => setClassTrainerDraft(e.target.value)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') {
+                                        e.preventDefault();
+                                        addClassTrainerToken(classTrainerDraft);
                                       }
-                                    />
-                                    <span>Manual tanggal + jam</span>
-                                  </label>
-                                </div>
-                                {classForm.schedule_mode === 'weekly' ? (
-                                  <>
-                                    <p className="feedback">Pilih hari yang aktif, lalu isi jam untuk semua hari yang dipilih.</p>
-                                    <div className="row-actions" style={{ flexWrap: 'wrap', marginBottom: '0.75rem' }}>
-                                      {CLASS_WEEKDAYS.map((day) => {
-                                        const isChecked = (classForm.weekly_days || []).includes(day.value);
+                                    }}
+                                  />
+                                </label>
+                                <p className="feedback">Tekan Enter untuk menambahkan nama manual ke daftar coach.</p>
+                                <p className="feedback">Tersimpan sebagai: {classForm.trainer_name || '-'}</p>
+                                {selectedClassTrainerTokens.length > 0 ? (
+                                  <div className="card" style={{ borderStyle: 'dashed' }}>
+                                    <p className="eyebrow">{creatorLabel} Share</p>
+                                    <p className="feedback">Masukkan % komisi/share per coach yang terlibat. Total boleh kurang dari atau sama dengan 100%.</p>
+                                    <div className="entity-list">
+                                      {selectedClassTrainerTokens.map((coachName) => {
+                                        const currentRow = (classForm.coach_shares || []).find((item) => item.coach_name === coachName) || { coach_name: coachName, share_percent: '' };
                                         return (
-                                          <label key={day.value} className="passport-chip" style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                                          <div key={`class-share-${coachName}`} className="entity-row">
+                                            <div>
+                                              <strong>{coachName}</strong>
+                                              <p>% dari class</p>
+                                            </div>
                                             <input
-                                              type="checkbox"
-                                              checked={isChecked}
+                                              type="number"
+                                              min="0"
+                                              max="100"
+                                              step="0.01"
+                                              value={currentRow.share_percent || ''}
+                                              placeholder="contoh: 25"
                                               onChange={(e) =>
-                                                setClassForm((prev) => {
-                                                  const current = Array.isArray(prev.weekly_days) ? prev.weekly_days : [];
-                                                  const next = e.target.checked
-                                                    ? [...new Set([...current, day.value])]
-                                                    : current.filter((item) => item !== day.value);
-                                                  return { ...prev, weekly_days: next };
-                                                })
+                                                setClassForm((prev) => ({
+                                                  ...prev,
+                                                  coach_shares: syncCoachSharesWithTrainerNames(
+                                                    prev.trainer_name,
+                                                    upsertCoachShareValue(prev.coach_shares, coachName, e.target.value)
+                                                  )
+                                                }))
                                               }
                                             />
-                                            <span>{day.label}</span>
-                                          </label>
+                                          </div>
                                         );
                                       })}
                                     </div>
-                                    <label>
-                                      Jam Mulai
+                                    <p className="feedback">Total share terisi: {Number(totalClassCoachShare || 0).toFixed(2)}%</p>
+                                  </div>
+                                ) : null}
+                              </div>
+                            ) : (
+                              <p className="feedback">Mode ini tidak mewajibkan coach. Cocok untuk gym access, open studio, atau paket sesi generik.</p>
+                            )}
+                            <label>Price<input type="number" min="0" value={classForm.price} onChange={(e) => setClassForm((p) => ({ ...p, price: e.target.value }))} /></label>
+                            {!isScheduledClassForm ? (
+                              <p className="feedback">
+                                Price adalah harga per enrollment/pembelian.
+                                Lama akses ditentukan oleh `Validity Unit` + `Validity Value`.
+                                Kalau `No expiry`, harga ini berarti akses tanpa batas waktu sampai dinonaktifkan manual.
+                              </p>
+                            ) : null}
+                            <div className="card" style={{ borderStyle: 'dashed' }}>
+                              <p className="eyebrow">{isScheduledClassForm ? 'Schedule' : 'Access rules'}</p>
+                              {isScheduledClassForm ? (
+                                <>
+                                  <div style={{ display: 'grid', gap: '0.35rem', marginBottom: '0.75rem' }}>
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', margin: 0 }}>
                                       <input
-                                        type="time"
-                                        value={classForm.weekly_start_time}
-                                        onChange={(e) => setClassForm((prev) => ({ ...prev, weekly_start_time: e.target.value }))}
+                                        type="radio"
+                                        name="class_schedule_mode"
+                                        checked={classForm.schedule_mode === 'everyday'}
+                                        onChange={() => setClassForm((prev) => ({ ...prev, schedule_mode: 'everyday' }))}
                                       />
+                                      <span>Everyday + time</span>
                                     </label>
-                                    <label>
-                                      Jam Akhir
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', margin: 0 }}>
                                       <input
-                                        type="time"
-                                        value={classForm.weekly_end_time}
-                                        onChange={(e) => setClassForm((prev) => ({ ...prev, weekly_end_time: e.target.value }))}
+                                        type="radio"
+                                        name="class_schedule_mode"
+                                        checked={classForm.schedule_mode === 'weekly'}
+                                        onChange={() => setClassForm((prev) => ({ ...prev, schedule_mode: 'weekly' }))}
                                       />
+                                      <span>Weekly: pilih hari dan jam</span>
                                     </label>
-                                  </>
-                                ) : (
-                                  <>
-                                    <p className="feedback">Tambahkan sesi manual satu per satu dengan tanggal dan jam.</p>
-                                    <div className="row-actions" style={{ marginBottom: '0.5rem' }}>
-                                      <button
-                                        className="btn ghost small"
-                                        type="button"
-                                        onClick={() =>
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', margin: 0 }}>
+                                      <input
+                                        type="radio"
+                                        name="class_schedule_mode"
+                                        checked={classForm.schedule_mode === 'manual'}
+                                        onChange={() =>
                                           setClassForm((prev) => ({
                                             ...prev,
-                                            manual_schedule: [...(Array.isArray(prev.manual_schedule) ? prev.manual_schedule : []), createEmptyClassManualSession()]
+                                            schedule_mode: 'manual',
+                                            manual_schedule: Array.isArray(prev.manual_schedule) && prev.manual_schedule.length > 0
+                                              ? prev.manual_schedule
+                                              : [createEmptyClassManualSession()]
                                           }))
                                         }
-                                      >
-                                        + session manual
-                                      </button>
-                                    </div>
-                                    <div className="entity-list">
-                                      {(Array.isArray(classForm.manual_schedule) ? classForm.manual_schedule : []).map((session, index) => (
-                                        <div key={`class-manual-session-${index}`} className="card" style={{ marginBottom: '0.5rem' }}>
-                                          <label>
-                                            Tanggal + Jam Mulai
-                                            <input
-                                              type="datetime-local"
-                                              value={session.start_at || ''}
-                                              onChange={(e) =>
-                                                setClassForm((prev) => ({
-                                                  ...prev,
-                                                  manual_schedule: (Array.isArray(prev.manual_schedule) ? prev.manual_schedule : []).map((item, idx) =>
-                                                    idx === index ? { ...item, start_at: e.target.value } : item
-                                                  )
-                                                }))
-                                              }
-                                            />
-                                          </label>
-                                          <label>
-                                            Tanggal + Jam Akhir
-                                            <input
-                                              type="datetime-local"
-                                              value={session.end_at || ''}
-                                              onChange={(e) =>
-                                                setClassForm((prev) => ({
-                                                  ...prev,
-                                                  manual_schedule: (Array.isArray(prev.manual_schedule) ? prev.manual_schedule : []).map((item, idx) =>
-                                                    idx === index ? { ...item, end_at: e.target.value } : item
-                                                  )
-                                                }))
-                                              }
-                                            />
-                                          </label>
-                                          <button
-                                            className="btn ghost small"
-                                            type="button"
-                                            onClick={() =>
-                                              setClassForm((prev) => {
-                                                const current = Array.isArray(prev.manual_schedule) ? prev.manual_schedule : [];
-                                                const next = current.filter((_, idx) => idx !== index);
-                                                return {
-                                                  ...prev,
-                                                  manual_schedule: next.length > 0 ? next : [createEmptyClassManualSession()]
-                                                };
-                                              })
-                                            }
-                                          >
-                                            Hapus session
-                                          </button>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  </>
-                                )}
-                              </>
-                            ) : (
-                              <>
-                                <p className="feedback">
-                                  {isOpenAccessClassForm
-                                    ? 'Untuk open access, masa aktif dan kuota dihitung per enrollment user.'
-                                    : 'Untuk session pack, isi expiry dan jumlah sesi yang diberikan per enrollment user.'}
-                                </p>
-                                {classAccessPresets.length > 0 ? (
-                                  <div className="card" style={{ borderStyle: 'dashed', marginBottom: '0.75rem' }}>
-                                    <p className="eyebrow">Preset cepat</p>
-                                    <div className="row-actions" style={{ flexWrap: 'wrap', marginBottom: '0.5rem' }}>
-                                      {classAccessPresets.map((preset) => (
+                                      />
+                                      <span>Custom date and time</span>
+                                    </label>
+                                  </div>
+                                  {classForm.schedule_mode === 'everyday' ? (
+                                    <>
+                                      <p className="feedback">Class aktif setiap hari dengan jam yang sama.</p>
+                                      <label>
+                                        Jam Mulai
+                                        <input
+                                          type="time"
+                                          value={classForm.weekly_start_time}
+                                          onChange={(e) => setClassForm((prev) => ({ ...prev, weekly_start_time: e.target.value }))}
+                                        />
+                                      </label>
+                                      <label>
+                                        Jam Akhir
+                                        <input
+                                          type="time"
+                                          value={classForm.weekly_end_time}
+                                          onChange={(e) => setClassForm((prev) => ({ ...prev, weekly_end_time: e.target.value }))}
+                                        />
+                                      </label>
+                                    </>
+                                  ) : classForm.schedule_mode === 'weekly' ? (
+                                    <>
+                                      <p className="feedback">Pilih hari yang aktif, lalu isi jam untuk hari-hari tersebut.</p>
+                                      <div className="row-actions" style={{ flexWrap: 'wrap', marginBottom: '0.75rem' }}>
+                                        {CLASS_WEEKDAYS.map((day) => {
+                                          const isChecked = (classForm.weekly_days || []).includes(day.value);
+                                          return (
+                                            <label key={day.value} className="passport-chip" style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                                              <input
+                                                type="checkbox"
+                                                checked={isChecked}
+                                                onChange={(e) =>
+                                                  setClassForm((prev) => {
+                                                    const current = Array.isArray(prev.weekly_days) ? prev.weekly_days : [];
+                                                    const next = e.target.checked
+                                                      ? [...new Set([...current, day.value])]
+                                                      : current.filter((item) => item !== day.value);
+                                                    return { ...prev, weekly_days: next };
+                                                  })
+                                                }
+                                              />
+                                              <span>{day.label}</span>
+                                            </label>
+                                          );
+                                        })}
+                                      </div>
+                                      <label>
+                                        Jam Mulai
+                                        <input
+                                          type="time"
+                                          value={classForm.weekly_start_time}
+                                          onChange={(e) => setClassForm((prev) => ({ ...prev, weekly_start_time: e.target.value }))}
+                                        />
+                                      </label>
+                                      <label>
+                                        Jam Akhir
+                                        <input
+                                          type="time"
+                                          value={classForm.weekly_end_time}
+                                          onChange={(e) => setClassForm((prev) => ({ ...prev, weekly_end_time: e.target.value }))}
+                                        />
+                                      </label>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <p className="feedback">Tambahkan tanggal dan jam spesifik satu per satu.</p>
+                                      <div className="row-actions" style={{ marginBottom: '0.5rem' }}>
                                         <button
-                                          key={preset.id}
                                           className="btn ghost small"
                                           type="button"
                                           onClick={() =>
                                             setClassForm((prev) => ({
                                               ...prev,
-                                              ...preset.values
+                                              manual_schedule: [...(Array.isArray(prev.manual_schedule) ? prev.manual_schedule : []), createEmptyClassManualSession()]
                                             }))
                                           }
                                         >
-                                          {preset.label}
+                                          + session manual
                                         </button>
+                                      </div>
+                                      <div className="entity-list">
+                                        {(Array.isArray(classForm.manual_schedule) ? classForm.manual_schedule : []).map((session, index) => (
+                                          <div key={`class-manual-session-${index}`} className="card" style={{ marginBottom: '0.5rem' }}>
+                                            <label>
+                                              Tanggal + Jam Mulai
+                                              <input
+                                                type="datetime-local"
+                                                value={session.start_at || ''}
+                                                onChange={(e) =>
+                                                  setClassForm((prev) => ({
+                                                    ...prev,
+                                                    manual_schedule: (Array.isArray(prev.manual_schedule) ? prev.manual_schedule : []).map((item, idx) =>
+                                                      idx === index ? { ...item, start_at: e.target.value } : item
+                                                    )
+                                                  }))
+                                                }
+                                              />
+                                            </label>
+                                            <label>
+                                              Tanggal + Jam Akhir
+                                              <input
+                                                type="datetime-local"
+                                                value={session.end_at || ''}
+                                                onChange={(e) =>
+                                                  setClassForm((prev) => ({
+                                                    ...prev,
+                                                    manual_schedule: (Array.isArray(prev.manual_schedule) ? prev.manual_schedule : []).map((item, idx) =>
+                                                      idx === index ? { ...item, end_at: e.target.value } : item
+                                                    )
+                                                  }))
+                                                }
+                                              />
+                                            </label>
+                                            <button
+                                              className="btn ghost small"
+                                              type="button"
+                                              onClick={() =>
+                                                setClassForm((prev) => {
+                                                  const current = Array.isArray(prev.manual_schedule) ? prev.manual_schedule : [];
+                                                  const next = current.filter((_, idx) => idx !== index);
+                                                  return {
+                                                    ...prev,
+                                                    manual_schedule: next.length > 0 ? next : [createEmptyClassManualSession()]
+                                                  };
+                                                })
+                                              }
+                                            >
+                                              Hapus session
+                                            </button>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </>
+                                  )}
+                                </>
+                              ) : (
+                                <>
+                                  <p className="feedback">
+                                    {isOpenAccessClassForm
+                                      ? 'Untuk open access, masa aktif dan kuota dihitung per enrollment user.'
+                                      : 'Untuk session pack, isi expiry dan jumlah sesi yang diberikan per enrollment user.'}
+                                  </p>
+                                  {classAccessPresets.length > 0 ? (
+                                    <div className="card" style={{ borderStyle: 'dashed', marginBottom: '0.75rem' }}>
+                                      <p className="eyebrow">Preset cepat</p>
+                                      <div className="row-actions" style={{ flexWrap: 'wrap', marginBottom: '0.5rem' }}>
+                                        {classAccessPresets.map((preset) => (
+                                          <button
+                                            key={preset.id}
+                                            className="btn ghost small"
+                                            type="button"
+                                            onClick={() =>
+                                              setClassForm((prev) => ({
+                                                ...prev,
+                                                ...preset.values
+                                              }))
+                                            }
+                                          >
+                                            {preset.label}
+                                          </button>
+                                        ))}
+                                      </div>
+                                      {classAccessPresets.map((preset) => (
+                                        <p key={`${preset.id}-description`} className="feedback">
+                                          <strong>{preset.label}:</strong> {preset.description}
+                                        </p>
                                       ))}
                                     </div>
-                                    {classAccessPresets.map((preset) => (
-                                      <p key={`${preset.id}-description`} className="feedback">
-                                        <strong>{preset.label}:</strong> {preset.description}
-                                      </p>
-                                    ))}
-                                  </div>
-                                ) : null}
-                                <label>
-                                  Validity Unit
-                                  <select value={classForm.validity_unit} onChange={(e) => setClassForm((p) => ({ ...p, validity_unit: e.target.value }))}>
-                                    {ACTIVITY_VALIDITY_UNIT_OPTIONS.map((item) => (
-                                      <option key={item.value} value={item.value}>{item.label}</option>
-                                    ))}
-                                  </select>
-                                </label>
-                                {classForm.validity_unit !== 'none' ? (
-                                  <>
-                                    <label>Validity Value<input type="number" min="1" value={classForm.validity_value} onChange={(e) => setClassForm((p) => ({ ...p, validity_value: e.target.value }))} /></label>
-                                    <label>
-                                      Validity Anchor
-                                      <select value={classForm.validity_anchor} onChange={(e) => setClassForm((p) => ({ ...p, validity_anchor: e.target.value }))}>
-                                        {ACTIVITY_VALIDITY_ANCHOR_OPTIONS.map((item) => (
-                                          <option key={item.value} value={item.value}>{item.label}</option>
-                                        ))}
-                                      </select>
-                                    </label>
-                                  </>
-                                ) : null}
-                                <label>
-                                  Usage Mode
-                                  <select value={classForm.usage_mode} onChange={(e) => setClassForm((p) => ({ ...p, usage_mode: e.target.value }))}>
-                                    <option value="unlimited">unlimited</option>
-                                    <option value="limited">limited</option>
-                                  </select>
-                                </label>
-                                {classForm.usage_mode === 'limited' ? (
-                                  <>
-                                    <label>Usage Limit<input type="number" min="1" value={classForm.usage_limit} onChange={(e) => setClassForm((p) => ({ ...p, usage_limit: e.target.value }))} /></label>
-                                    <label>
-                                      Usage Period
-                                      <select value={classForm.usage_period} onChange={(e) => setClassForm((p) => ({ ...p, usage_period: e.target.value }))}>
-                                        {ACTIVITY_USAGE_PERIOD_OPTIONS.map((item) => (
-                                          <option key={item.value} value={item.value}>{item.label}</option>
-                                        ))}
-                                      </select>
-                                    </label>
-                                  </>
-                                ) : null}
-                                {classAccessSummary.length > 0 ? (
-                                  <div className="card" style={{ borderStyle: 'dashed', marginTop: '0.25rem' }}>
-                                    <p className="eyebrow">Ringkasan konfigurasi</p>
-                                    {classAccessSummary.map((line) => (
-                                      <p key={line} className="feedback">{line}</p>
-                                    ))}
-                                  </div>
-                                ) : null}
-                              </>
-                            )}
+                                  ) : null}
+                                  <label>
+                                    Validity Unit
+                                    <select value={classForm.validity_unit} onChange={(e) => setClassForm((p) => ({ ...p, validity_unit: e.target.value }))}>
+                                      {ACTIVITY_VALIDITY_UNIT_OPTIONS.map((item) => (
+                                        <option key={item.value} value={item.value}>{item.label}</option>
+                                      ))}
+                                    </select>
+                                  </label>
+                                  {classForm.validity_unit !== 'none' ? (
+                                    <>
+                                      <label>Validity Value<input type="number" min="1" value={classForm.validity_value} onChange={(e) => setClassForm((p) => ({ ...p, validity_value: e.target.value }))} /></label>
+                                      <label>
+                                        Validity Anchor
+                                        <select value={classForm.validity_anchor} onChange={(e) => setClassForm((p) => ({ ...p, validity_anchor: e.target.value }))}>
+                                          {ACTIVITY_VALIDITY_ANCHOR_OPTIONS.map((item) => (
+                                            <option key={item.value} value={item.value}>{item.label}</option>
+                                          ))}
+                                        </select>
+                                      </label>
+                                    </>
+                                  ) : null}
+                                  <label>
+                                    Usage Mode
+                                    <select value={classForm.usage_mode} onChange={(e) => setClassForm((p) => ({ ...p, usage_mode: e.target.value }))}>
+                                      <option value="unlimited">unlimited</option>
+                                      <option value="limited">limited</option>
+                                    </select>
+                                  </label>
+                                  {classForm.usage_mode === 'limited' ? (
+                                    <>
+                                      <label>Usage Limit<input type="number" min="1" value={classForm.usage_limit} onChange={(e) => setClassForm((p) => ({ ...p, usage_limit: e.target.value }))} /></label>
+                                      <label>
+                                        Usage Period
+                                        <select value={classForm.usage_period} onChange={(e) => setClassForm((p) => ({ ...p, usage_period: e.target.value }))}>
+                                          {ACTIVITY_USAGE_PERIOD_OPTIONS.map((item) => (
+                                            <option key={item.value} value={item.value}>{item.label}</option>
+                                          ))}
+                                        </select>
+                                      </label>
+                                    </>
+                                  ) : null}
+                                  {classAccessSummary.length > 0 ? (
+                                    <div className="card" style={{ borderStyle: 'dashed', marginTop: '0.25rem' }}>
+                                      <p className="eyebrow">Ringkasan konfigurasi</p>
+                                      {classAccessSummary.map((line) => (
+                                        <p key={line} className="feedback">{line}</p>
+                                      ))}
+                                    </div>
+                                  ) : null}
+                                </>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                        <aside className="class-general-guide">
-                          <div className="card" style={{ borderStyle: 'dashed' }}>
-                            <p className="eyebrow">Panduan cepat</p>
-                            <p className="feedback"><strong>Class Type:</strong> {classFieldGuide.classType}</p>
-                            <p className="feedback"><strong>Validity mode:</strong> {classFieldGuide.validityMode}</p>
-                            <p className="feedback"><strong>Capacity mode:</strong> {classFieldGuide.capacityMode}</p>
-                            <p className="feedback"><strong>Quota mode:</strong> {classFieldGuide.quotaMode}</p>
-                            <p className="feedback"><strong>Pola rekomendasi:</strong> {classFieldGuide.recommendedPattern}</p>
-                          </div>
-                        </aside>
+                          <aside className="class-general-guide">
+                            <div className="card" style={{ borderStyle: 'dashed' }}>
+                              <p className="eyebrow">Panduan cepat</p>
+                              <p className="feedback"><strong>Template aktif:</strong> {formatClassTypeLabel(classForm.class_type)}</p>
+                              <p className="feedback"><strong>Deskripsi:</strong> {classFieldGuide.classType}</p>
+                              <p className="feedback"><strong>Validity mode:</strong> {classFieldGuide.validityMode}</p>
+                              <p className="feedback"><strong>Quota / capacity:</strong> {classFieldGuide.capacityMode}</p>
+                              <p className="feedback"><strong>Quota detail:</strong> {classFieldGuide.quotaMode}</p>
+                              <p className="feedback"><strong>Pola rekomendasi:</strong> {classFieldGuide.recommendedPattern}</p>
+                            </div>
+                          </aside>
                         </div>
                         {isScheduledClassForm ? (
                           <>
-                            <label>Capacity<input type="number" min="1" value={classForm.capacity} onChange={(e) => setClassForm((p) => ({ ...p, capacity: e.target.value }))} /></label>
-                            <p className="feedback">
-                              Capacity = jumlah slot peserta untuk scheduled class. Mode kapasitas otomatis memakai `limited`.
-                            </p>
                             <label>Periode Mulai<input type="date" value={classForm.start_date} onChange={(e) => setClassForm((p) => ({ ...p, start_date: e.target.value }))} /></label>
                             <label>Periode Akhir<input type="date" value={classForm.end_date} onChange={(e) => setClassForm((p) => ({ ...p, end_date: e.target.value }))} /></label>
-                            <label>Registration Start<input type="datetime-local" value={classForm.registration_start} onChange={(e) => setClassForm((p) => ({ ...p, registration_start: e.target.value }))} /></label>
-                            <label>Registration End<input type="datetime-local" value={classForm.registration_end} onChange={(e) => setClassForm((p) => ({ ...p, registration_end: e.target.value }))} /></label>
+                            <div className="card" style={{ borderStyle: 'dashed' }}>
+                              <p className="eyebrow">Registration period</p>
+                              <div style={{ display: 'grid', gap: '0.35rem', marginBottom: '0.75rem' }}>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', margin: 0 }}>
+                                  <input
+                                    type="radio"
+                                    name="class_registration_period"
+                                    checked={classForm.registration_period_mode === 'no'}
+                                    onChange={() =>
+                                      setClassForm((prev) => ({
+                                        ...prev,
+                                        registration_period_mode: 'no',
+                                        registration_start: '',
+                                        registration_end: ''
+                                      }))
+                                    }
+                                  />
+                                  <span>No</span>
+                                </label>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', margin: 0 }}>
+                                  <input
+                                    type="radio"
+                                    name="class_registration_period"
+                                    checked={classForm.registration_period_mode === 'range_date'}
+                                    onChange={() => setClassForm((prev) => ({ ...prev, registration_period_mode: 'range_date' }))}
+                                  />
+                                  <span>Range date</span>
+                                </label>
+                              </div>
+                              {classForm.registration_period_mode === 'range_date' ? (
+                                <>
+                                  <label>Registration Start<input type="datetime-local" value={classForm.registration_start} onChange={(e) => setClassForm((p) => ({ ...p, registration_start: e.target.value }))} /></label>
+                                  <label>Registration End<input type="datetime-local" value={classForm.registration_end} onChange={(e) => setClassForm((p) => ({ ...p, registration_end: e.target.value }))} /></label>
+                                </>
+                              ) : (
+                                <p className="feedback">Registrasi selalu terbuka selama class masih aktif.</p>
+                              )}
+                            </div>
                             <label>Jumlah Pertemuan Max<input type="number" min="0" value={classForm.max_meetings} onChange={(e) => setClassForm((p) => ({ ...p, max_meetings: e.target.value }))} /></label>
-                            <label>Quota mode<select value={classForm.quota_mode} onChange={(e) => setClassForm((p) => ({ ...p, quota_mode: e.target.value }))}><option value="manual">manual</option><option value="auto">auto</option><option value="none">none</option></select></label>
-                            <p className="feedback">
-                              Quota mode: `manual` = admin menentukan min/max quota sendiri.
-                              `auto` = sistem bisa memakai angka quota untuk trigger otomatis, misalnya auto start saat minimum peserta terpenuhi.
-                              `none` = tidak pakai quota logic tambahan.
-                            </p>
-                            <label>Min quota<input type="number" min="0" value={classForm.min_quota} onChange={(e) => setClassForm((p) => ({ ...p, min_quota: e.target.value }))} /></label>
-                            <label>Max quota<input type="number" min="0" value={classForm.max_quota} onChange={(e) => setClassForm((p) => ({ ...p, max_quota: e.target.value }))} /></label>
-                            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                              <input type="checkbox" checked={classForm.auto_start_when_quota_met} onChange={(e) => setClassForm((p) => ({ ...p, auto_start_when_quota_met: e.target.checked }))} />
-                              <span>Auto start when quota met</span>
-                            </label>
+                            <div className="card" style={{ borderStyle: 'dashed' }}>
+                              <p className="eyebrow">Quota / Capacity</p>
+                              <div style={{ display: 'grid', gap: '0.35rem', marginBottom: '0.75rem' }}>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', margin: 0 }}>
+                                  <input
+                                    type="radio"
+                                    name="class_capacity_mode"
+                                    checked={classForm.capacity_mode === 'none'}
+                                    onChange={() =>
+                                      setClassForm((prev) => ({
+                                        ...prev,
+                                        capacity_mode: 'none',
+                                        quota_mode: 'none',
+                                        capacity: '0',
+                                        min_quota: '',
+                                        max_quota: '',
+                                        auto_start_when_quota_met: false
+                                      }))
+                                    }
+                                  />
+                                  <span>No</span>
+                                </label>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', margin: 0 }}>
+                                  <input
+                                    type="radio"
+                                    name="class_capacity_mode"
+                                    checked={classForm.capacity_mode !== 'none'}
+                                    onChange={() =>
+                                      setClassForm((prev) => ({
+                                        ...prev,
+                                        capacity_mode: 'limited',
+                                        quota_mode: 'manual',
+                                        capacity: prev.max_quota || prev.capacity || '20'
+                                      }))
+                                    }
+                                  />
+                                  <span>Limited</span>
+                                </label>
+                              </div>
+                              {classForm.capacity_mode !== 'none' ? (
+                                <>
+                                  <label>Min quota<input type="number" min="0" value={classForm.min_quota} onChange={(e) => setClassForm((p) => ({ ...p, min_quota: e.target.value }))} /></label>
+                                  <label>Max quota<input type="number" min="1" value={classForm.max_quota} onChange={(e) => setClassForm((p) => ({ ...p, max_quota: e.target.value, capacity: e.target.value }))} /></label>
+                                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                    <input type="checkbox" checked={classForm.auto_start_when_quota_met} onChange={(e) => setClassForm((p) => ({ ...p, auto_start_when_quota_met: e.target.checked }))} />
+                                    <span>Auto start when quota met</span>
+                                  </label>
+                                </>
+                              ) : (
+                                <p className="feedback">Class ini tidak membatasi jumlah peserta.</p>
+                              )}
+                            </div>
                           </>
                         ) : (
                           <>
@@ -6054,6 +6332,16 @@ export default function AdminPage() {
                               </div>
                             )}
                           </div>
+                          <div className="card" style={{ borderStyle: 'dashed' }}>
+                            <p className="eyebrow">Metadata JSON</p>
+                            <p className="feedback">Metadata tambahan untuk operasional class dalam format JSON object.</p>
+                            <textarea
+                              rows={8}
+                              placeholder={'{\n  "level": "beginner",\n  "room": "Studio A"\n}'}
+                              value={classForm.custom_fields_text}
+                              onChange={(e) => setClassForm((p) => ({ ...p, custom_fields_text: e.target.value }))}
+                            />
+                          </div>
                         </div>
                         <aside className="editor-guide">
                           <div className="card" style={{ borderStyle: 'dashed' }}>
@@ -6065,7 +6353,7 @@ export default function AdminPage() {
                               <strong>free type:</strong> untuk jawaban bebas seperti kota, sekolah, atau nama komunitas. <strong>date:</strong> untuk tanggal lahir atau tanggal mulai preferensi. <strong>lookup:</strong> untuk pilihan tetap seperti level, gender, atau sumber info.
                             </p>
                             <p className="feedback">
-                              <strong>Required:</strong> aktifkan hanya untuk data yang wajib secara operasional. Kalau field hanya untuk insight tambahan, lebih aman dibuat opsional.
+                              <strong>Metadata JSON:</strong> simpan flag operasional tambahan seperti room, level, atau notes internal yang tidak perlu ditanya ke member.
                             </p>
                           </div>
                         </aside>
