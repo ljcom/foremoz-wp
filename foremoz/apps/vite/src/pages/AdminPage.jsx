@@ -2490,6 +2490,7 @@ export default function AdminPage() {
       ? String(classForm.capacity_mode || 'limited').trim().toLowerCase()
       : String(classForm.capacity_mode || 'none').trim().toLowerCase();
     const hasLimitedScheduledCapacity = isScheduledClassForm && scheduledCapacityMode === 'limited';
+    const hasLimitedAccessCapacity = !isScheduledClassForm && String(classForm.capacity_mode || 'none').trim().toLowerCase() !== 'none';
     if (!String(classForm.class_name || '').trim()) {
       setClassEditTab('general');
       setFeedback('class_name wajib diisi');
@@ -2561,6 +2562,20 @@ export default function AdminPage() {
         return;
       }
     }
+    if (hasLimitedAccessCapacity) {
+      const maxQuota = Number(classForm.max_quota || 0);
+      const minQuota = Number(classForm.min_quota || 0);
+      if (!Number.isFinite(maxQuota) || maxQuota <= 0) {
+        setClassEditTab('general');
+        setFeedback('max cap wajib diisi');
+        return;
+      }
+      if (Number.isFinite(minQuota) && minQuota > maxQuota) {
+        setClassEditTab('general');
+        setFeedback('min cap tidak boleh lebih besar dari max cap');
+        return;
+      }
+    }
     let normalizedSchedule;
     try {
       normalizedSchedule = normalizeClassScheduleForPayload({
@@ -2586,7 +2601,7 @@ export default function AdminPage() {
         ? (hasLimitedScheduledCapacity
             ? Number(classForm.max_quota || classForm.capacity || 0)
             : 0)
-        : Number(classForm.capacity || 20);
+        : (hasLimitedAccessCapacity ? Number(classForm.max_quota || classForm.capacity || 0) : 0);
       await apiJson(endpoint, {
         method,
         body: JSON.stringify({
@@ -2610,7 +2625,7 @@ export default function AdminPage() {
           capacity_mode: capacityMode,
           quota_mode: isScheduledClassForm
             ? (hasLimitedScheduledCapacity ? 'manual' : 'none')
-            : classForm.quota_mode,
+            : (hasLimitedAccessCapacity ? 'manual' : 'none'),
           validity_mode: classForm.validity_mode,
           price: Number(classForm.price || 0),
           start_date: classForm.start_date || null,
@@ -2628,9 +2643,9 @@ export default function AdminPage() {
           usage_mode: classForm.usage_mode,
           usage_limit: classForm.usage_limit ? Number(classForm.usage_limit) : null,
           usage_period: classForm.usage_period,
-          min_quota: hasLimitedScheduledCapacity && classForm.min_quota ? Number(classForm.min_quota) : null,
-          max_quota: hasLimitedScheduledCapacity && classForm.max_quota ? Number(classForm.max_quota) : null,
-          auto_start_when_quota_met: hasLimitedScheduledCapacity && classForm.auto_start_when_quota_met
+          min_quota: (hasLimitedScheduledCapacity || hasLimitedAccessCapacity) && classForm.min_quota ? Number(classForm.min_quota) : null,
+          max_quota: (hasLimitedScheduledCapacity || hasLimitedAccessCapacity) && classForm.max_quota ? Number(classForm.max_quota) : null,
+          auto_start_when_quota_met: (hasLimitedScheduledCapacity || hasLimitedAccessCapacity) && classForm.auto_start_when_quota_met
         })
       });
 
@@ -6187,6 +6202,54 @@ export default function AdminPage() {
                                       </>
                                     ) : null}
                                   </div>
+                                  <div className="card" style={{ borderStyle: 'dashed', marginTop: '0.75rem' }}>
+                                    <p className="eyebrow">Capacity</p>
+                                    <div style={{ display: 'grid', gap: '0.35rem', marginBottom: '0.75rem' }}>
+                                      <label style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', margin: 0 }}>
+                                        <input
+                                          type="radio"
+                                          name="class_access_capacity_mode"
+                                          checked={classForm.capacity_mode === 'none'}
+                                          onChange={() =>
+                                            setClassForm((prev) => ({
+                                              ...prev,
+                                              capacity_mode: 'none',
+                                              quota_mode: 'none',
+                                              capacity: '0',
+                                              min_quota: '',
+                                              max_quota: '',
+                                              auto_start_when_quota_met: false
+                                            }))
+                                          }
+                                        />
+                                        <span>Unlimited</span>
+                                      </label>
+                                      <label style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', margin: 0 }}>
+                                        <input
+                                          type="radio"
+                                          name="class_access_capacity_mode"
+                                          checked={classForm.capacity_mode !== 'none'}
+                                          onChange={() =>
+                                            setClassForm((prev) => ({
+                                              ...prev,
+                                              capacity_mode: 'limited',
+                                              quota_mode: 'manual',
+                                              capacity: prev.max_quota || prev.capacity || '20'
+                                            }))
+                                          }
+                                        />
+                                        <span>Min / Max cap</span>
+                                      </label>
+                                    </div>
+                                    {classForm.capacity_mode !== 'none' ? (
+                                      <>
+                                        <label>Min cap<input type="number" min="0" value={classForm.min_quota} onChange={(e) => setClassForm((p) => ({ ...p, min_quota: e.target.value }))} /></label>
+                                        <label>Max cap<input type="number" min="1" value={classForm.max_quota} onChange={(e) => setClassForm((p) => ({ ...p, max_quota: e.target.value, capacity: e.target.value }))} /></label>
+                                      </>
+                                    ) : (
+                                      <p className="feedback">Tidak ada batas holder/enrollment.</p>
+                                    )}
+                                  </div>
                                   {classAccessSummary.length > 0 ? (
                                     <div className="card" style={{ borderStyle: 'dashed', marginTop: '0.25rem' }}>
                                       <p className="eyebrow">Ringkasan konfigurasi</p>
@@ -6307,18 +6370,7 @@ export default function AdminPage() {
                           </>
                         ) : (
                           <>
-                            <label>Capacity mode<select value={classForm.capacity_mode} onChange={(e) => setClassForm((p) => ({ ...p, capacity_mode: e.target.value }))}><option value="none">none</option><option value="limited">limited</option><option value="flexible">flexible</option></select></label>
-                            <p className="feedback">
-                              Capacity mode: `none` = tidak ada batas peserta/holder.
-                              `limited` = jumlah holder/enrollment bisa dibatasi.
-                              `flexible` = ada target kapasitas tapi masih bisa dilonggarkan oleh operasional.
-                            </p>
-                            <label>Quota mode<select value={classForm.quota_mode} onChange={(e) => setClassForm((p) => ({ ...p, quota_mode: e.target.value }))}><option value="none">none</option><option value="manual">manual</option><option value="auto">auto</option></select></label>
-                            <p className="feedback">
-                              Quota mode: `none` = tidak ada quota tambahan.
-                              `manual` = admin isi batas sendiri, misalnya hanya 100 membership aktif.
-                              `auto` = sistem bisa memicu rule otomatis berdasarkan quota yang terpenuhi.
-                            </p>
+                            <p className="feedback">Capacity diatur sebagai `Unlimited` atau `Min / Max cap` pada bagian access di atas.</p>
                           </>
                         )}
                       </>
