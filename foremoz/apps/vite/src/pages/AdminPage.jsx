@@ -105,6 +105,13 @@ const ACTIVITY_VALIDITY_UNIT_OPTIONS = [
   { value: 'year', label: 'Year' }
 ];
 
+const ACTIVITY_LIMITED_DURATION_UNIT_OPTIONS = [
+  { value: 'day', label: 'Daily' },
+  { value: 'week', label: 'Weekly' },
+  { value: 'month', label: 'Monthly' },
+  { value: 'year', label: 'Annual' }
+];
+
 const ACTIVITY_VALIDITY_ANCHOR_OPTIONS = [
   { value: 'activation', label: 'First date' },
   { value: 'purchase', label: 'Purchase' },
@@ -5974,16 +5981,35 @@ export default function AdminPage() {
                                     </div>
                                   ) : null}
                                   <label>
-                                    Validity Unit
-                                    <select value={classForm.validity_unit} onChange={(e) => setClassForm((p) => ({ ...p, validity_unit: e.target.value }))}>
-                                      {ACTIVITY_VALIDITY_UNIT_OPTIONS.map((item) => (
-                                        <option key={item.value} value={item.value}>{item.label}</option>
-                                      ))}
+                                    Duration
+                                    <select
+                                      value={classForm.validity_unit === 'none' ? 'unlimited' : 'limited'}
+                                      onChange={(e) =>
+                                        setClassForm((p) => ({
+                                          ...p,
+                                          validity_unit: e.target.value === 'unlimited' ? 'none' : (p.validity_unit === 'none' ? 'month' : p.validity_unit),
+                                          validity_value: e.target.value === 'unlimited' ? '' : (p.validity_value || '1'),
+                                          validity_anchor: e.target.value === 'unlimited' ? 'activation' : p.validity_anchor,
+                                          start_date: e.target.value === 'unlimited' && p.validity_anchor === 'fixed_start' ? '' : p.start_date,
+                                          end_date: e.target.value === 'unlimited' && p.validity_anchor === 'fixed_start' ? '' : p.end_date
+                                        }))
+                                      }
+                                    >
+                                      <option value="unlimited">Unlimited</option>
+                                      <option value="limited">Limited</option>
                                     </select>
                                   </label>
                                   {classForm.validity_unit !== 'none' ? (
                                     <>
-                                      <label>Validity Value<input type="number" min="1" value={classForm.validity_value} onChange={(e) => setClassForm((p) => ({ ...p, validity_value: e.target.value }))} /></label>
+                                      <label>Duration Value<input type="number" min="1" value={classForm.validity_value} onChange={(e) => setClassForm((p) => ({ ...p, validity_value: e.target.value }))} /></label>
+                                      <label>
+                                        Duration Unit
+                                        <select value={classForm.validity_unit} onChange={(e) => setClassForm((p) => ({ ...p, validity_unit: e.target.value }))}>
+                                          {ACTIVITY_LIMITED_DURATION_UNIT_OPTIONS.map((item) => (
+                                            <option key={item.value} value={item.value}>{item.label}</option>
+                                          ))}
+                                        </select>
+                                      </label>
                                       <label>
                                         Activation / Start
                                         <select value={classForm.validity_anchor} onChange={(e) => setClassForm((p) => ({ ...p, validity_anchor: e.target.value }))}>
