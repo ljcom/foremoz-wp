@@ -2527,6 +2527,114 @@ app.get('/v1/public/account/resolve', async (req, res, next) => {
   }
 });
 
+app.get('/v1/public/account/programs', async (req, res, next) => {
+  try {
+    await ensureOwnerSetupIndustryColumn();
+    await ensureOwnerBranchTable();
+    const accountSlug = String(req.query.account_slug || '').trim().toLowerCase();
+    if (!accountSlug) {
+      throw fail(400, 'ACCOUNT_SLUG_REQUIRED', 'account_slug is required');
+    }
+
+    const { rows: accountRows } = await query(
+      `select *
+       from (
+         select tenant_id, gym_name, branch_id, account_slug, address, city, photo_url, package_plan, industry_slug, status, updated_at
+         from read.rm_owner_setup
+         where lower(account_slug) = $1 and status = 'active'
+         union all
+         select b.tenant_id, coalesce(nullif(b.branch_name, ''), s.gym_name) as gym_name, b.branch_id, b.account_slug,
+                coalesce(nullif(b.address, ''), s.address) as address,
+                coalesce(nullif(b.city, ''), s.city) as city,
+                coalesce(nullif(b.photo_url, ''), s.photo_url) as photo_url,
+                s.package_plan, s.industry_slug, b.status, b.updated_at
+         from read.rm_owner_branch b
+         left join read.rm_owner_setup s on s.tenant_id = b.tenant_id
+         where lower(b.account_slug) = $1 and b.status = 'active'
+       ) x
+       order by updated_at desc
+       limit 1`,
+      [accountSlug]
+    );
+    const accountRow = accountRows[0] || null;
+    if (!accountRow?.tenant_id) {
+      return ok(res, { rows: [] });
+    }
+
+    const tenantId = accountRow.tenant_id;
+    const branchId = accountRow.branch_id || null;
+    const params = [tenantId];
+    let sql = `select * from read.rm_class_availability where tenant_id = $1`;
+    if (branchId) {
+      params.push(branchId);
+      sql += ` and branch_id = $2`;
+    }
+    sql += ` order by coalesce(start_at, registration_start, updated_at) asc nulls last, class_name asc`;
+    const { rows } = await query(sql, params);
+
+    const classIds = rows.map((row) => row.class_id).filter(Boolean);
+    const latestByClassId = new Map();
+    if (classIds.length > 0) {
+      const namespaceId = resolveNamespaceId(tenantId);
+      const { rows: latestRows } = await query(
+        `select distinct on (payload->'data'->>'class_id')
+            payload->'data' as data
+         from eventdb_event
+         where namespace_id = $1
+           and event_type = 'class.scheduled'
+           and payload->'data'->>'class_id' = any($2::text[])
+         order by payload->'data'->>'class_id', sequence desc`,
+        [namespaceId, classIds]
+      );
+      latestRows.forEach((row) => {
+        if (!row.data?.class_id) return;
+        latestByClassId.set(row.data.class_id, row.data);
+      });
+    }
+
+    return ok(res, {
+      rows: rows.map((row) => {
+        const latest = latestByClassId.get(row.class_id) || {};
+        const customFields = latest.custom_fields && typeof latest.custom_fields === 'object' && !Array.isArray(latest.custom_fields)
+          ? latest.custom_fields
+          : {};
+        const galleryImages = Array.isArray(customFields.gallery_images) ? customFields.gallery_images : [];
+        const imageUrl = String(customFields.image_url || latest.image_url || row.image_url || '').trim();
+        return {
+          ...row,
+          ...latest,
+          title: latest.title || row.title || row.class_name,
+          class_name: latest.class_name || row.class_name,
+          description: latest.description || row.description || null,
+          trainer_name: latest.trainer_name || '',
+          has_coach: latest.has_coach ?? row.has_coach ?? false,
+          coach_id: latest.coach_id || row.coach_id || null,
+          price: Number(latest.price || 0),
+          category: latest.category || row.category_id || '',
+          category_id: latest.category_id || row.category_id || null,
+          custom_fields: customFields,
+          image_url: imageUrl,
+          gallery_images: galleryImages,
+          location: String(customFields.location || latest.location || row.location || '').trim(),
+          period_end_at: latest.period_end_at || row.end_date || null,
+          max_meetings: Number(latest.max_meetings || 0),
+          schedule_mode: latest.schedule_mode || (row.class_type === 'scheduled' ? 'weekly' : 'none'),
+          weekly_schedule: normalizeClassSchedule({
+            schedule_mode: 'weekly',
+            weekly_schedule: latest.weekly_schedule
+          }).weekly_schedule,
+          manual_schedule: normalizeClassSchedule({
+            schedule_mode: 'manual',
+            manual_schedule: latest.manual_schedule
+          }).manual_schedule
+        };
+      })
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
 app.get('/v1/public/passport', async (req, res, next) => {
   try {
     await ensureOwnerSetupIndustryColumn();

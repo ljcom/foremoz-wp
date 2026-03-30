@@ -5,6 +5,10 @@ import { useI18n } from '../i18n.js';
 import { apiJson } from '../lib.js';
 import { getVerticalConfig, getVerticalLabel, guessVerticalSlugByText } from '../industry-jargon.js';
 
+function formatIdr(value) {
+  return `IDR ${Number(value || 0).toLocaleString('id-ID')}`;
+}
+
 function visualForVertical(slug) {
   const key = String(slug || '').toLowerCase();
   if (key === 'fitness') return 'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?auto=format&fit=crop&w=1400&q=80';
@@ -99,6 +103,7 @@ export default function AccountPublicPage() {
       };
   const { account } = useParams();
   const [accountInfo, setAccountInfo] = useState(null);
+  const [programs, setPrograms] = useState([]);
   const verticalSlug = String(accountInfo?.industry_slug || '').trim().toLowerCase()
     || guessVerticalSlugByText(account, 'fitness');
   const verticalLabel = getVerticalLabel(verticalSlug, 'Fitness');
@@ -127,30 +132,29 @@ export default function AccountPublicPage() {
     };
   }, [account]);
 
+  useEffect(() => {
+    let active = true;
+    async function loadPrograms() {
+      try {
+        const result = await apiJson(`/v1/public/account/programs?account_slug=${encodeURIComponent(String(account || ''))}`);
+        if (!active) return;
+        setPrograms(Array.isArray(result.rows) ? result.rows : []);
+      } catch {
+        if (!active) return;
+        setPrograms([]);
+      }
+    }
+    loadPrograms();
+    return () => {
+      active = false;
+    };
+  }, [account]);
+
   const quickActions = [
     { icon: 'fa-solid fa-user-plus', title: copy.quickJoinMember },
     { icon: 'fa-solid fa-calendar-check', title: copy.quickBook },
     { icon: 'fa-solid fa-qrcode', title: copy.quickCheckin },
     { icon: 'fa-solid fa-trophy', title: copy.quickProgress }
-  ];
-
-  const promoPrograms = [
-    {
-      title: 'Starter 30 Hari',
-      image: 'https://images.unsplash.com/photo-1549060279-7e168fcee0c2?auto=format&fit=crop&w=900&q=80'
-    },
-    {
-      title: 'Duo Package',
-      image: 'https://images.unsplash.com/photo-1571019613576-2b22c76fd955?auto=format&fit=crop&w=900&q=80'
-    },
-    {
-      title: 'Weekend Blast',
-      image: 'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?auto=format&fit=crop&w=900&q=80'
-    },
-    {
-      title: 'PT Kickstart',
-      image: 'https://images.unsplash.com/photo-1599058917212-d750089bc07e?auto=format&fit=crop&w=900&q=80'
-    }
   ];
 
   const coachProfiles = [
@@ -269,11 +273,20 @@ export default function AccountPublicPage() {
         <p className="eyebrow">{copy.program}</p>
         <h2 className="landing-title">{copy.programTitle}</h2>
         <div className="case-grid web-visual-grid">
-          {promoPrograms.map((program) => (
-            <article className="feature-card case-card web-visual-card" key={program.title}>
-              <img className="web-visual-image" src={program.image} alt={program.title} />
+          {programs.map((program) => {
+            const title = String(program.title || program.class_name || program.class_id || '-').trim() || '-';
+            const image = String(program.image_url || '').trim() || heroImage;
+            const description = String(program.description || '').trim();
+            const price = Number(program.price || 0);
+            return (
+            <article className="feature-card case-card web-visual-card" key={program.class_id || title}>
+              <img className="web-visual-image" src={image} alt={title} />
               <div className="web-visual-body">
-                <h3>{program.title}</h3>
+                <h3>{title}</h3>
+                {description ? <p className="sub">{description}</p> : null}
+                <p className="feedback" style={{ margin: '0.35rem 0 0' }}>
+                  {price > 0 ? formatIdr(price) : 'Hubungi kami'}
+                </p>
                 <div className="hero-actions">
                   <Link className="btn small" to={`/a/${account}/member/signup`}>
                     {copy.takeProgram}
@@ -281,7 +294,16 @@ export default function AccountPublicPage() {
                 </div>
               </div>
             </article>
-          ))}
+          );
+          })}
+          {programs.length === 0 ? (
+            <article className="feature-card case-card web-visual-card">
+              <div className="web-visual-body">
+                <h3>Program segera hadir</h3>
+                <p className="sub">Program yang sudah dibuat untuk account ini akan tampil otomatis di sini.</p>
+              </div>
+            </article>
+          ) : null}
         </div>
       </section>
 
