@@ -36,7 +36,12 @@ function safeBufferEqual(left, right) {
 }
 
 export function normalizeEmail(email) {
-  return String(email || '').trim().toLowerCase();
+  const normalized = String(email || '').trim().toLowerCase();
+  if (!normalized) return normalized;
+  if (!/^[^\s@]+@[^\s@]+$/.test(normalized)) {
+    throw new Error('email format is invalid');
+  }
+  return normalized;
 }
 
 export async function hashPassword(password) {
