@@ -698,16 +698,18 @@ export default function PassportLandingPage() {
         )}
       </section>
 
-      <section className="cta">
-        <p className="eyebrow">{copy.createEyebrow}</p>
-        <h2>{copy.createTitle}</h2>
-        <p>{copy.createDescription}</p>
-        <div className="hero-actions">
-          <Link className="btn ghost" to="/host">
-            {copy.createButton}
-          </Link>
-        </div>
-      </section>
+      {!isAccountSurface ? (
+        <section className="cta">
+          <p className="eyebrow">{copy.createEyebrow}</p>
+          <h2>{copy.createTitle}</h2>
+          <p>{copy.createDescription}</p>
+          <div className="hero-actions">
+            <Link className="btn ghost" to="/host">
+              {copy.createButton}
+            </Link>
+          </div>
+        </section>
+      ) : null}
     </main>
   );
 }
