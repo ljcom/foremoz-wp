@@ -19,7 +19,7 @@ const ADMIN_TABS = [
   { id: 'class', label: 'Program' },
   { id: 'product', label: 'Product' },
   { id: 'package_creation', label: 'Package creation' },
-  { id: 'trainer', label: 'Trainer' },
+  { id: 'trainer', label: 'Coach' },
   { id: 'sales', label: 'Sales' },
   { id: 'member', label: 'Member' },
   { id: 'transaction', label: 'Transaction' },
@@ -2478,7 +2478,7 @@ export default function AdminPage() {
   });
   const ptLookupOptions = users.filter((item) => {
     const itemRole = String(item.role || '').toLowerCase();
-    if (itemRole !== 'pt') return false;
+    if (itemRole !== 'pt' && itemRole !== 'owner') return false;
     return ptTrainerEnabledMap[item.user_id] !== false;
   });
   const trainerNameOptions = useMemo(() => {
@@ -2608,7 +2608,7 @@ export default function AdminPage() {
   });
   const filteredPtUsers = users.filter((item) => {
     const itemRole = String(item.role || '').toLowerCase();
-    if (itemRole !== 'pt') return false;
+    if (itemRole !== 'pt' && itemRole !== 'owner') return false;
     const q = ptUserQuery.toLowerCase();
     if (!q) return true;
     return (
@@ -7493,13 +7493,13 @@ export default function AdminPage() {
 
           {activeTab === 'trainer' ? (
             <>
-              <p className="eyebrow">Trainer</p>
+              <p className="eyebrow">Coach</p>
               {selectedTrainerUser ? (
                 <>
                   <div className="panel-head">
                     <h2>Member PT Package - {selectedTrainerUser.full_name}</h2>
                     <button className="btn ghost" type="button" onClick={closeTrainerPackageList}>
-                      Back to trainer list
+                      Back to coach list
                     </button>
                   </div>
                   <div className="panel-head">
@@ -7548,11 +7548,11 @@ export default function AdminPage() {
               ) : (
                 <>
                   <div className="panel-head">
-                    <h2>Trainer List</h2>
+                    <h2>Coach List</h2>
                     <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginLeft: 'auto' }}>
                       <input
                         type="text"
-                        placeholder="Cari user PT..."
+                        placeholder="Cari coach..."
                         value={ptUserQuery}
                         onChange={(e) => setPtUserQuery(e.target.value)}
                       />
@@ -7565,8 +7565,9 @@ export default function AdminPage() {
                         <tr>
                           <th className="admin-data-head">Nama</th>
                           <th className="admin-data-head">Email</th>
+                          <th className="admin-data-head">Role</th>
                           <th className="admin-data-head">List</th>
-                          <th className="admin-data-head">Trainer</th>
+                          <th className="admin-data-head">Coach</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -7574,6 +7575,7 @@ export default function AdminPage() {
                           <tr key={item.user_id} className={idx % 2 === 0 ? 'admin-data-row' : 'admin-data-row admin-data-row-alt'}>
                             <td className="admin-data-cell">{item.full_name}</td>
                             <td className="admin-data-cell">{item.email}</td>
+                            <td className="admin-data-cell">{String(item.role || '-').toLowerCase()}</td>
                             <td className="admin-data-cell">
                               <button type="button" className="btn ghost small" onClick={() => openTrainerPackageList(item)}>
                                 list
@@ -7599,7 +7601,7 @@ export default function AdminPage() {
                         ))}
                         {filteredPtUsers.length === 0 ? (
                           <tr>
-                            <td colSpan={4} className="admin-data-cell">Belum ada user role pt.</td>
+                            <td colSpan={5} className="admin-data-cell">Belum ada user role `pt` atau `owner` yang aktif.</td>
                           </tr>
                         ) : null}
                       </tbody>
