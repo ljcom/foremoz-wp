@@ -104,6 +104,7 @@ export default function AccountPublicPage() {
   const { account } = useParams();
   const [accountInfo, setAccountInfo] = useState(null);
   const [programs, setPrograms] = useState([]);
+  const [coaches, setCoaches] = useState([]);
   const verticalSlug = String(accountInfo?.industry_slug || '').trim().toLowerCase()
     || guessVerticalSlugByText(account, 'fitness');
   const verticalLabel = getVerticalLabel(verticalSlug, 'Fitness');
@@ -134,6 +135,24 @@ export default function AccountPublicPage() {
 
   useEffect(() => {
     let active = true;
+    async function loadCoaches() {
+      try {
+        const result = await apiJson(`/v1/public/account/coaches?account_slug=${encodeURIComponent(String(account || ''))}`);
+        if (!active) return;
+        setCoaches(Array.isArray(result.rows) ? result.rows : []);
+      } catch {
+        if (!active) return;
+        setCoaches([]);
+      }
+    }
+    loadCoaches();
+    return () => {
+      active = false;
+    };
+  }, [account]);
+
+  useEffect(() => {
+    let active = true;
     async function loadPrograms() {
       try {
         const result = await apiJson(`/v1/public/account/programs?account_slug=${encodeURIComponent(String(account || ''))}`);
@@ -157,26 +176,6 @@ export default function AccountPublicPage() {
     { icon: 'fa-solid fa-trophy', title: copy.quickProgress }
   ];
 
-  const coachProfiles = [
-    {
-      name: 'Coach Raka',
-      role: 'Strength',
-      schedule: 'Mon, Wed, Fri',
-      photo: 'https://images.unsplash.com/photo-1550345332-09e3ac987658?auto=format&fit=crop&w=600&q=80'
-    },
-    {
-      name: 'Coach Alia',
-      role: 'Mobility',
-      schedule: 'Tue, Thu, Sat',
-      photo: 'https://images.unsplash.com/photo-1549476464-37392f717541?auto=format&fit=crop&w=600&q=80'
-    },
-    {
-      name: 'Coach Fajar',
-      role: 'Conditioning',
-      schedule: 'Tue, Thu, Sun',
-      photo: 'https://images.unsplash.com/photo-1518611012118-696072aa579a?auto=format&fit=crop&w=600&q=80'
-    }
-  ];
   const conversionReasons = [
     {
       title: copy.reason1Title,
@@ -335,19 +334,32 @@ export default function AccountPublicPage() {
         <p className="eyebrow">{copy.coach}</p>
         <h2 className="landing-title">{copy.coachTitle}</h2>
         <div className="coach-grid">
-          {coachProfiles.map((coach) => (
-            <article className="coach-card" key={coach.name}>
-              <img src={coach.photo} alt={coach.name} className="coach-photo" />
+          {coaches.map((coach, index) => {
+            const name = String(coach.full_name || coach.name || coach.email || '-').trim() || '-';
+            const role = String(coach.title || (coach.role === 'owner' ? 'Owner Coach' : creatorLabel)).trim() || creatorLabel;
+            const photo = `${heroImage}${heroImage.includes('?') ? '&' : '?'}coach=${encodeURIComponent(String(coach.user_id || index))}`;
+            return (
+            <article className="coach-card" key={coach.user_id || name}>
+              <img src={photo} alt={name} className="coach-photo" />
               <div>
-                <h3>{coach.name}</h3>
-                <p className="coach-role">{coach.role}</p>
-                <p className="coach-schedule">{coach.schedule}</p>
+                <h3>{name}</h3>
+                <p className="coach-role">{role}</p>
+                <p className="coach-schedule">{displayName}</p>
               </div>
               <Link className="btn small" to={`/a/${account}/member/signup`}>
-                {copy.joinCoach.replace('{coach}', coach.name)}
+                {copy.joinCoach.replace('{coach}', name)}
               </Link>
             </article>
-          ))}
+          );
+          })}
+          {coaches.length === 0 ? (
+            <article className="coach-card">
+              <div>
+                <h3>Coach segera hadir</h3>
+                <p className="coach-role">Daftar coach aktif untuk account ini akan tampil otomatis di sini.</p>
+              </div>
+            </article>
+          ) : null}
         </div>
       </section>
 

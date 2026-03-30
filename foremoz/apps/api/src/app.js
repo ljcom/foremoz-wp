@@ -2635,6 +2635,67 @@ app.get('/v1/public/account/programs', async (req, res, next) => {
   }
 });
 
+app.get('/v1/public/account/coaches', async (req, res, next) => {
+  try {
+    await ensureOwnerSetupIndustryColumn();
+    await ensureOwnerBranchTable();
+    const accountSlug = String(req.query.account_slug || '').trim().toLowerCase();
+    if (!accountSlug) {
+      throw fail(400, 'ACCOUNT_SLUG_REQUIRED', 'account_slug is required');
+    }
+
+    const { rows: accountRows } = await query(
+      `select *
+       from (
+         select tenant_id, gym_name, branch_id, account_slug, address, city, photo_url, package_plan, industry_slug, status, updated_at
+         from read.rm_owner_setup
+         where lower(account_slug) = $1 and status = 'active'
+         union all
+         select b.tenant_id, coalesce(nullif(b.branch_name, ''), s.gym_name) as gym_name, b.branch_id, b.account_slug,
+                coalesce(nullif(b.address, ''), s.address) as address,
+                coalesce(nullif(b.city, ''), s.city) as city,
+                coalesce(nullif(b.photo_url, ''), s.photo_url) as photo_url,
+                s.package_plan, s.industry_slug, b.status, b.updated_at
+         from read.rm_owner_branch b
+         left join read.rm_owner_setup s on s.tenant_id = b.tenant_id
+         where lower(b.account_slug) = $1 and b.status = 'active'
+       ) x
+       order by updated_at desc
+       limit 1`,
+      [accountSlug]
+    );
+    const accountRow = accountRows[0] || null;
+    if (!accountRow?.tenant_id) {
+      return ok(res, { rows: [] });
+    }
+
+    const { rows } = await query(
+      `select tenant_id, user_id, full_name, email, role, status, created_at, updated_at
+       from read.rm_tenant_user_auth
+       where tenant_id = $1
+         and status = 'active'
+         and role in ('pt', 'owner')
+       order by
+         case when role = 'pt' then 0 else 1 end,
+         updated_at desc,
+         full_name asc`,
+      [accountRow.tenant_id]
+    );
+
+    return ok(res, {
+      rows: rows.map((row) => ({
+        user_id: row.user_id,
+        full_name: row.full_name,
+        email: row.email,
+        role: row.role,
+        title: row.role === 'owner' ? 'Owner Coach' : 'Coach'
+      }))
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
 app.get('/v1/public/passport', async (req, res, next) => {
   try {
     await ensureOwnerSetupIndustryColumn();
