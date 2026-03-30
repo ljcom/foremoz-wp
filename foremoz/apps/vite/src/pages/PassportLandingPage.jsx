@@ -106,6 +106,7 @@ export default function PassportLandingPage() {
         eventsEyebrow: 'Events',
         premiumEvents: 'Premium events',
         upcomingEvents: 'Upcoming events',
+        accountEvents: 'All saved events',
         exploreEvents: 'Explore all events',
         searchLabel: 'Search events',
         searchPlaceholder: 'title, category, organizer...',
@@ -117,8 +118,10 @@ export default function PassportLandingPage() {
         register: 'Register',
         noPremium: 'No premium events yet',
         noPublished: 'No published events yet',
+        noAccountEvents: 'No saved events yet',
         noPremiumDescription: 'Try Explore All Events or come back for the next premium event.',
         noPublishedDescription: 'Check back soon, more events are on the way.',
+        noAccountEventsDescription: 'Events that are already saved for this account will appear here automatically.',
         myEventsEyebrow: 'My Events',
         myEventsTitle: 'Events you have joined',
         signInFirst: 'Sign in first to view My Events.',
@@ -178,6 +181,7 @@ export default function PassportLandingPage() {
         eventsEyebrow: 'Events',
         premiumEvents: 'Premium events',
         upcomingEvents: 'Upcoming events',
+        accountEvents: 'Semua event tersimpan',
         exploreEvents: 'Explore semua event',
         searchLabel: 'Cari event',
         searchPlaceholder: 'judul, kategori, organizer...',
@@ -189,8 +193,10 @@ export default function PassportLandingPage() {
         register: 'Register',
         noPremium: 'Belum ada premium event',
         noPublished: 'Belum ada event published',
+        noAccountEvents: 'Belum ada event tersimpan',
         noPremiumDescription: 'Coba Explore Semua Event atau tunggu premium event berikutnya.',
         noPublishedDescription: 'Coba lagi sebentar lagi, event baru akan segera hadir.',
+        noAccountEventsDescription: 'Event yang sudah disimpan untuk account ini akan tampil otomatis di sini.',
         myEventsEyebrow: 'My Events',
         myEventsTitle: 'Event yang sudah kamu join',
         signInFirst: 'Sign in dulu untuk lihat My Events.',
@@ -276,7 +282,7 @@ export default function PassportLandingPage() {
       try {
         setLoading(true);
         setError('');
-        const result = await apiJson('/v1/read/events?status=published&limit=24');
+        const result = await apiJson(`/v1/read/events?status=${isAccountSurface ? 'all' : 'published'}&limit=${isAccountSurface ? '400' : '24'}`);
         const rows = Array.isArray(result.rows) ? result.rows : [];
         const mapped = rows.map((row) => {
           const vertical = guessVertical(row);
@@ -296,7 +302,7 @@ export default function PassportLandingPage() {
               row.tenant_name ||
               copy.organizerFallback,
             time: row.start_at ? `${copy.startsAt} ${formatAppDateTime(row.start_at)}` : copy.scheduleTbd,
-            status: String(row.status || 'published').toUpperCase(),
+            status: String(row.status || (isAccountSurface ? 'draft' : 'published')).toUpperCase(),
             image: row.image_url || fallbackEvents[0]?.image || ''
           };
         });
@@ -567,7 +573,7 @@ export default function PassportLandingPage() {
             <h2 className="landing-title">
               {isGlobalEventsSurface
                 ? (isExploreAllMode ? copy.exploreEvents : copy.premiumEvents)
-                : copy.upcomingEvents}
+                : (isAccountSurface ? copy.accountEvents : copy.upcomingEvents)}
             </h2>
             {isGlobalEventsSurface && isExploreAllMode ? (
               <div className="card form" style={{ marginBottom: '1rem' }}>
@@ -618,11 +624,17 @@ export default function PassportLandingPage() {
               ))}
               {!loading && searchableEvents.length === 0 ? (
                 <article className="passport-live-card">
-                  <h3>{isGlobalEventsSurface && !isExploreAllMode ? copy.noPremium : copy.noPublished}</h3>
+                  <h3>
+                    {isAccountSurface
+                      ? copy.noAccountEvents
+                      : (isGlobalEventsSurface && !isExploreAllMode ? copy.noPremium : copy.noPublished)}
+                  </h3>
                   <p className="passport-live-time">
-                    {isGlobalEventsSurface && !isExploreAllMode
-                      ? copy.noPremiumDescription
-                      : copy.noPublishedDescription}
+                    {isAccountSurface
+                      ? copy.noAccountEventsDescription
+                      : (isGlobalEventsSurface && !isExploreAllMode
+                        ? copy.noPremiumDescription
+                        : copy.noPublishedDescription)}
                   </p>
                 </article>
               ) : null}
