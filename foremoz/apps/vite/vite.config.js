@@ -10,9 +10,13 @@ export default defineConfig(({ mode }) => {
     process.env.VITE_STAGE ||
     '4'
   ).trim() || '4';
+  const outputDir = `dist-stg${appStage}`;
 
   return {
     plugins: [react()],
+    build: {
+      outDir: outputDir
+    },
     define: {
       __APP_STAGE__: JSON.stringify(appStage)
     }
