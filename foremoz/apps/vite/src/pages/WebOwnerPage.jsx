@@ -114,6 +114,12 @@ function formatActivationFeedback(result, fullName) {
   return `owner.user.created ${safeName}. Pending activation.`;
 }
 
+function sentenceCase(value) {
+  const text = String(value || '').trim();
+  if (!text) return '';
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
 export default function WebOwnerPage() {
   const navigate = useNavigate();
   const session = getSession();
@@ -123,6 +129,7 @@ export default function WebOwnerPage() {
 
   const [feedback, setFeedback] = useState('');
   const [loading, setLoading] = useState(false);
+  const [aiWorking, setAiWorking] = useState(false);
   const [step, setStep] = useState(1);
   const [menu, setMenu] = useState('profile');
   const [setupRow, setSetupRow] = useState(null);
@@ -194,6 +201,69 @@ export default function WebOwnerPage() {
   const isSetupReady = Boolean(
     setupRow?.status === 'active' && setupRow?.gym_name && setupRow?.account_slug
   );
+
+  function buildBusinessImageKeywords() {
+    const verticalLabel = sentenceCase(normalizeVerticalSlug(setupForm.industry_slug, 'fitness'));
+    const cityToken = String(setupForm.city || '').trim().split(/[,\s]+/)[0] || 'Indonesia';
+    const keywords = [
+      `${String(setupForm.gym_name || '').trim()} ${cityToken}`.trim(),
+      `${verticalLabel} studio ${cityToken}`.trim(),
+      `${verticalLabel} community ${cityToken}`.trim(),
+      `${String(setupForm.address || '').trim()} ${verticalLabel}`.trim()
+    ]
+      .map((item) => String(item || '').replace(/\s+/g, ' ').trim())
+      .filter((item) => item.length >= 3);
+    return [...new Set(keywords)];
+  }
+
+  async function fetchPexelsPhotos(keyword, perPage = 4) {
+    const query = String(keyword || '').trim() || 'fitness studio';
+    const result = await apiJson(
+      `/v1/ai/pexels/search?tenant_id=${encodeURIComponent(setupForm.tenant_id || tenantSeed)}&query=${encodeURIComponent(query)}&per_page=${encodeURIComponent(perPage)}`
+    );
+    return Array.isArray(result.rows) ? result.rows : [];
+  }
+
+  async function aiFillBusinessGallery() {
+    try {
+      setAiWorking(true);
+      const keywordCandidates = buildBusinessImageKeywords();
+      if (keywordCandidates.length === 0) {
+        throw new Error('Isi display name atau city dulu agar gambar bisnis bisa digenerate.');
+      }
+      let keyword = keywordCandidates[0];
+      let photos = [];
+      let lastError = null;
+      for (const candidate of keywordCandidates) {
+        keyword = candidate;
+        try {
+          photos = await fetchPexelsPhotos(candidate, 6);
+        } catch (error) {
+          lastError = error;
+          photos = [];
+        }
+        if (photos.length > 0) break;
+      }
+      if (photos.length === 0) {
+        if (lastError) throw lastError;
+        setFeedback('ai.assist: Pexels tidak menemukan gambar untuk business profile ini.');
+        return;
+      }
+      const urls = photos
+        .map((item) => item?.image_url || '')
+        .map((item) => String(item || '').trim())
+        .filter(Boolean);
+      setSetupForm((prev) => ({
+        ...prev,
+        photo_url: urls[0] || prev.photo_url
+      }));
+      setFeedback(`ai.assist: Business profile image diisi dari Pexels (${keyword}).`);
+    } catch (error) {
+      setFeedback(error.message || 'ai.assist: Gagal mengambil gambar business profile.');
+    } finally {
+      setAiWorking(false);
+    }
+  }
 
   async function refreshOwnerData(targetTenantId) {
     const activeTenant = targetTenantId || setupForm.tenant_id || tenantSeed;
@@ -1084,6 +1154,16 @@ export default function WebOwnerPage() {
                       onChange={(e) => setSetupForm((p) => ({ ...p, photo_url: e.target.value }))}
                     />
                   </label>
+                  <div className="row-actions" style={{ marginTop: '-0.2rem' }}>
+                    <button
+                      className="btn ghost small"
+                      type="button"
+                      disabled={aiWorking}
+                      onClick={aiFillBusinessGallery}
+                    >
+                      AI Fill Gallery
+                    </button>
+                  </div>
                   {setupForm.photo_url ? (
                     <div className="photo-preview-box">
                       <img
