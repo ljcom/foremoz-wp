@@ -5595,41 +5595,71 @@ export default function AdminPage() {
                       Back to list
                     </button>
                   </div>
-                  <div className="entity-list">
-                    <div className="card" style={{ borderStyle: 'dashed' }}>
+                  <div className="class-wizard-shell">
+                    <div className="class-wizard-intro card">
                       <p className="eyebrow">Pilih mode</p>
-                      <p className="feedback">Pilih tipe class yang paling dekat. `Custom` akan membuka form lengkap seperti sekarang.</p>
+                      <h3>Mulai dari template yang paling dekat</h3>
+                      <p className="feedback">Setiap mode akan membuka form yang lebih fokus. `Custom` tetap membuka form lengkap seperti sekarang.</p>
                     </div>
-                    {[
-                      {
-                        id: 'membership',
-                        title: 'Membership',
-                        description: 'Untuk gym access atau membership periode tanpa schedule wajib.'
-                      },
-                      {
-                        id: 'activity_class',
-                        title: 'Activity class',
-                        description: 'Untuk class dengan coach, jadwal, booking, dan capacity.'
-                      },
-                      {
-                        id: 'personal_training',
-                        title: 'Personal training',
-                        description: 'Untuk paket sesi atau credit dengan coach.'
-                      },
-                      {
-                        id: 'custom',
-                        title: 'Custom',
-                        description: 'Buka form lengkap dan atur semuanya manual.'
-                      }
-                    ].map((option) => (
-                      <div key={option.id} className="card" style={{ borderStyle: 'dashed' }}>
-                        <p className="eyebrow">{option.title}</p>
-                        <p className="feedback" style={{ marginBottom: '0.75rem' }}>{option.description}</p>
-                        <button className="btn" type="button" onClick={() => openClassTemplateWizard(option.id)}>
-                          Pilih {option.title}
+                    <div className="class-wizard-grid">
+                      {[
+                        {
+                          id: 'membership',
+                          title: 'Membership',
+                          description: 'Untuk gym access atau membership periode tanpa schedule wajib.',
+                          tag: 'Access',
+                          visualClass: 'membership',
+                          accents: ['30 Hari', 'Bulanan']
+                        },
+                        {
+                          id: 'activity_class',
+                          title: 'Activity class',
+                          description: 'Untuk class dengan coach, jadwal, booking, dan capacity.',
+                          tag: 'Schedule',
+                          visualClass: 'activity',
+                          accents: ['Mon', 'Thu']
+                        },
+                        {
+                          id: 'personal_training',
+                          title: 'Personal training',
+                          description: 'Untuk paket sesi atau credit dengan coach.',
+                          tag: 'Coach',
+                          visualClass: 'pt',
+                          accents: ['4 Sesi', '8 Sesi']
+                        },
+                        {
+                          id: 'custom',
+                          title: 'Custom',
+                          description: 'Buka form lengkap dan atur semuanya manual.',
+                          tag: 'Manual',
+                          visualClass: 'custom',
+                          accents: ['Full form', 'Advanced']
+                        }
+                      ].map((option) => (
+                        <button
+                          key={option.id}
+                          className={`class-wizard-card class-wizard-card-${option.visualClass}`}
+                          type="button"
+                          onClick={() => openClassTemplateWizard(option.id)}
+                        >
+                          <div className={`class-wizard-visual class-wizard-visual-${option.visualClass}`} aria-hidden="true">
+                            <span className="class-wizard-shape class-wizard-shape-a" />
+                            <span className="class-wizard-shape class-wizard-shape-b" />
+                            <span className="class-wizard-shape class-wizard-shape-c" />
+                            <div className="class-wizard-mini-card">
+                              <span>{option.accents[0]}</span>
+                              <strong>{option.accents[1]}</strong>
+                            </div>
+                          </div>
+                          <div className="class-wizard-copy">
+                            <span className="class-wizard-tag">{option.tag}</span>
+                            <h3>{option.title}</h3>
+                            <p>{option.description}</p>
+                            <span className="class-wizard-cta">Pilih mode</span>
+                          </div>
                         </button>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
                 </>
               ) : (
