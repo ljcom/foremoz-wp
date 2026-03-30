@@ -4774,6 +4774,11 @@ export default function AdminPage() {
         allowedEnv={allowedEnv}
         targetEnv={targetEnv}
         getEnvironmentLabel={getEnvironmentLabel}
+        extraActions={role === 'owner' ? (
+          <Link className="btn ghost" to="/host/owner">
+            Jump to host setting
+          </Link>
+        ) : null}
         onSelectEnv={(env) => {
           setTargetEnv(env);
           goToEnv(env);
