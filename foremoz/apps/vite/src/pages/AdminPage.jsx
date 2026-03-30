@@ -2046,6 +2046,7 @@ export default function AdminPage() {
           event_id: item.event_id,
           brief_event: item.brief_event || '',
           event_name: item.event_name || '',
+          has_coach: item.has_coach !== false,
           trainer_name: item.trainer_name || '',
           location: item.location || '',
           image_url: item.image_url || '',
@@ -3944,6 +3945,7 @@ export default function AdminPage() {
           branch_id: branchId,
           brief_event: eventForm.brief_event || null,
           event_name: eventForm.event_name,
+          has_coach: eventForm.has_coach !== false,
           trainer_name: eventForm.has_coach !== false ? (eventForm.trainer_name || null) : null,
           coach_shares: eventForm.has_coach !== false
             ? normalizeCoachSharesForPayload(eventForm.coach_shares, 'coach')
@@ -4514,7 +4516,11 @@ export default function AdminPage() {
           tenant_id: tenantId,
           branch_id: branchId,
           event_name: eventForm.event_name,
-          trainer_name: eventForm.trainer_name || null,
+          has_coach: eventForm.has_coach !== false,
+          trainer_name: eventForm.has_coach !== false ? (eventForm.trainer_name || null) : null,
+          coach_shares: eventForm.has_coach !== false
+            ? normalizeCoachSharesForPayload(eventForm.coach_shares, 'coach')
+            : [],
           location: eventForm.location || null,
           image_url: eventForm.image_url || null,
           description: eventForm.description || null,

@@ -4764,6 +4764,12 @@ app.post('/v1/admin/events', async (req, res, next) => {
     const galleryImages = normalizeEventGalleryImages(data.gallery_images, []);
     const scheduleItems = normalizeEventScheduleItems(data.schedule_items, []);
     const eventCategories = normalizeEventCategories(data.event_categories, []);
+    const hasCoach = normalizeBoolean(
+      data.has_coach,
+      Boolean(data.trainer_name || (Array.isArray(data.coach_shares) ? data.coach_shares.length : 0))
+    );
+    const trainerName = hasCoach ? normalizeOptionalText(data.trainer_name, null) : null;
+    const coachShares = hasCoach ? normalizeCoachShares(data.coach_shares, []) : [];
     const awardEnabled = normalizeBoolean(data.award_enabled, true);
     const awardScopes = awardEnabled
       ? normalizeEventAwardScopes(data.award_scopes ?? data.award_scope, ['overall'])
@@ -4786,8 +4792,9 @@ app.post('/v1/admin/events', async (req, res, next) => {
         event_id: eventId,
         brief_event: data.brief_event || null,
         event_name: required(data.event_name, 'event_name'),
-        trainer_name: data.trainer_name || null,
-        coach_shares: normalizeCoachShares(data.coach_shares, []),
+        has_coach: hasCoach,
+        trainer_name: trainerName,
+        coach_shares: coachShares,
         location: data.location || null,
         image_url: data.image_url || null,
         description: data.description || null,
@@ -4858,6 +4865,25 @@ app.patch('/v1/admin/events/:eventId', async (req, res, next) => {
       data.event_categories,
       Array.isArray(latest.event_categories) ? latest.event_categories : []
     );
+    const hasCoach = normalizeBoolean(
+      data.has_coach,
+      normalizeBoolean(
+        latest.has_coach,
+        Boolean(latest.trainer_name || (Array.isArray(latest.coach_shares) ? latest.coach_shares.length : 0))
+      )
+    );
+    const trainerName = hasCoach
+      ? normalizeOptionalText(
+          data.trainer_name === undefined ? latest.trainer_name : data.trainer_name,
+          null
+        )
+      : null;
+    const coachShares = hasCoach
+      ? normalizeCoachShares(
+          data.coach_shares === undefined ? latest.coach_shares : data.coach_shares,
+          Array.isArray(latest.coach_shares) ? latest.coach_shares : []
+        )
+      : [];
     const awardEnabled = normalizeBoolean(data.award_enabled, normalizeBoolean(latest.award_enabled, true));
     const existingAwardScopes = normalizeEventAwardScopes(latest.award_scopes ?? latest.award_scope, ['overall']);
     const awardScopes = awardEnabled
@@ -4885,11 +4911,9 @@ app.patch('/v1/admin/events/:eventId', async (req, res, next) => {
         event_id: eventId,
         brief_event: data.brief_event ?? latest.brief_event ?? null,
         event_name: data.event_name || latest.event_name,
-        trainer_name: data.trainer_name ?? latest.trainer_name ?? null,
-        coach_shares: normalizeCoachShares(
-          data.coach_shares,
-          Array.isArray(latest.coach_shares) ? latest.coach_shares : []
-        ),
+        has_coach: hasCoach,
+        trainer_name: trainerName,
+        coach_shares: coachShares,
         location: data.location ?? latest.location ?? null,
         image_url: data.image_url ?? latest.image_url ?? null,
         description: data.description ?? latest.description ?? null,
