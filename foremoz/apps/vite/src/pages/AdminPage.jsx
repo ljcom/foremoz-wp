@@ -106,10 +106,9 @@ const ACTIVITY_VALIDITY_UNIT_OPTIONS = [
 ];
 
 const ACTIVITY_VALIDITY_ANCHOR_OPTIONS = [
-  { value: 'activation', label: 'Activation' },
+  { value: 'activation', label: 'First date' },
   { value: 'purchase', label: 'Purchase' },
-  { value: 'payment', label: 'Payment confirmed' },
-  { value: 'fixed_start', label: 'Fixed start date' }
+  { value: 'fixed_start', label: 'Fixed date' }
 ];
 
 const ACTIVITY_USAGE_PERIOD_OPTIONS = [
@@ -1072,9 +1071,8 @@ function formatActivityUnitSummary(unit, value) {
 function formatValidityAnchorSummary(anchor) {
   const normalizedAnchor = String(anchor || 'activation').trim().toLowerCase();
   if (normalizedAnchor === 'purchase') return 'mulai saat purchase';
-  if (normalizedAnchor === 'payment') return 'mulai saat payment confirmed';
-  if (normalizedAnchor === 'fixed_start') return 'mulai di fixed start date';
-  return 'mulai saat activation';
+  if (normalizedAnchor === 'fixed_start') return 'mulai di fixed date';
+  return 'mulai saat first date';
 }
 
 function formatUsageSummary(mode, limit, period) {
@@ -2329,6 +2327,7 @@ export default function AdminPage() {
   const isScheduledClassForm = classForm.class_type === 'scheduled';
   const isOpenAccessClassForm = classForm.class_type === 'open_access';
   const isSessionPackClassForm = classForm.class_type === 'session_pack';
+  const isFixedDateClassAccess = !isScheduledClassForm && classForm.validity_anchor === 'fixed_start';
   const showClassCoachFields = classForm.has_coach !== false;
   const classFieldGuide = useMemo(() => getActivityFieldGuide(classForm.class_type), [classForm.class_type]);
   const classAccessPresets = useMemo(() => getClassAccessPresets(classForm.class_type), [classForm.class_type]);
@@ -2508,6 +2507,16 @@ export default function AdminPage() {
       setFeedback('validity_value wajib diisi');
       return;
     }
+    if (isFixedDateClassAccess && !String(classForm.start_date || '').trim()) {
+      setClassEditTab('general');
+      setFeedback('periode mulai wajib diisi untuk fixed date');
+      return;
+    }
+    if (isFixedDateClassAccess && !String(classForm.end_date || '').trim()) {
+      setClassEditTab('general');
+      setFeedback('periode akhir wajib diisi untuk fixed date');
+      return;
+    }
     if (!isScheduledClassForm && classForm.usage_mode === 'limited' && !String(classForm.usage_limit || '').trim()) {
       setClassEditTab('general');
       setFeedback('usage_limit wajib diisi');
@@ -2516,6 +2525,11 @@ export default function AdminPage() {
     if (isScheduledClassForm && classForm.end_date && classForm.start_date && new Date(classForm.end_date).getTime() < new Date(classForm.start_date).getTime()) {
       setClassEditTab('general');
       setFeedback('periode akhir harus setelah periode mulai');
+      return;
+    }
+    if (!isScheduledClassForm && isFixedDateClassAccess && classForm.end_date && classForm.start_date && new Date(classForm.end_date).getTime() < new Date(classForm.start_date).getTime()) {
+      setClassEditTab('general');
+      setFeedback('periode akhir fixed date harus setelah periode mulai');
       return;
     }
     if (isScheduledClassForm && registrationPeriodMode === 'range_date') {
@@ -5971,13 +5985,19 @@ export default function AdminPage() {
                                     <>
                                       <label>Validity Value<input type="number" min="1" value={classForm.validity_value} onChange={(e) => setClassForm((p) => ({ ...p, validity_value: e.target.value }))} /></label>
                                       <label>
-                                        Validity Anchor
+                                        Activation / Start
                                         <select value={classForm.validity_anchor} onChange={(e) => setClassForm((p) => ({ ...p, validity_anchor: e.target.value }))}>
                                           {ACTIVITY_VALIDITY_ANCHOR_OPTIONS.map((item) => (
                                             <option key={item.value} value={item.value}>{item.label}</option>
                                           ))}
                                         </select>
                                       </label>
+                                      {isFixedDateClassAccess ? (
+                                        <>
+                                          <label>Periode Mulai<input type="date" value={classForm.start_date} onChange={(e) => setClassForm((p) => ({ ...p, start_date: e.target.value }))} /></label>
+                                          <label>Periode Akhir<input type="date" value={classForm.end_date} onChange={(e) => setClassForm((p) => ({ ...p, end_date: e.target.value }))} /></label>
+                                        </>
+                                      ) : null}
                                     </>
                                   ) : null}
                                   <label>
