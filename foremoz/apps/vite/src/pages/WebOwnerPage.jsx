@@ -103,6 +103,16 @@ function openDashboardInNewTab(accountSlug) {
   window.open(targetUrl, '_blank', 'noopener,noreferrer');
 }
 
+function openAccountPathInNewTab(accountSlug, pathSuffix = '') {
+  const slug = String(accountSlug || '').trim();
+  if (!slug) return;
+  const suffix = String(pathSuffix || '').trim();
+  const baseOrigin = APP_ORIGIN || window.location.origin;
+  const normalizedSuffix = suffix ? `/${suffix.replace(/^\/+/, '')}` : '';
+  const targetUrl = `${baseOrigin}/a/${slug}${normalizedSuffix}`;
+  window.open(targetUrl, '_blank', 'noopener,noreferrer');
+}
+
 function formatActivationFeedback(result, fullName) {
   const safeName = String(fullName || '').trim() || 'user';
   if (result?.email_delivery?.sent) {
@@ -1325,12 +1335,20 @@ export default function WebOwnerPage() {
                                 Aktifkan lagi
                               </button>
                             ) : null}
-                            <a className="btn ghost" href={`/a/${row.account_slug}`} target="_blank" rel="noreferrer">
+                            <button
+                              className="btn ghost"
+                              type="button"
+                              onClick={() => openAccountPathInNewTab(row.account_slug)}
+                            >
                               Buka publik
-                            </a>
-                            <a className="btn ghost" href={`/a/${row.account_slug}/admin/dashboard`} target="_blank" rel="noreferrer">
+                            </button>
+                            <button
+                              className="btn ghost"
+                              type="button"
+                              onClick={() => openAccountPathInNewTab(row.account_slug, 'admin/dashboard')}
+                            >
                               Buka dashboard
-                            </a>
+                            </button>
                           </div>
                         </div>
                       ))}
