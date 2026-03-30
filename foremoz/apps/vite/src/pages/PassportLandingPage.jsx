@@ -575,6 +575,13 @@ export default function PassportLandingPage() {
                 ? (isExploreAllMode ? copy.exploreEvents : copy.premiumEvents)
                 : (isAccountSurface ? copy.accountEvents : copy.upcomingEvents)}
             </h2>
+            {isAccountSurface ? (
+              <div className="hero-actions" style={{ marginBottom: '1rem' }}>
+                <Link className="btn ghost small" to={`/a/${encodeURIComponent(normalizedAccount)}`}>
+                  Back
+                </Link>
+              </div>
+            ) : null}
             {isGlobalEventsSurface && isExploreAllMode ? (
               <div className="card form" style={{ marginBottom: '1rem' }}>
                 <label>
@@ -660,7 +667,7 @@ export default function PassportLandingPage() {
                   <p className="passport-live-host">{event.host}</p>
                   <p className="passport-live-host">{copy.organizer}: {event.organizer || copy.organizerFallback}</p>
                   <p className="passport-live-time">{event.time}</p>
-                  <div style={{ marginTop: '1.25rem' }}>
+                  <div style={{ marginTop: '1rem' }}>
                     <Link
                       className="btn ghost small"
                       to={event.event_id
