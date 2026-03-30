@@ -676,6 +676,10 @@ select:focus-visible {
   font-weight: 700;
 }
 
+.passport-live-card .btn {
+  margin-top: 1rem;
+}
+
 .passport-public-head {
   display: grid;
   grid-template-columns: 180px 1fr;
