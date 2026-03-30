@@ -701,7 +701,7 @@ export default function PassportPublicPage() {
                   </div>
                   <h3>{item.event_name || '-'}</h3>
                   <p className="passport-live-time"><i className="fa-regular fa-clock" /> {formatAppDateTime(item.start_at)}</p>
-                  <Link className="btn ghost small" to={`/a/${encodeURIComponent(item.account_slug || account)}/e/${encodeURIComponent(item.event_id)}`}>
+                  <Link className="btn ghost small" style={{ marginTop: '1rem' }} to={`/a/${encodeURIComponent(item.account_slug || account)}/e/${encodeURIComponent(item.event_id)}`}>
                     {copy.joinEvent}
                   </Link>
                 </article>
