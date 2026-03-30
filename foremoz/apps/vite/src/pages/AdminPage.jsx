@@ -3914,7 +3914,21 @@ export default function AdminPage() {
 
   async function addEvent(e) {
     e.preventDefault();
-    if (!eventForm.event_name || !eventForm.start_at || !eventForm.duration_value) return;
+    if (!String(eventForm.event_name || '').trim()) {
+      setEventEditTab('general');
+      setFeedback('event_name wajib diisi');
+      return;
+    }
+    if (!String(eventForm.start_at || '').trim()) {
+      setEventEditTab('general');
+      setFeedback('start_at wajib diisi');
+      return;
+    }
+    if (!String(eventForm.duration_value || '').trim()) {
+      setEventEditTab('general');
+      setFeedback('duration_value wajib diisi');
+      return;
+    }
     const startAtIso = toApiDatetime(eventForm.start_at);
     if (!startAtIso) {
       setFeedback('start_at tidak valid');
