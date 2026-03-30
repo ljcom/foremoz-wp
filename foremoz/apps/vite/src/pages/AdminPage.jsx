@@ -622,7 +622,6 @@ function createEmptyClassForm() {
     weekly_end_time: '',
     manual_schedule: [createEmptyClassManualSession()],
     capacity: '20',
-    quota_capacity_mode: 'limited',
     capacity_mode: 'limited',
     quota_mode: 'manual',
     validity_mode: 'fixed',
@@ -1888,7 +1887,6 @@ export default function AdminPage() {
           weekly_schedule: item.weekly_schedule || { weekdays: [], start_time: '', end_time: '' },
           manual_schedule: Array.isArray(item.manual_schedule) ? item.manual_schedule : [],
           capacity: String(item.capacity || '20'),
-          quota_capacity_mode: item.capacity_mode === 'none' ? 'no' : 'limited',
           capacity_mode: item.capacity_mode || 'limited',
           quota_mode: item.quota_mode || 'manual',
           validity_mode: item.validity_mode || 'fixed',
@@ -2516,22 +2514,6 @@ export default function AdminPage() {
       setFeedback('periode akhir harus setelah periode mulai');
       return;
     }
-    if (isScheduledClassForm && classForm.quota_capacity_mode === 'limited' && !String(classForm.max_quota || '').trim()) {
-      setClassEditTab('general');
-      setFeedback('max quota wajib diisi saat quota/capacity limited');
-      return;
-    }
-    if (
-      isScheduledClassForm
-      && classForm.quota_capacity_mode === 'limited'
-      && String(classForm.min_quota || '').trim()
-      && String(classForm.max_quota || '').trim()
-      && Number(classForm.min_quota) > Number(classForm.max_quota)
-    ) {
-      setClassEditTab('general');
-      setFeedback('min quota tidak boleh lebih besar dari max quota');
-      return;
-    }
     if (isScheduledClassForm && classForm.registration_mode === 'range_date') {
       if (!String(classForm.registration_start || '').trim() || !String(classForm.registration_end || '').trim()) {
         setClassEditTab('general');
@@ -2596,9 +2578,11 @@ export default function AdminPage() {
           schedule_mode: normalizedSchedule.schedule_mode,
           weekly_schedule: normalizedSchedule.weekly_schedule,
           manual_schedule: normalizedSchedule.manual_schedule,
-          capacity: classForm.quota_capacity_mode === 'limited' ? Number(classForm.max_quota || 0) : 0,
-          capacity_mode: classForm.quota_capacity_mode === 'limited' ? 'limited' : 'none',
-          quota_mode: classForm.quota_capacity_mode === 'limited' ? 'manual' : 'none',
+          capacity: normalizedCapacity,
+          capacity_mode: capacityMode,
+          quota_mode: isScheduledClassForm
+            ? (hasLimitedScheduledCapacity ? 'manual' : 'none')
+            : classForm.quota_mode,
           validity_mode: classForm.validity_mode,
           price: Number(classForm.price || 0),
           start_date: classForm.start_date || null,
@@ -2616,9 +2600,9 @@ export default function AdminPage() {
           usage_mode: classForm.usage_mode,
           usage_limit: classForm.usage_limit ? Number(classForm.usage_limit) : null,
           usage_period: classForm.usage_period,
-          min_quota: classForm.quota_capacity_mode === 'limited' && classForm.min_quota ? Number(classForm.min_quota) : null,
-          max_quota: classForm.quota_capacity_mode === 'limited' && classForm.max_quota ? Number(classForm.max_quota) : null,
-          auto_start_when_quota_met: classForm.quota_capacity_mode === 'limited' ? classForm.auto_start_when_quota_met : false
+          min_quota: hasLimitedScheduledCapacity && classForm.min_quota ? Number(classForm.min_quota) : null,
+          max_quota: hasLimitedScheduledCapacity && classForm.max_quota ? Number(classForm.max_quota) : null,
+          auto_start_when_quota_met: hasLimitedScheduledCapacity && classForm.auto_start_when_quota_met
         })
       });
 
@@ -2673,9 +2657,10 @@ export default function AdminPage() {
             end_at: toInputDatetime(session.end_at || '')
           }))
         : [createEmptyClassManualSession()],
-      capacity: item.capacity || '20',
-      quota_capacity_mode: item.capacity_mode === 'none' ? 'no' : 'limited',
-      capacity_mode: item.capacity_mode || 'limited',
+      capacity: item.capacity || item.max_quota || '20',
+      capacity_mode: item.class_type === 'scheduled'
+        ? ((item.capacity_mode === 'none' && !item.max_quota && !item.min_quota) ? 'none' : 'limited')
+        : (item.capacity_mode || 'limited'),
       quota_mode: item.quota_mode || 'manual',
       validity_mode: item.validity_mode || 'fixed',
       price: String(item.price || '0'),
@@ -5543,9 +5528,7 @@ export default function AdminPage() {
                             <td className="admin-data-cell">{item.has_coach !== false ? (item.trainer_name || item.coach_id || '-') : 'No coach'}</td>
                             <td className="admin-data-cell">
                               {item.class_type === 'scheduled'
-                                ? (item.capacity_mode === 'none'
-                                  ? 'No limit'
-                                  : `Min ${item.min_quota || 0} / Max ${item.max_quota || item.capacity || 0}`)
+                                ? item.capacity
                                 : String(item.usage_mode || '').toLowerCase() === 'limited'
                                   ? `${item.usage_limit || '-'} use`
                                   : 'Unlimited'}
@@ -5740,6 +5723,7 @@ export default function AdminPage() {
                         <label>Price<input type="number" min="0" value={classForm.price} onChange={(e) => setClassForm((p) => ({ ...p, price: e.target.value }))} /></label>
                         {isScheduledClassForm ? (
                           <>
+                            <label>Capacity<input type="number" min="1" value={classForm.capacity} onChange={(e) => setClassForm((p) => ({ ...p, capacity: e.target.value }))} /></label>
                             <label>Periode Mulai<input type="date" value={classForm.start_date} onChange={(e) => setClassForm((p) => ({ ...p, start_date: e.target.value }))} /></label>
                             <label>Periode Akhir<input type="date" value={classForm.end_date} onChange={(e) => setClassForm((p) => ({ ...p, end_date: e.target.value }))} /></label>
                             <label>
@@ -5770,38 +5754,24 @@ export default function AdminPage() {
                               </>
                             ) : null}
                             <label>Jumlah Pertemuan Max<input type="number" min="0" value={classForm.max_meetings} onChange={(e) => setClassForm((p) => ({ ...p, max_meetings: e.target.value }))} /></label>
-                            <label>
-                              Quota / Capacity
-                              <select
-                                value={classForm.quota_capacity_mode}
-                                onChange={(e) =>
-                                  setClassForm((p) => ({
-                                    ...p,
-                                    quota_capacity_mode: e.target.value,
-                                    min_quota: e.target.value === 'limited' ? p.min_quota : '',
-                                    max_quota: e.target.value === 'limited' ? p.max_quota : '',
-                                    auto_start_when_quota_met: e.target.value === 'limited' ? p.auto_start_when_quota_met : false
-                                  }))
-                                }
-                              >
-                                <option value="no">no</option>
-                                <option value="limited">limited</option>
-                              </select>
-                            </label>
+                            <label>Capacity mode<select value={classForm.capacity_mode} onChange={(e) => setClassForm((p) => ({ ...p, capacity_mode: e.target.value }))}><option value="limited">limited</option><option value="flexible">flexible</option><option value="none">none</option></select></label>
                             <p className="feedback">
-                              `no` = class tidak dibatasi quota/capacity.
-                              `limited` = isi `min quota` dan `max quota`, misalnya minimal 5 peserta dan maksimal 20 peserta.
+                              Capacity mode: `limited` = slot dibatasi angka kapasitas, contoh 20 peserta.
+                              `flexible` = tetap ada acuan kapasitas tapi bisa lebih longgar secara operasional.
+                              `none` = tidak pakai batas kapasitas. Untuk scheduled class biasanya pilih `limited`.
                             </p>
-                            {classForm.quota_capacity_mode === 'limited' ? (
-                              <>
-                                <label>Min quota<input type="number" min="0" value={classForm.min_quota} onChange={(e) => setClassForm((p) => ({ ...p, min_quota: e.target.value }))} /></label>
-                                <label>Max quota<input type="number" min="1" value={classForm.max_quota} onChange={(e) => setClassForm((p) => ({ ...p, max_quota: e.target.value }))} /></label>
-                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                  <input type="checkbox" checked={classForm.auto_start_when_quota_met} onChange={(e) => setClassForm((p) => ({ ...p, auto_start_when_quota_met: e.target.checked }))} />
-                                  <span>Auto start when quota met</span>
-                                </label>
-                              </>
-                            ) : null}
+                            <label>Quota mode<select value={classForm.quota_mode} onChange={(e) => setClassForm((p) => ({ ...p, quota_mode: e.target.value }))}><option value="manual">manual</option><option value="auto">auto</option><option value="none">none</option></select></label>
+                            <p className="feedback">
+                              Quota mode: `manual` = admin menentukan min/max quota sendiri.
+                              `auto` = sistem bisa memakai angka quota untuk trigger otomatis, misalnya auto start saat minimum peserta terpenuhi.
+                              `none` = tidak pakai quota logic tambahan.
+                            </p>
+                            <label>Min quota<input type="number" min="0" value={classForm.min_quota} onChange={(e) => setClassForm((p) => ({ ...p, min_quota: e.target.value }))} /></label>
+                            <label>Max quota<input type="number" min="0" value={classForm.max_quota} onChange={(e) => setClassForm((p) => ({ ...p, max_quota: e.target.value }))} /></label>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                              <input type="checkbox" checked={classForm.auto_start_when_quota_met} onChange={(e) => setClassForm((p) => ({ ...p, auto_start_when_quota_met: e.target.checked }))} />
+                              <span>Auto start when quota met</span>
+                            </label>
                           </>
                         ) : (
                           <>

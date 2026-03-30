@@ -770,28 +770,18 @@ function normalizeActivityPayload(rawValue, fallback = {}) {
   const legacyCapacityFallback = latest.capacity === undefined || latest.capacity === null || latest.capacity === ''
     ? (classType === 'scheduled' ? 20 : 0)
     : Number(latest.capacity || 0);
-  let minQuota = normalizeOptionalInteger(source.min_quota, 'min_quota', latest.min_quota ?? null, 0);
-  let maxQuota = normalizeOptionalInteger(
+  const capacity = classType === 'scheduled'
+    ? asPositiveInteger(source.capacity, 'capacity', legacyCapacityFallback || 20)
+    : asNonNegativeInteger(source.capacity, 'capacity', legacyCapacityFallback || 0);
+  const minQuota = normalizeOptionalInteger(source.min_quota, 'min_quota', latest.min_quota ?? null, 0);
+  const maxQuota = normalizeOptionalInteger(
     source.max_quota,
     'max_quota',
-    latest.max_quota ?? (legacyCapacityFallback > 0 ? legacyCapacityFallback : (classType === 'scheduled' ? 20 : null)),
-    1
+    latest.max_quota ?? (classType === 'scheduled' ? capacity : null),
+    0
   );
-  let capacity = classType === 'scheduled'
-    ? asPositiveInteger(source.capacity, 'capacity', legacyCapacityFallback > 0 ? legacyCapacityFallback : 20)
-    : asNonNegativeInteger(source.capacity, 'capacity', legacyCapacityFallback || 0);
-  if (capacityMode === 'none') {
-    capacity = 0;
-    minQuota = null;
-    maxQuota = null;
-  } else {
-    if (maxQuota === null) {
-      throw fail(400, 'BAD_REQUEST', 'max_quota is required when quota/capacity is limited');
-    }
-    capacity = maxQuota;
-    if (minQuota !== null && minQuota > maxQuota) {
-      throw fail(400, 'BAD_REQUEST', 'min_quota must be less than or equal to max_quota');
-    }
+  if (minQuota !== null && maxQuota !== null && minQuota > maxQuota) {
+    throw fail(400, 'BAD_REQUEST', 'min_quota must be less than or equal to max_quota');
   }
   const autoStartWhenQuotaMet = normalizeBoolean(
     source.auto_start_when_quota_met,
@@ -1471,11 +1461,7 @@ async function checkActivityAccess({ tenantId, classId, memberId, actionType = '
       reasons.push('usage_exhausted');
     }
   }
-  if (
-    String(activity.class_type || '').trim().toLowerCase() === 'scheduled'
-    && String(activity.capacity_mode || '').trim().toLowerCase() !== 'none'
-    && (normalizedAction === 'book' || normalizedAction === 'checkin')
-  ) {
+  if (String(activity.class_type || '').trim().toLowerCase() === 'scheduled' && (normalizedAction === 'book' || normalizedAction === 'checkin')) {
     const availableSlots = Number(activity.available_slots);
     if (!Number.isFinite(availableSlots) || availableSlots <= 0) {
       reasons.push('capacity_full');
@@ -5795,9 +5781,8 @@ app.post('/v1/bookings/classes/create', async (req, res, next) => {
     if (classRow.branch_id && resolvedBranchId !== String(classRow.branch_id)) {
       throw fail(409, 'CLASS_BRANCH_MISMATCH', `class ${classId} belongs to another branch`);
     }
-    const isLimitedCapacity = String(classRow.capacity_mode || '').trim().toLowerCase() !== 'none';
     const currentAvailable = Number(classRow.available_slots);
-    if (isLimitedCapacity && (!Number.isFinite(currentAvailable) || currentAvailable <= 0)) {
+    if (!Number.isFinite(currentAvailable) || currentAvailable <= 0) {
       throw fail(409, 'CLASS_FULL', `class ${classId} is full`);
     }
     if (memberId) {
