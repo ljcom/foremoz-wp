@@ -701,6 +701,7 @@ function createEventFormFromTemplate(template) {
     return {
       ...createEmptyEventForm(),
       event_name: 'Race / Competition',
+      has_coach: false,
       categories_text: 'competition, race',
       award_enabled: true,
       award_scopes: ['overall', 'category'],
