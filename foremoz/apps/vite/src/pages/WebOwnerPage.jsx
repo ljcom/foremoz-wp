@@ -138,6 +138,19 @@ function shuffleList(items) {
   return next;
 }
 
+function pickDifferentUrl(urls, currentUrl) {
+  const normalizedCurrent = String(currentUrl || '').trim();
+  const candidates = (Array.isArray(urls) ? urls : [])
+    .map((item) => String(item || '').trim())
+    .filter(Boolean);
+  if (candidates.length === 0) return '';
+  const different = normalizedCurrent
+    ? candidates.filter((item) => item !== normalizedCurrent)
+    : candidates;
+  const pool = different.length > 0 ? different : candidates;
+  return pool[0] || '';
+}
+
 export default function WebOwnerPage() {
   const navigate = useNavigate();
   const session = getSession();
@@ -272,9 +285,10 @@ export default function WebOwnerPage() {
         .map((item) => item?.image_url || '')
         .map((item) => String(item || '').trim())
         .filter(Boolean);
+      const nextPhotoUrl = pickDifferentUrl(urls, setupForm.photo_url);
       setSetupForm((prev) => ({
         ...prev,
-        photo_url: urls[0] || prev.photo_url
+        photo_url: nextPhotoUrl || prev.photo_url
       }));
       setFeedback(`ai.assist: Business profile image diisi dari Pexels (${keyword}).`);
     } catch (error) {
