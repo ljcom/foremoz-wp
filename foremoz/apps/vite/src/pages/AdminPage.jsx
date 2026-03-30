@@ -1009,6 +1009,16 @@ function resolveEventImage(item) {
   return `https://picsum.photos/seed/${seed}/960/540`;
 }
 
+function resolveClassImage(item) {
+  const customFields = item?.custom_fields && typeof item.custom_fields === 'object' && !Array.isArray(item.custom_fields)
+    ? item.custom_fields
+    : {};
+  const direct = String(customFields.image_url || item?.image_url || '').trim();
+  if (direct) return direct;
+  const seed = encodeURIComponent(String(item?.class_id || item?.class_name || 'program'));
+  return `https://picsum.photos/seed/${seed}/960/540`;
+}
+
 function formatIdr(value) {
   return `IDR ${Number(value || 0).toLocaleString('id-ID')}`;
 }
@@ -6003,54 +6013,62 @@ export default function AdminPage() {
                     </div>
                   </div>
                   {classLoading ? <p className="feedback">Loading program list...</p> : null}
-                  <div className="entity-list">
-                    <table className="admin-data-table">
-                      <thead>
-                        <tr>
-                          <th className="admin-data-head">Program Name</th>
-                          <th className="admin-data-head">Coach</th>
-                          <th className="admin-data-head">Capacity</th>
-                          <th className="admin-data-head">Price</th>
-                          <th className="admin-data-head">Periode</th>
-                          <th className="admin-data-head">Schedule</th>
-                          <th className="admin-data-head">Max Meeting</th>
-                          <th className="admin-data-head">Aksi</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {filteredClasses.map((item, idx) => (
-                          <tr key={item.class_id} className={idx % 2 === 0 ? 'admin-data-row' : 'admin-data-row admin-data-row-alt'}>
-                            <td className="admin-data-cell">{item.class_name}</td>
-                            <td className="admin-data-cell">{item.has_coach !== false ? (item.trainer_name || item.coach_id || '-') : 'No coach'}</td>
-                            <td className="admin-data-cell">
-                              {item.class_type === 'scheduled'
-                                ? item.capacity
-                                : String(item.usage_mode || '').toLowerCase() === 'limited'
-                                  ? `${item.usage_limit || '-'} use`
-                                  : 'Unlimited'}
-                            </td>
-                            <td className="admin-data-cell">{formatIdr(item.price || 0)}</td>
-                            <td className="admin-data-cell">
-                              {item.class_type === 'scheduled'
-                                ? `${formatDateOnly(item.start_date || item.start_at)}${item.end_date || item.period_end_at ? ` - ${formatDateOnly(item.end_date || item.period_end_at)}` : ''}`
-                                : '-'}
-                            </td>
-                            <td className="admin-data-cell">{formatClassScheduleSummary(item)}</td>
-                            <td className="admin-data-cell">
-                              {item.class_type === 'scheduled'
-                                ? (Number(item.max_meetings || 0) > 0 ? item.max_meetings : '-')
-                                : (String(item.usage_mode || '').toLowerCase() === 'limited' ? item.usage_limit || '-' : '-')}
-                            </td>
-                            <td className="admin-data-cell">
-                              <div className="row-actions">
-                                <ViewButton onClick={() => viewClass(item)} />
-                                <DeleteButton onClick={() => deleteClass(item.class_id)} />
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                  <div className="event-card-grid">
+                    {filteredClasses.map((item) => {
+                      const customFields = splitClassCustomFields(item.custom_fields, item.category || '');
+                      const coachLabel = item.has_coach !== false ? (item.trainer_name || item.coach_id || '-') : 'No coach';
+                      const categoryLabel = customFields.categories_text || item.category || item.category_id || '-';
+                      const locationLabel = customFields.location || '-';
+                      const templateLabel = getClassEditorTemplateLabel(inferClassEditorTemplate(item));
+                      const capacityLabel = item.class_type === 'scheduled'
+                        ? item.capacity || '-'
+                        : String(item.usage_mode || '').toLowerCase() === 'limited'
+                          ? `${item.usage_limit || '-'} use`
+                          : 'Unlimited';
+                      const periodLabel = item.class_type === 'scheduled'
+                        ? `${formatDateOnly(item.start_date || item.start_at)}${item.end_date || item.period_end_at ? ` - ${formatDateOnly(item.end_date || item.period_end_at)}` : ''}`
+                        : '-';
+                      const meetingLabel = item.class_type === 'scheduled'
+                        ? (Number(item.max_meetings || 0) > 0 ? item.max_meetings : '-')
+                        : (String(item.usage_mode || '').toLowerCase() === 'limited' ? item.usage_limit || '-' : '-');
+                      return (
+                        <article key={item.class_id} className="event-admin-card">
+                          <img
+                            className="event-admin-image"
+                            src={resolveClassImage(item)}
+                            alt={item.class_name || 'Program'}
+                          />
+                          <div className="event-admin-body">
+                            <div className="event-admin-title-row">
+                              <h3>{item.class_name}</h3>
+                              <span className="event-admin-status">{templateLabel}</span>
+                            </div>
+                            <p>Coach: {coachLabel}</p>
+                            <p>Location: {locationLabel}</p>
+                            <p>Category: {categoryLabel}</p>
+                            <p>Schedule: {formatClassScheduleSummary(item)}</p>
+                            <p>Capacity: {capacityLabel}</p>
+                            <p>Price: {formatIdr(item.price || 0)}</p>
+                            <p>Periode: {periodLabel}</p>
+                            <p>Max meeting: {meetingLabel}</p>
+                            <div className="row-actions">
+                              <ViewButton onClick={() => viewClass(item)} />
+                              <DeleteButton onClick={() => deleteClass(item.class_id)} />
+                            </div>
+                          </div>
+                        </article>
+                      );
+                    })}
+                    {filteredClasses.length === 0 ? (
+                      <article className="event-admin-card">
+                        <div className="event-admin-body">
+                          <div className="event-admin-title-row">
+                            <h3>Belum ada program</h3>
+                          </div>
+                          <p>Program yang sudah dibuat akan tampil sebagai card di sini.</p>
+                        </div>
+                      </article>
+                    ) : null}
                   </div>
                 </>
               ) : classMode === 'wizard' ? (
