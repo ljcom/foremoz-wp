@@ -1012,83 +1012,6 @@ function getActivityFieldGuide(classType) {
   };
 }
 
-function getClassAccessPresets(classType) {
-  const normalizedType = String(classType || 'scheduled').trim().toLowerCase();
-  if (normalizedType === 'open_access') {
-    return [
-      {
-        id: 'open-access-monthly',
-        label: 'Membership 1 bulan',
-        description: 'Akses unlimited selama 1 bulan sejak aktivasi.',
-        values: {
-          validity_mode: 'per_enrollment',
-          validity_unit: 'month',
-          validity_value: '1',
-          validity_anchor: 'activation',
-          usage_mode: 'unlimited',
-          usage_limit: '',
-          usage_period: 'entire_validity',
-          capacity_mode: 'none',
-          quota_mode: 'none'
-        }
-      },
-      {
-        id: 'open-access-30-days',
-        label: 'Gym 30 hari',
-        description: 'Akses unlimited 30 hari sejak aktivasi.',
-        values: {
-          validity_mode: 'per_enrollment',
-          validity_unit: 'day',
-          validity_value: '30',
-          validity_anchor: 'activation',
-          usage_mode: 'unlimited',
-          usage_limit: '',
-          usage_period: 'entire_validity',
-          capacity_mode: 'none',
-          quota_mode: 'none'
-        }
-      }
-    ];
-  }
-  if (normalizedType === 'session_pack') {
-    return [
-      {
-        id: 'session-pack-4-monthly',
-        label: '4x / bulan',
-        description: 'Cocok untuk Yoga 4x per bulan.',
-        values: {
-          validity_mode: 'per_enrollment',
-          validity_unit: 'month',
-          validity_value: '1',
-          validity_anchor: 'activation',
-          usage_mode: 'limited',
-          usage_limit: '4',
-          usage_period: 'entire_validity',
-          capacity_mode: 'none',
-          quota_mode: 'none'
-        }
-      },
-      {
-        id: 'session-pack-8-quarterly',
-        label: '8 sesi / 3 bulan',
-        description: 'Paket sesi fleksibel dengan masa aktif 3 bulan.',
-        values: {
-          validity_mode: 'per_enrollment',
-          validity_unit: 'month',
-          validity_value: '3',
-          validity_anchor: 'activation',
-          usage_mode: 'limited',
-          usage_limit: '8',
-          usage_period: 'entire_validity',
-          capacity_mode: 'none',
-          quota_mode: 'none'
-        }
-      }
-    ];
-  }
-  return [];
-}
-
 function formatActivityUnitSummary(unit, value) {
   const normalizedUnit = String(unit || 'none').trim().toLowerCase();
   const numericValue = Number(value || 0);
@@ -2382,7 +2305,6 @@ export default function AdminPage() {
   const isFixedDateClassAccess = !isScheduledClassForm && classForm.validity_anchor === 'fixed_start';
   const showClassCoachFields = classForm.has_coach !== false;
   const classFieldGuide = useMemo(() => getActivityFieldGuide(resolvedClassType), [resolvedClassType]);
-  const classAccessPresets = useMemo(() => getClassAccessPresets(resolvedClassType), [resolvedClassType]);
   const classAccessSummary = useMemo(() => formatClassAccessConfigurationSummary(classForm), [classForm]);
   const classCategoryExamples = useMemo(
     () => getClassCategoryExamplesByType(resolvedClassType),
@@ -6018,33 +5940,6 @@ export default function AdminPage() {
                                       ? 'Untuk open access, masa aktif dan kuota dihitung per enrollment user.'
                                       : 'Untuk session pack, isi expiry dan jumlah sesi yang diberikan per enrollment user.'}
                                   </p>
-                                  {classAccessPresets.length > 0 ? (
-                                    <div className="card" style={{ borderStyle: 'dashed', marginBottom: '0.75rem' }}>
-                                      <p className="eyebrow">Preset cepat</p>
-                                      <div className="row-actions" style={{ flexWrap: 'wrap', marginBottom: '0.5rem' }}>
-                                        {classAccessPresets.map((preset) => (
-                                          <button
-                                            key={preset.id}
-                                            className="btn ghost small"
-                                            type="button"
-                                            onClick={() =>
-                                              setClassForm((prev) => ({
-                                                ...prev,
-                                                ...preset.values
-                                              }))
-                                            }
-                                          >
-                                            {preset.label}
-                                          </button>
-                                        ))}
-                                      </div>
-                                      {classAccessPresets.map((preset) => (
-                                        <p key={`${preset.id}-description`} className="feedback">
-                                          <strong>{preset.label}:</strong> {preset.description}
-                                        </p>
-                                      ))}
-                                    </div>
-                                  ) : null}
                                   <label>
                                     Duration
                                     <select
