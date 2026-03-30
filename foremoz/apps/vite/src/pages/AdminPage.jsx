@@ -91,6 +91,12 @@ const CLASS_WEEKDAYS = [
   { value: 'sat', label: 'Sat' }
 ];
 
+const CLASS_TYPE_OPTIONS = [
+  { value: 'scheduled', label: 'Scheduled' },
+  { value: 'open_access', label: 'Open access' },
+  { value: 'session_pack', label: 'Session pack' }
+];
+
 const ACTIVITY_VALIDITY_UNIT_OPTIONS = [
   { value: 'none', label: 'No expiry' },
   { value: 'day', label: 'Day' },
