@@ -968,6 +968,107 @@ function resolveClassTypeForForm(form) {
   return usageMode === 'limited' ? 'session_pack' : 'open_access';
 }
 
+function inferClassEditorTemplate(item) {
+  const scheduleMode = String(item?.schedule_mode || 'none').trim().toLowerCase();
+  const normalizedType = String(item?.class_type || 'open_access').trim().toLowerCase();
+  const hasCoach = item?.has_coach !== false;
+  if (scheduleMode !== 'none') return 'activity_class';
+  if (normalizedType === 'open_access' && !hasCoach) return 'membership';
+  if (normalizedType === 'session_pack' && hasCoach) return 'personal_training';
+  return 'custom';
+}
+
+function getClassEditorTemplateLabel(template) {
+  const normalized = String(template || 'custom').trim().toLowerCase();
+  if (normalized === 'membership') return 'Membership';
+  if (normalized === 'activity_class') return 'Activity class';
+  if (normalized === 'personal_training') return 'Personal training';
+  return 'Custom';
+}
+
+function createClassFormFromTemplate(template) {
+  if (template === 'membership') {
+    return {
+      ...createEmptyClassForm(),
+      class_type: 'open_access',
+      class_name: 'Membership',
+      description: 'Membership / gym access tanpa coach dan tanpa schedule wajib.',
+      has_coach: false,
+      coach_id: '',
+      trainer_name: '',
+      coach_shares: [],
+      categories_text: 'membership, gym access',
+      schedule_mode: 'none',
+      price: '0',
+      validity_mode: 'per_enrollment',
+      validity_unit: 'month',
+      validity_value: '1',
+      validity_anchor: 'activation',
+      usage_mode: 'unlimited',
+      usage_limit: '',
+      usage_period: 'entire_validity',
+      capacity_mode: 'none',
+      quota_mode: 'none',
+      min_quota: '',
+      max_quota: '',
+      registration_period_mode: 'always_open'
+    };
+  }
+  if (template === 'personal_training') {
+    return {
+      ...createEmptyClassForm(),
+      class_type: 'session_pack',
+      class_name: 'Personal Training',
+      description: 'Paket personal training dengan coach dan saldo sesi.',
+      has_coach: true,
+      categories_text: 'personal training, pt',
+      schedule_mode: 'none',
+      price: '0',
+      validity_mode: 'per_enrollment',
+      validity_unit: 'month',
+      validity_value: '1',
+      validity_anchor: 'activation',
+      usage_mode: 'limited',
+      usage_limit: '8',
+      usage_period: 'entire_validity',
+      capacity_mode: 'none',
+      quota_mode: 'none',
+      min_quota: '',
+      max_quota: '',
+      registration_period_mode: 'always_open'
+    };
+  }
+  if (template === 'activity_class') {
+    return {
+      ...createEmptyClassForm(),
+      class_type: 'open_access',
+      class_name: 'Activity Class',
+      description: 'Class dengan coach, jadwal, dan aturan booking.',
+      has_coach: true,
+      categories_text: 'activity class',
+      schedule_mode: 'weekly',
+      weekly_days: [],
+      weekly_start_time: '',
+      weekly_end_time: '',
+      price: '0',
+      validity_mode: 'per_enrollment',
+      validity_unit: 'month',
+      validity_value: '1',
+      validity_anchor: 'activation',
+      usage_mode: 'limited',
+      usage_limit: '4',
+      usage_period: 'per_month',
+      capacity_mode: 'limited',
+      quota_mode: 'manual',
+      min_quota: '',
+      max_quota: '20',
+      capacity: '20',
+      registration_period_mode: 'always_open'
+    };
+  }
+  return createEmptyClassForm();
+}
+
 function normalizeClassRegistrationMode(value) {
   const normalized = String(value || 'always_open').trim().toLowerCase();
   if (normalized === 'closed' || normalized === 'range_date') return normalized;
@@ -2305,9 +2406,15 @@ export default function AdminPage() {
   const isScheduledClassForm = false;
   const isOpenAccessClassForm = resolvedClassType === 'open_access';
   const isSessionPackClassForm = resolvedClassType === 'session_pack';
+  const classEditorTemplate = String(classTemplateWizard.template || 'custom').trim().toLowerCase() || 'custom';
+  const isMembershipClassEditor = classEditorTemplate === 'membership';
+  const isActivityClassEditor = classEditorTemplate === 'activity_class';
+  const isPersonalTrainingClassEditor = classEditorTemplate === 'personal_training';
+  const isCustomClassEditor = classEditorTemplate === 'custom';
+  const classGuideType = isActivityClassEditor ? 'scheduled' : resolvedClassType;
   const isFixedDateClassAccess = !isScheduledClassForm && classForm.validity_anchor === 'fixed_start';
   const showClassCoachFields = classForm.has_coach !== false;
-  const classFieldGuide = useMemo(() => getActivityFieldGuide(resolvedClassType), [resolvedClassType]);
+  const classFieldGuide = useMemo(() => getActivityFieldGuide(classGuideType), [classGuideType]);
   const classAccessSummary = useMemo(() => formatClassAccessConfigurationSummary(classForm), [classForm]);
   const classCategoryExamples = useMemo(
     () => getClassCategoryExamplesByType(resolvedClassType),
@@ -2650,6 +2757,7 @@ export default function AdminPage() {
   function viewClass(item) {
     const trainerName = item.trainer_name || '';
     const classCustomFields = splitClassCustomFields(item.custom_fields, item.category || '');
+    const editorTemplate = inferClassEditorTemplate(item);
     setClassForm({
       class_type: item.class_type || 'scheduled',
       class_name: item.class_name || '',
@@ -2702,6 +2810,10 @@ export default function AdminPage() {
       max_quota: item.max_quota === undefined || item.max_quota === null ? '' : String(item.max_quota),
       auto_start_when_quota_met: item.auto_start_when_quota_met === true
     });
+    setClassTemplateWizard({
+      ...createEmptyClassTemplateWizard(),
+      template: editorTemplate
+    });
     setClassTrainerDraft('');
     setEditingClassId(item.class_id || '');
     setClassParticipants([]);
@@ -2716,119 +2828,16 @@ export default function AdminPage() {
     setEditingClassId('');
     setClassParticipants([]);
     setClassEditTab('general');
-    setClassMode('add');
+    setClassMode('wizard');
   }
 
   function openClassTemplateWizard(template) {
-    if (template === 'custom') {
-      startAddClass();
-      return;
-    }
-    setClassTemplateWizard((prev) => ({
+    const normalizedTemplate = String(template || 'custom').trim().toLowerCase();
+    setClassTemplateWizard({
       ...createEmptyClassTemplateWizard(),
-      template,
-      coach_name: prev.template === template ? prev.coach_name : '',
-      title: prev.template === template ? prev.title : ''
-    }));
-  }
-
-  function applyClassTemplateWizard() {
-    const template = String(classTemplateWizard.template || '').trim();
-    if (!template) {
-      setFeedback('Pilih template dulu.');
-      return;
-    }
-    const durationMonths = Math.max(1, Number(classTemplateWizard.duration_months || 1) || 1);
-    const usageLimit = Math.max(1, Number(classTemplateWizard.usage_limit || 1) || 1);
-    const coachName = String(classTemplateWizard.coach_name || '').trim();
-    const title = String(classTemplateWizard.title || '').trim();
-    const today = getTodayInputDate();
-
-    if ((template === 'personal_training' || template === 'activity_class') && !coachName) {
-      setFeedback(`Pilih ${creatorLabelLower} dulu untuk template ini.`);
-      return;
-    }
-
-    if (template === 'membership') {
-      setClassForm({
-        ...createEmptyClassForm(),
-        class_type: 'open_access',
-        class_name: title || `Gym Access ${durationMonths} Bulan`,
-        description: 'Template membership / gym access tanpa coach dan tanpa schedule wajib.',
-        has_coach: false,
-        coach_id: '',
-        trainer_name: '',
-        coach_shares: [],
-        categories_text: 'membership, gym access',
-        schedule_mode: 'none',
-        price: String(classTemplateWizard.price || '0'),
-        validity_mode: 'per_enrollment',
-        validity_unit: 'month',
-        validity_value: String(durationMonths),
-        validity_anchor: 'activation',
-        usage_mode: 'unlimited',
-        usage_limit: '',
-        usage_period: 'entire_validity',
-        capacity_mode: 'none',
-        quota_mode: 'none',
-        min_quota: '',
-        max_quota: '',
-        registration_period_mode: 'always_open'
-      });
-    } else if (template === 'personal_training') {
-      setClassForm({
-        ...createEmptyClassForm(),
-        class_type: 'session_pack',
-        class_name: title || `Paket PT ${usageLimit} Sesi`,
-        description: 'Template personal training dengan coach tertentu dan saldo sesi per member.',
-        has_coach: true,
-        trainer_name: coachName,
-        coach_shares: syncCoachSharesWithTrainerNames(coachName, []),
-        categories_text: 'personal training, pt',
-        schedule_mode: 'none',
-        price: String(classTemplateWizard.price || '0'),
-        validity_mode: 'per_enrollment',
-        validity_unit: 'month',
-        validity_value: String(durationMonths),
-        validity_anchor: 'activation',
-        usage_mode: 'limited',
-        usage_limit: String(usageLimit),
-        usage_period: 'entire_validity',
-        capacity_mode: 'none',
-        quota_mode: 'none',
-        min_quota: '',
-        max_quota: '',
-        registration_period_mode: 'always_open'
-      });
-    } else if (template === 'activity_class') {
-      setClassForm({
-        ...createEmptyClassForm(),
-        class_type: 'scheduled',
-        class_name: title || 'Activity Class',
-        description: 'Template class berjadwal untuk yoga, aerobic, dan class group sejenis.',
-        has_coach: true,
-        trainer_name: coachName,
-        coach_shares: syncCoachSharesWithTrainerNames(coachName, []),
-        categories_text: 'activity class, yoga, aerobic',
-        schedule_mode: 'everyday',
-        weekly_start_time: '07:00',
-        weekly_end_time: '08:00',
-        price: String(classTemplateWizard.price || '0'),
-        start_date: today,
-        end_date: addMonthsToInputDate(today, durationMonths),
-        max_meetings: String(usageLimit),
-        capacity_mode: 'limited',
-        quota_mode: 'manual',
-        min_quota: '',
-        max_quota: '20',
-        capacity: '20',
-        registration_period_mode: 'always_open'
-      });
-    } else {
-      startAddClass();
-      return;
-    }
-
+      template: normalizedTemplate
+    });
+    setClassForm(createClassFormFromTemplate(normalizedTemplate));
     setClassTrainerDraft('');
     setEditingClassId('');
     setClassParticipants([]);
@@ -5578,14 +5587,83 @@ export default function AdminPage() {
                     </table>
                   </div>
                 </>
-              ) : (
+              ) : classMode === 'wizard' ? (
                 <>
                   <div className="panel-head">
-                    <h2>{editingClassId ? 'Edit class' : 'Add class'}</h2>
+                    <h2>Add class</h2>
                     <button className="btn ghost" type="button" onClick={() => setClassMode('list')}>
                       Back to list
                     </button>
                   </div>
+                  <div className="entity-list">
+                    <div className="card" style={{ borderStyle: 'dashed' }}>
+                      <p className="eyebrow">Pilih mode</p>
+                      <p className="feedback">Pilih tipe class yang paling dekat. `Custom` akan membuka form lengkap seperti sekarang.</p>
+                    </div>
+                    {[
+                      {
+                        id: 'membership',
+                        title: 'Membership',
+                        description: 'Untuk gym access atau membership periode tanpa schedule wajib.'
+                      },
+                      {
+                        id: 'activity_class',
+                        title: 'Activity class',
+                        description: 'Untuk class dengan coach, jadwal, booking, dan capacity.'
+                      },
+                      {
+                        id: 'personal_training',
+                        title: 'Personal training',
+                        description: 'Untuk paket sesi atau credit dengan coach.'
+                      },
+                      {
+                        id: 'custom',
+                        title: 'Custom',
+                        description: 'Buka form lengkap dan atur semuanya manual.'
+                      }
+                    ].map((option) => (
+                      <div key={option.id} className="card" style={{ borderStyle: 'dashed' }}>
+                        <p className="eyebrow">{option.title}</p>
+                        <p className="feedback" style={{ marginBottom: '0.75rem' }}>{option.description}</p>
+                        <button className="btn" type="button" onClick={() => openClassTemplateWizard(option.id)}>
+                          Pilih {option.title}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="panel-head">
+                    <h2>{editingClassId ? 'Edit class' : `Add ${getClassEditorTemplateLabel(classEditorTemplate)}`}</h2>
+                    <button
+                      className="btn ghost"
+                      type="button"
+                      onClick={() => {
+                        if (editingClassId) {
+                          setClassMode('list');
+                          return;
+                        }
+                        startAddClass();
+                      }}
+                    >
+                      {editingClassId ? 'Back to list' : 'Back to wizard'}
+                    </button>
+                  </div>
+                  {!editingClassId ? (
+                    <div className="card" style={{ borderStyle: 'dashed', marginBottom: '0.75rem' }}>
+                      <p className="eyebrow">Mode</p>
+                      <p className="feedback">
+                        Form ini sedang memakai mode <strong>{getClassEditorTemplateLabel(classEditorTemplate)}</strong>.
+                        {classEditorTemplate === 'custom'
+                          ? ' Semua field tersedia.'
+                          : ' Hanya field yang relevan untuk mode ini yang ditampilkan.'}
+                      </p>
+                      <button className="btn ghost small" type="button" onClick={startAddClass}>
+                        Ganti mode
+                      </button>
+                    </div>
+                  ) : null}
                   <div className="landing-tabs" style={{ marginBottom: '0.8rem' }}>
                     <button
                       type="button"
@@ -5634,23 +5712,25 @@ export default function AdminPage() {
                                 onChange={(e) => setClassForm((p) => ({ ...p, description: e.target.value }))}
                               />
                             </label>
-                            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                              <input
-                                type="checkbox"
-                                checked={showClassCoachFields}
-                                onChange={(e) =>
-                                  setClassForm((p) => ({
-                                    ...p,
-                                    has_coach: e.target.checked,
-                                    coach_id: e.target.checked ? p.coach_id : '',
-                                    trainer_name: e.target.checked ? p.trainer_name : '',
-                                    coach_shares: e.target.checked ? p.coach_shares : []
-                                  }))
-                                }
-                              />
-                              <span>Activity ini punya coach</span>
-                            </label>
-                            {showClassCoachFields ? (
+                            {!isMembershipClassEditor ? (
+                              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <input
+                                  type="checkbox"
+                                  checked={showClassCoachFields}
+                                  onChange={(e) =>
+                                    setClassForm((p) => ({
+                                      ...p,
+                                      has_coach: e.target.checked,
+                                      coach_id: e.target.checked ? p.coach_id : '',
+                                      trainer_name: e.target.checked ? p.trainer_name : '',
+                                      coach_shares: e.target.checked ? p.coach_shares : []
+                                    }))
+                                  }
+                                />
+                                <span>Activity ini punya coach</span>
+                              </label>
+                            ) : null}
+                            {!isMembershipClassEditor && showClassCoachFields ? (
                               <div className="card" style={{ borderStyle: 'dashed' }}>
                                 <p className="eyebrow">{creatorLabel} Name (token input)</p>
                                 <label>
@@ -5749,9 +5829,9 @@ export default function AdminPage() {
                                   </div>
                                 ) : null}
                               </div>
-                            ) : (
+                            ) : !isMembershipClassEditor ? (
                               <p className="feedback">Mode ini tidak mewajibkan coach. Cocok untuk gym access, open studio, atau paket sesi generik.</p>
-                            )}
+                            ) : null}
                             <label>Price<input type="number" min="0" value={classForm.price} onChange={(e) => setClassForm((p) => ({ ...p, price: e.target.value }))} /></label>
                             {!isScheduledClassForm ? (
                               <p className="feedback">
@@ -5939,9 +6019,15 @@ export default function AdminPage() {
                               ) : (
                                 <>
                                   <p className="feedback">
-                                    {isOpenAccessClassForm
-                                      ? 'Untuk open access, masa aktif dan kuota dihitung per enrollment user.'
-                                      : 'Untuk session pack, isi expiry dan jumlah sesi yang diberikan per enrollment user.'}
+                                    {isMembershipClassEditor
+                                      ? 'Untuk membership, isi harga, durasi aktif, waktu mulai, dan aturan registrasi.'
+                                      : isActivityClassEditor
+                                        ? 'Untuk activity class, isi durasi akses, jadwal, registrasi, dan capacity class.'
+                                        : isPersonalTrainingClassEditor
+                                          ? 'Untuk personal training, isi coach, masa aktif paket, dan jumlah sesi yang diberikan.'
+                                          : isOpenAccessClassForm
+                                            ? 'Untuk open access, masa aktif dan kuota dihitung per enrollment user.'
+                                            : 'Untuk session pack, isi expiry dan jumlah sesi yang diberikan per enrollment user.'}
                                   </p>
                                   <label>
                                     Duration
@@ -5989,27 +6075,32 @@ export default function AdminPage() {
                                       ) : null}
                                     </>
                                   ) : null}
-                                  <label>
-                                    Usage Mode
-                                    <select value={classForm.usage_mode} onChange={(e) => setClassForm((p) => ({ ...p, usage_mode: e.target.value }))}>
-                                      <option value="unlimited">unlimited</option>
-                                      <option value="limited">limited</option>
-                                    </select>
-                                  </label>
-                                  {classForm.usage_mode === 'limited' ? (
+                                  {!isMembershipClassEditor ? (
                                     <>
-                                      <label>Usage Limit<input type="number" min="1" value={classForm.usage_limit} onChange={(e) => setClassForm((p) => ({ ...p, usage_limit: e.target.value }))} /></label>
                                       <label>
-                                        Usage Period
-                                        <select value={classForm.usage_period} onChange={(e) => setClassForm((p) => ({ ...p, usage_period: e.target.value }))}>
-                                          {ACTIVITY_USAGE_PERIOD_OPTIONS.map((item) => (
-                                            <option key={item.value} value={item.value}>{item.label}</option>
-                                          ))}
+                                        Usage Mode
+                                        <select value={classForm.usage_mode} onChange={(e) => setClassForm((p) => ({ ...p, usage_mode: e.target.value }))}>
+                                          <option value="unlimited">unlimited</option>
+                                          <option value="limited">limited</option>
                                         </select>
                                       </label>
+                                      {classForm.usage_mode === 'limited' ? (
+                                        <>
+                                          <label>Usage Limit<input type="number" min="1" value={classForm.usage_limit} onChange={(e) => setClassForm((p) => ({ ...p, usage_limit: e.target.value }))} /></label>
+                                          <label>
+                                            Usage Period
+                                            <select value={classForm.usage_period} onChange={(e) => setClassForm((p) => ({ ...p, usage_period: e.target.value }))}>
+                                              {ACTIVITY_USAGE_PERIOD_OPTIONS.map((item) => (
+                                                <option key={item.value} value={item.value}>{item.label}</option>
+                                              ))}
+                                            </select>
+                                          </label>
+                                        </>
+                                      ) : null}
                                     </>
                                   ) : null}
-                                  <div className="card" style={{ borderStyle: 'dashed', marginTop: '0.75rem' }}>
+                                  {isActivityClassEditor || isCustomClassEditor ? (
+                                    <div className="card" style={{ borderStyle: 'dashed', marginTop: '0.75rem' }}>
                                     <p className="eyebrow">Schedule</p>
                                     <div style={{ display: 'grid', gap: '0.35rem', marginBottom: '0.75rem' }}>
                                       <label style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', margin: 0 }}>
@@ -6153,7 +6244,8 @@ export default function AdminPage() {
                                         </div>
                                       </>
                                     ) : null}
-                                  </div>
+                                    </div>
+                                  ) : null}
                                   <div className="card" style={{ borderStyle: 'dashed', marginTop: '0.75rem' }}>
                                     <p className="eyebrow">Registration</p>
                                     <div style={{ display: 'grid', gap: '0.35rem', marginBottom: '0.75rem' }}>
@@ -6212,7 +6304,8 @@ export default function AdminPage() {
                                       </p>
                                     )}
                                   </div>
-                                  <div className="card" style={{ borderStyle: 'dashed', marginTop: '0.75rem' }}>
+                                  {isActivityClassEditor || isCustomClassEditor ? (
+                                    <div className="card" style={{ borderStyle: 'dashed', marginTop: '0.75rem' }}>
                                     <p className="eyebrow">Capacity</p>
                                     <div style={{ display: 'grid', gap: '0.35rem', marginBottom: '0.75rem' }}>
                                       <label style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', margin: 0 }}>
@@ -6259,7 +6352,8 @@ export default function AdminPage() {
                                     ) : (
                                       <p className="feedback">Tidak ada batas holder/enrollment.</p>
                                     )}
-                                  </div>
+                                    </div>
+                                  ) : null}
                                   {classAccessSummary.length > 0 ? (
                                     <div className="card" style={{ borderStyle: 'dashed', marginTop: '0.25rem' }}>
                                       <p className="eyebrow">Ringkasan konfigurasi</p>
