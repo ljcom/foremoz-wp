@@ -271,14 +271,16 @@ export default function MemberPortalPage() {
                     Mulai {formatAppDateTime(event.start_at)}
                   </p>
                   <p className="passport-live-host">{event.location || '-'}</p>
-                  <Link
-                    className="btn ghost small"
-                    to={event.account_slug
-                      ? `/a/${encodeURIComponent(event.account_slug)}/e/${encodeURIComponent(event.event_id)}`
-                      : `/e/${encodeURIComponent(event.event_id)}`}
-                  >
-                    Open event
-                  </Link>
+                  <div style={{ marginTop: '1.25rem' }}>
+                    <Link
+                      className="btn ghost small"
+                      to={event.account_slug
+                        ? `/a/${encodeURIComponent(event.account_slug)}/e/${encodeURIComponent(event.event_id)}`
+                        : `/e/${encodeURIComponent(event.event_id)}`}
+                    >
+                      Open event
+                    </Link>
+                  </div>
                 </article>
               ))}
               {!myEventsLoading && orderedMyEvents.length === 0 ? (
