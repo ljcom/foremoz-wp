@@ -91,12 +91,6 @@ const CLASS_WEEKDAYS = [
   { value: 'sat', label: 'Sat' }
 ];
 
-const CLASS_TYPE_OPTIONS = [
-  { value: 'scheduled', label: 'Scheduled' },
-  { value: 'open_access', label: 'Open access' },
-  { value: 'session_pack', label: 'Session pack' }
-];
-
 const ACTIVITY_VALIDITY_UNIT_OPTIONS = [
   { value: 'none', label: 'No expiry' },
   { value: 'day', label: 'Day' },
@@ -614,7 +608,7 @@ function serializeEventForm(value) {
 
 function createEmptyClassForm() {
   return {
-    class_type: 'scheduled',
+    class_type: 'open_access',
     class_name: '',
     title: '',
     description: '',
@@ -953,8 +947,9 @@ function normalizeClassScheduleForPayload(form) {
   };
 }
 
-function formatClassTypeLabel(value) {
-  return CLASS_TYPE_OPTIONS.find((item) => item.value === value)?.label || sentenceCase(String(value || 'scheduled').replace(/_/g, ' '));
+function resolveClassTypeForForm(form) {
+  const usageMode = String(form?.usage_mode || 'unlimited').trim().toLowerCase();
+  return usageMode === 'limited' ? 'session_pack' : 'open_access';
 }
 
 function getActivityFieldGuide(classType) {
@@ -2331,17 +2326,18 @@ export default function AdminPage() {
     [memberRelationOptions, selectedMemberUploadRelationKeys]
   );
   const selectedClassTrainerTokens = useMemo(() => parseTrainerTokens(classForm.trainer_name), [classForm.trainer_name]);
-  const isScheduledClassForm = classForm.class_type === 'scheduled';
-  const isOpenAccessClassForm = classForm.class_type === 'open_access';
-  const isSessionPackClassForm = classForm.class_type === 'session_pack';
+  const resolvedClassType = useMemo(() => resolveClassTypeForForm(classForm), [classForm]);
+  const isScheduledClassForm = false;
+  const isOpenAccessClassForm = resolvedClassType === 'open_access';
+  const isSessionPackClassForm = resolvedClassType === 'session_pack';
   const isFixedDateClassAccess = !isScheduledClassForm && classForm.validity_anchor === 'fixed_start';
   const showClassCoachFields = classForm.has_coach !== false;
-  const classFieldGuide = useMemo(() => getActivityFieldGuide(classForm.class_type), [classForm.class_type]);
-  const classAccessPresets = useMemo(() => getClassAccessPresets(classForm.class_type), [classForm.class_type]);
+  const classFieldGuide = useMemo(() => getActivityFieldGuide(resolvedClassType), [resolvedClassType]);
+  const classAccessPresets = useMemo(() => getClassAccessPresets(resolvedClassType), [resolvedClassType]);
   const classAccessSummary = useMemo(() => formatClassAccessConfigurationSummary(classForm), [classForm]);
   const classCategoryExamples = useMemo(
-    () => getClassCategoryExamplesByType(classForm.class_type),
-    [classForm.class_type]
+    () => getClassCategoryExamplesByType(resolvedClassType),
+    [resolvedClassType]
   );
   const classCategoryInstruction = `Pisahkan dengan koma atau baris baru. Contoh: ${classCategoryExamples[0]}, ${classCategoryExamples[1]}.`;
   const classCategoryPlaceholder = `${classCategoryExamples[0]}, ${classCategoryExamples[1]}\n${classCategoryExamples[2]}`;
@@ -2596,7 +2592,7 @@ export default function AdminPage() {
         body: JSON.stringify({
           tenant_id: tenantId,
           branch_id: branchId,
-          class_type: classForm.class_type,
+          class_type: resolvedClassType,
           class_name: classForm.class_name,
           title: classForm.class_name,
           description: classForm.description || '',
@@ -5623,7 +5619,7 @@ export default function AdminPage() {
                       className={`landing-tab ${classEditTab === 'participants' ? 'active' : ''}`}
                       onClick={() => {
                         setClassEditTab('participants');
-                        if (editingClassId) loadClassParticipants(editingClassId, classForm.class_type);
+                        if (editingClassId) loadClassParticipants(editingClassId, resolvedClassType);
                       }}
                     >
                       Participants
@@ -5634,29 +5630,6 @@ export default function AdminPage() {
                       <>
                         <div className="class-general-layout">
                           <div className="class-general-main">
-                            <label>
-                              Class Type
-                              <select
-                                value={classForm.class_type}
-                                onChange={(e) =>
-                                  setClassForm((prev) => {
-                                    const nextType = e.target.value;
-                                    const requiresScheduleDates = nextType === 'scheduled';
-                                    return {
-                                      ...prev,
-                                      class_type: nextType,
-                                      schedule_mode: requiresScheduleDates ? (prev.schedule_mode === 'none' ? 'everyday' : prev.schedule_mode) : 'none',
-                                      start_date: requiresScheduleDates ? prev.start_date : prev.start_date,
-                                      end_date: requiresScheduleDates ? prev.end_date : prev.end_date
-                                    };
-                                  })
-                                }
-                              >
-                                {CLASS_TYPE_OPTIONS.map((item) => (
-                                  <option key={item.value} value={item.value}>{item.label}</option>
-                                ))}
-                              </select>
-                            </label>
                             <label>Class Name<input value={classForm.class_name} onChange={(e) => setClassForm((p) => ({ ...p, class_name: e.target.value }))} /></label>
                             <label>
                               Description
@@ -6084,7 +6057,6 @@ export default function AdminPage() {
                           <aside className="class-general-guide">
                             <div className="card" style={{ borderStyle: 'dashed' }}>
                               <p className="eyebrow">Panduan cepat</p>
-                              <p className="feedback"><strong>Template aktif:</strong> {formatClassTypeLabel(classForm.class_type)}</p>
                               <p className="feedback"><strong>Deskripsi:</strong> {classFieldGuide.classType}</p>
                               <p className="feedback"><strong>Validity mode:</strong> {classFieldGuide.validityMode}</p>
                               <p className="feedback"><strong>Quota / capacity:</strong> {classFieldGuide.capacityMode}</p>
@@ -6442,7 +6414,7 @@ export default function AdminPage() {
                             <button
                               className="btn ghost small"
                               type="button"
-                              onClick={() => loadClassParticipants(editingClassId, classForm.class_type)}
+                              onClick={() => loadClassParticipants(editingClassId, resolvedClassType)}
                               disabled={classParticipantsLoading}
                             >
                               {classParticipantsLoading ? 'Refreshing...' : 'Refresh'}
@@ -6451,7 +6423,7 @@ export default function AdminPage() {
                           {classParticipantsLoading ? <p className="feedback">Loading participants...</p> : null}
                           {!classParticipantsLoading && classParticipants.length === 0 ? (
                             <p className="feedback">
-                              {classForm.class_type === 'scheduled'
+                              {resolvedClassType === 'scheduled'
                                 ? 'Belum ada participant yang booking class ini.'
                                 : 'Belum ada enrollment untuk activity ini.'}
                             </p>
