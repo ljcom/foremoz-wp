@@ -49,10 +49,11 @@ export default function WorkspaceHeader({
                   {getEnvironmentLabel?.(env) || env}
                 </button>
               ))}
+              {extraActions}
             </div>
           </div>
         ) : null}
-        {extraActions}
+        {allowedEnv.length === 0 ? extraActions : null}
         {onSignOut ? (
           <button className="btn ghost" type="button" onClick={onSignOut}>
             {signOutLabel}

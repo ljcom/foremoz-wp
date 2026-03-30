@@ -4794,7 +4794,7 @@ export default function AdminPage() {
         targetEnv={targetEnv}
         getEnvironmentLabel={getEnvironmentLabel}
         extraActions={role === 'owner' ? (
-          <Link className="btn ghost" to="/host/owner">
+          <Link className="btn ghost small" to="/host/owner">
             Jump to host setting
           </Link>
         ) : null}
