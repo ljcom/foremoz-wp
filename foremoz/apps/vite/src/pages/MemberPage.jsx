@@ -16,7 +16,7 @@ function formatMemberPaymentReference(item, lookups = {}) {
     return `PT Package - ${packagesById.get(referenceId) || referenceId || '-'}`;
   }
   if (referenceType === 'class_booking') {
-    return `Class Booking - ${classesById.get(referenceId) || referenceId || '-'}`;
+    return `Program Booking - ${classesById.get(referenceId) || referenceId || '-'}`;
   }
   if (referenceType === 'event_registration') {
     return `Event Registration - ${eventsById.get(referenceId) || referenceId || '-'}`;
@@ -452,12 +452,12 @@ export default function MemberPage() {
   async function submitClassBooking() {
     if (!memberData?.member_id) return;
     if (!bookingForm.class_id) {
-      setFeedback('Pilih class terlebih dulu.');
+      setFeedback('Pilih program terlebih dulu.');
       return;
     }
     const amount = Math.max(0, Number(bookingForm.amount || 0));
     if (!Number.isFinite(amount) || amount < 0) {
-      setFeedback('Nominal payment class tidak valid.');
+      setFeedback('Nominal payment program tidak valid.');
       return;
     }
     try {
@@ -510,9 +510,9 @@ export default function MemberPage() {
         })
       }).catch(() => {});
       await refreshMemberOperationalData();
-      setFeedback(`class.booking.created: ${memberData.member_id} -> ${bookingForm.class_id}${paymentId ? ` (payment ${paymentId})` : ''}`);
+      setFeedback(`program.booking.created: ${memberData.member_id} -> ${bookingForm.class_id}${paymentId ? ` (payment ${paymentId})` : ''}`);
     } catch (error) {
-      setFeedback(error.message || 'Gagal booking class.');
+      setFeedback(error.message || 'Gagal booking program.');
     } finally {
       setBookingSaving(false);
     }
@@ -736,7 +736,7 @@ export default function MemberPage() {
                     value={bookingForm.class_id}
                     onChange={(e) => setBookingForm((prev) => ({ ...prev, class_id: e.target.value }))}
                   >
-                    <option value="">Pilih class</option>
+                    <option value="">Pilih program</option>
                     {classes.map((item) => (
                       <option key={item.class_id} value={item.class_id}>
                         {item.class_name || item.class_id}
@@ -767,7 +767,7 @@ export default function MemberPage() {
                   </select>
                 </label>
                 <button className="btn" type="button" disabled={bookingSaving} onClick={submitClassBooking}>
-                  {bookingSaving ? 'Booking...' : 'Book class'}
+                  {bookingSaving ? 'Booking...' : 'Book program'}
                 </button>
               </div>
             ) : null}
@@ -775,7 +775,7 @@ export default function MemberPage() {
 
           {activeMenu === 'booking' ? (
             <section className="payment-history">
-              <h3>My class bookings</h3>
+              <h3>My program bookings</h3>
               {memberBookings.length > 0 ? (
                 <div className="entity-list">
                   {memberBookings.slice(0, 20).map((item) => (
@@ -790,7 +790,7 @@ export default function MemberPage() {
                   ))}
                 </div>
               ) : (
-                <p className="muted">Belum ada booking class.</p>
+                <p className="muted">Belum ada booking program.</p>
               )}
             </section>
           ) : null}

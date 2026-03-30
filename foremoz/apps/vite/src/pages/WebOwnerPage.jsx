@@ -24,7 +24,7 @@ const PLANS = [
     key: 'starter',
     name: 'Starter',
     price: 'IDR 499.000 / bulan',
-    note: 'Event + class + CS + product + check-in/check-out.'
+    note: 'Event + program + CS + product + check-in/check-out.'
   },
   {
     key: 'growth',

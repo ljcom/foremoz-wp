@@ -14,7 +14,7 @@ const PRICING_BY_VERTICAL = {
       name: 'Starter',
       price: 'Rp149.000 - Rp499.000 / bulan',
       note: 'Untuk operasi harian',
-      items: ['Event + class + produk', 'Check-in + check-out']
+      items: ['Event + program + produk', 'Check-in + check-out']
     },
     {
       name: 'Growth',
@@ -267,7 +267,7 @@ export default function VerticalLandingPage() {
         <div>
           <p className="eyebrow">{label}</p>
           <h1>{`${label} untuk ${creator} dan ${participant}`}</h1>
-          <p>Kelola event dan class lebih mudah, biar kamu fokus ke pengalaman terbaik untuk komunitas.</p>
+          <p>Kelola event dan program lebih mudah, biar kamu fokus ke pengalaman terbaik untuk komunitas.</p>
           <div className="hero-actions">
             <Link className="btn" to={publicHome}>Lihat Events</Link>
             <Link className="btn ghost" to={`/signup?industry=${activeSlug}`}>Mulai Sekarang</Link>

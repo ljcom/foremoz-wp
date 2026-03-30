@@ -108,7 +108,7 @@ export default function DashboardPage() {
         statsCheckins: 'Today Check-ins',
         statsCheckinsHint: 'recorded visits',
         statsBookings: 'Today Bookings',
-        statsBookingsHint: 'filled class slots',
+        statsBookingsHint: 'filled program slots',
         statsPayments: 'Pending Payments',
         statsPaymentsHint: 'awaiting confirmation',
         loadingDashboard: 'Loading dashboard...',
@@ -117,14 +117,14 @@ export default function DashboardPage() {
         workspacePanelAria: 'Workspace panel',
         tabMember: 'Member',
         tabEvent: 'Event',
-        tabClass: 'Class',
+        tabClass: 'Program',
         memberSearchEyebrow: 'Membership Search',
         memberSearchTitle: 'Search Members',
         scanQr: 'Scan QR/Barcode',
         memberRelation: 'Member relation',
-        activeClass: 'Active class',
+        activeClass: 'Active program',
         activeEvent: 'Active event',
-        chooseClass: 'Choose class...',
+        chooseClass: 'Choose program...',
         chooseEvent: 'Choose event...',
         searchBy: 'Search by',
         searchAll: 'All',
@@ -134,9 +134,9 @@ export default function DashboardPage() {
         keywordPlaceholder: 'Name, phone, ID card, member ID',
         panelContext: 'Panel context',
         noneSelected: 'not selected yet',
-        loadingMemberLinks: 'Loading member links to active events/classes...',
+        loadingMemberLinks: 'Loading member links to active events/programs...',
         activeEventsSection: 'Active events',
-        activeClassesSection: 'Active classes'
+        activeClassesSection: 'Active programs'
       }
     : {
         eyebrow: 'Operational',
@@ -157,14 +157,14 @@ export default function DashboardPage() {
         workspacePanelAria: 'Workspace panel',
         tabMember: 'Member',
         tabEvent: 'Event',
-        tabClass: 'Class',
+        tabClass: 'Program',
         memberSearchEyebrow: 'Membership Search',
         memberSearchTitle: 'Cari Member',
         scanQr: 'Scan QR/Barcode',
         memberRelation: 'Relasi member',
-        activeClass: 'Class aktif',
+        activeClass: 'Program aktif',
         activeEvent: 'Event aktif',
-        chooseClass: 'Pilih class...',
+        chooseClass: 'Pilih program...',
         chooseEvent: 'Pilih event...',
         searchBy: 'Cari berdasarkan',
         searchAll: 'Semua',
@@ -174,9 +174,9 @@ export default function DashboardPage() {
         keywordPlaceholder: 'Nama, no HP, ID card, member ID',
         panelContext: 'Konteks panel',
         noneSelected: 'belum dipilih',
-        loadingMemberLinks: 'Memuat keterkaitan member dengan event/class aktif...',
+        loadingMemberLinks: 'Memuat keterkaitan member dengan event/program aktif...',
         activeEventsSection: 'Event aktif',
-        activeClassesSection: 'Class aktif'
+        activeClassesSection: 'Program aktif'
       }), [language]);
   const navigate = useNavigate();
   const session = getSession();
@@ -422,7 +422,7 @@ export default function DashboardPage() {
               key: `class:${classItem?.class_id || 'unknown'}:${booking?.booking_id || booking?.member_id || booking?.guest_name || bookingIndex}`,
               source_kind: 'class',
               source_id: classItem?.class_id || '',
-              source_name: classItem?.class_name || 'Class',
+              source_name: classItem?.class_name || 'Program',
               member_id: booking?.member_id || linkedMember?.member_id || '',
               full_name: linkedMember?.full_name || booking?.guest_name || '',
               phone: linkedMember?.phone || '',
@@ -516,7 +516,7 @@ export default function DashboardPage() {
       const item = {
         kind: row.source_kind,
         source_id: row.source_id || '',
-        source_name: row.source_name || (row.source_kind === 'class' ? 'Class' : 'Event'),
+        source_name: row.source_name || (row.source_kind === 'class' ? 'Program' : 'Event'),
         full_name: row.full_name || '',
         email: row.email || '',
         participant_no: row.participant_no || '',
@@ -544,7 +544,7 @@ export default function DashboardPage() {
       ...activeClasses.map((row) => ({
         kind: 'class',
         source_id: String(row?.class_id || '').trim(),
-        source_name: row?.class_name || 'Class'
+        source_name: row?.class_name || 'Program'
       }))
     ];
     rows.forEach((item) => {
@@ -674,7 +674,7 @@ export default function DashboardPage() {
       return selectedEvent ? `Event: ${selectedEvent.event_name || selectedEvent.event_id}` : '';
     }
     if (selectedExperienceType === 'class') {
-      return selectedClass ? `Class: ${selectedClass.class_name || selectedClass.class_id}` : '';
+      return selectedClass ? `Program: ${selectedClass.class_name || selectedClass.class_id}` : '';
     }
     return '';
   }, [selectedClass, selectedEvent, selectedExperienceType]);
@@ -1098,7 +1098,7 @@ export default function DashboardPage() {
                 }}
               >
                 <option value="event">Event</option>
-                {showClassWorkspace ? <option value="class">Class</option> : null}
+                {showClassWorkspace ? <option value="class">Program</option> : null}
               </select>
             </label>
             <label>
@@ -1374,8 +1374,8 @@ export default function DashboardPage() {
         <section className="card search-panel">
           <div className="panel-head">
             <div>
-              <p className="eyebrow">Class Panel</p>
-              <h2>Daftar Class</h2>
+              <p className="eyebrow">Program Panel</p>
+              <h2>Daftar Program</h2>
             </div>
             <div style={{ display: 'flex', gap: '0.5rem' }}>
               <button className="btn ghost" type="button" onClick={() => exportBrowseCsv('class')}>
@@ -1395,8 +1395,8 @@ export default function DashboardPage() {
           ) : null}
 
           <label>
-            Cari class
-            <input value={classPanelQuery} onChange={(e) => setClassPanelQuery(e.target.value)} placeholder="Nama class, trainer, class ID" />
+            Cari program
+            <input value={classPanelQuery} onChange={(e) => setClassPanelQuery(e.target.value)} placeholder="Nama program, trainer, program ID" />
           </label>
 
           <div className="entity-list" style={{ marginTop: '0.8rem' }}>
@@ -1425,7 +1425,7 @@ export default function DashboardPage() {
                 );
               })
             ) : (
-              <p className="muted">Class tidak ditemukan.</p>
+              <p className="muted">Program tidak ditemukan.</p>
             )}
           </div>
 
@@ -1441,7 +1441,7 @@ export default function DashboardPage() {
               ) : null}
             </article>
             <article className="member-detail">
-              <h3>Selected class</h3>
+              <h3>Selected program</h3>
               {selectedClass ? (
                 <>
                   <p><strong>{selectedClass.class_name || '-'}</strong></p>
@@ -1450,22 +1450,22 @@ export default function DashboardPage() {
                   <p>Mulai: {formatDateTime(selectedClass.start_at)}</p>
                 </>
               ) : (
-                <p className="muted">Pilih class dari daftar di atas.</p>
+                <p className="muted">Pilih program dari daftar di atas.</p>
               )}
             </article>
           </div>
 
           <div className="member-actions">
             <button className="btn ghost" type="button" disabled={actionSaving || !selectedMember || !selectedClass} onClick={bookClassForMember}>
-              {actionSaving ? 'Menyimpan...' : 'Buat Booking Class'}
+              {actionSaving ? 'Menyimpan...' : 'Buat Booking Program'}
             </button>
           </div>
 
           {selectedExperienceType === 'class' && selectedClass ? (
             <div className="payment-history">
-              <h3>Class bookings</h3>
+              <h3>Program bookings</h3>
               {classBookingsLoading ? (
-                <p className="feedback">Memuat booking class...</p>
+                <p className="feedback">Memuat booking program...</p>
               ) : filteredClassBookings.length > 0 ? (
                 <div className="entity-list">
                   {filteredClassBookings.slice(0, 20).map((booking, index) => (
@@ -1507,8 +1507,8 @@ export default function DashboardPage() {
               ) : (
                 <p className="muted">
                   {memberScopedFilter?.kind === 'class' && selectedMember
-                    ? 'Belum ada booking class untuk member ini.'
-                    : 'Belum ada booking class.'}
+                    ? 'Belum ada booking program untuk member ini.'
+                    : 'Belum ada booking program.'}
                 </p>
               )}
             </div>

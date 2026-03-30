@@ -30,7 +30,7 @@ export default function LandingPage() {
     {
       step: '02',
       title: 'Publish experience dan offering',
-      body: 'Kelola event, class, product, package, sampai CTA public profile dalam satu panel.'
+      body: 'Kelola event, program, product, package, sampai CTA public profile dalam satu panel.'
     },
     {
       step: '03',
@@ -40,7 +40,7 @@ export default function LandingPage() {
   ];
   const roleLanes = [
     { role: 'Owner', focus: 'branch, users, package, public account' },
-    { role: 'Admin / CS', focus: 'event, class, member, transaction review' },
+    { role: 'Admin / CS', focus: 'event, program, member, transaction review' },
     { role: 'Member / Passport', focus: 'register, payment, booking, public identity' }
   ];
 

@@ -16,7 +16,7 @@ import {
 const ADMIN_TABS = [
   // { id: 'user', label: 'User' },
   { id: 'event', label: 'Event' },
-  { id: 'class', label: 'Class' },
+  { id: 'class', label: 'Program' },
   { id: 'product', label: 'Product' },
   { id: 'package_creation', label: 'Package creation' },
   { id: 'trainer', label: 'Trainer' },
@@ -696,7 +696,7 @@ function getEventEditorTemplateLabel(template) {
   if (normalized === 'race_competition') return 'Race / competition';
   if (normalized === 'workshop_seminar') return 'Workshop / seminar';
   if (normalized === 'community_gathering') return 'Community gathering';
-  if (normalized === 'class_training') return 'Class / training';
+  if (normalized === 'class_training') return 'Program / training';
   return 'Custom';
 }
 
@@ -747,8 +747,8 @@ function createEventFormFromTemplate(template) {
   if (template === 'class_training') {
     return {
       ...createEmptyEventForm(),
-      event_name: 'Class / Training',
-      categories_text: 'class, training',
+      event_name: 'Program / Training',
+      categories_text: 'program, training',
       award_enabled: false,
       award_scopes: ['overall'],
       award_top_n: '1',
@@ -1109,7 +1109,7 @@ function inferClassEditorTemplate(item) {
 function getClassEditorTemplateLabel(template) {
   const normalized = String(template || 'custom').trim().toLowerCase();
   if (normalized === 'membership') return 'Membership';
-  if (normalized === 'activity_class') return 'Activity class';
+  if (normalized === 'activity_class') return 'Activity program';
   if (normalized === 'personal_training') return 'Personal training';
   return 'Custom';
 }
@@ -1172,10 +1172,10 @@ function createClassFormFromTemplate(template) {
     return {
       ...createEmptyClassForm(),
       class_type: 'open_access',
-      class_name: 'Activity Class',
-      description: 'Class dengan coach, jadwal, dan aturan booking.',
+      class_name: 'Activity Program',
+      description: 'Program dengan coach, jadwal, dan aturan booking.',
       has_coach: true,
-      categories_text: 'Activity Class',
+      categories_text: 'Activity Program',
       tags_text: 'class, scheduled',
       schedule_mode: 'weekly',
       weekly_days: [],
@@ -2363,7 +2363,7 @@ export default function AdminPage() {
           loadingEventList: 'Loading event list...',
           adminTabs: {
             event: 'Event',
-            class: 'Class',
+            class: 'Program',
             product: 'Product',
             package_creation: 'Package Creation',
             trainer: creatorLabel,
@@ -2389,7 +2389,7 @@ export default function AdminPage() {
           loadingEventList: 'Memuat daftar event...',
           adminTabs: {
             event: 'Event',
-            class: 'Class',
+            class: 'Program',
             product: 'Produk',
             package_creation: 'Buat Paket',
             trainer: creatorLabel,
@@ -2516,7 +2516,7 @@ export default function AdminPage() {
     const classOptions = (classes || []).map((item) => ({
       kind: 'class',
       id: String(item.class_id || '').trim(),
-      label: `Class: ${item.class_name || item.class_id || '-'}`
+      label: `Program: ${item.class_name || item.class_id || '-'}`
     }));
     return [...eventOptions, ...classOptions].filter((item) => item.id);
   }, [events, classes]);
@@ -2874,7 +2874,7 @@ export default function AdminPage() {
         })
       });
 
-      setFeedback(editingClassId ? `class.updated: ${classForm.class_name}` : `class.scheduled: ${classForm.class_name}`);
+      setFeedback(editingClassId ? `program.updated: ${classForm.class_name}` : `program.created: ${classForm.class_name}`);
       setClassForm(createEmptyClassForm());
       setClassTemplateWizard(createEmptyClassTemplateWizard());
       setClassTrainerDraft('');
@@ -3179,7 +3179,7 @@ export default function AdminPage() {
   }
 
   function aiGenerateClassDescription() {
-    const className = sentenceCase(classForm.class_name || 'Activity Class');
+    const className = sentenceCase(classForm.class_name || 'Activity Program');
     const categories = suggestCategoriesFromText(`${classForm.categories_text} ${className}`);
     const coachNames = String(classForm.trainer_name || '').trim();
     const guideName = coachNames || (showClassCoachFields ? `tim ${creatorLabelLower}` : 'tim operasional');
@@ -3193,18 +3193,18 @@ export default function AdminPage() {
         : 'Datang lebih awal agar proses check-in dan persiapan berjalan lancar.'
     ].join(' ');
     setClassForm((prev) => ({ ...prev, description }));
-    setFeedback('ai.assist: Description class dibuat.');
+    setFeedback('ai.assist: Description program dibuat.');
   }
 
   function aiShortenClassDescription() {
     const current = String(classForm.description || '').trim();
     if (!current) {
-      setFeedback('Isi Description class dulu.');
+      setFeedback('Isi Description program dulu.');
       return;
     }
     const shortened = current.split('.').map((part) => part.trim()).filter(Boolean).slice(0, 2).join('. ');
     setClassForm((prev) => ({ ...prev, description: `${shortened}.` }));
-    setFeedback('ai.assist: Description class dipersingkat.');
+    setFeedback('ai.assist: Description program dipersingkat.');
   }
 
   function aiGenerateRundown() {
@@ -3339,7 +3339,7 @@ export default function AdminPage() {
       setClassAiWorking(true);
       const keywordCandidates = buildClassImageKeywords();
       if (keywordCandidates.length === 0) {
-        throw new Error('Isi Class Name atau Description dulu agar gallery bisa digenerate.');
+        throw new Error('Isi Program Name atau Description dulu agar gallery bisa digenerate.');
       }
       let keyword = keywordCandidates[0];
       let photos = [];
@@ -3356,7 +3356,7 @@ export default function AdminPage() {
       }
       if (photos.length === 0) {
         if (lastError) throw lastError;
-        setFeedback('ai.assist: Pexels tidak menemukan gambar untuk class ini.');
+        setFeedback('ai.assist: Pexels tidak menemukan gambar untuk program ini.');
         return;
       }
       const urls = photos
@@ -3368,9 +3368,9 @@ export default function AdminPage() {
         image_url: urls[0] || prev.image_url,
         gallery_images_text: urls.join('\n')
       }));
-      setFeedback(`ai.assist: Gallery class diisi ${urls.length} gambar dari Pexels (${keyword}).`);
+      setFeedback(`ai.assist: Gallery program diisi ${urls.length} gambar dari Pexels (${keyword}).`);
     } catch (error) {
-      setFeedback(error.message || 'ai.assist: Gagal mengambil gambar class dari Pexels.');
+      setFeedback(error.message || 'ai.assist: Gagal mengambil gambar program dari Pexels.');
     } finally {
       setClassAiWorking(false);
     }
@@ -3405,9 +3405,9 @@ export default function AdminPage() {
         throw new Error('Upload berhasil tapi URL gambar tidak tersedia.');
       }
       setClassForm((prev) => ({ ...prev, image_url: imageUrl }));
-      setFeedback('class.image.uploaded: Cover image berhasil diunggah ke S3.');
+      setFeedback('program.image.uploaded: Cover image berhasil diunggah ke S3.');
     } catch (error) {
-      setFeedback(error.message || 'Gagal upload cover image class.');
+      setFeedback(error.message || 'Gagal upload cover image program.');
     }
   }
 
@@ -3421,7 +3421,7 @@ export default function AdminPage() {
           branch_id: branchId
         })
       });
-      setFeedback(`class.deleted: ${classId}`);
+      setFeedback(`program.deleted: ${classId}`);
       await loadClasses();
     } catch (error) {
       setFeedback(error.message);
@@ -4956,8 +4956,8 @@ export default function AdminPage() {
                         },
                         {
                           id: 'class_training',
-                          title: 'Class / training',
-                          description: 'Untuk kelas, coaching, atau sesi training dengan instruktur.',
+                          title: 'Program / training',
+                          description: 'Untuk program, coaching, atau sesi training dengan instruktur.',
                           tag: 'Coach',
                           visualClass: 'pt',
                           accents: ['Coach', 'Session']
@@ -5980,15 +5980,15 @@ export default function AdminPage() {
 
           {activeTab === 'class' ? (
             <>
-              <p className="eyebrow">Class</p>
+              <p className="eyebrow">Program</p>
               {classMode === 'list' ? (
                 <>
                   <div className="panel-head">
-                    <h2>Class list, delete</h2>
+                    <h2>Program list, delete</h2>
                     <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginLeft: 'auto' }}>
                       <input
                         type="text"
-                        placeholder="Cari class..."
+                        placeholder="Cari program..."
                         value={classQuery}
                         onChange={(e) => setClassQuery(e.target.value)}
                       />
@@ -5997,12 +5997,12 @@ export default function AdminPage() {
                       </button>
                     </div>
                   </div>
-                  {classLoading ? <p className="feedback">Loading class list...</p> : null}
+                  {classLoading ? <p className="feedback">Loading program list...</p> : null}
                   <div className="entity-list">
                     <table className="admin-data-table">
                       <thead>
                         <tr>
-                          <th className="admin-data-head">Class Name</th>
+                          <th className="admin-data-head">Program Name</th>
                           <th className="admin-data-head">Coach</th>
                           <th className="admin-data-head">Capacity</th>
                           <th className="admin-data-head">Price</th>
@@ -6051,7 +6051,7 @@ export default function AdminPage() {
               ) : classMode === 'wizard' ? (
                 <>
                   <div className="panel-head">
-                    <h2>Add class</h2>
+                    <h2>Add program</h2>
                     <button className="btn ghost" type="button" onClick={() => setClassMode('list')}>
                       Back to list
                     </button>
@@ -6074,8 +6074,8 @@ export default function AdminPage() {
                         },
                         {
                           id: 'activity_class',
-                          title: 'Activity class',
-                          description: 'Untuk class dengan coach, jadwal, booking, dan capacity.',
+                          title: 'Activity program',
+                          description: 'Untuk program dengan coach, jadwal, booking, dan capacity.',
                           tag: 'Schedule',
                           visualClass: 'activity',
                           accents: ['Mon', 'Thu']
@@ -6126,7 +6126,7 @@ export default function AdminPage() {
               ) : (
                 <>
                   <div className="panel-head">
-                    <h2>{editingClassId ? 'Edit class' : `Add ${getClassEditorTemplateLabel(classEditorTemplate)}`}</h2>
+                    <h2>{editingClassId ? 'Edit program' : `Add ${getClassEditorTemplateLabel(classEditorTemplate)}`}</h2>
                     <button
                       className="btn ghost"
                       type="button"
@@ -6193,7 +6193,7 @@ export default function AdminPage() {
                       <>
                         <div className="class-general-layout">
                           <div className="class-general-main">
-                            <label>Class Name<input value={classForm.class_name} onChange={(e) => setClassForm((p) => ({ ...p, class_name: e.target.value }))} /></label>
+                            <label>Program Name<input value={classForm.class_name} onChange={(e) => setClassForm((p) => ({ ...p, class_name: e.target.value }))} /></label>
                             <label>
                               Description
                               <textarea
@@ -6309,7 +6309,7 @@ export default function AdminPage() {
                                           <div key={`class-share-${coachName}`} className="entity-row">
                                             <div>
                                               <strong>{coachName}</strong>
-                                              <p>% dari class</p>
+                                              <p>% dari program</p>
                                             </div>
                                             <input
                                               type="number"
@@ -6433,7 +6433,7 @@ export default function AdminPage() {
                                   </div>
                                   {classForm.schedule_mode === 'everyday' ? (
                                     <>
-                                      <p className="feedback">Class aktif setiap hari dengan jam yang sama.</p>
+                                <p className="feedback">Program aktif setiap hari dengan jam yang sama.</p>
                                       <label>
                                         Jam Mulai
                                         <input
@@ -6572,7 +6572,7 @@ export default function AdminPage() {
                                     {isMembershipClassEditor
                                       ? 'Untuk membership, isi harga, durasi aktif, waktu mulai, dan aturan registrasi.'
                                       : isActivityClassEditor
-                                        ? 'Untuk activity class, isi durasi akses, jadwal, registrasi, dan capacity class.'
+                                        ? 'Untuk activity program, isi durasi akses, jadwal, registrasi, dan capacity program.'
                                         : isPersonalTrainingClassEditor
                                           ? 'Untuk personal training, isi coach, masa aktif paket, dan jumlah sesi yang diberikan.'
                                           : isOpenAccessClassForm
@@ -6967,7 +6967,7 @@ export default function AdminPage() {
                                   <label>Registration End<input type="datetime-local" value={classForm.registration_end} onChange={(e) => setClassForm((p) => ({ ...p, registration_end: e.target.value }))} /></label>
                                 </>
                               ) : (
-                                <p className="feedback">Registrasi selalu terbuka selama class masih aktif.</p>
+                                <p className="feedback">Registrasi selalu terbuka selama program masih aktif.</p>
                               )}
                             </div>
                             <label>Jumlah Pertemuan Max<input type="number" min="0" value={classForm.max_meetings} onChange={(e) => setClassForm((p) => ({ ...p, max_meetings: e.target.value }))} /></label>
@@ -7020,7 +7020,7 @@ export default function AdminPage() {
                                   </label>
                                 </>
                               ) : (
-                                <p className="feedback">Class ini tidak membatasi jumlah peserta.</p>
+                                <p className="feedback">Program ini tidak membatasi jumlah peserta.</p>
                               )}
                             </div>
                           </>
@@ -7035,7 +7035,7 @@ export default function AdminPage() {
                       <div className="editor-with-guide">
                         <div className="editor-main">
                           <div className="card" style={{ borderStyle: 'dashed' }}>
-                            <p className="eyebrow">Class category</p>
+                            <p className="eyebrow">Program category</p>
                             <div className="row-actions" style={{ marginBottom: '0.5rem' }}>
                               <button
                                 className="btn ghost small"
@@ -7077,7 +7077,7 @@ export default function AdminPage() {
                           <div className="card" style={{ borderStyle: 'dashed' }}>
                             <p className="eyebrow">Panduan cepat</p>
                             <p className="feedback">
-                              <strong>Category:</strong> pakai satu kategori utama untuk grouping, filter, dan reporting class.
+                              <strong>Category:</strong> pakai satu kategori utama untuk grouping, filter, dan reporting program.
                             </p>
                             <p className="feedback">
                               <strong>Tag (SEO):</strong> isi bebas untuk search, discovery, dan konteks marketing seperti `beginner`, `morning`, atau `30 days`.
@@ -7094,7 +7094,7 @@ export default function AdminPage() {
                         <div className="editor-main">
                           <div className="card" style={{ borderStyle: 'dashed' }}>
                             <p className="eyebrow">Registration fields</p>
-                            <p className="feedback">Informasi yang dikumpulkan saat member booking atau mendaftar class.</p>
+                            <p className="feedback">Informasi yang dikumpulkan saat member booking atau mendaftar program.</p>
                             <div className="row-actions" style={{ marginBottom: '0.5rem' }}>
                               <button
                                 className="btn ghost small"
@@ -7237,7 +7237,7 @@ export default function AdminPage() {
                           </div>
                           <div className="card" style={{ borderStyle: 'dashed' }}>
                             <p className="eyebrow">Metadata JSON</p>
-                            <p className="feedback">Metadata tambahan untuk operasional class dalam format JSON object.</p>
+                            <p className="feedback">Metadata tambahan untuk operasional program dalam format JSON object.</p>
                             <textarea
                               rows={8}
                               placeholder={'{\n  "level": "beginner",\n  "room": "Studio A"\n}'}
@@ -7250,7 +7250,7 @@ export default function AdminPage() {
                           <div className="card" style={{ borderStyle: 'dashed' }}>
                             <p className="eyebrow">Panduan cepat</p>
                             <p className="feedback">
-                              <strong>Gunakan seperlunya:</strong> tambah field hanya jika benar-benar dibutuhkan saat booking class. Terlalu banyak field biasanya menurunkan conversion.
+                              <strong>Gunakan seperlunya:</strong> tambah field hanya jika benar-benar dibutuhkan saat booking program. Terlalu banyak field biasanya menurunkan conversion.
                             </p>
                             <p className="feedback">
                               <strong>free type:</strong> untuk jawaban bebas seperti kota, sekolah, atau nama komunitas. <strong>date:</strong> untuk tanggal lahir atau tanggal mulai preferensi. <strong>lookup:</strong> untuk pilihan tetap seperti level, gender, atau sumber info.
@@ -7280,7 +7280,7 @@ export default function AdminPage() {
                           {!classParticipantsLoading && classParticipants.length === 0 ? (
                             <p className="feedback">
                               {resolvedClassType === 'scheduled'
-                                ? 'Belum ada participant yang booking class ini.'
+                                ? 'Belum ada participant yang booking program ini.'
                                 : 'Belum ada enrollment untuk activity ini.'}
                             </p>
                           ) : null}
@@ -7306,10 +7306,10 @@ export default function AdminPage() {
                           ) : null}
                         </div>
                       ) : (
-                        <p className="feedback">Simpan class dulu untuk melihat participants.</p>
+                        <p className="feedback">Simpan program dulu untuk melihat participants.</p>
                       )
                     ) : null}
-                    <button className="btn" type="submit" disabled={classSaving}>{classSaving ? 'Saving...' : 'Save class'}</button>
+                    <button className="btn" type="submit" disabled={classSaving}>{classSaving ? 'Saving...' : 'Save program'}</button>
                   </form>
                 </>
               )}
@@ -7452,7 +7452,7 @@ export default function AdminPage() {
                   </div>
                   <form className="form" onSubmit={addPackageCreation}>
                     <label>package_name<input value={packageForm.package_name} onChange={(e) => setPackageForm((p) => ({ ...p, package_name: e.target.value }))} /></label>
-                    <label>package_type<select value={packageForm.package_type} onChange={(e) => setPackageForm((p) => ({ ...p, package_type: e.target.value }))}><option value="membership">membership</option><option value="pt">pt</option><option value="class">class</option></select></label>
+                    <label>package_type<select value={packageForm.package_type} onChange={(e) => setPackageForm((p) => ({ ...p, package_type: e.target.value }))}><option value="membership">membership</option><option value="pt">pt</option><option value="class">program</option></select></label>
                     {packageForm.package_type === 'pt' || packageForm.package_type === 'class' ? (
                       <>
                         <label>max_months<input type="number" min="1" value={packageForm.max_months} onChange={(e) => setPackageForm((p) => ({ ...p, max_months: e.target.value }))} /></label>
@@ -7468,8 +7468,8 @@ export default function AdminPage() {
                       </select></label>
                     ) : null}
                     {packageForm.package_type === 'class' ? (
-                      <label>class_lookup<select value={packageForm.class_id} onChange={(e) => setPackageForm((p) => ({ ...p, class_id: e.target.value }))}>
-                        <option value="">pilih class</option>
+                      <label>program_lookup<select value={packageForm.class_id} onChange={(e) => setPackageForm((p) => ({ ...p, class_id: e.target.value }))}>
+                        <option value="">pilih program</option>
                         {classLookupOptions.map((item) => (
                           <option key={item.class_id} value={item.class_id}>{item.class_name}</option>
                         ))}
@@ -7765,7 +7765,7 @@ export default function AdminPage() {
                   <div className="card" style={{ borderStyle: 'dashed', marginBottom: '1rem' }}>
                     <p className="eyebrow">Upload member relation scope</p>
                     <div className="row-actions" style={{ marginBottom: '0.5rem' }}>
-                      {memberUploadRelations.length === 0 ? <span className="feedback">Upload akan memakai relasi class/event yang dipilih di sini.</span> : null}
+                      {memberUploadRelations.length === 0 ? <span className="feedback">Upload akan memakai relasi program/event yang dipilih di sini.</span> : null}
                       {memberUploadRelations.map((item) => (
                         <span key={`${item.kind}:${item.id}`} className="passport-chip">
                           {item.label}
@@ -7781,7 +7781,7 @@ export default function AdminPage() {
                       ))}
                     </div>
                     <label>
-                      Tambah class/event untuk upload
+                      Tambah program/event untuk upload
                       <select
                         value={memberUploadDraft}
                         onChange={(e) => {
@@ -7789,7 +7789,7 @@ export default function AdminPage() {
                           if (e.target.value) addMemberRelationToken(e.target.value, 'upload');
                         }}
                       >
-                        <option value="">Pilih class/event...</option>
+                        <option value="">Pilih program/event...</option>
                         {availableMemberUploadRelationOptions.map((item) => (
                           <option key={`${item.kind}:${item.id}`} value={`${item.kind}:${item.id}`}>
                             {item.label}
@@ -7915,9 +7915,9 @@ export default function AdminPage() {
                     <label>phone<input value={memberForm.phone} onChange={(e) => setMemberForm((p) => ({ ...p, phone: e.target.value }))} /></label>
                     <label>email (key)<input type="email" value={memberForm.email} onChange={(e) => setMemberForm((p) => ({ ...p, email: e.target.value }))} required /></label>
                     <div className="card" style={{ borderStyle: 'dashed' }}>
-                      <p className="eyebrow">class/event (token input)</p>
+                      <p className="eyebrow">program/event (token input)</p>
                       <div className="row-actions" style={{ marginBottom: '0.5rem' }}>
-                        {memberForm.relations.length === 0 ? <span className="feedback">Pilih minimal satu class atau event.</span> : null}
+                        {memberForm.relations.length === 0 ? <span className="feedback">Pilih minimal satu program atau event.</span> : null}
                         {memberForm.relations.map((item) => (
                           <span key={`${item.kind}:${item.id}`} className="passport-chip">
                             {item.label}
@@ -7941,7 +7941,7 @@ export default function AdminPage() {
                             if (e.target.value) addMemberRelationToken(e.target.value);
                           }}
                         >
-                          <option value="">Pilih class/event...</option>
+                          <option value="">Pilih program/event...</option>
                           {availableMemberRelationOptions.map((item) => (
                             <option key={`${item.kind}:${item.id}`} value={`${item.kind}:${item.id}`}>
                               {item.label}
