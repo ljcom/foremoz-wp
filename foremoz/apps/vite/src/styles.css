@@ -677,7 +677,13 @@ select:focus-visible {
 }
 
 .passport-live-card .btn {
-  margin-top: 1rem;
+  display: inline-flex;
+  margin-top: 1.5rem !important;
+}
+
+.passport-live-card > div > .btn {
+  display: inline-flex;
+  margin-top: 1.5rem !important;
 }
 
 .passport-public-head {
