@@ -444,8 +444,8 @@ function normalizeClassSchedule(rawValue, fallback = {}) {
     ? fallback
     : {};
   const scheduleMode = String(source.schedule_mode ?? fallbackSource.schedule_mode ?? 'weekly').trim().toLowerCase();
-  if (!['weekly', 'manual', 'none'].includes(scheduleMode)) {
-    throw fail(400, 'BAD_REQUEST', 'schedule_mode must be either weekly, manual, or none');
+  if (!['everyday', 'weekly', 'manual', 'none'].includes(scheduleMode)) {
+    throw fail(400, 'BAD_REQUEST', 'schedule_mode must be either everyday, weekly, manual, or none');
   }
   if (scheduleMode === 'none') {
     return {
@@ -473,6 +473,9 @@ function normalizeClassSchedule(rawValue, fallback = {}) {
   const endTime = String(weeklySource.end_time || '').trim();
   if ((startTime && !endTime) || (!startTime && endTime)) {
     throw fail(400, 'BAD_REQUEST', 'weekly_schedule start_time and end_time must be provided together');
+  }
+  if (scheduleMode === 'everyday' && (!startTime || !endTime)) {
+    throw fail(400, 'BAD_REQUEST', 'everyday schedule requires start_time and end_time');
   }
   if (scheduleMode === 'weekly' && weekdays.length > 0 && (!startTime || !endTime)) {
     throw fail(400, 'BAD_REQUEST', 'weekly_schedule requires start_time and end_time when weekdays are selected');
@@ -504,7 +507,7 @@ function normalizeClassSchedule(rawValue, fallback = {}) {
   return {
     schedule_mode: scheduleMode,
     weekly_schedule: {
-      weekdays,
+      weekdays: scheduleMode === 'everyday' ? ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] : weekdays,
       start_time: startTime,
       end_time: endTime
     },
