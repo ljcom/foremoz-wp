@@ -269,7 +269,7 @@ export default function VerticalLandingPage() {
           <h1>{`${label} untuk ${creator} dan ${participant}`}</h1>
           <p>Kelola event dan program lebih mudah, biar kamu fokus ke pengalaman terbaik untuk komunitas.</p>
           <div className="hero-actions">
-            <Link className="btn" to={publicHome}>Lihat Events</Link>
+            {eventsEnabled ? <Link className="btn" to={publicHome}>Lihat Events</Link> : null}
             <Link className="btn ghost" to={`/signup?industry=${activeSlug}`}>Mulai Sekarang</Link>
           </div>
         </div>
@@ -352,7 +352,7 @@ export default function VerticalLandingPage() {
         <p className="eyebrow">Start</p>
         <h2>{`Mulai ${label} kamu hari ini`}</h2>
         <div className="hero-actions">
-          <Link className="btn" to={publicHome}>Explore Events</Link>
+          {eventsEnabled ? <Link className="btn" to={publicHome}>Explore Events</Link> : null}
           <Link className="btn ghost" to="/signin">Sign In</Link>
         </div>
       </section>
