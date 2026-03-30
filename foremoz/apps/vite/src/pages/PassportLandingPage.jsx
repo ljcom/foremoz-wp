@@ -478,6 +478,11 @@ export default function PassportLandingPage() {
       <header className="topbar">
         <div className="brand">{brandLabel}</div>
         <nav>
+          {isAccountSurface ? (
+            <Link className="btn ghost small" to={`/a/${encodeURIComponent(normalizedAccount)}`}>
+              Back
+            </Link>
+          ) : null}
           {!isAccountSurface ? <Link to="/host">{copy.newHost}</Link> : null}
           <LanguageSwitcher compact />
           {isAuthenticated ? (
@@ -575,13 +580,6 @@ export default function PassportLandingPage() {
                 ? (isExploreAllMode ? copy.exploreEvents : copy.premiumEvents)
                 : (isAccountSurface ? copy.accountEvents : copy.upcomingEvents)}
             </h2>
-            {isAccountSurface ? (
-              <div className="hero-actions" style={{ marginBottom: '1rem' }}>
-                <Link className="btn ghost small" to={`/a/${encodeURIComponent(normalizedAccount)}`}>
-                  Back
-                </Link>
-              </div>
-            ) : null}
             {isGlobalEventsSurface && isExploreAllMode ? (
               <div className="card form" style={{ marginBottom: '1rem' }}>
                 <label>
