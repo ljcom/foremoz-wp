@@ -987,28 +987,31 @@ function getActivityFieldGuide(classType) {
   const normalizedType = String(classType || 'scheduled').trim().toLowerCase();
   if (normalizedType === 'open_access') {
     return {
-      classType: 'Open access: akses periode tanpa session wajib, contoh Gym Access 30 Hari atau Open Studio Access.',
-      validityMode: 'Validity mode: biasanya `per_enrollment` atau `rolling`, supaya masa aktif tiap member dihitung dari waktu beli atau aktivasi.',
-      capacityMode: 'Capacity mode: biasanya `none` kalau akses tidak dibatasi, atau `limited` kalau jumlah holder membership ingin dibatasi.',
-      quotaMode: 'Quota mode: pilih `none` kalau tidak ada aturan quota tambahan, atau `manual` bila admin ingin membatasi jumlah akses aktif.',
-      recommendedPattern: 'Pola umum: `Price` = harga membership, lalu set `Validity Unit/Value` sesuai durasi akses, misalnya 1 bulan atau 30 hari.'
+      summary: 'Open access cocok untuk membership atau akses periode tanpa sesi wajib.',
+      duration: 'Isi `Duration` untuk lama aktif paket. Pilih `Unlimited` jika akses tidak punya masa berlaku.',
+      activation: 'Pilih `Activation / Start` untuk menentukan akses mulai dari first date, purchase, atau fixed date.',
+      usage: 'Gunakan `Usage Mode = unlimited` bila tidak ada batas pemakaian. Pilih `limited` bila ada batas kunjungan.',
+      registration: 'Pilih `Always open` untuk registrasi selalu buka, `Range of date` untuk jendela pendaftaran, atau `Closed` untuk menutup registrasi.',
+      capacity: 'Pilih `Unlimited` bila tidak ada batas holder. Gunakan `Min / Max cap` jika jumlah enrollment perlu dibatasi.'
     };
   }
   if (normalizedType === 'session_pack') {
     return {
-      classType: 'Session pack: paket kredit/sesi yang dikonsumsi per pemakaian, contoh Paket 8 Sesi PT.',
-      validityMode: 'Validity mode: biasanya `per_enrollment`, supaya expiry dihitung per user saat paket dibeli/diaktifkan.',
-      capacityMode: 'Capacity mode: umumnya `none` karena yang dibatasi adalah usage credit, bukan slot kelas master.',
-      quotaMode: 'Quota mode: biasanya `none`, kecuali Anda ingin membatasi jumlah paket aktif yang bisa dijual.',
-      recommendedPattern: 'Contoh: Yoga 4x per bulan = `session_pack` dengan `Validity Unit = month`, `Validity Value = 1`, `Usage Limit = 4`.'
+      summary: 'Session pack cocok untuk paket kredit atau jumlah sesi tertentu, misalnya 4x atau 8x.',
+      duration: 'Isi `Duration` untuk masa aktif paket, misalnya 1 bulan atau 3 bulan.',
+      activation: 'Pilih `Activation / Start` untuk menentukan kapan masa aktif paket mulai dihitung.',
+      usage: 'Gunakan `Usage Mode = limited` lalu isi limit dan periodenya, misalnya 4 kali per bulan.',
+      registration: 'Pilih `Always open` jika paket selalu bisa dibeli, atau `Range of date` jika penjualan hanya dibuka di periode tertentu.',
+      capacity: 'Biasanya `Unlimited`, kecuali Anda ingin membatasi jumlah paket aktif yang bisa dijual.'
     };
   }
   return {
-    classType: 'Scheduled: kelas dengan jadwal/batch tertentu, contoh Yoga Morning Class atau HIIT Batch April.',
-    validityMode: 'Validity mode: biasanya `fixed`, karena semua peserta mengikuti periode kelas yang sama.',
-    capacityMode: 'Quota / capacity: pilih `no` jika class tidak dibatasi peserta, atau `limited` lalu isi min quota dan max quota.',
-    quotaMode: 'Min quota adalah target minimum peserta. Max quota adalah batas booking. Auto start bisa dipakai jika class ingin aktif otomatis saat min quota terpenuhi.',
-    recommendedPattern: 'Kalau jualannya membership bulanan dengan batas hadir, simpan harga dan limit di `session_pack`, lalu simpan jadwal Senin/Kamis di `scheduled`.'
+    summary: 'Scheduled cocok untuk kelas batch atau kalender tetap dengan peserta yang mengikuti periode yang sama.',
+    duration: 'Gunakan periode mulai dan akhir untuk menentukan jendela aktivitas kelas.',
+    activation: 'Model ini dipakai saat tanggal kelas sudah ditentukan dari awal.',
+    usage: 'Atur jumlah pertemuan dan jadwal agar peserta mengikuti kalender kelas yang sudah disiapkan.',
+    registration: 'Gunakan registration period bila pendaftaran hanya dibuka pada rentang tanggal tertentu.',
+    capacity: 'Isi min dan max quota untuk membatasi jumlah peserta dalam satu kelas.'
   };
 }
 
@@ -6272,10 +6275,12 @@ export default function AdminPage() {
                           <aside className="class-general-guide">
                             <div className="card" style={{ borderStyle: 'dashed' }}>
                               <p className="eyebrow">Panduan cepat</p>
-                              <p className="feedback"><strong>Deskripsi:</strong> {classFieldGuide.classType}</p>
-                              <p className="feedback"><strong>Quota / capacity:</strong> {classFieldGuide.capacityMode}</p>
-                              <p className="feedback"><strong>Quota detail:</strong> {classFieldGuide.quotaMode}</p>
-                              <p className="feedback"><strong>Pola rekomendasi:</strong> {classFieldGuide.recommendedPattern}</p>
+                              <p className="feedback"><strong>Ringkasan:</strong> {classFieldGuide.summary}</p>
+                              <p className="feedback"><strong>Duration:</strong> {classFieldGuide.duration}</p>
+                              <p className="feedback"><strong>Activation / Start:</strong> {classFieldGuide.activation}</p>
+                              <p className="feedback"><strong>Usage:</strong> {classFieldGuide.usage}</p>
+                              <p className="feedback"><strong>Registration:</strong> {classFieldGuide.registration}</p>
+                              <p className="feedback"><strong>Capacity:</strong> {classFieldGuide.capacity}</p>
                             </div>
                           </aside>
                         </div>
