@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   APP_ORIGIN,
@@ -120,6 +120,15 @@ function sentenceCase(value) {
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(new Error('Gagal membaca file gambar.'));
+    reader.readAsDataURL(file);
+  });
+}
+
 export default function WebOwnerPage() {
   const navigate = useNavigate();
   const session = getSession();
@@ -167,6 +176,7 @@ export default function WebOwnerPage() {
   const [editingUserId, setEditingUserId] = useState('');
   const [editingUser, setEditingUser] = useState({ full_name: '', role: 'staff' });
   const [dangerConfirm, setDangerConfirm] = useState('');
+  const businessImageInputRef = useRef(null);
   const [enterpriseRequest, setEnterpriseRequest] = useState({
     requester_name: session?.user?.fullName || '',
     requester_email: session?.user?.email || '',
@@ -262,6 +272,41 @@ export default function WebOwnerPage() {
       setFeedback(error.message || 'ai.assist: Gagal mengambil gambar business profile.');
     } finally {
       setAiWorking(false);
+    }
+  }
+
+  async function uploadBusinessImage(file) {
+    try {
+      const selected = file || null;
+      if (!selected) return;
+      if (!String(selected.type || '').startsWith('image/')) {
+        throw new Error('File harus berupa gambar.');
+      }
+      const maxBytes = 5 * 1024 * 1024;
+      if (Number(selected.size || 0) > maxBytes) {
+        throw new Error('Ukuran gambar maksimal 5MB.');
+      }
+      const dataUrl = await readFileAsDataUrl(selected);
+      if (!dataUrl) {
+        throw new Error('Gagal memproses gambar.');
+      }
+      const uploadRes = await apiJson('/v1/admin/uploads/image', {
+        method: 'POST',
+        body: JSON.stringify({
+          tenant_id: setupForm.tenant_id || tenantSeed,
+          folder: 'owner-profile',
+          filename: selected.name || 'business-profile-image',
+          data_url: dataUrl
+        })
+      });
+      const imageUrl = String(uploadRes?.url || '').trim();
+      if (!imageUrl) {
+        throw new Error('Upload berhasil tapi URL gambar tidak tersedia.');
+      }
+      setSetupForm((prev) => ({ ...prev, photo_url: imageUrl }));
+      setFeedback('owner.image.uploaded: Business profile image berhasil diunggah ke S3.');
+    } catch (error) {
+      setFeedback(error.message || 'Gagal upload business profile image.');
     }
   }
 
@@ -1155,6 +1200,26 @@ export default function WebOwnerPage() {
                     />
                   </label>
                   <div className="row-actions" style={{ marginTop: '-0.2rem' }}>
+                    <button
+                      className="btn ghost small"
+                      type="button"
+                      onClick={() => businessImageInputRef.current?.click()}
+                    >
+                      Upload Image
+                    </button>
+                    <input
+                      ref={businessImageInputRef}
+                      type="file"
+                      accept="image/*"
+                      style={{ display: 'none' }}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0] || null;
+                        if (file) {
+                          uploadBusinessImage(file);
+                        }
+                        e.target.value = '';
+                      }}
+                    />
                     <button
                       className="btn ghost small"
                       type="button"
