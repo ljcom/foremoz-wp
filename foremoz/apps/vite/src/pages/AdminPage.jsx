@@ -5634,6 +5634,29 @@ export default function AdminPage() {
                       <>
                         <div className="class-general-layout">
                           <div className="class-general-main">
+                            <label>
+                              Class Type
+                              <select
+                                value={classForm.class_type}
+                                onChange={(e) =>
+                                  setClassForm((prev) => {
+                                    const nextType = e.target.value;
+                                    const requiresScheduleDates = nextType === 'scheduled';
+                                    return {
+                                      ...prev,
+                                      class_type: nextType,
+                                      schedule_mode: requiresScheduleDates ? (prev.schedule_mode === 'none' ? 'everyday' : prev.schedule_mode) : 'none',
+                                      start_date: requiresScheduleDates ? prev.start_date : prev.start_date,
+                                      end_date: requiresScheduleDates ? prev.end_date : prev.end_date
+                                    };
+                                  })
+                                }
+                              >
+                                {CLASS_TYPE_OPTIONS.map((item) => (
+                                  <option key={item.value} value={item.value}>{item.label}</option>
+                                ))}
+                              </select>
+                            </label>
                             <label>Class Name<input value={classForm.class_name} onChange={(e) => setClassForm((p) => ({ ...p, class_name: e.target.value }))} /></label>
                             <label>
                               Description
