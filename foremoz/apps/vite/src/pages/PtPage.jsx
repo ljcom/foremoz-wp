@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { apiJson, clearSession, getAccountSlug, getAllowedEnvironments, getEnvironmentLabel, getSession, setSession } from '../lib.js';
 import WorkspaceHeader from '../components/WorkspaceHeader.jsx';
@@ -49,6 +49,12 @@ function readFileAsDataUrl(file) {
   });
 }
 
+function sentenceCase(value) {
+  const text = String(value || '').trim();
+  if (!text) return '';
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
 export default function PtPage() {
   const PT_TABS = [
     { id: 'profile', label: 'Coach profile' },
@@ -69,8 +75,10 @@ export default function PtPage() {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [profileSaving, setProfileSaving] = useState(false);
+  const [profileAiWorking, setProfileAiWorking] = useState(false);
   const [error, setError] = useState('');
   const [feedback, setFeedback] = useState('');
+  const profileImageInputRef = useRef(null);
   const [profileForm, setProfileForm] = useState({
     full_name: session?.user?.fullName || '',
     photo_url: ''
@@ -163,6 +171,28 @@ export default function PtPage() {
     });
     return [...grouped.values()].sort((a, b) => a.member_id.localeCompare(b.member_id));
   }, [ptBalances]);
+
+  function buildCoachImageKeywords() {
+    const cityToken = String(session?.tenant?.city || '').trim().split(/[,\s]+/)[0] || 'Indonesia';
+    const accountToken = String(accountSlug || '').replace(/[-_]+/g, ' ').trim();
+    const keywords = [
+      `${String(profileForm.full_name || '').trim()} coach portrait`.trim(),
+      `${String(profileForm.full_name || '').trim()} personal trainer`.trim(),
+      `${accountToken} coach ${cityToken}`.trim(),
+      `${sentenceCase(role)} fitness portrait ${cityToken}`.trim()
+    ]
+      .map((item) => String(item || '').replace(/\s+/g, ' ').trim())
+      .filter((item) => item.length >= 3);
+    return [...new Set(keywords)];
+  }
+
+  async function fetchPexelsPhotos(keyword, perPage = 4) {
+    const query = String(keyword || '').trim() || 'fitness coach portrait';
+    const result = await apiJson(
+      `/v1/ai/pexels/search?tenant_id=${encodeURIComponent(tenantId)}&query=${encodeURIComponent(query)}&per_page=${encodeURIComponent(perPage)}`
+    );
+    return Array.isArray(result.rows) ? result.rows : [];
+  }
 
   async function loadPtWorkspace() {
     try {
@@ -283,15 +313,80 @@ export default function PtPage() {
   }
 
   async function onProfileImageUpload(event) {
-    const file = event.target.files?.[0];
-    if (!file) return;
     try {
-      const imageUrl = await readFileAsDataUrl(file);
+      const file = event.target.files?.[0] || null;
+      if (!file) return;
+      if (!String(file.type || '').startsWith('image/')) {
+        throw new Error('File harus berupa gambar.');
+      }
+      const maxBytes = 5 * 1024 * 1024;
+      if (Number(file.size || 0) > maxBytes) {
+        throw new Error('Ukuran gambar maksimal 5MB.');
+      }
+      const dataUrl = await readFileAsDataUrl(file);
+      if (!dataUrl) {
+        throw new Error('Gagal memproses gambar.');
+      }
+      const uploadRes = await apiJson('/v1/admin/uploads/image', {
+        method: 'POST',
+        body: JSON.stringify({
+          tenant_id: tenantId,
+          folder: 'coach-profile',
+          filename: file.name || 'coach-profile-image',
+          data_url: dataUrl
+        })
+      });
+      const imageUrl = String(uploadRes?.url || '').trim();
+      if (!imageUrl) {
+        throw new Error('Upload berhasil tapi URL gambar tidak tersedia.');
+      }
       setProfileForm((prev) => ({ ...prev, photo_url: imageUrl }));
+      setFeedback('coach.image.uploaded: Foto coach berhasil diunggah ke S3.');
     } catch (err) {
-      setFeedback(err.message || 'Gagal membaca file gambar.');
+      setFeedback(err.message || 'Gagal upload foto coach.');
     } finally {
       event.target.value = '';
+    }
+  }
+
+  async function aiFillCoachGallery() {
+    try {
+      setProfileAiWorking(true);
+      const keywordCandidates = buildCoachImageKeywords();
+      if (keywordCandidates.length === 0) {
+        throw new Error('Isi nama coach dulu agar gambar bisa digenerate.');
+      }
+      let keyword = keywordCandidates[0];
+      let photos = [];
+      let lastError = null;
+      for (const candidate of keywordCandidates) {
+        keyword = candidate;
+        try {
+          photos = await fetchPexelsPhotos(candidate, 6);
+        } catch (error) {
+          lastError = error;
+          photos = [];
+        }
+        if (photos.length > 0) break;
+      }
+      if (photos.length === 0) {
+        if (lastError) throw lastError;
+        setFeedback('ai.assist: Pexels tidak menemukan gambar untuk coach ini.');
+        return;
+      }
+      const urls = photos
+        .map((item) => item?.image_url || '')
+        .map((item) => String(item || '').trim())
+        .filter(Boolean);
+      setProfileForm((prev) => ({
+        ...prev,
+        photo_url: urls[0] || prev.photo_url
+      }));
+      setFeedback(`ai.assist: Foto coach diisi dari Pexels (${keyword}).`);
+    } catch (error) {
+      setFeedback(error.message || 'ai.assist: Gagal mengambil gambar coach.');
+    } finally {
+      setProfileAiWorking(false);
     }
   }
 
@@ -490,10 +585,30 @@ export default function PtPage() {
                       placeholder="https://..."
                     />
                   </label>
-                  <label>
-                    Upload Profile Image
-                    <input type="file" accept="image/*" onChange={onProfileImageUpload} />
-                  </label>
+                  <div className="row-actions" style={{ marginTop: '-0.2rem' }}>
+                    <button
+                      className="btn ghost small"
+                      type="button"
+                      onClick={() => profileImageInputRef.current?.click()}
+                    >
+                      Upload Image
+                    </button>
+                    <input
+                      ref={profileImageInputRef}
+                      type="file"
+                      accept="image/*"
+                      style={{ display: 'none' }}
+                      onChange={onProfileImageUpload}
+                    />
+                    <button
+                      className="btn ghost small"
+                      type="button"
+                      disabled={profileAiWorking}
+                      onClick={aiFillCoachGallery}
+                    >
+                      AI Fill Gallery
+                    </button>
+                  </div>
                   <div>
                     <button className="btn" type="submit" disabled={profileSaving}>
                       {profileSaving ? 'Saving...' : 'Save coach profile'}
