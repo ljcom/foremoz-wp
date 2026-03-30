@@ -50,6 +50,12 @@ function readFileAsDataUrl(file) {
 }
 
 export default function PtPage() {
+  const PT_TABS = [
+    { id: 'book', label: 'Book session' },
+    { id: 'complete', label: 'Complete session' },
+    { id: 'member', label: 'Member' },
+    { id: 'history', label: 'History sessions' }
+  ];
   const navigate = useNavigate();
   const session = getSession();
   const accountSlug = getAccountSlug(session);
@@ -58,6 +64,7 @@ export default function PtPage() {
   const branchId = session?.branch?.id || 'core';
   const trainerId = session?.user?.userId || null;
   const [targetEnv, setTargetEnv] = useState('pt');
+  const [activeTab, setActiveTab] = useState('book');
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [profileSaving, setProfileSaving] = useState(false);
@@ -130,6 +137,31 @@ export default function PtPage() {
       }
     ];
   }, [ptBalances, ptActivityRows]);
+  const memberRows = useMemo(() => {
+    const grouped = new Map();
+    ptBalances.forEach((row) => {
+      const memberId = String(row.member_id || '').trim();
+      if (!memberId) return;
+      const current = grouped.get(memberId) || {
+        member_id: memberId,
+        package_count: 0,
+        total_sessions: 0,
+        consumed_sessions: 0,
+        remaining_sessions: 0,
+        latest_updated_at: ''
+      };
+      current.package_count += 1;
+      current.total_sessions += Number(row.total_sessions || 0);
+      current.consumed_sessions += Number(row.consumed_sessions || 0);
+      current.remaining_sessions += Number(row.remaining_sessions || 0);
+      const updatedAt = String(row.updated_at || row.last_session_at || '').trim();
+      if (updatedAt && (!current.latest_updated_at || updatedAt > current.latest_updated_at)) {
+        current.latest_updated_at = updatedAt;
+      }
+      grouped.set(memberId, current);
+    });
+    return [...grouped.values()].sort((a, b) => a.member_id.localeCompare(b.member_id));
+  }, [ptBalances]);
 
   async function loadPtWorkspace() {
     try {
@@ -370,6 +402,15 @@ export default function PtPage() {
     setActivityForm((prev) => ({ ...prev, pt_package_id: packageId, member_id: memberId }));
   }
 
+  function seedMemberIntoForms(memberId, nextTab = 'book') {
+    const normalizedMemberId = String(memberId || '').trim();
+    if (!normalizedMemberId) return;
+    setBookForm((prev) => ({ ...prev, member_id: normalizedMemberId }));
+    setCompleteForm((prev) => ({ ...prev, member_id: normalizedMemberId }));
+    setActivityForm((prev) => ({ ...prev, member_id: normalizedMemberId }));
+    setActiveTab(nextTab);
+  }
+
   useEffect(() => {
     loadPtWorkspace();
   }, [tenantId, branchId, trainerId]);
@@ -447,70 +488,137 @@ export default function PtPage() {
       </section>
 
       <section className="card admin-main" style={{ marginTop: '1rem' }}>
-        <h2>PT package balance</h2>
-        <div className="entity-list">
-          {ptBalances.map((item) => (
-            <div className="entity-row" key={`${item.pt_package_id}:${item.member_id}`}>
-              <div>
-                <strong>{item.member_id} - {item.pt_package_id}</strong>
-                <p>remaining {item.remaining_sessions} / total {item.total_sessions} | consumed {item.consumed_sessions}</p>
-              </div>
-              <button className="btn ghost" onClick={() => seedFormsFromBalance(item)}>Use</button>
-            </div>
+        <div className="landing-tabs" role="tablist" aria-label="PT workspace tabs">
+          {PT_TABS.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={activeTab === tab.id}
+              className={`landing-tab ${activeTab === tab.id ? 'active' : ''}`}
+              onClick={() => setActiveTab(tab.id)}
+            >
+              {tab.label}
+            </button>
           ))}
         </div>
-      </section>
-
-      <section className="card admin-main" style={{ marginTop: '1rem' }}>
-        <h2>PT actions</h2>
-        <div style={{ display: 'grid', gap: '1rem', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))' }}>
-          <form className="form" onSubmit={submitBookSession}>
-            <p className="eyebrow">Book session</p>
-            <label>pt_package_id<input value={bookForm.pt_package_id} onChange={(e) => setBookForm((p) => ({ ...p, pt_package_id: e.target.value }))} /></label>
-            <label>member_id<input value={bookForm.member_id} onChange={(e) => setBookForm((p) => ({ ...p, member_id: e.target.value }))} /></label>
-            <label>session_at<input type="datetime-local" value={bookForm.session_at} onChange={(e) => setBookForm((p) => ({ ...p, session_at: e.target.value }))} /></label>
-            <label>activity_note<input value={bookForm.activity_note} onChange={(e) => setBookForm((p) => ({ ...p, activity_note: e.target.value }))} /></label>
-            <label>custom_fields (JSON)<textarea rows={3} value={bookForm.custom_fields_text} onChange={(e) => setBookForm((p) => ({ ...p, custom_fields_text: e.target.value }))} placeholder='{"intensity":"high","coach_note":"focus core"}' /></label>
-            <button className="btn" type="submit" disabled={saving}>{saving ? 'Saving...' : 'Book session'}</button>
-          </form>
-
-          <form className="form" onSubmit={submitCompleteSession}>
-            <p className="eyebrow">Complete session</p>
-            <label>pt_package_id<input value={completeForm.pt_package_id} onChange={(e) => setCompleteForm((p) => ({ ...p, pt_package_id: e.target.value }))} /></label>
-            <label>member_id<input value={completeForm.member_id} onChange={(e) => setCompleteForm((p) => ({ ...p, member_id: e.target.value }))} /></label>
-            <label>session_id<input value={completeForm.session_id} onChange={(e) => setCompleteForm((p) => ({ ...p, session_id: e.target.value }))} /></label>
-            <label>completed_at<input type="datetime-local" value={completeForm.completed_at} onChange={(e) => setCompleteForm((p) => ({ ...p, completed_at: e.target.value }))} /></label>
-            <label>completion_note<input value={completeForm.activity_note} onChange={(e) => setCompleteForm((p) => ({ ...p, activity_note: e.target.value }))} /></label>
-            <label>custom_fields (JSON)<textarea rows={3} value={completeForm.custom_fields_text} onChange={(e) => setCompleteForm((p) => ({ ...p, custom_fields_text: e.target.value }))} placeholder='{"session_quality":4,"mood":"good"}' /></label>
-            <button className="btn" type="submit" disabled={saving}>{saving ? 'Saving...' : 'Complete session'}</button>
-          </form>
-
-          <form className="form" onSubmit={submitActivityLog}>
-            <p className="eyebrow">Log activity</p>
-            <label>pt_package_id (optional)<input value={activityForm.pt_package_id} onChange={(e) => setActivityForm((p) => ({ ...p, pt_package_id: e.target.value }))} /></label>
-            <label>member_id<input value={activityForm.member_id} onChange={(e) => setActivityForm((p) => ({ ...p, member_id: e.target.value }))} /></label>
-            <label>session_at<input type="datetime-local" value={activityForm.session_at} onChange={(e) => setActivityForm((p) => ({ ...p, session_at: e.target.value }))} /></label>
-            <label>activity_note<input value={activityForm.activity_note} onChange={(e) => setActivityForm((p) => ({ ...p, activity_note: e.target.value }))} /></label>
-            <label>custom_fields (JSON)<textarea rows={3} value={activityForm.custom_fields_text} onChange={(e) => setActivityForm((p) => ({ ...p, custom_fields_text: e.target.value }))} placeholder='{"exercise":"deadlift","weight_kg":80}' /></label>
-            <button className="btn" type="submit" disabled={saving}>{saving ? 'Saving...' : 'Log activity'}</button>
-          </form>
-        </div>
-      </section>
-
-      <section className="card admin-main" style={{ marginTop: '1rem' }}>
-        <h2>PT timeline</h2>
-        <div className="entity-list">
-          {ptActivityRows.map((item) => (
-            <div className="entity-row" key={item.activity_id}>
-              <div>
-                <strong>{item.member_id} {item.pt_package_id ? `- ${item.pt_package_id}` : ''}</strong>
-                <p>{formatAppDateTime(item.session_at)} | {item.activity_type || 'activity_logged'}{item.session_id ? ` | session ${item.session_id}` : ''}</p>
-                <p>{item.activity_note || '-'}</p>
-                <p>{item.custom_fields && Object.keys(item.custom_fields).length > 0 ? `custom_fields: ${JSON.stringify(item.custom_fields)}` : 'custom_fields: -'}</p>
+        {activeTab === 'book' ? (
+          <div style={{ marginTop: '1rem' }}>
+            <h2>Book session</h2>
+            <form className="form" onSubmit={submitBookSession}>
+              <label>pt_package_id<input value={bookForm.pt_package_id} onChange={(e) => setBookForm((p) => ({ ...p, pt_package_id: e.target.value }))} /></label>
+              <label>member_id<input value={bookForm.member_id} onChange={(e) => setBookForm((p) => ({ ...p, member_id: e.target.value }))} /></label>
+              <label>session_at<input type="datetime-local" value={bookForm.session_at} onChange={(e) => setBookForm((p) => ({ ...p, session_at: e.target.value }))} /></label>
+              <label>activity_note<input value={bookForm.activity_note} onChange={(e) => setBookForm((p) => ({ ...p, activity_note: e.target.value }))} /></label>
+              <label>custom_fields (JSON)<textarea rows={3} value={bookForm.custom_fields_text} onChange={(e) => setBookForm((p) => ({ ...p, custom_fields_text: e.target.value }))} placeholder='{"intensity":"high","coach_note":"focus core"}' /></label>
+              <button className="btn" type="submit" disabled={saving}>{saving ? 'Saving...' : 'Book session'}</button>
+            </form>
+          </div>
+        ) : null}
+        {activeTab === 'complete' ? (
+          <div style={{ marginTop: '1rem' }}>
+            <h2>Complete session</h2>
+            <form className="form" onSubmit={submitCompleteSession}>
+              <label>pt_package_id<input value={completeForm.pt_package_id} onChange={(e) => setCompleteForm((p) => ({ ...p, pt_package_id: e.target.value }))} /></label>
+              <label>member_id<input value={completeForm.member_id} onChange={(e) => setCompleteForm((p) => ({ ...p, member_id: e.target.value }))} /></label>
+              <label>session_id<input value={completeForm.session_id} onChange={(e) => setCompleteForm((p) => ({ ...p, session_id: e.target.value }))} /></label>
+              <label>completed_at<input type="datetime-local" value={completeForm.completed_at} onChange={(e) => setCompleteForm((p) => ({ ...p, completed_at: e.target.value }))} /></label>
+              <label>completion_note<input value={completeForm.activity_note} onChange={(e) => setCompleteForm((p) => ({ ...p, activity_note: e.target.value }))} /></label>
+              <label>custom_fields (JSON)<textarea rows={3} value={completeForm.custom_fields_text} onChange={(e) => setCompleteForm((p) => ({ ...p, custom_fields_text: e.target.value }))} placeholder='{"session_quality":4,"mood":"good"}' /></label>
+              <button className="btn" type="submit" disabled={saving}>{saving ? 'Saving...' : 'Complete session'}</button>
+            </form>
+          </div>
+        ) : null}
+        {activeTab === 'member' ? (
+          <div style={{ marginTop: '1rem' }}>
+            <h2>Member</h2>
+            <div className="entity-list">
+              {memberRows.map((item) => (
+                <div className="entity-row" key={item.member_id}>
+                  <div>
+                    <strong>{item.member_id}</strong>
+                    <p>{item.package_count} package | remaining {item.remaining_sessions} / total {item.total_sessions} | consumed {item.consumed_sessions}</p>
+                    <p>{item.latest_updated_at ? `Last update ${formatAppDateTime(item.latest_updated_at)}` : 'Belum ada aktivitas sesi.'}</p>
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    <button className="btn ghost small" type="button" onClick={() => seedMemberIntoForms(item.member_id, 'book')}>Book</button>
+                    <button className="btn ghost small" type="button" onClick={() => seedMemberIntoForms(item.member_id, 'complete')}>Complete</button>
+                  </div>
+                </div>
+              ))}
+              {memberRows.length === 0 ? (
+                <div className="entity-row">
+                  <div>
+                    <strong>Belum ada member PT</strong>
+                    <p>Member yang punya package PT akan tampil di sini.</p>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
+        {activeTab === 'history' ? (
+          <div style={{ marginTop: '1rem', display: 'grid', gap: '1rem' }}>
+            <div>
+              <h2>History sessions</h2>
+              <div className="entity-list">
+                {ptActivityRows.map((item) => (
+                  <div className="entity-row" key={item.activity_id}>
+                    <div>
+                      <strong>{item.member_id} {item.pt_package_id ? `- ${item.pt_package_id}` : ''}</strong>
+                      <p>{formatAppDateTime(item.session_at)} | {item.activity_type || 'activity_logged'}{item.session_id ? ` | session ${item.session_id}` : ''}</p>
+                      <p>{item.activity_note || '-'}</p>
+                      <p>{item.custom_fields && Object.keys(item.custom_fields).length > 0 ? `custom_fields: ${JSON.stringify(item.custom_fields)}` : 'custom_fields: -'}</p>
+                    </div>
+                  </div>
+                ))}
+                {ptActivityRows.length === 0 ? (
+                  <div className="entity-row">
+                    <div>
+                      <strong>Belum ada history session</strong>
+                      <p>Riwayat booking, complete, dan activity log akan tampil di sini.</p>
+                    </div>
+                  </div>
+                ) : null}
               </div>
             </div>
-          ))}
-        </div>
+            <div>
+              <h2>Log activity</h2>
+              <form className="form" onSubmit={submitActivityLog}>
+                <label>pt_package_id (optional)<input value={activityForm.pt_package_id} onChange={(e) => setActivityForm((p) => ({ ...p, pt_package_id: e.target.value }))} /></label>
+                <label>member_id<input value={activityForm.member_id} onChange={(e) => setActivityForm((p) => ({ ...p, member_id: e.target.value }))} /></label>
+                <label>session_at<input type="datetime-local" value={activityForm.session_at} onChange={(e) => setActivityForm((p) => ({ ...p, session_at: e.target.value }))} /></label>
+                <label>activity_note<input value={activityForm.activity_note} onChange={(e) => setActivityForm((p) => ({ ...p, activity_note: e.target.value }))} /></label>
+                <label>custom_fields (JSON)<textarea rows={3} value={activityForm.custom_fields_text} onChange={(e) => setActivityForm((p) => ({ ...p, custom_fields_text: e.target.value }))} placeholder='{"exercise":"deadlift","weight_kg":80}' /></label>
+                <button className="btn" type="submit" disabled={saving}>{saving ? 'Saving...' : 'Log activity'}</button>
+              </form>
+            </div>
+          </div>
+        ) : null}
+        {activeTab === 'book' || activeTab === 'complete' ? (
+          <div style={{ marginTop: '1rem' }}>
+            <p className="eyebrow">PT package balance</p>
+            <div className="entity-list">
+              {ptBalances.map((item) => (
+                <div className="entity-row" key={`${item.pt_package_id}:${item.member_id}`}>
+                  <div>
+                    <strong>{item.member_id} - {item.pt_package_id}</strong>
+                    <p>remaining {item.remaining_sessions} / total {item.total_sessions} | consumed {item.consumed_sessions}</p>
+                  </div>
+                  <button className="btn ghost" type="button" onClick={() => seedFormsFromBalance(item)}>Use</button>
+                </div>
+              ))}
+              {ptBalances.length === 0 ? (
+                <div className="entity-row">
+                  <div>
+                    <strong>Belum ada PT package</strong>
+                    <p>Package PT aktif akan tampil di sini untuk memudahkan booking dan completion.</p>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
       </section>
 
       <footer className="dash-foot"><Link to="/host">Back to host</Link></footer>
