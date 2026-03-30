@@ -258,7 +258,7 @@ export default function App() {
           </PageErrorBoundary>
         }
       />
-      <Route path="/a/:account/events" element={eventsEnabled ? <PassportLandingPage /> : <Navigate to={rootHome} replace />} />
+      <Route path="/a/:account/events" element={<PassportLandingPage />} />
       <Route
         path="/events/onboarding"
         element={
