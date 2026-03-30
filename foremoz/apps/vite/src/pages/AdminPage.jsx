@@ -551,6 +551,7 @@ function createEmptyEventForm() {
   return {
     brief_event: '',
     event_name: '',
+    has_coach: true,
     trainer_name: '',
     coach_shares: [],
     location: '',
@@ -585,6 +586,7 @@ function serializeEventForm(value) {
   return JSON.stringify({
     brief_event: String(form.brief_event || ''),
     event_name: String(form.event_name || ''),
+    has_coach: form.has_coach !== false,
     trainer_name: String(form.trainer_name || ''),
     coach_shares: (Array.isArray(form.coach_shares) ? form.coach_shares : []).map((item) => ({
       coach_name: String(item?.coach_name || ''),
@@ -725,6 +727,7 @@ function createEventFormFromTemplate(template) {
     return {
       ...createEmptyEventForm(),
       event_name: 'Community Gathering',
+      has_coach: false,
       categories_text: 'community, gathering',
       award_enabled: false,
       award_scopes: ['overall'],
@@ -2509,7 +2512,7 @@ export default function AdminPage() {
   const isCommunityEventEditor = eventEditorTemplate === 'community_gathering';
   const isClassEventEditor = eventEditorTemplate === 'class_training';
   const isCustomEventEditor = eventEditorTemplate === 'custom';
-  const showEventCoachFields = !isCommunityEventEditor || Boolean(editingEventId) || selectedEventTrainerTokens.length > 0 || String(eventForm.trainer_name || '').trim().length > 0;
+  const showEventCoachFields = eventForm.has_coach !== false;
   const showEventAwardSettings = isCompetitionEventEditor || isCustomEventEditor || isAwardEnabled(eventForm.award_enabled, true);
   const classGuideType = isActivityClassEditor ? 'scheduled' : resolvedClassType;
   const isFixedDateClassAccess = !isScheduledClassForm && classForm.validity_anchor === 'fixed_start';
@@ -3772,8 +3775,10 @@ export default function AdminPage() {
           branch_id: branchId,
           brief_event: eventForm.brief_event || null,
           event_name: eventForm.event_name,
-          trainer_name: eventForm.trainer_name || null,
-          coach_shares: normalizeCoachSharesForPayload(eventForm.coach_shares, 'coach'),
+          trainer_name: eventForm.has_coach !== false ? (eventForm.trainer_name || null) : null,
+          coach_shares: eventForm.has_coach !== false
+            ? normalizeCoachSharesForPayload(eventForm.coach_shares, 'coach')
+            : [],
           location: eventForm.location || null,
           image_url: eventForm.image_url || null,
           description: eventForm.description || null,
@@ -3815,6 +3820,7 @@ export default function AdminPage() {
     const nextForm = {
       brief_event: item.brief_event || '',
       event_name: item.event_name || '',
+      has_coach: Boolean(String(item.trainer_name || '').trim()),
       trainer_name: item.trainer_name || '',
       coach_shares: syncCoachSharesWithTrainerNames(item.trainer_name || '', item.coach_shares),
       location: item.location || '',
@@ -5022,6 +5028,21 @@ export default function AdminPage() {
                                     : 'Mode custom membuka semua field event untuk konfigurasi bebas.'}
                           </p>
                         ) : null}
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <input
+                            type="checkbox"
+                            checked={showEventCoachFields}
+                            onChange={(e) =>
+                              setEventForm((prev) => ({
+                                ...prev,
+                                has_coach: e.target.checked,
+                                trainer_name: e.target.checked ? prev.trainer_name : '',
+                                coach_shares: e.target.checked ? prev.coach_shares : []
+                              }))
+                            }
+                          />
+                          <span>Event ini punya coach</span>
+                        </label>
                         {showEventCoachFields ? (
                         <div className="card" style={{ borderStyle: 'dashed' }}>
                           <p className="eyebrow">{creatorLabel} Name (token input)</p>
@@ -5117,7 +5138,7 @@ export default function AdminPage() {
                           ) : null}
                         </div>
                         ) : (
-                          <p className="feedback">Mode ini tidak mewajibkan coach atau host. Jika nanti perlu, Anda bisa ganti ke `Custom` atau edit template event yang lain.</p>
+                          <p className="feedback">Mode ini tidak mewajibkan coach. Cocok untuk meetup, gathering, atau event umum tanpa instruktur khusus.</p>
                         )}
                         <label>Location<input value={eventForm.location} onChange={(e) => setEventForm((p) => ({ ...p, location: e.target.value }))} /></label>
                         <label>Image URL<input value={eventForm.image_url} onChange={(e) => setEventForm((p) => ({ ...p, image_url: e.target.value }))} /></label>
