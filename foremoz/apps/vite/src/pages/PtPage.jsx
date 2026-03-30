@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { apiJson, clearSession, getAccountSlug, getAllowedEnvironments, getEnvironmentLabel, getSession } from '../lib.js';
+import { apiJson, clearSession, getAccountSlug, getAllowedEnvironments, getEnvironmentLabel, getSession, setSession } from '../lib.js';
 import WorkspaceHeader from '../components/WorkspaceHeader.jsx';
 import {
   formatAppDateTime,
@@ -40,6 +40,15 @@ function parseCustomFieldsInput(raw, label) {
   }
 }
 
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(new Error('Gagal membaca file gambar.'));
+    reader.readAsDataURL(file);
+  });
+}
+
 export default function PtPage() {
   const navigate = useNavigate();
   const session = getSession();
@@ -51,8 +60,13 @@ export default function PtPage() {
   const [targetEnv, setTargetEnv] = useState('pt');
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [profileSaving, setProfileSaving] = useState(false);
   const [error, setError] = useState('');
   const [feedback, setFeedback] = useState('');
+  const [profileForm, setProfileForm] = useState({
+    full_name: session?.user?.fullName || '',
+    photo_url: ''
+  });
   const [ptBalances, setPtBalances] = useState([]);
   const [ptActivityRows, setPtActivityRows] = useState([]);
   const [bookForm, setBookForm] = useState({
@@ -129,10 +143,18 @@ export default function PtPage() {
         })
       }).catch(() => {});
       const trainerFilter = trainerId ? `&trainer_id=${encodeURIComponent(trainerId)}` : '';
-      const [balanceRes, activityRes] = await Promise.all([
+      const [profileRes, balanceRes, activityRes] = await Promise.all([
+        apiJson(`/v1/pt/profile?tenant_id=${encodeURIComponent(tenantId)}&user_id=${encodeURIComponent(trainerId || '')}`).catch(() => ({ row: null })),
         apiJson(`/v1/read/pt-balance?tenant_id=${encodeURIComponent(tenantId)}&branch_id=${encodeURIComponent(branchId)}${trainerFilter}`).catch(() => ({ rows: [] })),
         apiJson(`/v1/read/pt-activity?tenant_id=${encodeURIComponent(tenantId)}${trainerFilter}`).catch(() => ({ rows: [] }))
       ]);
+      const profileRow = profileRes?.row || null;
+      if (profileRow) {
+        setProfileForm({
+          full_name: String(profileRow.full_name || session?.user?.fullName || ''),
+          photo_url: String(profileRow.photo_url || '')
+        });
+      }
       const balances = Array.isArray(balanceRes.rows) ? balanceRes.rows : [];
       setPtBalances(balances);
       setPtActivityRows(Array.isArray(activityRes.rows) ? activityRes.rows : []);
@@ -182,6 +204,62 @@ export default function PtPage() {
   function signOut() {
     clearSession();
     navigate(`/a/${accountSlug}`, { replace: true });
+  }
+
+  async function submitProfile(e) {
+    e.preventDefault();
+    const fullName = String(profileForm.full_name || '').trim();
+    const photoUrl = String(profileForm.photo_url || '').trim();
+    if (!fullName) {
+      setFeedback('Nama coach wajib diisi.');
+      return;
+    }
+    try {
+      setProfileSaving(true);
+      setFeedback('');
+      const result = await apiJson('/v1/pt/profile', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          tenant_id: tenantId,
+          user_id: trainerId,
+          full_name: fullName,
+          photo_url: photoUrl || null
+        })
+      });
+      const row = result?.row || null;
+      const nextSession = {
+        ...(session || {}),
+        user: {
+          ...(session?.user || {}),
+          userId: trainerId,
+          fullName: String(row?.full_name || fullName),
+          photoUrl: String(row?.photo_url || photoUrl || '')
+        }
+      };
+      setSession(nextSession);
+      setProfileForm({
+        full_name: String(row?.full_name || fullName),
+        photo_url: String(row?.photo_url || photoUrl || '')
+      });
+      setFeedback('Profil coach berhasil disimpan.');
+    } catch (err) {
+      setFeedback(err.message || 'Gagal menyimpan profil coach.');
+    } finally {
+      setProfileSaving(false);
+    }
+  }
+
+  async function onProfileImageUpload(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    try {
+      const imageUrl = await readFileAsDataUrl(file);
+      setProfileForm((prev) => ({ ...prev, photo_url: imageUrl }));
+    } catch (err) {
+      setFeedback(err.message || 'Gagal membaca file gambar.');
+    } finally {
+      event.target.value = '';
+    }
   }
 
   async function submitBookSession(e) {
@@ -300,7 +378,7 @@ export default function PtPage() {
     <main className="dashboard">
       <WorkspaceHeader
         eyebrow="PT Workspace"
-        title={session?.user?.fullName || 'PT'}
+        title={profileForm.full_name || session?.user?.fullName || 'PT'}
         subtitle="Session booking, completion, and member activity tracking"
         allowedEnv={allowedEnv}
         targetEnv={targetEnv}
@@ -322,6 +400,50 @@ export default function PtPage() {
         {loading ? <p className="feedback">Loading PT workspace...</p> : null}
         {error ? <p className="error">{error}</p> : null}
         {feedback ? <p className="feedback">{feedback}</p> : null}
+      </section>
+
+      <section className="card admin-main" style={{ marginTop: '1rem' }}>
+        <h2>Coach profile</h2>
+        <form className="form" onSubmit={submitProfile}>
+          <div style={{ display: 'grid', gap: '1rem', gridTemplateColumns: 'minmax(140px, 180px) minmax(0, 1fr)', alignItems: 'start' }}>
+            <div>
+              <div className="photo-preview-box" style={{ width: '100%', aspectRatio: '1 / 1', borderRadius: '1rem', overflow: 'hidden' }}>
+                {profileForm.photo_url ? (
+                  <img src={profileForm.photo_url} alt={profileForm.full_name || 'Coach'} className="photo-preview-image" />
+                ) : (
+                  <div className="empty-photo-preview">Belum ada foto</div>
+                )}
+              </div>
+            </div>
+            <div style={{ display: 'grid', gap: '0.9rem' }}>
+              <label>
+                Coach Name
+                <input
+                  value={profileForm.full_name}
+                  onChange={(e) => setProfileForm((prev) => ({ ...prev, full_name: e.target.value }))}
+                  placeholder="Nama coach"
+                />
+              </label>
+              <label>
+                Profile Image URL
+                <input
+                  value={profileForm.photo_url}
+                  onChange={(e) => setProfileForm((prev) => ({ ...prev, photo_url: e.target.value }))}
+                  placeholder="https://..."
+                />
+              </label>
+              <label>
+                Upload Profile Image
+                <input type="file" accept="image/*" onChange={onProfileImageUpload} />
+              </label>
+              <div>
+                <button className="btn" type="submit" disabled={profileSaving}>
+                  {profileSaving ? 'Saving...' : 'Save coach profile'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </form>
       </section>
 
       <section className="card admin-main" style={{ marginTop: '1rem' }}>

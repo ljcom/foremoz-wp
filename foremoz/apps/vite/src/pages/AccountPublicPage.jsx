@@ -337,7 +337,8 @@ export default function AccountPublicPage() {
           {coaches.map((coach, index) => {
             const name = String(coach.full_name || coach.name || coach.email || '-').trim() || '-';
             const role = String(coach.title || (coach.role === 'owner' ? 'Owner Coach' : creatorLabel)).trim() || creatorLabel;
-            const photo = `${heroImage}${heroImage.includes('?') ? '&' : '?'}coach=${encodeURIComponent(String(coach.user_id || index))}`;
+            const photo = String(coach.photo_url || '').trim()
+              || `${heroImage}${heroImage.includes('?') ? '&' : '?'}coach=${encodeURIComponent(String(coach.user_id || index))}`;
             return (
             <article className="coach-card" key={coach.user_id || name}>
               <img src={photo} alt={name} className="coach-photo" />

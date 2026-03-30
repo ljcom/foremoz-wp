@@ -1993,6 +1993,13 @@ async function ensureOwnerSetupIndustryColumn() {
   );
 }
 
+async function ensureTenantUserProfileColumns() {
+  await query(
+    `alter table if exists read.rm_tenant_user_auth
+       add column if not exists photo_url text`
+  );
+}
+
 app.get('/health', async (_req, res) => {
   try {
     await query('select 1');
@@ -2639,6 +2646,7 @@ app.get('/v1/public/account/coaches', async (req, res, next) => {
   try {
     await ensureOwnerSetupIndustryColumn();
     await ensureOwnerBranchTable();
+    await ensureTenantUserProfileColumns();
     const accountSlug = String(req.query.account_slug || '').trim().toLowerCase();
     if (!accountSlug) {
       throw fail(400, 'ACCOUNT_SLUG_REQUIRED', 'account_slug is required');
@@ -2670,7 +2678,7 @@ app.get('/v1/public/account/coaches', async (req, res, next) => {
     }
 
     const { rows } = await query(
-      `select tenant_id, user_id, full_name, email, role, status, created_at, updated_at
+      `select tenant_id, user_id, full_name, email, role, status, photo_url, created_at, updated_at
        from read.rm_tenant_user_auth
        where tenant_id = $1
          and status = 'active'
@@ -2688,6 +2696,7 @@ app.get('/v1/public/account/coaches', async (req, res, next) => {
         full_name: row.full_name,
         email: row.email,
         role: row.role,
+        photo_url: row.photo_url || null,
         title: row.role === 'owner' ? 'Owner Coach' : 'Coach'
       }))
     });
@@ -3474,6 +3483,7 @@ app.post('/v1/owner/account/delete', async (req, res, next) => {
 
 app.get('/v1/owner/users', async (req, res, next) => {
   try {
+    await ensureTenantUserProfileColumns();
     const tenantId = req.query.tenant_id || config.defaultTenantId;
     const status = String(req.query.status || 'active').trim().toLowerCase();
     const params = [tenantId];
@@ -3483,7 +3493,7 @@ app.get('/v1/owner/users', async (req, res, next) => {
       statusFilter = ` and status = $2`;
     }
     const { rows } = await query(
-      `select tenant_id, user_id, full_name, email, role, status, created_at, updated_at
+      `select tenant_id, user_id, full_name, email, role, status, photo_url, created_at, updated_at
        from read.rm_tenant_user_auth
        where tenant_id = $1${statusFilter}
        order by updated_at desc`,
@@ -3497,6 +3507,7 @@ app.get('/v1/owner/users', async (req, res, next) => {
 
 app.post('/v1/owner/users', async (req, res, next) => {
   try {
+    await ensureTenantUserProfileColumns();
     const data = req.body || {};
     const tenantId = data.tenant_id || config.defaultTenantId;
     const role = normalizeUserRole(required(data.role, 'role'));
@@ -3585,16 +3596,18 @@ app.post('/v1/owner/users', async (req, res, next) => {
 
 app.patch('/v1/owner/users/:userId', async (req, res, next) => {
   try {
+    await ensureTenantUserProfileColumns();
     const data = req.body || {};
     const tenantId = data.tenant_id || config.defaultTenantId;
     const userId = required(req.params.userId, 'userId');
     const fullName = data.full_name || null;
     const role = data.role ? normalizeUserRole(data.role) : null;
-    if (!fullName && !role) {
-      throw fail(400, 'BAD_REQUEST', 'full_name or role is required');
+    const photoUrl = data.photo_url === undefined ? undefined : String(data.photo_url || '').trim().slice(0, 2000000) || null;
+    if (!fullName && !role && photoUrl === undefined) {
+      throw fail(400, 'BAD_REQUEST', 'full_name or role or photo_url is required');
     }
     const existingUserRes = await query(
-      `select role
+      `select role, photo_url
        from read.rm_tenant_user_auth
        where tenant_id = $1 and user_id = $2
        limit 1`,
@@ -3622,6 +3635,7 @@ app.patch('/v1/owner/users/:userId', async (req, res, next) => {
         user_id: userId,
         full_name: fullName,
         role,
+        photo_url: photoUrl,
         updated_at: new Date().toISOString()
       },
       refs: {}
@@ -3629,6 +3643,89 @@ app.patch('/v1/owner/users/:userId', async (req, res, next) => {
 
     await runFitnessProjection({ tenantId, branchId: null });
     return ok(res, { event });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.get('/v1/pt/profile', async (req, res, next) => {
+  try {
+    await ensureTenantUserProfileColumns();
+    const tenantId = req.query.tenant_id || config.defaultTenantId;
+    const userId = required(req.query.user_id, 'user_id');
+    const result = await query(
+      `select tenant_id, user_id, full_name, email, role, status, photo_url, created_at, updated_at
+       from read.rm_tenant_user_auth
+       where tenant_id = $1 and user_id = $2
+       limit 1`,
+      [tenantId, userId]
+    );
+    const row = result.rows[0] || null;
+    if (!row) {
+      throw fail(404, 'PT_PROFILE_NOT_FOUND', `user_id "${userId}" not found`);
+    }
+    return ok(res, { row });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.patch('/v1/pt/profile', async (req, res, next) => {
+  try {
+    await ensureTenantUserProfileColumns();
+    const data = req.body || {};
+    const tenantId = data.tenant_id || config.defaultTenantId;
+    const userId = required(data.user_id, 'user_id');
+    const fullName = String(data.full_name || '').trim();
+    const photoUrl = String(data.photo_url || '').trim().slice(0, 2000000);
+    if (!fullName) {
+      throw fail(400, 'BAD_REQUEST', 'full_name is required');
+    }
+
+    const existingUserRes = await query(
+      `select role
+       from read.rm_tenant_user_auth
+       where tenant_id = $1 and user_id = $2
+       limit 1`,
+      [tenantId, userId]
+    );
+    const existingUser = existingUserRes.rows[0] || null;
+    if (!existingUser) {
+      throw fail(404, 'PT_PROFILE_NOT_FOUND', `user_id "${userId}" not found`);
+    }
+    const existingRole = String(existingUser.role || '').trim().toLowerCase();
+    if (existingRole !== 'pt' && existingRole !== 'owner') {
+      throw fail(403, 'PT_PROFILE_ROLE_FORBIDDEN', 'only pt or owner profile can be updated from PT workspace');
+    }
+
+    const ts = new Date().toISOString();
+    const event = await appendDomainEvent({
+      tenantId,
+      branchId: null,
+      actorId: userId,
+      actorKind: existingRole === 'owner' ? 'owner' : 'tenant_user',
+      eventType: 'owner.user.updated',
+      subjectKind: 'tenant_user',
+      subjectId: userId,
+      data: {
+        tenant_id: tenantId,
+        user_id: userId,
+        full_name: fullName,
+        photo_url: photoUrl || null,
+        updated_at: ts
+      },
+      refs: {}
+    });
+
+    await runFitnessProjection({ tenantId, branchId: null });
+    const refreshed = await query(
+      `select tenant_id, user_id, full_name, email, role, status, photo_url, created_at, updated_at
+       from read.rm_tenant_user_auth
+       where tenant_id = $1 and user_id = $2
+       limit 1`,
+      [tenantId, userId]
+    );
+    return ok(res, { row: refreshed.rows[0] || null, event });
   } catch (error) {
     return next(error);
   }

@@ -112,6 +112,10 @@ export async function runFitnessProjection({ tenantId, branchId }) {
          add column if not exists custom_fields jsonb`
     );
     await client.query(
+      `alter table if exists read.rm_tenant_user_auth
+         add column if not exists photo_url text`
+    );
+    await client.query(
       `alter table if exists read.rm_sales_prospect
          add column if not exists email text,
          add column if not exists id_card text,
@@ -267,14 +271,15 @@ export async function runFitnessProjection({ tenantId, branchId }) {
       if (event.event_type === 'owner.user.created') {
         await client.query(
           `insert into read.rm_tenant_user_auth (
-             tenant_id, user_id, full_name, email, role, password_hash, status, created_at, updated_at
-           ) values ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+             tenant_id, user_id, full_name, email, role, password_hash, status, photo_url, created_at, updated_at
+           ) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
            on conflict (tenant_id, user_id) do update set
              full_name = excluded.full_name,
              email = excluded.email,
              role = excluded.role,
              password_hash = excluded.password_hash,
              status = excluded.status,
+             photo_url = coalesce(excluded.photo_url, read.rm_tenant_user_auth.photo_url),
              updated_at = excluded.updated_at`,
           [
             tenant,
@@ -284,6 +289,7 @@ export async function runFitnessProjection({ tenantId, branchId }) {
             data.role || 'owner',
             data.password_hash,
             data.status || 'active',
+            data.photo_url || null,
             data.created_at || eventTs,
             eventTs
           ]
@@ -310,9 +316,10 @@ export async function runFitnessProjection({ tenantId, branchId }) {
            set full_name = coalesce($3, full_name),
                role = coalesce($4, role),
                status = coalesce($5, status),
-               updated_at = $6
+               photo_url = coalesce($6, photo_url),
+               updated_at = $7
            where tenant_id = $1 and user_id = $2`,
-          [tenant, data.user_id, data.full_name || null, data.role || null, data.status || null, data.updated_at || eventTs]
+          [tenant, data.user_id, data.full_name || null, data.role || null, data.status || null, data.photo_url || null, data.updated_at || eventTs]
         );
         applied += 1;
         continue;
