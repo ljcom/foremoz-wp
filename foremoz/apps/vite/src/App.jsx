@@ -16,6 +16,7 @@ import ActivateAccountPage from './pages/ActivateAccountPage.jsx';
 import VerifyPasswordPage from './pages/VerifyPasswordPage.jsx';
 import MemberSignUpPage from './pages/MemberSignUpPage.jsx';
 import MemberSignInPage from './pages/MemberSignInPage.jsx';
+import MemberPortalPage from './pages/MemberPortalPage.jsx';
 import ForgotPasswordPage from './pages/ForgotPasswordPage.jsx';
 import DashboardPage from './pages/DashboardPage.jsx';
 import MemberPage from './pages/MemberPage.jsx';
@@ -152,12 +153,9 @@ function PassportRequireOnboarding({ children }) {
 }
 
 function LegacyMemberPortalRedirect() {
-  if (!isPassportEventsEnabled()) return <Navigate to={getRootHomePath()} replace />;
-  const { account } = useParams();
-  const query = new URLSearchParams();
-  if (account) query.set('account', account);
-  const suffix = query.toString();
-  return <Navigate to={`/passport/dashboard${suffix ? `?${suffix}` : ''}`} replace />;
+  const session = getSession();
+  const account = session?.tenant?.account_slug || session?.tenant?.id || 'tn_001';
+  return <Navigate to={`/a/${account}/member/portal`} replace />;
 }
 
 export default function App() {
@@ -439,13 +437,25 @@ export default function App() {
       <Route path="/a/:account/dashboard/pt" element={<LegacyPtRedirect />} />
       <Route
         path="/a/:account/member"
-        element={<LegacyMemberPortalRedirect />}
+        element={
+          <MemberProtectedRoute>
+            <RoleRoute roles={['member']}>
+              <MemberPortalPage />
+            </RoleRoute>
+          </MemberProtectedRoute>
+        }
       />
       <Route
         path="/a/:account/member/portal"
-        element={<LegacyMemberPortalRedirect />}
+        element={
+          <MemberProtectedRoute>
+            <RoleRoute roles={['member']}>
+              <MemberPortalPage />
+            </RoleRoute>
+          </MemberProtectedRoute>
+        }
       />
-      <Route path="/member/portal" element={<Navigate to={eventsEnabled ? '/passport/dashboard' : rootHome} replace />} />
+      <Route path="/member/portal" element={<LegacyMemberPortalRedirect />} />
 
       <Route path="/dashboard" element={<Navigate to={roleHome(getSession())} replace />} />
       <Route path="/dashboard/admin" element={<Navigate to={accountPath(getSession(), '/admin/dashboard')} replace />} />
