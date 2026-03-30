@@ -161,6 +161,7 @@ export default function WebOwnerPage() {
   const [feedback, setFeedback] = useState('');
   const [loading, setLoading] = useState(false);
   const [aiWorking, setAiWorking] = useState(false);
+  const [branchAiWorking, setBranchAiWorking] = useState(false);
   const [step, setStep] = useState(1);
   const [menu, setMenu] = useState('profile');
   const [setupRow, setSetupRow] = useState(null);
@@ -199,6 +200,7 @@ export default function WebOwnerPage() {
   const [editingUser, setEditingUser] = useState({ full_name: '', role: 'staff' });
   const [dangerConfirm, setDangerConfirm] = useState('');
   const businessImageInputRef = useRef(null);
+  const branchImageInputRef = useRef(null);
   const [enterpriseRequest, setEnterpriseRequest] = useState({
     requester_name: session?.user?.fullName || '',
     requester_email: session?.user?.email || '',
@@ -330,6 +332,101 @@ export default function WebOwnerPage() {
       setFeedback('owner.image.uploaded: Business profile image berhasil diunggah ke S3.');
     } catch (error) {
       setFeedback(error.message || 'Gagal upload business profile image.');
+    }
+  }
+
+  function buildBranchImageKeywords() {
+    const verticalLabel = sentenceCase(normalizeVerticalSlug(setupForm.industry_slug, 'fitness'));
+    const cityToken = String(branchForm.city || '').trim().split(/[,\s]+/)[0]
+      || String(setupForm.city || '').trim().split(/[,\s]+/)[0]
+      || 'Indonesia';
+    const branchName = String(branchForm.branch_name || '').trim();
+    const accountToken = String(branchForm.account_slug || branchForm.branch_id || '').replace(/[-_]+/g, ' ').trim();
+    const keywords = [
+      `${branchName} ${cityToken}`.trim(),
+      `${accountToken} ${verticalLabel} studio`.trim(),
+      `${String(branchForm.address || '').trim()} ${verticalLabel}`.trim(),
+      `${verticalLabel} branch ${cityToken}`.trim()
+    ]
+      .map((item) => String(item || '').replace(/\s+/g, ' ').trim())
+      .filter((item) => item.length >= 3);
+    return [...new Set(keywords)];
+  }
+
+  async function aiFillBranchGallery() {
+    try {
+      setBranchAiWorking(true);
+      const keywordCandidates = buildBranchImageKeywords();
+      if (keywordCandidates.length === 0) {
+        throw new Error('Isi branch name atau city dulu agar gambar branch bisa digenerate.');
+      }
+      let keyword = keywordCandidates[0];
+      let photos = [];
+      let lastError = null;
+      for (const candidate of keywordCandidates) {
+        keyword = candidate;
+        try {
+          photos = await fetchPexelsPhotos(candidate, 20);
+        } catch (error) {
+          lastError = error;
+          photos = [];
+        }
+        if (photos.length > 0) break;
+      }
+      if (photos.length === 0) {
+        if (lastError) throw lastError;
+        setFeedback('ai.assist: Pexels tidak menemukan gambar untuk branch ini.');
+        return;
+      }
+      const urls = shuffleList(photos)
+        .map((item) => item?.image_url || '')
+        .map((item) => String(item || '').trim())
+        .filter(Boolean);
+      const nextPhotoUrl = pickDifferentUrl(urls, branchForm.photo_url);
+      setBranchForm((prev) => ({
+        ...prev,
+        photo_url: nextPhotoUrl || prev.photo_url
+      }));
+      setFeedback(`ai.assist: Branch image diisi dari Pexels (${keyword}).`);
+    } catch (error) {
+      setFeedback(error.message || 'ai.assist: Gagal mengambil gambar branch.');
+    } finally {
+      setBranchAiWorking(false);
+    }
+  }
+
+  async function uploadBranchImage(file) {
+    try {
+      const selected = file || null;
+      if (!selected) return;
+      if (!String(selected.type || '').startsWith('image/')) {
+        throw new Error('File harus berupa gambar.');
+      }
+      const maxBytes = 5 * 1024 * 1024;
+      if (Number(selected.size || 0) > maxBytes) {
+        throw new Error('Ukuran gambar maksimal 5MB.');
+      }
+      const dataUrl = await readFileAsDataUrl(selected);
+      if (!dataUrl) {
+        throw new Error('Gagal memproses gambar.');
+      }
+      const uploadRes = await apiJson('/v1/admin/uploads/image', {
+        method: 'POST',
+        body: JSON.stringify({
+          tenant_id: setupForm.tenant_id || tenantSeed,
+          folder: 'branch-profile',
+          filename: selected.name || 'branch-profile-image',
+          data_url: dataUrl
+        })
+      });
+      const imageUrl = String(uploadRes?.url || '').trim();
+      if (!imageUrl) {
+        throw new Error('Upload berhasil tapi URL gambar tidak tersedia.');
+      }
+      setBranchForm((prev) => ({ ...prev, photo_url: imageUrl }));
+      setFeedback('branch.image.uploaded: Foto branch berhasil diunggah ke S3.');
+    } catch (error) {
+      setFeedback(error.message || 'Gagal upload foto branch.');
     }
   }
 
@@ -1395,6 +1492,48 @@ export default function WebOwnerPage() {
                         placeholder="https://..."
                       />
                     </label>
+                    <div className="row-actions" style={{ marginTop: '-0.2rem' }}>
+                      <button
+                        className="btn ghost small"
+                        type="button"
+                        onClick={() => branchImageInputRef.current?.click()}
+                      >
+                        Upload Image
+                      </button>
+                      <input
+                        ref={branchImageInputRef}
+                        type="file"
+                        accept="image/*"
+                        style={{ display: 'none' }}
+                        onChange={(e) => {
+                          const file = e.target.files?.[0] || null;
+                          if (file) {
+                            uploadBranchImage(file);
+                          }
+                          e.target.value = '';
+                        }}
+                      />
+                      <button
+                        className="btn ghost small"
+                        type="button"
+                        disabled={branchAiWorking}
+                        onClick={aiFillBranchGallery}
+                      >
+                        AI Fill Gallery
+                      </button>
+                    </div>
+                    {branchForm.photo_url ? (
+                      <div className="photo-preview-box">
+                        <img
+                          src={branchForm.photo_url}
+                          alt="Branch preview"
+                          className="photo-preview-image"
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                          }}
+                        />
+                      </div>
+                    ) : null}
                     <p className="mini-note">
                       URL branch: /a/{normalizeSlug((branchForm.account_slug || branchForm.branch_id || '').replace(/_/g, '-')) || '-'}
                     </p>
@@ -1451,6 +1590,48 @@ export default function WebOwnerPage() {
                         placeholder="https://..."
                       />
                     </label>
+                    <div className="row-actions" style={{ marginTop: '-0.2rem' }}>
+                      <button
+                        className="btn ghost small"
+                        type="button"
+                        onClick={() => branchImageInputRef.current?.click()}
+                      >
+                        Upload Image
+                      </button>
+                      <input
+                        ref={branchImageInputRef}
+                        type="file"
+                        accept="image/*"
+                        style={{ display: 'none' }}
+                        onChange={(e) => {
+                          const file = e.target.files?.[0] || null;
+                          if (file) {
+                            uploadBranchImage(file);
+                          }
+                          e.target.value = '';
+                        }}
+                      />
+                      <button
+                        className="btn ghost small"
+                        type="button"
+                        disabled={branchAiWorking}
+                        onClick={aiFillBranchGallery}
+                      >
+                        AI Fill Gallery
+                      </button>
+                    </div>
+                    {branchForm.photo_url ? (
+                      <div className="photo-preview-box">
+                        <img
+                          src={branchForm.photo_url}
+                          alt="Branch preview"
+                          className="photo-preview-image"
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                          }}
+                        />
+                      </div>
+                    ) : null}
                     <button className="btn" type="submit" disabled={loading}>
                       Save branch
                     </button>
