@@ -92,25 +92,25 @@ const CLASS_WEEKDAYS = [
 ];
 
 const ACTIVITY_VALIDITY_UNIT_OPTIONS = [
-  { value: 'none', label: 'No expiry' },
-  { value: 'day', label: 'Day' },
-  { value: 'week', label: 'Week' },
-  { value: 'month', label: 'Month' },
-  { value: 'year', label: 'Year' }
+  { value: 'none', label: 'Unlimited' },
+  { value: 'day', label: 'Daily' },
+  { value: 'week', label: 'Weekly' },
+  { value: 'month', label: 'Monthly' },
+  { value: 'year', label: 'Annual' }
 ];
 
 const ACTIVITY_VALIDITY_ANCHOR_OPTIONS = [
-  { value: 'activation', label: 'Activation' },
+  { value: 'activation', label: 'First date' },
   { value: 'purchase', label: 'Purchase' },
   { value: 'payment', label: 'Payment confirmed' },
-  { value: 'fixed_start', label: 'Fixed start date' }
+  { value: 'fixed_start', label: 'Fixed date' }
 ];
 
 const ACTIVITY_USAGE_PERIOD_OPTIONS = [
-  { value: 'entire_validity', label: 'Entire validity' },
-  { value: 'per_day', label: 'Per day' },
-  { value: 'per_week', label: 'Per week' },
-  { value: 'per_month', label: 'Per month' }
+  { value: 'entire_validity', label: 'All' },
+  { value: 'per_day', label: 'Each day' },
+  { value: 'per_week', label: 'Each week' },
+  { value: 'per_month', label: 'Each month' }
 ];
 
 const IDR_FORMATTER = new Intl.NumberFormat('id-ID');
@@ -976,6 +976,14 @@ function getActivityFieldGuide(classType) {
   };
 }
 
+function deriveClassValidityMode(form) {
+  const classType = String(form?.class_type || 'scheduled').trim().toLowerCase();
+  if (classType === 'scheduled') return 'fixed';
+  return String(form?.validity_anchor || '').trim().toLowerCase() === 'fixed_start'
+    ? 'fixed'
+    : 'per_enrollment';
+}
+
 function getClassAccessPresets(classType) {
   const normalizedType = String(classType || 'scheduled').trim().toLowerCase();
   if (normalizedType === 'open_access') {
@@ -1069,8 +1077,8 @@ function formatValidityAnchorSummary(anchor) {
   const normalizedAnchor = String(anchor || 'activation').trim().toLowerCase();
   if (normalizedAnchor === 'purchase') return 'mulai saat purchase';
   if (normalizedAnchor === 'payment') return 'mulai saat payment confirmed';
-  if (normalizedAnchor === 'fixed_start') return 'mulai di fixed start date';
-  return 'mulai saat activation';
+  if (normalizedAnchor === 'fixed_start') return 'mulai di fixed date';
+  return 'mulai saat first date';
 }
 
 function formatUsageSummary(mode, limit, period) {
@@ -1129,10 +1137,10 @@ function formatActivityAccessSummary(item) {
 
 function formatClassScheduleSummary(item) {
   const classType = String(item?.class_type || 'scheduled').trim().toLowerCase();
-  if (classType !== 'scheduled') {
+  const scheduleMode = String(item?.schedule_mode || 'weekly').trim().toLowerCase();
+  if (classType !== 'scheduled' && scheduleMode === 'none') {
     return formatActivityAccessSummary(item);
   }
-  const scheduleMode = String(item?.schedule_mode || 'weekly').trim().toLowerCase();
   if (scheduleMode === 'everyday') {
     const weeklySchedule = item?.weekly_schedule || {};
     return weeklySchedule.start_time && weeklySchedule.end_time
@@ -2327,6 +2335,7 @@ export default function AdminPage() {
   const isScheduledClassForm = classForm.class_type === 'scheduled';
   const isOpenAccessClassForm = classForm.class_type === 'open_access';
   const isSessionPackClassForm = classForm.class_type === 'session_pack';
+  const isFixedDateClassAccess = !isScheduledClassForm && classForm.validity_unit !== 'none' && classForm.validity_anchor === 'fixed_start';
   const showClassCoachFields = classForm.has_coach !== false;
   const classFieldGuide = useMemo(() => getActivityFieldGuide(classForm.class_type), [classForm.class_type]);
   const classAccessPresets = useMemo(() => getClassAccessPresets(classForm.class_type), [classForm.class_type]);
@@ -2479,13 +2488,9 @@ export default function AdminPage() {
 
   async function addClass(e) {
     e.preventDefault();
-    const registrationPeriodMode = isScheduledClassForm
-      ? String(classForm.registration_period_mode || 'no').trim().toLowerCase()
-      : 'no';
-    const scheduledCapacityMode = isScheduledClassForm
-      ? String(classForm.capacity_mode || 'limited').trim().toLowerCase()
-      : String(classForm.capacity_mode || 'none').trim().toLowerCase();
-    const hasLimitedScheduledCapacity = isScheduledClassForm && scheduledCapacityMode === 'limited';
+    const registrationPeriodMode = String(classForm.registration_mode || classForm.registration_period_mode || 'no').trim().toLowerCase();
+    const quotaCapacityMode = String(classForm.quota_capacity_mode || classForm.capacity_mode || (isScheduledClassForm ? 'limited' : 'no')).trim().toLowerCase();
+    const hasLimitedCapacity = quotaCapacityMode === 'limited';
     if (!String(classForm.class_name || '').trim()) {
       setClassEditTab('general');
       setFeedback('class_name wajib diisi');
@@ -2506,8 +2511,18 @@ export default function AdminPage() {
       setFeedback('validity_value wajib diisi');
       return;
     }
+    if (isFixedDateClassAccess && !String(classForm.start_date || '').trim()) {
+      setClassEditTab('schedule');
+      setFeedback('start date wajib diisi untuk fixed date');
+      return;
+    }
+    if (isFixedDateClassAccess && !String(classForm.end_date || '').trim()) {
+      setClassEditTab('schedule');
+      setFeedback('end date wajib diisi untuk fixed date');
+      return;
+    }
     if (!isScheduledClassForm && classForm.usage_mode === 'limited' && !String(classForm.usage_limit || '').trim()) {
-      setClassEditTab('general');
+      setClassEditTab('schedule');
       setFeedback('usage_limit wajib diisi');
       return;
     }
@@ -2516,37 +2531,41 @@ export default function AdminPage() {
       setFeedback('periode akhir harus setelah periode mulai');
       return;
     }
-    if (isScheduledClassForm && classForm.quota_capacity_mode === 'limited' && !String(classForm.max_quota || '').trim()) {
-      setClassEditTab('general');
+    if (!isScheduledClassForm && isFixedDateClassAccess && classForm.end_date && classForm.start_date && new Date(classForm.end_date).getTime() < new Date(classForm.start_date).getTime()) {
+      setClassEditTab('schedule');
+      setFeedback('fixed date end harus setelah start');
+      return;
+    }
+    if (hasLimitedCapacity && !String(classForm.max_quota || '').trim()) {
+      setClassEditTab('schedule');
       setFeedback('max quota wajib diisi saat quota/capacity limited');
       return;
     }
     if (
-      isScheduledClassForm
-      && classForm.quota_capacity_mode === 'limited'
+      hasLimitedCapacity
       && String(classForm.min_quota || '').trim()
       && String(classForm.max_quota || '').trim()
       && Number(classForm.min_quota) > Number(classForm.max_quota)
     ) {
-      setClassEditTab('general');
+      setClassEditTab('schedule');
       setFeedback('min quota tidak boleh lebih besar dari max quota');
       return;
     }
-    if (isScheduledClassForm && classForm.registration_mode === 'range_date') {
+    if (registrationPeriodMode === 'range_date') {
       if (!String(classForm.registration_start || '').trim() || !String(classForm.registration_end || '').trim()) {
-        setClassEditTab('general');
+        setClassEditTab('schedule');
         setFeedback('registration period wajib diisi lengkap');
         return;
       }
       const registrationStartIso = toApiDatetime(classForm.registration_start);
       const registrationEndIso = toApiDatetime(classForm.registration_end);
       if (!registrationStartIso || !registrationEndIso) {
-        setClassEditTab('general');
+        setClassEditTab('schedule');
         setFeedback('registration period tidak valid');
         return;
       }
       if (new Date(registrationEndIso).getTime() < new Date(registrationStartIso).getTime()) {
-        setClassEditTab('general');
+        setClassEditTab('schedule');
         setFeedback('registration end harus setelah registration start');
         return;
       }
@@ -2555,7 +2574,7 @@ export default function AdminPage() {
     try {
       normalizedSchedule = normalizeClassScheduleForPayload({
         ...classForm,
-        schedule_mode: isScheduledClassForm ? classForm.schedule_mode : 'none'
+        schedule_mode: classForm.schedule_mode
       });
     } catch (error) {
       setClassEditTab('general');
@@ -2571,12 +2590,7 @@ export default function AdminPage() {
         : '/v1/admin/classes';
       const classCategories = normalizeEventCategoriesForPayload(classForm.categories_text);
       const primaryCategory = classCategories[0] || '';
-      const capacityMode = isScheduledClassForm ? scheduledCapacityMode : classForm.capacity_mode;
-      const normalizedCapacity = isScheduledClassForm
-        ? (hasLimitedScheduledCapacity
-            ? Number(classForm.max_quota || classForm.capacity || 0)
-            : 0)
-        : Number(classForm.capacity || 20);
+      const capacityMode = hasLimitedCapacity ? 'limited' : 'none';
       await apiJson(endpoint, {
         method,
         body: JSON.stringify({
@@ -2596,17 +2610,17 @@ export default function AdminPage() {
           schedule_mode: normalizedSchedule.schedule_mode,
           weekly_schedule: normalizedSchedule.weekly_schedule,
           manual_schedule: normalizedSchedule.manual_schedule,
-          capacity: classForm.quota_capacity_mode === 'limited' ? Number(classForm.max_quota || 0) : 0,
-          capacity_mode: classForm.quota_capacity_mode === 'limited' ? 'limited' : 'none',
-          quota_mode: classForm.quota_capacity_mode === 'limited' ? 'manual' : 'none',
-          validity_mode: classForm.validity_mode,
+          capacity: hasLimitedCapacity ? Number(classForm.max_quota || 0) : 0,
+          capacity_mode: capacityMode,
+          quota_mode: hasLimitedCapacity ? 'manual' : 'none',
+          validity_mode: deriveClassValidityMode(classForm),
           price: Number(classForm.price || 0),
           start_date: classForm.start_date || null,
           end_date: classForm.end_date || null,
-          registration_start: classForm.registration_mode === 'range_date' && classForm.registration_start
+          registration_start: registrationPeriodMode === 'range_date' && classForm.registration_start
             ? toApiDatetime(classForm.registration_start)
             : null,
-          registration_end: classForm.registration_mode === 'range_date' && classForm.registration_end
+          registration_end: registrationPeriodMode === 'range_date' && classForm.registration_end
             ? toApiDatetime(classForm.registration_end)
             : null,
           max_meetings: Number(classForm.max_meetings || 0),
@@ -2616,9 +2630,9 @@ export default function AdminPage() {
           usage_mode: classForm.usage_mode,
           usage_limit: classForm.usage_limit ? Number(classForm.usage_limit) : null,
           usage_period: classForm.usage_period,
-          min_quota: classForm.quota_capacity_mode === 'limited' && classForm.min_quota ? Number(classForm.min_quota) : null,
-          max_quota: classForm.quota_capacity_mode === 'limited' && classForm.max_quota ? Number(classForm.max_quota) : null,
-          auto_start_when_quota_met: classForm.quota_capacity_mode === 'limited' ? classForm.auto_start_when_quota_met : false
+          min_quota: hasLimitedCapacity && classForm.min_quota ? Number(classForm.min_quota) : null,
+          max_quota: hasLimitedCapacity && classForm.max_quota ? Number(classForm.max_quota) : null,
+          auto_start_when_quota_met: hasLimitedCapacity ? classForm.auto_start_when_quota_met : false
         })
       });
 
@@ -5804,26 +5818,7 @@ export default function AdminPage() {
                             ) : null}
                           </>
                         ) : (
-                          <>
-                            <label>Validity mode<select value={classForm.validity_mode} onChange={(e) => setClassForm((p) => ({ ...p, validity_mode: e.target.value }))}><option value="per_enrollment">per_enrollment</option><option value="rolling">rolling</option><option value="fixed">fixed</option></select></label>
-                            <p className="feedback">
-                              Validity mode: `per_enrollment` = masa aktif dihitung per user saat beli/aktivasi, contoh Gym Access 30 Hari per member.
-                              `rolling` = mirip berjalan dari anchor tertentu seperti payment/activation.
-                              `fixed` = semua user ikut periode master yang sama, contoh akses hanya untuk April 2026.
-                            </p>
-                            <label>Capacity mode<select value={classForm.capacity_mode} onChange={(e) => setClassForm((p) => ({ ...p, capacity_mode: e.target.value }))}><option value="none">none</option><option value="limited">limited</option><option value="flexible">flexible</option></select></label>
-                            <p className="feedback">
-                              Capacity mode: `none` = tidak ada batas peserta/holder.
-                              `limited` = jumlah holder/enrollment bisa dibatasi.
-                              `flexible` = ada target kapasitas tapi masih bisa dilonggarkan oleh operasional.
-                            </p>
-                            <label>Quota mode<select value={classForm.quota_mode} onChange={(e) => setClassForm((p) => ({ ...p, quota_mode: e.target.value }))}><option value="none">none</option><option value="manual">manual</option><option value="auto">auto</option></select></label>
-                            <p className="feedback">
-                              Quota mode: `none` = tidak ada quota tambahan.
-                              `manual` = admin isi batas sendiri, misalnya hanya 100 membership aktif.
-                              `auto` = sistem bisa memicu rule otomatis berdasarkan quota yang terpenuhi.
-                            </p>
-                          </>
+                          <p className="feedback">Atur package duration, start, session, schedule, registration period, dan quota/capacity di tab `Schedule`.</p>
                         )}
                       </>
                     ) : null}
@@ -6041,49 +6036,284 @@ export default function AdminPage() {
                           <>
                             <p className="feedback">
                               {isOpenAccessClassForm
-                                ? 'Untuk open access, masa aktif dan kuota dihitung per enrollment user.'
-                                : 'Untuk session pack, isi expiry dan jumlah sesi yang diberikan per enrollment user.'}
+                                ? 'Basis class ini adalah open access, lalu Anda bisa tambahkan schedule bila aksesnya mengikuti jadwal tertentu.'
+                                : 'Basis class ini adalah session pack, lalu Anda bisa tambahkan schedule bila sesi dipakai pada slot/jadwal tertentu.'}
                             </p>
-                            <label>
-                              Validity Unit
-                              <select value={classForm.validity_unit} onChange={(e) => setClassForm((p) => ({ ...p, validity_unit: e.target.value }))}>
-                                {ACTIVITY_VALIDITY_UNIT_OPTIONS.map((item) => (
-                                  <option key={item.value} value={item.value}>{item.label}</option>
+                            {classAccessPresets.length > 0 ? (
+                              <div className="card" style={{ borderStyle: 'dashed', marginBottom: '0.75rem' }}>
+                                <p className="eyebrow">Preset cepat</p>
+                                <div className="row-actions" style={{ flexWrap: 'wrap', marginBottom: '0.5rem' }}>
+                                  {classAccessPresets.map((preset) => (
+                                    <button
+                                      key={preset.id}
+                                      className="btn ghost small"
+                                      type="button"
+                                      onClick={() =>
+                                        setClassForm((prev) => ({
+                                          ...prev,
+                                          ...preset.values
+                                        }))
+                                      }
+                                    >
+                                      {preset.label}
+                                    </button>
+                                  ))}
+                                </div>
+                                {classAccessPresets.map((preset) => (
+                                  <p key={`${preset.id}-description`} className="feedback">
+                                    <strong>{preset.label}:</strong> {preset.description}
+                                  </p>
                                 ))}
-                              </select>
-                            </label>
-                            {classForm.validity_unit !== 'none' ? (
-                              <>
-                                <label>Validity Value<input type="number" min="1" value={classForm.validity_value} onChange={(e) => setClassForm((p) => ({ ...p, validity_value: e.target.value }))} /></label>
-                                <label>
-                                  Validity Anchor
-                                  <select value={classForm.validity_anchor} onChange={(e) => setClassForm((p) => ({ ...p, validity_anchor: e.target.value }))}>
-                                    {ACTIVITY_VALIDITY_ANCHOR_OPTIONS.map((item) => (
-                                      <option key={item.value} value={item.value}>{item.label}</option>
-                                    ))}
-                                  </select>
-                                </label>
-                              </>
+                              </div>
                             ) : null}
-                            <label>
-                              Usage Mode
-                              <select value={classForm.usage_mode} onChange={(e) => setClassForm((p) => ({ ...p, usage_mode: e.target.value }))}>
-                                <option value="unlimited">unlimited</option>
-                                <option value="limited">limited</option>
-                              </select>
-                            </label>
-                            {classForm.usage_mode === 'limited' ? (
-                              <>
-                                <label>Usage Limit<input type="number" min="1" value={classForm.usage_limit} onChange={(e) => setClassForm((p) => ({ ...p, usage_limit: e.target.value }))} /></label>
+                            <div className="card" style={{ borderStyle: 'dashed' }}>
+                              <p className="eyebrow">Package duration</p>
+                              <label>
+                                Duration
+                                <select value={classForm.validity_unit} onChange={(e) => setClassForm((p) => ({ ...p, validity_unit: e.target.value }))}>
+                                  {ACTIVITY_VALIDITY_UNIT_OPTIONS.map((item) => (
+                                    <option key={item.value} value={item.value}>{item.label}</option>
+                                  ))}
+                                </select>
+                              </label>
+                              {classForm.validity_unit !== 'none' ? (
                                 <label>
-                                  Usage Period
-                                  <select value={classForm.usage_period} onChange={(e) => setClassForm((p) => ({ ...p, usage_period: e.target.value }))}>
-                                    {ACTIVITY_USAGE_PERIOD_OPTIONS.map((item) => (
-                                      <option key={item.value} value={item.value}>{item.label}</option>
-                                    ))}
-                                  </select>
+                                  Duration value
+                                  <input type="number" min="1" value={classForm.validity_value} onChange={(e) => setClassForm((p) => ({ ...p, validity_value: e.target.value }))} />
                                 </label>
-                              </>
+                              ) : (
+                                <p className="feedback">Unlimited berarti paket tidak punya expiry.</p>
+                              )}
+                            </div>
+                            <div className="card" style={{ borderStyle: 'dashed' }}>
+                              <p className="eyebrow">Start</p>
+                              <label>
+                                Start
+                                <select value={classForm.validity_anchor} onChange={(e) => setClassForm((p) => ({ ...p, validity_anchor: e.target.value }))}>
+                                  {ACTIVITY_VALIDITY_ANCHOR_OPTIONS.map((item) => (
+                                    <option key={item.value} value={item.value}>{item.label}</option>
+                                  ))}
+                                </select>
+                              </label>
+                              {isFixedDateClassAccess ? (
+                                <>
+                                  <label>Start date<input type="date" value={classForm.start_date} onChange={(e) => setClassForm((p) => ({ ...p, start_date: e.target.value }))} /></label>
+                                  <label>End date<input type="date" value={classForm.end_date} onChange={(e) => setClassForm((p) => ({ ...p, end_date: e.target.value }))} /></label>
+                                </>
+                              ) : null}
+                            </div>
+                            <div className="card" style={{ borderStyle: 'dashed' }}>
+                              <p className="eyebrow">Session</p>
+                              <label>
+                                Session
+                                <select value={classForm.usage_mode} onChange={(e) => setClassForm((p) => ({ ...p, usage_mode: e.target.value }))}>
+                                  <option value="unlimited">No limit</option>
+                                  <option value="limited">Limited</option>
+                                </select>
+                              </label>
+                              {classForm.usage_mode === 'limited' ? (
+                                <>
+                                  <label>Nb usage<input type="number" min="1" value={classForm.usage_limit} onChange={(e) => setClassForm((p) => ({ ...p, usage_limit: e.target.value }))} /></label>
+                                  <label>
+                                    Usage
+                                    <select value={classForm.usage_period} onChange={(e) => setClassForm((p) => ({ ...p, usage_period: e.target.value }))}>
+                                      {ACTIVITY_USAGE_PERIOD_OPTIONS.map((item) => (
+                                        <option key={item.value} value={item.value}>{item.label}</option>
+                                      ))}
+                                    </select>
+                                  </label>
+                                </>
+                              ) : (
+                                <p className="feedback">No limit berarti paket bisa dipakai tanpa batas selama masa aktifnya.</p>
+                              )}
+                            </div>
+                            <div className="card" style={{ borderStyle: 'dashed' }}>
+                              <p className="eyebrow">Schedule</p>
+                              <div style={{ display: 'grid', gap: '0.35rem', marginBottom: '0.75rem' }}>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', margin: 0 }}>
+                                  <input
+                                    type="radio"
+                                    name="class_access_schedule_mode"
+                                    checked={classForm.schedule_mode === 'none'}
+                                    onChange={() => setClassForm((prev) => ({ ...prev, schedule_mode: 'none' }))}
+                                  />
+                                  <span>No schedule</span>
+                                </label>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', margin: 0 }}>
+                                  <input
+                                    type="radio"
+                                    name="class_access_schedule_mode"
+                                    checked={classForm.schedule_mode === 'everyday'}
+                                    onChange={() => setClassForm((prev) => ({ ...prev, schedule_mode: 'everyday' }))}
+                                  />
+                                  <span>Everyday</span>
+                                </label>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', margin: 0 }}>
+                                  <input
+                                    type="radio"
+                                    name="class_access_schedule_mode"
+                                    checked={classForm.schedule_mode === 'weekly'}
+                                    onChange={() => setClassForm((prev) => ({ ...prev, schedule_mode: 'weekly' }))}
+                                  />
+                                  <span>Weekly: choose day</span>
+                                </label>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', margin: 0 }}>
+                                  <input
+                                    type="radio"
+                                    name="class_access_schedule_mode"
+                                    checked={classForm.schedule_mode === 'manual'}
+                                    onChange={() =>
+                                      setClassForm((prev) => ({
+                                        ...prev,
+                                        schedule_mode: 'manual',
+                                        manual_schedule: Array.isArray(prev.manual_schedule) && prev.manual_schedule.length > 0
+                                          ? prev.manual_schedule
+                                          : [createEmptyClassManualSession()]
+                                      }))
+                                    }
+                                  />
+                                  <span>Custom date</span>
+                                </label>
+                              </div>
+                              {classForm.schedule_mode === 'everyday' ? (
+                                <>
+                                  <label>Start time<input type="time" value={classForm.weekly_start_time} onChange={(e) => setClassForm((prev) => ({ ...prev, weekly_start_time: e.target.value }))} /></label>
+                                  <label>End time<input type="time" value={classForm.weekly_end_time} onChange={(e) => setClassForm((prev) => ({ ...prev, weekly_end_time: e.target.value }))} /></label>
+                                </>
+                              ) : null}
+                              {classForm.schedule_mode === 'weekly' ? (
+                                <>
+                                  <div className="row-actions" style={{ flexWrap: 'wrap', marginBottom: '0.75rem' }}>
+                                    {CLASS_WEEKDAYS.map((day) => {
+                                      const isChecked = (classForm.weekly_days || []).includes(day.value);
+                                      return (
+                                        <label key={day.value} className="passport-chip" style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                                          <input
+                                            type="checkbox"
+                                            checked={isChecked}
+                                            onChange={(e) =>
+                                              setClassForm((prev) => {
+                                                const current = Array.isArray(prev.weekly_days) ? prev.weekly_days : [];
+                                                const next = e.target.checked
+                                                  ? [...new Set([...current, day.value])]
+                                                  : current.filter((item) => item !== day.value);
+                                                return { ...prev, weekly_days: next };
+                                              })
+                                            }
+                                          />
+                                          <span>{day.label}</span>
+                                        </label>
+                                      );
+                                    })}
+                                  </div>
+                                  <label>Start time<input type="time" value={classForm.weekly_start_time} onChange={(e) => setClassForm((prev) => ({ ...prev, weekly_start_time: e.target.value }))} /></label>
+                                  <label>End time<input type="time" value={classForm.weekly_end_time} onChange={(e) => setClassForm((prev) => ({ ...prev, weekly_end_time: e.target.value }))} /></label>
+                                </>
+                              ) : null}
+                              {classForm.schedule_mode === 'manual' ? (
+                                <>
+                                  <div className="row-actions" style={{ marginBottom: '0.5rem' }}>
+                                    <button
+                                      className="btn ghost small"
+                                      type="button"
+                                      onClick={() =>
+                                        setClassForm((prev) => ({
+                                          ...prev,
+                                          manual_schedule: [...(Array.isArray(prev.manual_schedule) ? prev.manual_schedule : []), createEmptyClassManualSession()]
+                                        }))
+                                      }
+                                    >
+                                      + custom date
+                                    </button>
+                                  </div>
+                                  <div className="entity-list">
+                                    {(Array.isArray(classForm.manual_schedule) ? classForm.manual_schedule : []).map((session, index) => (
+                                      <div key={`class-manual-access-session-${index}`} className="card" style={{ marginBottom: '0.5rem' }}>
+                                        <label>Start<input type="datetime-local" value={session.start_at || ''} onChange={(e) => setClassForm((prev) => ({ ...prev, manual_schedule: (Array.isArray(prev.manual_schedule) ? prev.manual_schedule : []).map((item, idx) => idx === index ? { ...item, start_at: e.target.value } : item) }))} /></label>
+                                        <label>End<input type="datetime-local" value={session.end_at || ''} onChange={(e) => setClassForm((prev) => ({ ...prev, manual_schedule: (Array.isArray(prev.manual_schedule) ? prev.manual_schedule : []).map((item, idx) => idx === index ? { ...item, end_at: e.target.value } : item) }))} /></label>
+                                        <button
+                                          className="btn ghost small"
+                                          type="button"
+                                          onClick={() =>
+                                            setClassForm((prev) => {
+                                              const current = Array.isArray(prev.manual_schedule) ? prev.manual_schedule : [];
+                                              const next = current.filter((_, idx) => idx !== index);
+                                              return { ...prev, manual_schedule: next.length > 0 ? next : [createEmptyClassManualSession()] };
+                                            })
+                                          }
+                                        >
+                                          Hapus date
+                                        </button>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </>
+                              ) : null}
+                            </div>
+                            <div className="card" style={{ borderStyle: 'dashed' }}>
+                              <p className="eyebrow">Registration period</p>
+                              <label>
+                                Registration period
+                                <select
+                                  value={classForm.registration_mode}
+                                  onChange={(e) =>
+                                    setClassForm((p) => ({
+                                      ...p,
+                                      registration_mode: e.target.value,
+                                      registration_start: e.target.value === 'range_date' ? p.registration_start : '',
+                                      registration_end: e.target.value === 'range_date' ? p.registration_end : ''
+                                    }))
+                                  }
+                                >
+                                  <option value="no">No</option>
+                                  <option value="range_date">Range date</option>
+                                </select>
+                              </label>
+                              {classForm.registration_mode === 'range_date' ? (
+                                <>
+                                  <label>Registration start<input type="datetime-local" value={classForm.registration_start} onChange={(e) => setClassForm((p) => ({ ...p, registration_start: e.target.value }))} /></label>
+                                  <label>Registration end<input type="datetime-local" value={classForm.registration_end} onChange={(e) => setClassForm((p) => ({ ...p, registration_end: e.target.value }))} /></label>
+                                </>
+                              ) : null}
+                            </div>
+                            <div className="card" style={{ borderStyle: 'dashed' }}>
+                              <p className="eyebrow">Quota / Capacity</p>
+                              <label>
+                                Quota / Capacity
+                                <select
+                                  value={classForm.quota_capacity_mode}
+                                  onChange={(e) =>
+                                    setClassForm((p) => ({
+                                      ...p,
+                                      quota_capacity_mode: e.target.value,
+                                      min_quota: e.target.value === 'limited' ? p.min_quota : '',
+                                      max_quota: e.target.value === 'limited' ? p.max_quota : '',
+                                      auto_start_when_quota_met: e.target.value === 'limited' ? p.auto_start_when_quota_met : false
+                                    }))
+                                  }
+                                >
+                                  <option value="no">No</option>
+                                  <option value="limited">Limited</option>
+                                </select>
+                              </label>
+                              {classForm.quota_capacity_mode === 'limited' ? (
+                                <>
+                                  <label>Min quota<input type="number" min="0" value={classForm.min_quota} onChange={(e) => setClassForm((p) => ({ ...p, min_quota: e.target.value }))} /></label>
+                                  <label>Max quota<input type="number" min="1" value={classForm.max_quota} onChange={(e) => setClassForm((p) => ({ ...p, max_quota: e.target.value }))} /></label>
+                                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                    <input type="checkbox" checked={classForm.auto_start_when_quota_met} onChange={(e) => setClassForm((p) => ({ ...p, auto_start_when_quota_met: e.target.checked }))} />
+                                    <span>Auto start when quota met</span>
+                                  </label>
+                                </>
+                              ) : null}
+                            </div>
+                            {classAccessSummary.length > 0 ? (
+                              <div className="card" style={{ borderStyle: 'dashed', marginTop: '0.25rem' }}>
+                                <p className="eyebrow">Ringkasan konfigurasi</p>
+                                {classAccessSummary.map((line) => (
+                                  <p key={line} className="feedback">{line}</p>
+                                ))}
+                              </div>
                             ) : null}
                           </>
                         )}
