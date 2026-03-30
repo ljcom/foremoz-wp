@@ -2410,7 +2410,7 @@ export default function AdminPage() {
             event: 'Event',
             class: 'Program',
             product: 'Produk',
-            package_creation: 'Buat Paket',
+            package_creation: 'Paket',
             trainer: creatorLabel,
             sales: 'Sales',
             member: 'Member',
