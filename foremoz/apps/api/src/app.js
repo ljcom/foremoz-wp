@@ -610,7 +610,8 @@ function addDurationToIso(anchorIso, unit, value) {
 }
 
 function getActivityScheduleBounds({ classType, schedule, startDate, endDate }) {
-  if (classType !== 'scheduled') {
+  const scheduleMode = String(schedule?.schedule_mode || 'none').trim().toLowerCase();
+  if (scheduleMode === 'none') {
     return { startAt: null, endAt: null };
   }
   const manualSchedule = Array.isArray(schedule?.manual_schedule) ? schedule.manual_schedule : [];
@@ -652,13 +653,11 @@ function normalizeActivityPayload(rawValue, fallback = {}) {
     weekly_schedule: latest.weekly_schedule || {},
     manual_schedule: latest.manual_schedule || []
   };
-  const schedule = classType === 'scheduled'
-    ? normalizeClassSchedule({
-      schedule_mode: source.schedule_mode,
-      weekly_schedule: source.weekly_schedule,
-      manual_schedule: source.manual_schedule
-    }, fallbackSchedule)
-    : normalizeClassSchedule({ schedule_mode: 'none' });
+  const schedule = normalizeClassSchedule({
+    schedule_mode: source.schedule_mode,
+    weekly_schedule: source.weekly_schedule,
+    manual_schedule: source.manual_schedule
+  }, fallbackSchedule);
   const manualSchedule = Array.isArray(schedule.manual_schedule) ? schedule.manual_schedule : [];
 
   let startDate = normalizeOptionalDate(
@@ -4469,18 +4468,14 @@ app.get('/v1/admin/classes', async (req, res, next) => {
         category_id: latestByClassId.get(row.class_id)?.category_id || row.category_id || null,
         custom_fields: latestByClassId.get(row.class_id)?.custom_fields || {},
         schedule_mode: latestByClassId.get(row.class_id)?.schedule_mode || (row.class_type === 'scheduled' ? 'weekly' : 'none'),
-        weekly_schedule: row.class_type === 'scheduled'
-          ? normalizeClassSchedule({
-            schedule_mode: 'weekly',
-            weekly_schedule: latestByClassId.get(row.class_id)?.weekly_schedule
-          }).weekly_schedule
-          : { weekdays: [], start_time: '', end_time: '' },
-        manual_schedule: row.class_type === 'scheduled'
-          ? normalizeClassSchedule({
-            schedule_mode: 'manual',
-            manual_schedule: latestByClassId.get(row.class_id)?.manual_schedule
-          }).manual_schedule
-          : []
+        weekly_schedule: normalizeClassSchedule({
+          schedule_mode: 'weekly',
+          weekly_schedule: latestByClassId.get(row.class_id)?.weekly_schedule
+        }).weekly_schedule,
+        manual_schedule: normalizeClassSchedule({
+          schedule_mode: 'manual',
+          manual_schedule: latestByClassId.get(row.class_id)?.manual_schedule
+        }).manual_schedule
       }))
     });
   } catch (error) {

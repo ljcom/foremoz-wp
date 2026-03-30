@@ -2565,7 +2565,7 @@ export default function AdminPage() {
     try {
       normalizedSchedule = normalizeClassScheduleForPayload({
         ...classForm,
-        schedule_mode: isScheduledClassForm ? classForm.schedule_mode : 'none'
+        schedule_mode: classForm.schedule_mode
       });
     } catch (error) {
       setClassEditTab('general');
@@ -6042,6 +6042,151 @@ export default function AdminPage() {
                                       </label>
                                     </>
                                   ) : null}
+                                  <div className="card" style={{ borderStyle: 'dashed', marginTop: '0.75rem' }}>
+                                    <p className="eyebrow">Schedule</p>
+                                    <div style={{ display: 'grid', gap: '0.35rem', marginBottom: '0.75rem' }}>
+                                      <label style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', margin: 0 }}>
+                                        <input
+                                          type="radio"
+                                          name="class_access_schedule_mode"
+                                          checked={classForm.schedule_mode === 'everyday'}
+                                          onChange={() => setClassForm((prev) => ({ ...prev, schedule_mode: 'everyday' }))}
+                                        />
+                                        <span>Everyday</span>
+                                      </label>
+                                      <label style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', margin: 0 }}>
+                                        <input
+                                          type="radio"
+                                          name="class_access_schedule_mode"
+                                          checked={classForm.schedule_mode === 'weekly'}
+                                          onChange={() => setClassForm((prev) => ({ ...prev, schedule_mode: 'weekly' }))}
+                                        />
+                                        <span>Weekday</span>
+                                      </label>
+                                      <label style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', margin: 0 }}>
+                                        <input
+                                          type="radio"
+                                          name="class_access_schedule_mode"
+                                          checked={classForm.schedule_mode === 'manual'}
+                                          onChange={() =>
+                                            setClassForm((prev) => ({
+                                              ...prev,
+                                              schedule_mode: 'manual',
+                                              manual_schedule: Array.isArray(prev.manual_schedule) && prev.manual_schedule.length > 0
+                                                ? prev.manual_schedule
+                                                : [createEmptyClassManualSession()]
+                                            }))
+                                          }
+                                        />
+                                        <span>Custom</span>
+                                      </label>
+                                    </div>
+                                    {classForm.schedule_mode === 'everyday' ? (
+                                      <>
+                                        <label>Jam Mulai<input type="time" value={classForm.weekly_start_time} onChange={(e) => setClassForm((prev) => ({ ...prev, weekly_start_time: e.target.value }))} /></label>
+                                        <label>Jam Akhir<input type="time" value={classForm.weekly_end_time} onChange={(e) => setClassForm((prev) => ({ ...prev, weekly_end_time: e.target.value }))} /></label>
+                                      </>
+                                    ) : null}
+                                    {classForm.schedule_mode === 'weekly' ? (
+                                      <>
+                                        <div className="row-actions" style={{ flexWrap: 'wrap', marginBottom: '0.75rem' }}>
+                                          {CLASS_WEEKDAYS.map((day) => {
+                                            const isChecked = (classForm.weekly_days || []).includes(day.value);
+                                            return (
+                                              <label key={`access-${day.value}`} className="passport-chip" style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                                                <input
+                                                  type="checkbox"
+                                                  checked={isChecked}
+                                                  onChange={(e) =>
+                                                    setClassForm((prev) => {
+                                                      const current = Array.isArray(prev.weekly_days) ? prev.weekly_days : [];
+                                                      const next = e.target.checked
+                                                        ? [...new Set([...current, day.value])]
+                                                        : current.filter((item) => item !== day.value);
+                                                      return { ...prev, weekly_days: next };
+                                                    })
+                                                  }
+                                                />
+                                                <span>{day.label}</span>
+                                              </label>
+                                            );
+                                          })}
+                                        </div>
+                                        <label>Jam Mulai<input type="time" value={classForm.weekly_start_time} onChange={(e) => setClassForm((prev) => ({ ...prev, weekly_start_time: e.target.value }))} /></label>
+                                        <label>Jam Akhir<input type="time" value={classForm.weekly_end_time} onChange={(e) => setClassForm((prev) => ({ ...prev, weekly_end_time: e.target.value }))} /></label>
+                                      </>
+                                    ) : null}
+                                    {classForm.schedule_mode === 'manual' ? (
+                                      <>
+                                        <div className="row-actions" style={{ marginBottom: '0.5rem' }}>
+                                          <button
+                                            className="btn ghost small"
+                                            type="button"
+                                            onClick={() =>
+                                              setClassForm((prev) => ({
+                                                ...prev,
+                                                manual_schedule: [...(Array.isArray(prev.manual_schedule) ? prev.manual_schedule : []), createEmptyClassManualSession()]
+                                              }))
+                                            }
+                                          >
+                                            + custom date
+                                          </button>
+                                        </div>
+                                        <div className="entity-list">
+                                          {(Array.isArray(classForm.manual_schedule) ? classForm.manual_schedule : []).map((session, index) => (
+                                            <div key={`class-access-manual-session-${index}`} className="card" style={{ marginBottom: '0.5rem' }}>
+                                              <label>
+                                                Tanggal + Jam Mulai
+                                                <input
+                                                  type="datetime-local"
+                                                  value={session.start_at || ''}
+                                                  onChange={(e) =>
+                                                    setClassForm((prev) => ({
+                                                      ...prev,
+                                                      manual_schedule: (Array.isArray(prev.manual_schedule) ? prev.manual_schedule : []).map((item, idx) =>
+                                                        idx === index ? { ...item, start_at: e.target.value } : item
+                                                      )
+                                                    }))
+                                                  }
+                                                />
+                                              </label>
+                                              <label>
+                                                Tanggal + Jam Akhir
+                                                <input
+                                                  type="datetime-local"
+                                                  value={session.end_at || ''}
+                                                  onChange={(e) =>
+                                                    setClassForm((prev) => ({
+                                                      ...prev,
+                                                      manual_schedule: (Array.isArray(prev.manual_schedule) ? prev.manual_schedule : []).map((item, idx) =>
+                                                        idx === index ? { ...item, end_at: e.target.value } : item
+                                                      )
+                                                    }))
+                                                  }
+                                                />
+                                              </label>
+                                              <button
+                                                className="btn ghost small"
+                                                type="button"
+                                                onClick={() =>
+                                                  setClassForm((prev) => {
+                                                    const current = Array.isArray(prev.manual_schedule) ? prev.manual_schedule : [];
+                                                    const next = current.filter((_, idx) => idx !== index);
+                                                    return {
+                                                      ...prev,
+                                                      manual_schedule: next.length > 0 ? next : [createEmptyClassManualSession()]
+                                                    };
+                                                  })
+                                                }
+                                              >
+                                                Hapus date
+                                              </button>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </>
+                                    ) : null}
+                                  </div>
                                   {classAccessSummary.length > 0 ? (
                                     <div className="card" style={{ borderStyle: 'dashed', marginTop: '0.25rem' }}>
                                       <p className="eyebrow">Ringkasan konfigurasi</p>
