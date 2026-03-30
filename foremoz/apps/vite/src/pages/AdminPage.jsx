@@ -624,6 +624,7 @@ function createEmptyClassForm() {
     category: '',
     category_id: '',
     categories_text: '',
+    tags_text: '',
     custom_fields_text: '',
     registration_fields: [],
     schedule_mode: 'everyday',
@@ -764,11 +765,15 @@ function splitClassCustomFields(value, primaryCategory = '') {
   const registrationFields = Array.isArray(source.registration_fields)
     ? source.registration_fields.map(toRegistrationFieldForm)
     : [];
-  const storedCategoryTags = Array.isArray(source.category_tags) ? source.category_tags : [];
-  const categoryTags = [...new Set([
-    ...storedCategoryTags.map((item) => String(item || '').trim()).filter(Boolean),
-    String(primaryCategory || '').trim()
-  ].filter(Boolean))];
+  const storedSeoTags = Array.isArray(source.seo_tags)
+    ? source.seo_tags
+    : (Array.isArray(source.category_tags) ? source.category_tags : []);
+  const normalizedPrimaryCategory = String(primaryCategory || source.category || '').trim();
+  const seoTags = [...new Set(
+    storedSeoTags
+      .map((item) => String(item || '').trim())
+      .filter((item) => item && item !== normalizedPrimaryCategory)
+  )];
   const registrationMode = String(source.registration_mode || '').trim().toLowerCase();
   const normalizedRegistrationMode = registrationMode === 'closed' || registrationMode === 'range_date'
     ? registrationMode
@@ -785,7 +790,8 @@ function splitClassCustomFields(value, primaryCategory = '') {
   return {
     registration_fields: registrationFields,
     metadata_text: Object.keys(rest).length > 0 ? JSON.stringify(rest, null, 2) : '',
-    categories_text: categoryTags.join(', '),
+    categories_text: normalizedPrimaryCategory,
+    tags_text: seoTags.join(', '),
     registration_mode: normalizedRegistrationMode,
     location: String(source.location || ''),
     image_url: String(source.image_url || ''),
@@ -795,12 +801,14 @@ function splitClassCustomFields(value, primaryCategory = '') {
 
 function buildClassCustomFieldsPayload(formValue) {
   const base = parseCustomFieldsInput(formValue?.custom_fields_text || '', 'class');
-  const categoryTags = normalizeEventCategoriesForPayload(formValue?.categories_text || '');
+  const seoTags = normalizeEventCategoriesForPayload(formValue?.tags_text || '');
   const registrationFields = normalizeRegistrationFieldsForPayload(formValue?.registration_fields);
   const registrationMode = String(formValue?.registration_period_mode || 'always_open').trim().toLowerCase();
-  if (categoryTags.length > 0) {
-    base.category_tags = categoryTags;
+  if (seoTags.length > 0) {
+    base.seo_tags = seoTags;
+    base.category_tags = seoTags;
   } else {
+    delete base.seo_tags;
     delete base.category_tags;
   }
   if (registrationFields.length > 0) {
@@ -1117,7 +1125,8 @@ function createClassFormFromTemplate(template) {
       coach_id: '',
       trainer_name: '',
       coach_shares: [],
-      categories_text: 'membership, gym access',
+      categories_text: 'Gym Access',
+      tags_text: 'membership, open access',
       schedule_mode: 'none',
       price: '0',
       validity_mode: 'per_enrollment',
@@ -1141,7 +1150,8 @@ function createClassFormFromTemplate(template) {
       class_name: 'Personal Training',
       description: 'Paket personal training dengan coach dan saldo sesi.',
       has_coach: true,
-      categories_text: 'personal training, pt',
+      categories_text: 'Personal Training',
+      tags_text: 'pt, private coaching',
       schedule_mode: 'none',
       price: '0',
       validity_mode: 'per_enrollment',
@@ -1165,7 +1175,8 @@ function createClassFormFromTemplate(template) {
       class_name: 'Activity Class',
       description: 'Class dengan coach, jadwal, dan aturan booking.',
       has_coach: true,
-      categories_text: 'activity class',
+      categories_text: 'Activity Class',
+      tags_text: 'class, scheduled',
       schedule_mode: 'weekly',
       weekly_days: [],
       weekly_start_time: '',
@@ -2551,8 +2562,9 @@ export default function AdminPage() {
     () => getClassCategoryExamplesByType(resolvedClassType),
     [resolvedClassType]
   );
-  const classCategoryInstruction = `Pisahkan dengan koma atau baris baru. Contoh: ${classCategoryExamples[0]}, ${classCategoryExamples[1]}.`;
-  const classCategoryPlaceholder = `${classCategoryExamples[0]}, ${classCategoryExamples[1]}\n${classCategoryExamples[2]}`;
+  const classCategoryInstruction = `Isi satu category utama. Contoh: ${classCategoryExamples[0]}, ${classCategoryExamples[1]}, atau ${classCategoryExamples[2]}.`;
+  const classCategoryPlaceholder = classCategoryExamples[0];
+  const classTagPlaceholder = 'beginner, morning, 30 days, jakarta';
   const totalClassCoachShare = useMemo(() => sumCoachSharePercent(classForm.coach_shares), [classForm.coach_shares]);
   const availableClassTrainerOptions = useMemo(
     () => trainerNameOptions.filter((name) => !selectedClassTrainerTokens.includes(name)),
@@ -2804,8 +2816,7 @@ export default function AdminPage() {
       const endpoint = editingClassId
         ? `/v1/admin/classes/${encodeURIComponent(editingClassId)}`
         : '/v1/admin/classes';
-      const classCategories = normalizeEventCategoriesForPayload(classForm.categories_text);
-      const primaryCategory = classCategories[0] || '';
+      const primaryCategory = String(classForm.categories_text || '').trim();
       const capacityMode = isScheduledClassForm ? scheduledCapacityMode : classForm.capacity_mode;
       const normalizedCapacity = isScheduledClassForm
         ? (hasLimitedScheduledCapacity
@@ -2904,6 +2915,7 @@ export default function AdminPage() {
       category: item.category || '',
       category_id: item.category_id || '',
       categories_text: classCustomFields.categories_text,
+      tags_text: classCustomFields.tags_text,
       custom_fields_text: classCustomFields.metadata_text,
       registration_fields: classCustomFields.registration_fields,
       schedule_mode: item.schedule_mode || (item.class_type === 'scheduled' ? 'everyday' : 'none'),
@@ -7012,22 +7024,32 @@ export default function AdminPage() {
                                   const categories = suggestCategoriesFromText(
                                     [classForm.class_name, classForm.description, classForm.categories_text].join(' ')
                                   );
-                                  setClassForm((prev) => ({ ...prev, categories_text: categories.join(', ') }));
-                                  setFeedback(`ai.assist: Category suggestion -> ${categories.join(', ')}`);
+                                  setClassForm((prev) => ({ ...prev, categories_text: categories[0] || prev.categories_text }));
+                                  setFeedback(`ai.assist: Category suggestion -> ${categories[0] || '-'}`);
                                 }}
                               >
                                 AI Suggest Category
                               </button>
                             </div>
                             <p className="feedback">{classCategoryInstruction}</p>
-                            <textarea
-                              rows={4}
+                            <input
                               placeholder={classCategoryPlaceholder}
                               value={classForm.categories_text}
                               onChange={(e) => setClassForm((p) => ({ ...p, categories_text: e.target.value }))}
                             />
                             <p className="feedback">
-                              Preview: {normalizeEventCategoriesForPayload(classForm.categories_text).join(' | ') || '-'}
+                              Preview: {String(classForm.categories_text || '').trim() || '-'}
+                            </p>
+                            <p className="eyebrow" style={{ marginTop: '1rem' }}>Tag (SEO)</p>
+                            <p className="feedback">Tag bebas untuk SEO, search, dan discovery. Tidak dipakai untuk logic operasional.</p>
+                            <textarea
+                              rows={4}
+                              placeholder={classTagPlaceholder}
+                              value={classForm.tags_text}
+                              onChange={(e) => setClassForm((p) => ({ ...p, tags_text: e.target.value }))}
+                            />
+                            <p className="feedback">
+                              Preview Tag: {normalizeEventCategoriesForPayload(classForm.tags_text).join(' | ') || '-'}
                             </p>
                           </div>
                         </div>
@@ -7035,13 +7057,13 @@ export default function AdminPage() {
                           <div className="card" style={{ borderStyle: 'dashed' }}>
                             <p className="eyebrow">Panduan cepat</p>
                             <p className="feedback">
-                              <strong>Kategori pertama:</strong> akan dipakai sebagai kategori utama class untuk listing dan filter utama.
+                              <strong>Category:</strong> pakai satu kategori utama untuk grouping, filter, dan reporting class.
                             </p>
                             <p className="feedback">
-                              <strong>Kategori berikutnya:</strong> tetap disimpan sebagai tag tambahan agar konteks class tidak hilang.
+                              <strong>Tag (SEO):</strong> isi bebas untuk search, discovery, dan konteks marketing seperti `beginner`, `morning`, atau `30 days`.
                             </p>
                             <p className="feedback">
-                              <strong>Kapan dibedakan:</strong> buat category baru jika activity perlu grup listing, filter, atau pelaporan yang berbeda. Kalau hanya beda jam atau coach, biasanya tidak perlu category baru.
+                              <strong>Jangan campur:</strong> hari, jam, division, quota, atau aturan paket sebaiknya tidak dijadikan category utama.
                             </p>
                           </div>
                         </aside>
