@@ -622,7 +622,7 @@ function createEmptyClassForm() {
     custom_fields_text: '',
     registration_fields: [],
     schedule_mode: 'everyday',
-    registration_period_mode: 'no',
+    registration_period_mode: 'always_open',
     weekly_days: [],
     weekly_start_time: '',
     weekly_end_time: '',
@@ -671,11 +671,21 @@ function splitClassCustomFields(value, primaryCategory = '') {
     ...storedCategoryTags.map((item) => String(item || '').trim()).filter(Boolean),
     String(primaryCategory || '').trim()
   ].filter(Boolean))];
-  const { registration_fields: _registrationFields, category_tags: _categoryTags, ...rest } = source;
+  const registrationMode = String(source.registration_mode || '').trim().toLowerCase();
+  const normalizedRegistrationMode = registrationMode === 'closed' || registrationMode === 'range_date'
+    ? registrationMode
+    : 'always_open';
+  const {
+    registration_fields: _registrationFields,
+    category_tags: _categoryTags,
+    registration_mode: _registrationMode,
+    ...rest
+  } = source;
   return {
     registration_fields: registrationFields,
     metadata_text: Object.keys(rest).length > 0 ? JSON.stringify(rest, null, 2) : '',
-    categories_text: categoryTags.join(', ')
+    categories_text: categoryTags.join(', '),
+    registration_mode: normalizedRegistrationMode
   };
 }
 
@@ -683,6 +693,7 @@ function buildClassCustomFieldsPayload(formValue) {
   const base = parseCustomFieldsInput(formValue?.custom_fields_text || '', 'class');
   const categoryTags = normalizeEventCategoriesForPayload(formValue?.categories_text || '');
   const registrationFields = normalizeRegistrationFieldsForPayload(formValue?.registration_fields);
+  const registrationMode = String(formValue?.registration_period_mode || 'always_open').trim().toLowerCase();
   if (categoryTags.length > 0) {
     base.category_tags = categoryTags;
   } else {
@@ -692,6 +703,11 @@ function buildClassCustomFieldsPayload(formValue) {
     base.registration_fields = registrationFields;
   } else {
     delete base.registration_fields;
+  }
+  if (registrationMode === 'closed' || registrationMode === 'range_date') {
+    base.registration_mode = registrationMode;
+  } else {
+    delete base.registration_mode;
   }
   return base;
 }
@@ -952,6 +968,21 @@ function resolveClassTypeForForm(form) {
   return usageMode === 'limited' ? 'session_pack' : 'open_access';
 }
 
+function normalizeClassRegistrationMode(value) {
+  const normalized = String(value || 'always_open').trim().toLowerCase();
+  if (normalized === 'closed' || normalized === 'range_date') return normalized;
+  return 'always_open';
+}
+
+function createClosedRegistrationPayload() {
+  const registrationEnd = new Date();
+  const registrationStart = new Date(registrationEnd.getTime() - 60 * 1000);
+  return {
+    registration_start: registrationStart.toISOString(),
+    registration_end: registrationEnd.toISOString()
+  };
+}
+
 function getActivityFieldGuide(classType) {
   const normalizedType = String(classType || 'scheduled').trim().toLowerCase();
   if (normalizedType === 'open_access') {
@@ -1089,6 +1120,17 @@ function formatUsageSummary(mode, limit, period) {
   return safeLimit > 0 ? `maks ${safeLimit} kali selama masa aktif` : 'limited selama masa aktif';
 }
 
+function formatRegistrationSummary(mode, registrationStart, registrationEnd) {
+  const normalizedMode = normalizeClassRegistrationMode(mode);
+  if (normalizedMode === 'closed') return 'Registrasi ditutup.';
+  if (normalizedMode === 'range_date') {
+    const startLabel = registrationStart ? formatDateTime(registrationStart) : '-';
+    const endLabel = registrationEnd ? formatDateTime(registrationEnd) : '-';
+    return `Registrasi buka ${startLabel} sampai ${endLabel}.`;
+  }
+  return 'Registrasi selalu terbuka.';
+}
+
 function formatClassAccessConfigurationSummary(form) {
   const classType = String(form?.class_type || 'scheduled').trim().toLowerCase();
   if (classType === 'scheduled') return [];
@@ -1099,19 +1141,26 @@ function formatClassAccessConfigurationSummary(form) {
   const validityLabel = formatActivityUnitSummary(form?.validity_unit, form?.validity_value);
   const anchorLabel = formatValidityAnchorSummary(form?.validity_anchor);
   const usageLabel = formatUsageSummary(form?.usage_mode, form?.usage_limit, form?.usage_period);
+  const registrationLabel = formatRegistrationSummary(
+    form?.registration_period_mode,
+    form?.registration_start,
+    form?.registration_end
+  );
 
   if (classType === 'open_access') {
     return [
       priceLabel,
       `Masa aktif: ${validityLabel}, ${anchorLabel}.`,
-      `Pemakaian: ${usageLabel}.`
+      `Pemakaian: ${usageLabel}.`,
+      registrationLabel
     ];
   }
 
   return [
     priceLabel,
     `Benefit: ${usageLabel}.`,
-    `Masa aktif paket: ${validityLabel}, ${anchorLabel}.`
+    `Masa aktif paket: ${validityLabel}, ${anchorLabel}.`,
+    registrationLabel
   ];
 }
 function formatActivityAccessSummary(item) {
@@ -2483,9 +2532,7 @@ export default function AdminPage() {
 
   async function addClass(e) {
     e.preventDefault();
-    const registrationPeriodMode = isScheduledClassForm
-      ? String(classForm.registration_period_mode || 'no').trim().toLowerCase()
-      : 'no';
+    const registrationPeriodMode = normalizeClassRegistrationMode(classForm.registration_period_mode);
     const scheduledCapacityMode = isScheduledClassForm
       ? String(classForm.capacity_mode || 'limited').trim().toLowerCase()
       : String(classForm.capacity_mode || 'none').trim().toLowerCase();
@@ -2536,7 +2583,7 @@ export default function AdminPage() {
       setFeedback('periode akhir fixed date harus setelah periode mulai');
       return;
     }
-    if (isScheduledClassForm && registrationPeriodMode === 'range_date') {
+    if (registrationPeriodMode === 'range_date') {
       if (!String(classForm.registration_start || '').trim() || !String(classForm.registration_end || '').trim()) {
         setClassEditTab('general');
         setFeedback('registration start dan registration end wajib diisi');
@@ -2602,6 +2649,9 @@ export default function AdminPage() {
             ? Number(classForm.max_quota || classForm.capacity || 0)
             : 0)
         : (hasLimitedAccessCapacity ? Number(classForm.max_quota || classForm.capacity || 0) : 0);
+      const closedRegistrationPayload = registrationPeriodMode === 'closed'
+        ? createClosedRegistrationPayload()
+        : null;
       await apiJson(endpoint, {
         method,
         body: JSON.stringify({
@@ -2632,10 +2682,10 @@ export default function AdminPage() {
           end_date: classForm.end_date || null,
           registration_start: registrationPeriodMode === 'range_date' && classForm.registration_start
             ? toApiDatetime(classForm.registration_start)
-            : null,
+            : (closedRegistrationPayload?.registration_start || null),
           registration_end: registrationPeriodMode === 'range_date' && classForm.registration_end
             ? toApiDatetime(classForm.registration_end)
-            : null,
+            : (closedRegistrationPayload?.registration_end || null),
           max_meetings: Number(classForm.max_meetings || 0),
           validity_unit: classForm.validity_unit,
           validity_value: classForm.validity_value ? Number(classForm.validity_value) : null,
@@ -2690,7 +2740,11 @@ export default function AdminPage() {
       custom_fields_text: classCustomFields.metadata_text,
       registration_fields: classCustomFields.registration_fields,
       schedule_mode: item.schedule_mode || (item.class_type === 'scheduled' ? 'everyday' : 'none'),
-      registration_period_mode: item.registration_start || item.registration_end ? 'range_date' : 'no',
+      registration_period_mode: classCustomFields.registration_mode === 'closed'
+        ? 'closed'
+        : (classCustomFields.registration_mode === 'range_date' || item.registration_start || item.registration_end
+            ? 'range_date'
+            : 'always_open'),
       weekly_days: Array.isArray(item.weekly_schedule?.weekdays) ? item.weekly_schedule.weekdays : [],
       weekly_start_time: String(item.weekly_schedule?.start_time || ''),
       weekly_end_time: String(item.weekly_schedule?.end_time || ''),
@@ -2794,7 +2848,7 @@ export default function AdminPage() {
         quota_mode: 'none',
         min_quota: '',
         max_quota: '',
-        registration_period_mode: 'no'
+        registration_period_mode: 'always_open'
       });
     } else if (template === 'personal_training') {
       setClassForm({
@@ -2819,7 +2873,7 @@ export default function AdminPage() {
         quota_mode: 'none',
         min_quota: '',
         max_quota: '',
-        registration_period_mode: 'no'
+        registration_period_mode: 'always_open'
       });
     } else if (template === 'activity_class') {
       setClassForm({
@@ -2843,7 +2897,7 @@ export default function AdminPage() {
         min_quota: '',
         max_quota: '20',
         capacity: '20',
-        registration_period_mode: 'no'
+        registration_period_mode: 'always_open'
       });
     } else {
       startAddClass();
@@ -6203,6 +6257,64 @@ export default function AdminPage() {
                                     ) : null}
                                   </div>
                                   <div className="card" style={{ borderStyle: 'dashed', marginTop: '0.75rem' }}>
+                                    <p className="eyebrow">Registration</p>
+                                    <div style={{ display: 'grid', gap: '0.35rem', marginBottom: '0.75rem' }}>
+                                      <label style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', margin: 0 }}>
+                                        <input
+                                          type="radio"
+                                          name="class_access_registration_mode"
+                                          checked={normalizeClassRegistrationMode(classForm.registration_period_mode) === 'always_open'}
+                                          onChange={() =>
+                                            setClassForm((prev) => ({
+                                              ...prev,
+                                              registration_period_mode: 'always_open',
+                                              registration_start: '',
+                                              registration_end: ''
+                                            }))
+                                          }
+                                        />
+                                        <span>Always open</span>
+                                      </label>
+                                      <label style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', margin: 0 }}>
+                                        <input
+                                          type="radio"
+                                          name="class_access_registration_mode"
+                                          checked={normalizeClassRegistrationMode(classForm.registration_period_mode) === 'range_date'}
+                                          onChange={() => setClassForm((prev) => ({ ...prev, registration_period_mode: 'range_date' }))}
+                                        />
+                                        <span>Range of date</span>
+                                      </label>
+                                      <label style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', margin: 0 }}>
+                                        <input
+                                          type="radio"
+                                          name="class_access_registration_mode"
+                                          checked={normalizeClassRegistrationMode(classForm.registration_period_mode) === 'closed'}
+                                          onChange={() =>
+                                            setClassForm((prev) => ({
+                                              ...prev,
+                                              registration_period_mode: 'closed',
+                                              registration_start: '',
+                                              registration_end: ''
+                                            }))
+                                          }
+                                        />
+                                        <span>Closed</span>
+                                      </label>
+                                    </div>
+                                    {normalizeClassRegistrationMode(classForm.registration_period_mode) === 'range_date' ? (
+                                      <>
+                                        <label>Registration Start<input type="datetime-local" value={classForm.registration_start} onChange={(e) => setClassForm((p) => ({ ...p, registration_start: e.target.value }))} /></label>
+                                        <label>Registration End<input type="datetime-local" value={classForm.registration_end} onChange={(e) => setClassForm((p) => ({ ...p, registration_end: e.target.value }))} /></label>
+                                      </>
+                                    ) : (
+                                      <p className="feedback">
+                                        {normalizeClassRegistrationMode(classForm.registration_period_mode) === 'closed'
+                                          ? 'Registrasi ditutup sampai Anda ubah lagi.'
+                                          : 'Registrasi selalu terbuka selama akses masih aktif.'}
+                                      </p>
+                                    )}
+                                  </div>
+                                  <div className="card" style={{ borderStyle: 'dashed', marginTop: '0.75rem' }}>
                                     <p className="eyebrow">Capacity</p>
                                     <div style={{ display: 'grid', gap: '0.35rem', marginBottom: '0.75rem' }}>
                                       <label style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', margin: 0 }}>
@@ -6283,11 +6395,11 @@ export default function AdminPage() {
                                   <input
                                     type="radio"
                                     name="class_registration_period"
-                                    checked={classForm.registration_period_mode === 'no'}
+                                    checked={normalizeClassRegistrationMode(classForm.registration_period_mode) === 'always_open'}
                                     onChange={() =>
                                       setClassForm((prev) => ({
                                         ...prev,
-                                        registration_period_mode: 'no',
+                                        registration_period_mode: 'always_open',
                                         registration_start: '',
                                         registration_end: ''
                                       }))
