@@ -661,6 +661,97 @@ function createEmptyClassTemplateWizard() {
   };
 }
 
+function inferEventEditorTemplate(item) {
+  const source = [
+    item?.event_name,
+    Array.isArray(item?.event_categories) ? item.event_categories.join(' ') : '',
+    item?.description,
+    item?.brief_event
+  ]
+    .join(' ')
+    .toLowerCase();
+  if (isAwardEnabled(item?.award_enabled, true) || /(race|run|competition|lomba|tournament|championship)/.test(source)) {
+    return 'race_competition';
+  }
+  if (/(workshop|seminar|talk|webinar|bootcamp|masterclass)/.test(source)) {
+    return 'workshop_seminar';
+  }
+  if (/(community|gathering|meetup|komunitas)/.test(source)) {
+    return 'community_gathering';
+  }
+  if (/(class|training|course|pelatihan)/.test(source) || String(item?.trainer_name || '').trim()) {
+    return 'class_training';
+  }
+  return 'custom';
+}
+
+function getEventEditorTemplateLabel(template) {
+  const normalized = String(template || 'custom').trim().toLowerCase();
+  if (normalized === 'race_competition') return 'Race / competition';
+  if (normalized === 'workshop_seminar') return 'Workshop / seminar';
+  if (normalized === 'community_gathering') return 'Community gathering';
+  if (normalized === 'class_training') return 'Class / training';
+  return 'Custom';
+}
+
+function createEventFormFromTemplate(template) {
+  if (template === 'race_competition') {
+    return {
+      ...createEmptyEventForm(),
+      event_name: 'Race / Competition',
+      categories_text: 'competition, race',
+      award_enabled: true,
+      award_scopes: ['overall', 'category'],
+      award_top_n: '3',
+      max_participants: '300',
+      duration_value: '4',
+      duration_unit: 'hours'
+    };
+  }
+  if (template === 'workshop_seminar') {
+    return {
+      ...createEmptyEventForm(),
+      event_name: 'Workshop / Seminar',
+      categories_text: 'workshop, seminar',
+      award_enabled: false,
+      award_scopes: ['overall'],
+      award_top_n: '1',
+      max_participants: '100',
+      duration_value: '3',
+      duration_unit: 'hours'
+    };
+  }
+  if (template === 'community_gathering') {
+    return {
+      ...createEmptyEventForm(),
+      event_name: 'Community Gathering',
+      categories_text: 'community, gathering',
+      award_enabled: false,
+      award_scopes: ['overall'],
+      award_top_n: '1',
+      max_participants: '0',
+      duration_value: '2',
+      duration_unit: 'hours',
+      trainer_name: '',
+      coach_shares: []
+    };
+  }
+  if (template === 'class_training') {
+    return {
+      ...createEmptyEventForm(),
+      event_name: 'Class / Training',
+      categories_text: 'class, training',
+      award_enabled: false,
+      award_scopes: ['overall'],
+      award_top_n: '1',
+      max_participants: '40',
+      duration_value: '90',
+      duration_unit: 'minutes'
+    };
+  }
+  return createEmptyEventForm();
+}
+
 function splitClassCustomFields(value, primaryCategory = '') {
   const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
   const registrationFields = Array.isArray(source.registration_fields)
@@ -1790,6 +1881,7 @@ export default function AdminPage() {
   const [userForm, setUserForm] = useState({ full_name: '', email: '', role: 'staff' });
   const [eventForm, setEventForm] = useState(() => createEmptyEventForm());
   const [eventFormBaseline, setEventFormBaseline] = useState(() => serializeEventForm(createEmptyEventForm()));
+  const [eventTemplateWizard, setEventTemplateWizard] = useState('custom');
   const [eventTrainerDraft, setEventTrainerDraft] = useState('');
   const [eventAiWorking, setEventAiWorking] = useState(false);
   const eventImageFileInputRef = useRef(null);
@@ -2411,6 +2503,14 @@ export default function AdminPage() {
   const isActivityClassEditor = classEditorTemplate === 'activity_class';
   const isPersonalTrainingClassEditor = classEditorTemplate === 'personal_training';
   const isCustomClassEditor = classEditorTemplate === 'custom';
+  const eventEditorTemplate = String(eventTemplateWizard || 'custom').trim().toLowerCase() || 'custom';
+  const isCompetitionEventEditor = eventEditorTemplate === 'race_competition';
+  const isWorkshopEventEditor = eventEditorTemplate === 'workshop_seminar';
+  const isCommunityEventEditor = eventEditorTemplate === 'community_gathering';
+  const isClassEventEditor = eventEditorTemplate === 'class_training';
+  const isCustomEventEditor = eventEditorTemplate === 'custom';
+  const showEventCoachFields = !isCommunityEventEditor || Boolean(editingEventId) || selectedEventTrainerTokens.length > 0 || String(eventForm.trainer_name || '').trim().length > 0;
+  const showEventAwardSettings = isCompetitionEventEditor || isCustomEventEditor || isAwardEnabled(eventForm.award_enabled, true);
   const classGuideType = isActivityClassEditor ? 'scheduled' : resolvedClassType;
   const isFixedDateClassAccess = !isScheduledClassForm && classForm.validity_anchor === 'fixed_start';
   const showClassCoachFields = classForm.has_coach !== false;
@@ -3696,6 +3796,7 @@ export default function AdminPage() {
       const emptyForm = createEmptyEventForm();
       setEventForm(emptyForm);
       setEventFormBaseline(serializeEventForm(emptyForm));
+      setEventTemplateWizard('custom');
       setEventTrainerDraft('');
       setEventPostQuote(null);
       setEditingEventId('');
@@ -3710,6 +3811,7 @@ export default function AdminPage() {
 
   function viewEvent(item) {
     const durationInput = fromDurationMinutes(item.duration_minutes || '60');
+    const eventTemplate = inferEventEditorTemplate(item);
     const nextForm = {
       brief_event: item.brief_event || '',
       event_name: item.event_name || '',
@@ -3734,6 +3836,7 @@ export default function AdminPage() {
     setEventWalkinForm(createEmptyEventWalkinForm());
     setEventForm(nextForm);
     setEventFormBaseline(serializeEventForm(nextForm));
+    setEventTemplateWizard(eventTemplate);
     setEventTrainerDraft('');
     setEventPostQuote(null);
     setEditingEventId(item.event_id || '');
@@ -3760,6 +3863,29 @@ export default function AdminPage() {
     const emptyForm = createEmptyEventForm();
     setEventForm(emptyForm);
     setEventFormBaseline(serializeEventForm(emptyForm));
+    setEventTemplateWizard('custom');
+    setEventTrainerDraft('');
+    setEventWalkinForm(createEmptyEventWalkinForm());
+    setEventPostQuote(null);
+    setEditingEventId('');
+    setEventParticipants([]);
+    setEventEditTab('general');
+    setEventCheckinSearch('');
+    setEventCheckinBarcode('');
+    setEventCheckinMap({});
+    setEventCheckinSavingMap({});
+    setEventCheckoutMap({});
+    setEventCheckoutRankMap({});
+    setEventCheckoutSavingMap({});
+    setEventMode('wizard');
+  }
+
+  function openEventTemplateWizard(template) {
+    const normalizedTemplate = String(template || 'custom').trim().toLowerCase();
+    const nextForm = createEventFormFromTemplate(normalizedTemplate);
+    setEventTemplateWizard(normalizedTemplate);
+    setEventForm(nextForm);
+    setEventFormBaseline(serializeEventForm(nextForm));
     setEventTrainerDraft('');
     setEventWalkinForm(createEmptyEventWalkinForm());
     setEventPostQuote(null);
@@ -4490,6 +4616,7 @@ export default function AdminPage() {
                 if (tab.id === 'event') {
                   setEditingEventId('');
                   setEventForm(createEmptyEventForm());
+                  setEventTemplateWizard('custom');
                   setEventPostQuote(null);
                   setEventParticipants([]);
                   setEventEditTab('general');
@@ -4590,6 +4717,89 @@ export default function AdminPage() {
                         </div>
                       </article>
                     ))}
+                  </div>
+                </>
+              ) : eventMode === 'wizard' ? (
+                <>
+                  <div className="panel-head">
+                    <h2>Add event</h2>
+                    <button className="btn ghost" type="button" onClick={() => setEventMode('list')}>
+                      Back to list
+                    </button>
+                  </div>
+                  <div className="class-wizard-shell">
+                    <div className="class-wizard-intro card">
+                      <p className="eyebrow">Pilih mode</p>
+                      <h3>Mulai dari jenis event yang paling dekat</h3>
+                      <p className="feedback">Template ini akan memberi titik awal yang lebih fokus. `Custom` tetap membuka form lengkap event seperti sekarang.</p>
+                    </div>
+                    <div className="class-wizard-grid">
+                      {[
+                        {
+                          id: 'race_competition',
+                          title: 'Race / competition',
+                          description: 'Untuk lomba, race, atau event dengan ranking dan award.',
+                          tag: 'Award',
+                          visualClass: 'activity',
+                          accents: ['Top 3', 'Leaderboard']
+                        },
+                        {
+                          id: 'workshop_seminar',
+                          title: 'Workshop / seminar',
+                          description: 'Untuk sesi edukasi, talk, seminar, atau workshop terjadwal.',
+                          tag: 'Learning',
+                          visualClass: 'membership',
+                          accents: ['Talk', 'Workshop']
+                        },
+                        {
+                          id: 'community_gathering',
+                          title: 'Community gathering',
+                          description: 'Untuk meetup, networking, atau aktivitas komunitas yang santai.',
+                          tag: 'Community',
+                          visualClass: 'custom',
+                          accents: ['Meetup', 'Social']
+                        },
+                        {
+                          id: 'class_training',
+                          title: 'Class / training',
+                          description: 'Untuk kelas, coaching, atau sesi training dengan instruktur.',
+                          tag: 'Coach',
+                          visualClass: 'pt',
+                          accents: ['Coach', 'Session']
+                        },
+                        {
+                          id: 'custom',
+                          title: 'Custom',
+                          description: 'Buka form event lengkap dan atur semuanya manual.',
+                          tag: 'Manual',
+                          visualClass: 'custom',
+                          accents: ['Full form', 'Advanced']
+                        }
+                      ].map((option) => (
+                        <button
+                          key={option.id}
+                          className={`class-wizard-card class-wizard-card-${option.visualClass}`}
+                          type="button"
+                          onClick={() => openEventTemplateWizard(option.id)}
+                        >
+                          <div className={`class-wizard-visual class-wizard-visual-${option.visualClass}`} aria-hidden="true">
+                            <span className="class-wizard-shape class-wizard-shape-a" />
+                            <span className="class-wizard-shape class-wizard-shape-b" />
+                            <span className="class-wizard-shape class-wizard-shape-c" />
+                            <div className="class-wizard-mini-card">
+                              <span>{option.accents[0]}</span>
+                              <strong>{option.accents[1]}</strong>
+                            </div>
+                          </div>
+                          <div className="class-wizard-copy">
+                            <span className="class-wizard-tag">{option.tag}</span>
+                            <h3>{option.title}</h3>
+                            <p>{option.description}</p>
+                            <span className="class-wizard-cta">Pilih mode</span>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </>
               ) : eventMode === 'walkin' && selectedWalkinEvent ? (
@@ -4721,7 +4931,7 @@ export default function AdminPage() {
               ) : (
                 <>
                   <div className="panel-head">
-                    <h2>{editingEventId ? `Edit event ${eventForm.event_name || ''}`.trim() : 'Add event'}</h2>
+                    <h2>{editingEventId ? `Edit event ${eventForm.event_name || ''}`.trim() : `Add ${getEventEditorTemplateLabel(eventEditorTemplate)}`}</h2>
                     <button
                       className="btn ghost"
                       type="button"
@@ -4730,12 +4940,30 @@ export default function AdminPage() {
                           const proceed = window.confirm(copy.unsavedEventListPrompt);
                           if (!proceed) return;
                         }
-                        setEventMode('list');
+                        if (editingEventId) {
+                          setEventMode('list');
+                          return;
+                        }
+                        startAddEvent();
                       }}
                     >
-                      Back to list
+                      {editingEventId ? 'Back to list' : 'Back to wizard'}
                     </button>
                   </div>
+                  {!editingEventId ? (
+                    <div className="card" style={{ borderStyle: 'dashed', marginBottom: '0.75rem' }}>
+                      <p className="eyebrow">Mode</p>
+                      <p className="feedback">
+                        Form ini sedang memakai mode <strong>{getEventEditorTemplateLabel(eventEditorTemplate)}</strong>.
+                        {isCustomEventEditor
+                          ? ' Semua field event tetap tersedia.'
+                          : ' Field utama sudah diarahkan sesuai jenis event yang Anda pilih.'}
+                      </p>
+                      <button className="btn ghost small" type="button" onClick={startAddEvent}>
+                        Ganti mode
+                      </button>
+                    </div>
+                  ) : null}
                   <div className="landing-tabs" style={{ marginBottom: '0.8rem' }}>
                     <button
                       type="button"
@@ -4781,6 +5009,20 @@ export default function AdminPage() {
                             AI Rewrite Title
                           </button>
                         </div>
+                        {!editingEventId ? (
+                          <p className="feedback">
+                            {isCompetitionEventEditor
+                              ? 'Mode competition menyiapkan event dengan award, leaderboard, dan kapasitas peserta.'
+                              : isWorkshopEventEditor
+                                ? 'Mode workshop fokus ke materi, trainer, dan kapasitas peserta.'
+                                : isCommunityEventEditor
+                                  ? 'Mode community gathering dibuat lebih ringan, tanpa coach wajib dan tanpa award.'
+                                  : isClassEventEditor
+                                    ? 'Mode class / training fokus ke trainer, rundown sesi, dan peserta.'
+                                    : 'Mode custom membuka semua field event untuk konfigurasi bebas.'}
+                          </p>
+                        ) : null}
+                        {showEventCoachFields ? (
                         <div className="card" style={{ borderStyle: 'dashed' }}>
                           <p className="eyebrow">{creatorLabel} Name (token input)</p>
                           <div className="row-actions" style={{ marginBottom: '0.5rem' }}>
@@ -4874,6 +5116,9 @@ export default function AdminPage() {
                             </div>
                           ) : null}
                         </div>
+                        ) : (
+                          <p className="feedback">Mode ini tidak mewajibkan coach atau host. Jika nanti perlu, Anda bisa ganti ke `Custom` atau edit template event yang lain.</p>
+                        )}
                         <label>Location<input value={eventForm.location} onChange={(e) => setEventForm((p) => ({ ...p, location: e.target.value }))} /></label>
                         <label>Image URL<input value={eventForm.image_url} onChange={(e) => setEventForm((p) => ({ ...p, image_url: e.target.value }))} /></label>
                         <div className="row-actions" style={{ marginTop: '-0.2rem' }}>
@@ -5059,6 +5304,8 @@ export default function AdminPage() {
                             <p className="feedback">
                               Preview: {normalizeEventCategoriesForPayload(eventForm.categories_text).join(' | ') || '-'}
                             </p>
+                            {showEventAwardSettings ? (
+                              <>
                             <div>
                               <p style={{ margin: 0, fontWeight: 600 }}>Award applicable?</p>
                               <div style={{ display: 'grid', gap: '0.35rem', marginTop: '0.35rem' }}>
@@ -5147,6 +5394,10 @@ export default function AdminPage() {
                               </>
                             ) : (
                               <p className="feedback">Award dinonaktifkan untuk event ini.</p>
+                            )}
+                              </>
+                            ) : (
+                              <p className="feedback">Award disembunyikan untuk mode ini. Gunakan `Race / competition` atau `Custom` jika event butuh ranking atau pemenang.</p>
                             )}
                           </div>
                         </div>
