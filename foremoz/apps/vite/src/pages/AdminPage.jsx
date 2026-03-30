@@ -3165,6 +3165,35 @@ export default function AdminPage() {
     setFeedback('ai.assist: Description dipersingkat.');
   }
 
+  function aiGenerateClassDescription() {
+    const className = sentenceCase(classForm.class_name || 'Activity Class');
+    const categories = suggestCategoriesFromText(`${classForm.categories_text} ${className}`);
+    const coachNames = String(classForm.trainer_name || '').trim();
+    const guideName = coachNames || (showClassCoachFields ? `tim ${creatorLabelLower}` : 'tim operasional');
+    const description = [
+      `${className} adalah sesi ${categories[0]} yang dirancang agar pengalaman member terasa jelas, nyaman, dan mudah diikuti.`,
+      showClassCoachFields
+        ? `Dipandu oleh ${guideName}, activity ini cocok untuk peserta yang ingin progres bertahap dengan arahan yang rapi.`
+        : `Activity ini cocok untuk member yang ingin akses fleksibel dengan aturan penggunaan yang tetap jelas.`,
+      String(classForm.location || '').trim()
+        ? `Lokasi pelaksanaan di ${classForm.location}. Hadir lebih awal agar proses check-in dan persiapan berjalan lancar.`
+        : 'Datang lebih awal agar proses check-in dan persiapan berjalan lancar.'
+    ].join(' ');
+    setClassForm((prev) => ({ ...prev, description }));
+    setFeedback('ai.assist: Description class dibuat.');
+  }
+
+  function aiShortenClassDescription() {
+    const current = String(classForm.description || '').trim();
+    if (!current) {
+      setFeedback('Isi Description class dulu.');
+      return;
+    }
+    const shortened = current.split('.').map((part) => part.trim()).filter(Boolean).slice(0, 2).join('. ');
+    setClassForm((prev) => ({ ...prev, description: `${shortened}.` }));
+    setFeedback('ai.assist: Description class dipersingkat.');
+  }
+
   function aiGenerateRundown() {
     const title = String(eventForm.event_name || '').trim();
     const context = [
@@ -6142,6 +6171,22 @@ export default function AdminPage() {
                                 onChange={(e) => setClassForm((p) => ({ ...p, description: e.target.value }))}
                               />
                             </label>
+                            <div className="row-actions" style={{ marginTop: '-0.2rem' }}>
+                              <button
+                                className="btn ghost small"
+                                type="button"
+                                onClick={aiGenerateClassDescription}
+                              >
+                                AI Generate Description
+                              </button>
+                              <button
+                                className="btn ghost small"
+                                type="button"
+                                onClick={aiShortenClassDescription}
+                              >
+                                AI Shorten Description
+                              </button>
+                            </div>
                             {!isMembershipClassEditor ? (
                               <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                 <input
