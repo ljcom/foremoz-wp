@@ -234,6 +234,16 @@ export default function DashboardPage() {
   const [checkinCustomFieldsText, setCheckinCustomFieldsText] = useState('');
   const [checkoutCustomFieldsText, setCheckoutCustomFieldsText] = useState('');
   const [bookingRegistrationAnswers, setBookingRegistrationAnswers] = useState({});
+  const [memberPaymentRows, setMemberPaymentRows] = useState([]);
+  const [memberPaymentLoading, setMemberPaymentLoading] = useState(false);
+  const [orderSaving, setOrderSaving] = useState(false);
+  const [orderForm, setOrderForm] = useState({
+    label: '',
+    qty: '1',
+    unit_price: '',
+    method: 'cash',
+    settlement: 'pending'
+  });
   const [actionFeedback, setActionFeedback] = useState('');
   const [actionSaving, setActionSaving] = useState(false);
 
@@ -355,6 +365,92 @@ export default function DashboardPage() {
     }
   }
 
+  async function loadSelectedMemberPayments(memberId) {
+    const targetMemberId = String(memberId || '').trim();
+    if (!targetMemberId) {
+      setMemberPaymentRows([]);
+      return;
+    }
+    try {
+      setMemberPaymentLoading(true);
+      const response = await apiJson(
+        `/v1/read/payments/history?tenant_id=${encodeURIComponent(tenantId)}&member_id=${encodeURIComponent(targetMemberId)}`
+      );
+      setMemberPaymentRows(Array.isArray(response?.rows) ? response.rows : []);
+    } catch (err) {
+      setActionFeedback(err.message || 'failed to load member payments');
+    } finally {
+      setMemberPaymentLoading(false);
+    }
+  }
+
+  async function submitMockOrder() {
+    if (!selectedMember) {
+      setActionFeedback('Pilih member dulu sebelum membuat order.');
+      return;
+    }
+    const inferredLabel = selectedExperienceType === 'class' && selectedClass
+      ? `Program - ${selectedClass.class_name || selectedClass.class_id}`
+      : selectedExperienceType === 'event' && selectedEvent
+        ? `Event - ${selectedEvent.event_name || selectedEvent.event_id}`
+        : '';
+    const label = String(orderForm.label || '').trim() || inferredLabel;
+    if (!label) {
+      setActionFeedback('Label order wajib diisi.');
+      return;
+    }
+    const qty = Math.max(1, Number(orderForm.qty || 1));
+    const unitPrice = Math.max(0, Number(orderForm.unit_price || 0));
+    if (!Number.isFinite(unitPrice) || unitPrice <= 0) {
+      setActionFeedback('Harga order harus lebih besar dari 0.');
+      return;
+    }
+    const amount = qty * unitPrice;
+    const paymentId = `pay_cs_${Date.now()}`;
+    try {
+      setOrderSaving(true);
+      setActionFeedback('');
+      await apiJson('/v1/payments/record', {
+        method: 'POST',
+        body: JSON.stringify({
+          tenant_id: tenantId,
+          branch_id: branchId,
+          payment_id: paymentId,
+          member_id: selectedMember.member_id,
+          amount,
+          currency: 'IDR',
+          method: orderForm.method || 'cash',
+          reference_type: 'manual',
+          reference_id: label
+        })
+      });
+      if (String(orderForm.settlement || 'pending').trim().toLowerCase() === 'paid') {
+        await apiJson(`/v1/payments/${encodeURIComponent(paymentId)}/confirm`, {
+          method: 'POST',
+          body: JSON.stringify({
+            tenant_id: tenantId,
+            branch_id: branchId,
+            note: `Mock payment for ${label}`
+          })
+        });
+      }
+      await loadDashboard();
+      await loadSelectedMemberPayments(selectedMember.member_id);
+      setOrderForm({
+        label: '',
+        qty: '1',
+        unit_price: '',
+        method: 'cash',
+        settlement: 'pending'
+      });
+      setActionFeedback(`order.created: ${selectedMember.full_name || selectedMember.member_id} -> ${paymentId}`);
+    } catch (err) {
+      setActionFeedback(err.message || 'failed to create mock order');
+    } finally {
+      setOrderSaving(false);
+    }
+  }
+
   useEffect(() => {
     loadDashboard();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -377,6 +473,11 @@ export default function DashboardPage() {
     loadClassBookings(selectedExperienceId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedExperienceId, selectedExperienceType, tenantId]);
+
+  useEffect(() => {
+    loadSelectedMemberPayments(selectedMemberId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedMemberId, tenantId, branchId]);
 
   const activeEvents = useMemo(() => {
     const activeStatuses = new Set(['scheduled', 'published', 'posted', 'active', 'open']);
@@ -1286,6 +1387,127 @@ export default function DashboardPage() {
               <p className="muted">Member tidak ditemukan.</p>
             )}
           </div>
+
+          {selectedMember ? (
+            <div className="ops-grid" style={{ marginTop: '1rem' }}>
+              <article className="card">
+                <p className="eyebrow">Selected member</p>
+                <h3>{selectedMember.full_name || selectedMember.member_id}</h3>
+                <p>member_id: {selectedMember.member_id || '-'}</p>
+                <p>phone: {selectedMember.phone || '-'}</p>
+                <p>email: {selectedMember.email || '-'}</p>
+              </article>
+              <article className="card">
+                <p className="eyebrow">Create order</p>
+                <p className="feedback">Mockup order untuk CS. Akan membuat payment pending atau paid tanpa gateway asli.</p>
+                <div className="form">
+                  <label>
+                    Order label
+                    <input
+                      value={orderForm.label}
+                      onChange={(e) => setOrderForm((prev) => ({ ...prev, label: e.target.value }))}
+                      placeholder={
+                        selectedExperienceType === 'class' && selectedClass
+                          ? `Program - ${selectedClass.class_name || selectedClass.class_id}`
+                          : selectedExperienceType === 'event' && selectedEvent
+                            ? `Event - ${selectedEvent.event_name || selectedEvent.event_id}`
+                            : 'Membership April / Walk-in / Produk'
+                      }
+                    />
+                  </label>
+                  <label>
+                    Qty
+                    <input
+                      type="number"
+                      min="1"
+                      value={orderForm.qty}
+                      onChange={(e) => setOrderForm((prev) => ({ ...prev, qty: e.target.value }))}
+                    />
+                  </label>
+                  <label>
+                    Unit price
+                    <input
+                      type="number"
+                      min="0"
+                      value={orderForm.unit_price}
+                      onChange={(e) => setOrderForm((prev) => ({ ...prev, unit_price: e.target.value }))}
+                    />
+                  </label>
+                  <label>
+                    Payment method
+                    <select
+                      value={orderForm.method}
+                      onChange={(e) => setOrderForm((prev) => ({ ...prev, method: e.target.value }))}
+                    >
+                      <option value="cash">cash</option>
+                      <option value="qris">qris</option>
+                      <option value="virtual_account">virtual_account</option>
+                      <option value="bank_transfer">bank_transfer</option>
+                      <option value="ewallet">ewallet</option>
+                    </select>
+                  </label>
+                  <label>
+                    Payment result
+                    <select
+                      value={orderForm.settlement}
+                      onChange={(e) => setOrderForm((prev) => ({ ...prev, settlement: e.target.value }))}
+                    >
+                      <option value="pending">pending</option>
+                      <option value="paid">paid</option>
+                    </select>
+                  </label>
+                  <div className="row-actions">
+                    <button className="btn" type="button" disabled={orderSaving} onClick={submitMockOrder}>
+                      {orderSaving ? 'Menyimpan...' : 'Create order'}
+                    </button>
+                    <button
+                      className="btn ghost"
+                      type="button"
+                      onClick={() =>
+                        setOrderForm((prev) => ({
+                          ...prev,
+                          label: selectedExperienceType === 'class' && selectedClass
+                            ? `Program - ${selectedClass.class_name || selectedClass.class_id}`
+                            : selectedExperienceType === 'event' && selectedEvent
+                              ? `Event - ${selectedEvent.event_name || selectedEvent.event_id}`
+                              : prev.label
+                        }))
+                      }
+                    >
+                      Use current context
+                    </button>
+                  </div>
+                </div>
+              </article>
+            </div>
+          ) : null}
+
+          {selectedMember ? (
+            <div className="payment-history" style={{ marginTop: '1rem' }}>
+              <h3>Member payments</h3>
+              {memberPaymentLoading ? (
+                <p className="feedback">Memuat payment member...</p>
+              ) : memberPaymentRows.length > 0 ? (
+                <div className="entity-list">
+                  {memberPaymentRows.slice(0, 8).map((item) => (
+                    <div className="entity-row" key={item.payment_id}>
+                      <div>
+                        <strong>{item.payment_id}</strong>
+                        <p>{item.reference_type || '-'} | {item.reference_id || '-'}</p>
+                        <p>{formatDateTime(item.recorded_at)}</p>
+                      </div>
+                      <div className="payment-meta">
+                        <strong>{formatIdr(item.amount || 0)}</strong>
+                        <span className={`status ${item.status}`}>{item.status || '-'}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="muted">Belum ada payment untuk member ini.</p>
+              )}
+            </div>
+          ) : null}
         </section>
       ) : null}
 
