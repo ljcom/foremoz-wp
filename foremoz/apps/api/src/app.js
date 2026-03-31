@@ -4773,6 +4773,9 @@ app.post('/v1/orders', async (req, res, next) => {
     const tenantId = data.tenant_id || config.defaultTenantId;
     const branchId = data.branch_id || null;
     const memberId = required(data.member_id, 'member_id');
+    const createdByRole = String(data.created_by_role || data.actor_role || '').trim().toLowerCase() || null;
+    const salesOwnerId = String(data.sales_owner_id || '').trim() || null;
+    const prospectId = String(data.prospect_id || '').trim() || null;
     const orderId = String(data.order_id || `ord_${Date.now()}_${randomUUID().slice(0, 8)}`).trim();
     const qty = asPositiveInteger(data.qty || 1, 'qty');
     const unitPrice = Number(required(data.unit_price, 'unit_price'));
@@ -4787,6 +4790,7 @@ app.post('/v1/orders', async (req, res, next) => {
     const orderType = String(data.order_type || 'manual').trim().toLowerCase();
     const paymentMethod = String(required(data.payment_method || data.method, 'payment_method')).trim().toLowerCase();
     const paymentSettlement = String(data.payment_settlement || data.settlement || 'pending').trim().toLowerCase();
+    const paymentResponsibility = String(data.payment_responsibility || 'member_self').trim().toLowerCase();
     const allowedMethods = new Set(['cash', 'bank_transfer', 'virtual_account', 'ewallet', 'credit_card', 'debit_card', 'qris']);
     if (!allowedMethods.has(paymentMethod)) {
       throw fail(
@@ -4797,6 +4801,17 @@ app.post('/v1/orders', async (req, res, next) => {
     }
     if (!['pending', 'paid'].includes(paymentSettlement)) {
       throw fail(400, 'BAD_REQUEST', 'payment_settlement must be either pending or paid');
+    }
+    if (!['member_self', 'cs_assisted'].includes(paymentResponsibility)) {
+      throw fail(400, 'BAD_REQUEST', 'payment_responsibility must be either member_self or cs_assisted');
+    }
+    if (createdByRole === 'sales') {
+      if (paymentSettlement !== 'pending') {
+        throw fail(409, 'SALES_CANNOT_SETTLE_PAYMENT', 'sales orders must stay pending until member or cs completes payment');
+      }
+      if (paymentMethod === 'cash' && paymentResponsibility !== 'cs_assisted') {
+        throw fail(409, 'SALES_CASH_REQUIRES_CS', 'cash payment for sales order must be handled via cs');
+      }
     }
 
     const paymentId = String(data.payment_id || `pay_${Date.now()}_${randomUUID().slice(0, 8)}`).trim();
@@ -4819,6 +4834,9 @@ app.post('/v1/orders', async (req, res, next) => {
         branch_id: branchId,
         order_id: orderId,
         member_id: memberId,
+        sales_owner_id: salesOwnerId,
+        prospect_id: prospectId,
+        created_by_role: createdByRole,
         order_label: orderLabel,
         order_type: orderType,
         qty,
@@ -4829,6 +4847,7 @@ app.post('/v1/orders', async (req, res, next) => {
         payment_id: paymentId,
         payment_status: paymentStatus,
         payment_method: paymentMethod,
+        payment_responsibility: paymentResponsibility,
         reference_type: referenceType,
         reference_id: referenceId,
         notes: data.notes || null,
@@ -4837,6 +4856,8 @@ app.post('/v1/orders', async (req, res, next) => {
       refs: {
         member_id: memberId,
         order_id: orderId,
+        sales_owner_id: salesOwnerId,
+        prospect_id: prospectId,
         reference_type: referenceType,
         reference_id: referenceId
       },
@@ -4909,6 +4930,9 @@ app.post('/v1/orders', async (req, res, next) => {
       order: {
         order_id: orderId,
         member_id: memberId,
+        sales_owner_id: salesOwnerId,
+        prospect_id: prospectId,
+        created_by_role: createdByRole,
         order_label: orderLabel,
         order_type: orderType,
         qty,
@@ -4919,6 +4943,7 @@ app.post('/v1/orders', async (req, res, next) => {
         payment_id: paymentId,
         payment_status: paymentStatus,
         payment_method: paymentMethod,
+        payment_responsibility: paymentResponsibility,
         reference_type: referenceType,
         reference_id: referenceId,
         created_at: createdAt
@@ -7961,6 +7986,8 @@ app.get('/v1/read/orders', async (req, res, next) => {
     const tenantId = req.query.tenant_id || config.defaultTenantId;
     const memberId = req.query.member_id || null;
     const branchId = req.query.branch_id || null;
+    const salesOwnerId = req.query.sales_owner_id || null;
+    const prospectId = req.query.prospect_id || null;
     const status = req.query.status || 'all';
     const limit = Math.min(Math.max(Number(req.query.limit || 50), 1), 200);
     const params = [tenantId];
@@ -7972,6 +7999,14 @@ app.get('/v1/read/orders', async (req, res, next) => {
     if (memberId) {
       params.push(memberId);
       sql += ` and member_id = $${params.length}`;
+    }
+    if (salesOwnerId) {
+      params.push(salesOwnerId);
+      sql += ` and sales_owner_id = $${params.length}`;
+    }
+    if (prospectId) {
+      params.push(prospectId);
+      sql += ` and prospect_id = $${params.length}`;
     }
     if (status && String(status).trim().toLowerCase() !== 'all') {
       params.push(String(status).trim().toLowerCase());

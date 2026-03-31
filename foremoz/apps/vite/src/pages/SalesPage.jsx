@@ -40,6 +40,81 @@ function parseCustomFieldsInput(raw, label) {
   }
 }
 
+function formatIdr(value) {
+  return `IDR ${Number(value || 0).toLocaleString('id-ID')}`;
+}
+
+function createSalesOrderForm() {
+  return {
+    order_type: 'package',
+    target_key: '',
+    label: '',
+    qty: '1',
+    unit_price: '',
+    payment_route: 'member_self',
+    payment_method: 'virtual_account',
+    notes: ''
+  };
+}
+
+function normalizeSalesOrderType(value) {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (['package', 'event', 'class', 'product', 'manual'].includes(normalized)) return normalized;
+  return 'package';
+}
+
+function createSalesOrderTarget(item, type) {
+  if (!item) return null;
+  if (type === 'package') {
+    return {
+      key: `package:${item.package_id}`,
+      reference_type: 'package',
+      reference_id: item.package_id,
+      order_label: item.package_name || item.package_id,
+      unit_price: Number(item.price || 0),
+      hint: item.package_type || 'package'
+    };
+  }
+  if (type === 'event') {
+    return {
+      key: `event:${item.event_id}`,
+      reference_type: 'event',
+      reference_id: item.event_id,
+      order_label: item.event_name || item.title || item.event_id,
+      unit_price: Number(item.price || item.ticket_price || 0),
+      hint: item.start_at || ''
+    };
+  }
+  if (type === 'class') {
+    return {
+      key: `class:${item.class_id}`,
+      reference_type: 'class',
+      reference_id: item.class_id,
+      order_label: item.class_name || item.title || item.class_id,
+      unit_price: Number(item.price || item.amount || 0),
+      hint: item.class_type || 'class'
+    };
+  }
+  if (type === 'product') {
+    return {
+      key: `product:${item.product_id}`,
+      reference_type: 'product',
+      reference_id: item.product_id,
+      order_label: item.product_name || item.product_id,
+      unit_price: Number(item.price || 0),
+      hint: item.category || 'product'
+    };
+  }
+  return null;
+}
+
+function resolveSalesPaymentMethodOptions(paymentRoute) {
+  if (String(paymentRoute || '').trim().toLowerCase() === 'cs_assisted') {
+    return ['cash', 'qris', 'debit_card', 'bank_transfer'];
+  }
+  return ['virtual_account', 'bank_transfer', 'ewallet', 'qris', 'credit_card', 'debit_card'];
+}
+
 export default function SalesPage() {
   const navigate = useNavigate();
   const session = getSession();
@@ -54,6 +129,11 @@ export default function SalesPage() {
   const [selectedProspectId, setSelectedProspectId] = useState('');
   const [selected, setSelected] = useState([]);
   const [items, setItems] = useState([]);
+  const [orderRows, setOrderRows] = useState([]);
+  const [packageRows, setPackageRows] = useState([]);
+  const [eventRows, setEventRows] = useState([]);
+  const [classRows, setClassRows] = useState([]);
+  const [productRows, setProductRows] = useState([]);
   const [timelineRows, setTimelineRows] = useState([]);
   const [timelineLoading, setTimelineLoading] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -86,6 +166,7 @@ export default function SalesPage() {
     notes: '',
     custom_fields_text: ''
   });
+  const [orderForm, setOrderForm] = useState(createSalesOrderForm);
 
   const allowedEnv = useMemo(() => {
     return getAllowedEnvironments(session, role);
@@ -95,20 +176,67 @@ export default function SalesPage() {
     () => items.find((item) => String(item.prospect_id || '') === String(selectedProspectId || '')) || null,
     [items, selectedProspectId]
   );
+  const salesOrderSummary = useMemo(() => {
+    const paidOrders = orderRows.filter((item) => String(item.payment_status || '').toLowerCase() === 'confirmed');
+    const pendingOrders = orderRows.filter((item) => String(item.payment_status || '').toLowerCase() === 'pending');
+    return {
+      totalOrders: orderRows.length,
+      paidCount: paidOrders.length,
+      pendingCount: pendingOrders.length,
+      paidAmount: paidOrders.reduce((sum, item) => sum + Number(item.total_amount || 0), 0),
+      pendingAmount: pendingOrders.reduce((sum, item) => sum + Number(item.total_amount || 0), 0)
+    };
+  }, [orderRows]);
+  const selectedProspectOrders = useMemo(
+    () => orderRows.filter((item) => String(item.prospect_id || '') === String(selectedProspectId || '')),
+    [orderRows, selectedProspectId]
+  );
+  const packageTargets = useMemo(
+    () => packageRows.map((item) => createSalesOrderTarget(item, 'package')).filter(Boolean),
+    [packageRows]
+  );
+  const eventTargets = useMemo(
+    () => eventRows.map((item) => createSalesOrderTarget(item, 'event')).filter(Boolean),
+    [eventRows]
+  );
+  const classTargets = useMemo(
+    () => classRows.map((item) => createSalesOrderTarget(item, 'class')).filter(Boolean),
+    [classRows]
+  );
+  const productTargets = useMemo(
+    () => productRows.map((item) => createSalesOrderTarget(item, 'product')).filter(Boolean),
+    [productRows]
+  );
+  const currentOrderTargets = useMemo(() => {
+    const orderType = normalizeSalesOrderType(orderForm.order_type);
+    if (orderType === 'event') return eventTargets;
+    if (orderType === 'class') return classTargets;
+    if (orderType === 'product') return productTargets;
+    if (orderType === 'manual') return [];
+    return packageTargets;
+  }, [orderForm.order_type, packageTargets, eventTargets, classTargets, productTargets]);
+  const selectedOrderTarget = useMemo(
+    () => currentOrderTargets.find((item) => item.key === orderForm.target_key) || null,
+    [currentOrderTargets, orderForm.target_key]
+  );
 
   const insightStats = useMemo(() => {
     const today = getAppDateKey(new Date().toISOString());
     const totalProspect = items.length;
     const followupToday = items.filter((item) => getAppDateKey(item.next_followup_at) === today).length;
     const dealToday = items.filter((item) => getAppDateKey(item.converted_at) === today).length;
-    const qualified = items.filter((item) => String(item.stage || '').toLowerCase() === 'qualified').length;
+    const pendingOrders = orderRows.filter((item) => String(item.payment_status || '').toLowerCase() === 'pending').length;
+    const paidBasis = orderRows
+      .filter((item) => String(item.payment_status || '').toLowerCase() === 'confirmed')
+      .reduce((sum, item) => sum + Number(item.total_amount || 0), 0);
     return [
       { label: 'total prospect', value: totalProspect, iconClass: 'fa-solid fa-users', tone: 'tone-subscription', hint: 'all leads in pipeline' },
       { label: 'followup today', value: followupToday, iconClass: 'fa-solid fa-phone', tone: 'tone-checkin', hint: 'scheduled follow-up today' },
       { label: 'deal today', value: dealToday, iconClass: 'fa-solid fa-handshake', tone: 'tone-booking', hint: 'converted today' },
-      { label: 'qualified', value: qualified, iconClass: 'fa-solid fa-filter-circle-dollar', tone: 'tone-payment', hint: 'ready to convert' }
+      { label: 'pending orders', value: pendingOrders, iconClass: 'fa-solid fa-file-invoice-dollar', tone: 'tone-payment', hint: 'menunggu member atau cs bayar' },
+      { label: 'paid basis', value: formatIdr(paidBasis), iconClass: 'fa-solid fa-sack-dollar', tone: 'tone-booking', hint: 'basis report incentive' }
     ];
-  }, [items]);
+  }, [items, orderRows]);
 
   useEffect(() => {
     if (allowedEnv.length === 0) return;
@@ -139,8 +267,20 @@ export default function SalesPage() {
       if (role === 'sales' && userId) {
         qs.set('owner_sales_id', userId);
       }
-      const result = await apiJson(`/v1/read/sales/prospects?${qs.toString()}`);
-      setItems(Array.isArray(result.rows) ? result.rows : []);
+      const [prospectRes, orderRes, packageRes, eventRes, classRes, productRes] = await Promise.all([
+        apiJson(`/v1/read/sales/prospects?${qs.toString()}`),
+        apiJson(`/v1/read/orders?tenant_id=${encodeURIComponent(tenantId)}&branch_id=${encodeURIComponent(branchId)}&sales_owner_id=${encodeURIComponent(userId || '')}&limit=200`).catch(() => ({ rows: [] })),
+        apiJson(`/v1/admin/packages?tenant_id=${encodeURIComponent(tenantId)}&branch_id=${encodeURIComponent(branchId)}`).catch(() => ({ rows: [] })),
+        apiJson(`/v1/read/events?tenant_id=${encodeURIComponent(tenantId)}&branch_id=${encodeURIComponent(branchId)}&status=all&limit=200`).catch(() => ({ rows: [] })),
+        apiJson(`/v1/read/class-availability?tenant_id=${encodeURIComponent(tenantId)}&branch_id=${encodeURIComponent(branchId)}`).catch(() => ({ rows: [] })),
+        apiJson(`/v1/admin/products?tenant_id=${encodeURIComponent(tenantId)}&branch_id=${encodeURIComponent(branchId)}`).catch(() => ({ rows: [] }))
+      ]);
+      setItems(Array.isArray(prospectRes.rows) ? prospectRes.rows : []);
+      setOrderRows(Array.isArray(orderRes.rows) ? orderRes.rows : []);
+      setPackageRows(Array.isArray(packageRes.rows) ? packageRes.rows : []);
+      setEventRows(Array.isArray(eventRes.rows) ? eventRes.rows : []);
+      setClassRows(Array.isArray(classRes.rows) ? classRes.rows : []);
+      setProductRows(Array.isArray(productRes.rows) ? productRes.rows : []);
     } catch (err) {
       setError(err.message || 'failed to load sales workspace');
     } finally {
@@ -173,6 +313,24 @@ export default function SalesPage() {
   useEffect(() => {
     loadProspectTimeline(selectedProspectId);
   }, [selectedProspectId, tenantId]);
+
+  useEffect(() => {
+    setOrderForm(createSalesOrderForm());
+  }, [selectedProspectId]);
+
+  useEffect(() => {
+    const options = resolveSalesPaymentMethodOptions(orderForm.payment_route);
+    if (!options.includes(orderForm.payment_method)) {
+      setOrderForm((prev) => ({ ...prev, payment_method: options[0] || 'virtual_account' }));
+    }
+  }, [orderForm.payment_route, orderForm.payment_method]);
+
+  useEffect(() => {
+    if (orderForm.order_type === 'manual') return;
+    if (!selectedOrderTarget && orderForm.target_key) {
+      setOrderForm((prev) => ({ ...prev, target_key: '' }));
+    }
+  }, [orderForm.order_type, orderForm.target_key, selectedOrderTarget]);
 
   function goToEnv(env) {
     if (!allowedEnv.includes(env)) return;
@@ -237,6 +395,77 @@ export default function SalesPage() {
       await loadSalesWorkspace();
     } catch (err) {
       setFeedback(err.message || 'failed to create prospect');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function submitOrder(e) {
+    e.preventDefault();
+    if (!selectedProspect) {
+      setFeedback('Pilih prospect dulu sebelum membuat order.');
+      return;
+    }
+    if (!selectedProspect.converted_member_id) {
+      setFeedback('Convert prospect dulu supaya order punya member_id yang valid.');
+      return;
+    }
+    const orderType = normalizeSalesOrderType(orderForm.order_type);
+    if (orderType !== 'manual' && !selectedOrderTarget) {
+      setFeedback('Pilih target order sesuai tipenya terlebih dulu.');
+      return;
+    }
+    const label = String(orderForm.label || '').trim() || selectedOrderTarget?.order_label || '';
+    if (!label) {
+      setFeedback('Label order wajib diisi.');
+      return;
+    }
+    const qty = orderType === 'product' || orderType === 'manual'
+      ? Math.max(1, Number(orderForm.qty || 1))
+      : 1;
+    const unitPrice = Math.max(0, Number(orderForm.unit_price || selectedOrderTarget?.unit_price || 0));
+    if (!Number.isFinite(unitPrice) || unitPrice <= 0) {
+      setFeedback('Harga order harus lebih besar dari 0.');
+      return;
+    }
+    try {
+      setSaving(true);
+      setFeedback('');
+      const response = await apiJson('/v1/orders', {
+        method: 'POST',
+        body: JSON.stringify({
+          tenant_id: tenantId,
+          branch_id: branchId,
+          actor_id: userId || undefined,
+          actor_role: 'sales',
+          created_by_role: 'sales',
+          sales_owner_id: userId || undefined,
+          prospect_id: selectedProspect.prospect_id,
+          member_id: selectedProspect.converted_member_id,
+          order_label: label,
+          order_type: orderType,
+          qty,
+          unit_price: unitPrice,
+          currency: 'IDR',
+          payment_method: orderForm.payment_method || 'virtual_account',
+          payment_settlement: 'pending',
+          payment_responsibility: orderForm.payment_route || 'member_self',
+          reference_type: selectedOrderTarget?.reference_type || 'manual',
+          reference_id: selectedOrderTarget?.reference_id || null,
+          notes:
+            String(orderForm.notes || '').trim()
+            || `Sales order for ${selectedProspect.full_name || selectedProspect.prospect_id}. Payment must be completed by member or CS.`
+        })
+      });
+      setFeedback(
+        `order.created: ${selectedProspect.full_name || selectedProspect.prospect_id} -> ${response?.order?.order_id || '-'} `
+        + `(${response?.order?.payment_status || 'pending'}). Payment harus diselesaikan member atau CS.`
+      );
+      setOrderForm(createSalesOrderForm());
+      await loadSalesWorkspace();
+      await loadProspectTimeline(selectedProspect.prospect_id);
+    } catch (err) {
+      setFeedback(err.message || 'failed to create sales order');
     } finally {
       setSaving(false);
     }
@@ -422,6 +651,16 @@ export default function SalesPage() {
       </section>
 
       <section className="card admin-main" style={{ marginTop: '1rem' }}>
+        <p className="eyebrow">Sales start here</p>
+        <div style={{ display: 'grid', gap: '0.45rem' }}>
+          <p><strong>1.</strong> Tambah prospect lalu follow-up sampai qualified.</p>
+          <p><strong>2.</strong> Convert prospect jadi member sebelum membuat order.</p>
+          <p><strong>3.</strong> Sales hanya membuat order dan mengarahkan pembayaran.</p>
+          <p><strong>4.</strong> Payment harus diselesaikan oleh member dari sisi mereka atau dibantu CS. Sales tidak boleh menerima uang langsung.</p>
+        </div>
+      </section>
+
+      <section className="card admin-main" style={{ marginTop: '1rem' }}>
         <h2>Add prospect</h2>
         <form className="form" onSubmit={createProspect}>
           <label>full_name<input value={newForm.full_name} onChange={(e) => setNewForm((p) => ({ ...p, full_name: e.target.value }))} /></label>
@@ -507,6 +746,9 @@ export default function SalesPage() {
                     <button className="btn ghost small" type="button" onClick={() => updateProspectStage(item, 'qualified')} disabled={saving}>Qualified</button>
                     <button className="btn ghost small" type="button" onClick={() => updateProspectStage(item, 'lost')} disabled={saving}>Lost</button>
                     <button className="btn ghost small" type="button" onClick={() => openConvert(item)}>Convert</button>
+                    <button className="btn ghost small" type="button" onClick={() => setSelectedProspectId(item.prospect_id)}>
+                      {item.converted_member_id ? 'Create order' : 'Open'}
+                    </button>
                   </div>
                 </div>
               );
@@ -521,6 +763,7 @@ export default function SalesPage() {
         <section className="card admin-main" style={{ marginTop: '1rem' }}>
           <h2>Prospect detail - {selectedProspect.full_name}</h2>
           <p>ID: {selectedProspect.prospect_id}</p>
+          <p>Stage: {selectedProspect.stage || '-'} | member_id: {selectedProspect.converted_member_id || '-'}</p>
           <p>Custom fields: {selectedProspect.custom_fields ? JSON.stringify(selectedProspect.custom_fields) : '-'}</p>
           <div style={{ display: 'grid', gap: '1rem', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))' }}>
             <form className="form" onSubmit={submitFollowup}>
@@ -557,6 +800,140 @@ export default function SalesPage() {
               <label>custom_fields (JSON)<textarea rows={3} value={convertForm.custom_fields_text} onChange={(e) => setConvertForm((p) => ({ ...p, custom_fields_text: e.target.value }))} placeholder='{"conversion_reason":"trial completed"}' /></label>
               <button className="btn" type="submit" disabled={saving}>{saving ? 'Saving...' : 'Convert prospect'}</button>
             </form>
+
+            <form className="form" onSubmit={submitOrder}>
+              <p className="eyebrow">Create order</p>
+              {!selectedProspect.converted_member_id ? (
+                <div className="card" style={{ borderStyle: 'dashed' }}>
+                  <p className="feedback">Convert prospect dulu. Order butuh `member_id`, dan pembayaran tetap harus dilakukan member atau dibantu CS.</p>
+                </div>
+              ) : null}
+              <label>
+                order_type
+                <select
+                  value={orderForm.order_type}
+                  onChange={(e) =>
+                    setOrderForm((prev) => ({
+                      ...prev,
+                      order_type: e.target.value,
+                      target_key: '',
+                      label: '',
+                      unit_price: '',
+                      qty: '1'
+                    }))
+                  }
+                >
+                  <option value="package">package</option>
+                  <option value="event">event</option>
+                  <option value="class">class</option>
+                  <option value="product">product</option>
+                  <option value="manual">custom</option>
+                </select>
+              </label>
+              {normalizeSalesOrderType(orderForm.order_type) !== 'manual' ? (
+                <label>
+                  target
+                  <select
+                    value={orderForm.target_key}
+                    onChange={(e) => {
+                      const nextTarget = currentOrderTargets.find((item) => item.key === e.target.value) || null;
+                      setOrderForm((prev) => ({
+                        ...prev,
+                        target_key: e.target.value,
+                        label: nextTarget?.order_label || '',
+                        unit_price: nextTarget?.unit_price ? String(nextTarget.unit_price) : '',
+                        qty: normalizeSalesOrderType(prev.order_type) === 'product' ? prev.qty : '1'
+                      }));
+                    }}
+                  >
+                    <option value="">Pilih target order</option>
+                    {currentOrderTargets.map((item) => (
+                      <option key={item.key} value={item.key}>
+                        {item.order_label} | {item.hint || '-'} | {formatIdr(item.unit_price || 0)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
+              <label>
+                order_label
+                <input value={orderForm.label} onChange={(e) => setOrderForm((prev) => ({ ...prev, label: e.target.value }))} />
+              </label>
+              <label>
+                qty
+                <input
+                  type="number"
+                  min="1"
+                  value={orderForm.qty}
+                  disabled={!['product', 'manual'].includes(normalizeSalesOrderType(orderForm.order_type))}
+                  onChange={(e) => setOrderForm((prev) => ({ ...prev, qty: e.target.value }))}
+                />
+              </label>
+              <label>
+                unit_price
+                <input
+                  type="number"
+                  min="0"
+                  value={orderForm.unit_price}
+                  onChange={(e) => setOrderForm((prev) => ({ ...prev, unit_price: e.target.value }))}
+                />
+              </label>
+              <label>
+                payment_route
+                <select
+                  value={orderForm.payment_route}
+                  onChange={(e) => setOrderForm((prev) => ({ ...prev, payment_route: e.target.value }))}
+                >
+                  <option value="member_self">member side</option>
+                  <option value="cs_assisted">via cs</option>
+                </select>
+              </label>
+              <label>
+                payment_method
+                <select
+                  value={orderForm.payment_method}
+                  onChange={(e) => setOrderForm((prev) => ({ ...prev, payment_method: e.target.value }))}
+                >
+                  {resolveSalesPaymentMethodOptions(orderForm.payment_route).map((item) => (
+                    <option key={item} value={item}>{item}</option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                notes
+                <textarea
+                  rows={3}
+                  value={orderForm.notes}
+                  onChange={(e) => setOrderForm((prev) => ({ ...prev, notes: e.target.value }))}
+                  placeholder="Jelaskan offer atau instruksi pembayaran untuk member / CS"
+                />
+              </label>
+              <p className="feedback">Order akan selalu dibuat `pending`. Sales tidak boleh mark paid atau menerima uang langsung.</p>
+              <button className="btn" type="submit" disabled={saving || !selectedProspect.converted_member_id}>
+                {saving ? 'Saving...' : 'Create order'}
+              </button>
+            </form>
+          </div>
+
+          <div style={{ marginTop: '1rem' }}>
+            <p className="eyebrow">Orders for this prospect</p>
+            <div className="entity-list">
+              {selectedProspectOrders.map((item) => (
+                <div className="entity-row" key={item.order_id}>
+                  <div>
+                    <strong>{item.order_label || item.order_id}</strong>
+                    <p>{item.order_type || '-'} | {formatIdr(item.total_amount || 0)} | {item.payment_method || '-'}</p>
+                    <p>{item.payment_responsibility === 'cs_assisted' ? 'Payment via CS' : 'Payment by member'} | payment_id: {item.payment_id || '-'}</p>
+                    <p>{item.reference_type || '-'}:{item.reference_id || '-'}</p>
+                  </div>
+                  <div className="payment-meta">
+                    <span className={`status ${item.status || 'pending_payment'}`}>{item.status || 'pending_payment'}</span>
+                    <span className="passport-chip">{item.payment_status || 'pending'}</span>
+                  </div>
+                </div>
+              ))}
+              {selectedProspectOrders.length === 0 ? <p className="muted">Belum ada order untuk prospect ini.</p> : null}
+            </div>
           </div>
 
           <div style={{ marginTop: '1rem' }}>
@@ -581,6 +958,47 @@ export default function SalesPage() {
           </div>
         </section>
       ) : null}
+
+      <section className="card admin-main" style={{ marginTop: '1rem' }}>
+        <div className="panel-head">
+          <div>
+            <p className="eyebrow">Report incentive</p>
+            <h2>Sales order and incentive basis</h2>
+          </div>
+        </div>
+        <div style={{ display: 'grid', gap: '1rem', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
+          <div className="card" style={{ borderStyle: 'dashed' }}>
+            <p><strong>Total orders:</strong> {salesOrderSummary.totalOrders}</p>
+            <p><strong>Paid orders:</strong> {salesOrderSummary.paidCount}</p>
+            <p><strong>Pending orders:</strong> {salesOrderSummary.pendingCount}</p>
+          </div>
+          <div className="card" style={{ borderStyle: 'dashed' }}>
+            <p><strong>Paid basis:</strong> {formatIdr(salesOrderSummary.paidAmount)}</p>
+            <p><strong>Pending amount:</strong> {formatIdr(salesOrderSummary.pendingAmount)}</p>
+            <p><strong>Converted prospects:</strong> {items.filter((item) => item.converted_member_id).length}</p>
+          </div>
+        </div>
+        <p className="feedback" style={{ marginTop: '1rem' }}>
+          Report ini adalah basis incentive sederhana dari order yang sudah `paid`. Belum memakai rule komisi terpisah.
+        </p>
+        <div className="entity-list" style={{ marginTop: '1rem' }}>
+          {orderRows.map((item) => (
+            <div className="entity-row" key={`report-${item.order_id}`}>
+              <div>
+                <strong>{item.order_label || item.order_id}</strong>
+                <p>{item.prospect_id || '-'} | member {item.member_id || '-'}</p>
+                <p>{item.order_type || '-'} | {item.reference_type || '-'}:{item.reference_id || '-'}</p>
+                <p>{item.payment_responsibility === 'cs_assisted' ? 'Payment via CS' : 'Payment by member'} | {formatAppDateTime(item.created_at)}</p>
+              </div>
+              <div className="payment-meta">
+                <strong>{formatIdr(item.total_amount || 0)}</strong>
+                <span className={`status ${item.payment_status || 'pending'}`}>{item.payment_status || 'pending'}</span>
+              </div>
+            </div>
+          ))}
+          {orderRows.length === 0 ? <p className="muted">Belum ada order sales.</p> : null}
+        </div>
+      </section>
 
       <footer className="dash-foot"><Link to="/host">Back to host</Link></footer>
     </main>

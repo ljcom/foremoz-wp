@@ -73,6 +73,9 @@ export async function runFitnessProjection({ tenantId, branchId }) {
          branch_id text,
          order_id text not null,
          member_id text not null,
+         sales_owner_id text,
+         prospect_id text,
+         created_by_role text,
          order_label text not null,
          order_type text not null default 'manual',
          qty integer not null default 1,
@@ -83,6 +86,7 @@ export async function runFitnessProjection({ tenantId, branchId }) {
          payment_id text,
          payment_status text,
          payment_method text,
+         payment_responsibility text,
          reference_type text,
          reference_id text,
          notes text,
@@ -90,6 +94,13 @@ export async function runFitnessProjection({ tenantId, branchId }) {
          updated_at timestamptz not null,
          primary key (tenant_id, order_id)
        )`
+    );
+    await client.query(
+      `alter table if exists read.rm_order_list
+         add column if not exists sales_owner_id text,
+         add column if not exists prospect_id text,
+         add column if not exists created_by_role text,
+         add column if not exists payment_responsibility text`
     );
     await client.query(
       `alter table if exists read.rm_class_availability
@@ -177,6 +188,14 @@ export async function runFitnessProjection({ tenantId, branchId }) {
     await client.query(
       `create index if not exists idx_rm_order_member
        on read.rm_order_list (tenant_id, member_id, updated_at desc)`
+    );
+    await client.query(
+      `create index if not exists idx_rm_order_sales_owner
+       on read.rm_order_list (tenant_id, sales_owner_id, updated_at desc)`
+    );
+    await client.query(
+      `create index if not exists idx_rm_order_prospect
+       on read.rm_order_list (tenant_id, prospect_id, updated_at desc)`
     );
     await client.query(
       `create index if not exists idx_rm_booking_payment
@@ -812,19 +831,22 @@ export async function runFitnessProjection({ tenantId, branchId }) {
       if (event.event_type === 'order.created') {
         await client.query(
           `insert into read.rm_order_list (
-             tenant_id, branch_id, order_id, member_id, order_label, order_type,
+             tenant_id, branch_id, order_id, member_id, sales_owner_id, prospect_id, created_by_role, order_label, order_type,
              qty, unit_price, total_amount, currency, status, payment_id,
-             payment_status, payment_method, reference_type, reference_id,
+             payment_status, payment_method, payment_responsibility, reference_type, reference_id,
              notes, created_at, updated_at
            ) values (
-             $1,$2,$3,$4,$5,$6,
-             $7,$8,$9,$10,$11,$12,
-             $13,$14,$15,$16,
-             $17,$18,$19
+             $1,$2,$3,$4,$5,$6,$7,$8,$9,
+             $10,$11,$12,$13,$14,$15,
+             $16,$17,$18,$19,$20,
+             $21,$22,$23
            )
            on conflict (tenant_id, order_id) do update set
              branch_id = excluded.branch_id,
              member_id = excluded.member_id,
+             sales_owner_id = excluded.sales_owner_id,
+             prospect_id = excluded.prospect_id,
+             created_by_role = excluded.created_by_role,
              order_label = excluded.order_label,
              order_type = excluded.order_type,
              qty = excluded.qty,
@@ -835,6 +857,7 @@ export async function runFitnessProjection({ tenantId, branchId }) {
              payment_id = excluded.payment_id,
              payment_status = excluded.payment_status,
              payment_method = excluded.payment_method,
+             payment_responsibility = excluded.payment_responsibility,
              reference_type = excluded.reference_type,
              reference_id = excluded.reference_id,
              notes = excluded.notes,
@@ -844,6 +867,9 @@ export async function runFitnessProjection({ tenantId, branchId }) {
             branch,
             data.order_id,
             data.member_id,
+            data.sales_owner_id || null,
+            data.prospect_id || null,
+            data.created_by_role || null,
             data.order_label || data.label || data.order_id,
             data.order_type || 'manual',
             Number(data.qty || 1),
@@ -854,6 +880,7 @@ export async function runFitnessProjection({ tenantId, branchId }) {
             data.payment_id || null,
             data.payment_status || null,
             data.payment_method || null,
+            data.payment_responsibility || null,
             data.reference_type || null,
             data.reference_id || null,
             data.notes || null,
