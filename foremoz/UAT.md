@@ -105,6 +105,13 @@ Isi kolom `Actual`, `Status`, dan `Evidence` saat eksekusi.
 | UAT-028 | Session Expired | Gunakan token expired/invalid | User diarahkan ke signin dan tidak bisa akses protected route |  |  |  |
 | UAT-029 | Multi Account Scope | Login account A lalu akses account B via URL | Data lintas account tidak bocor, redirect/forbidden sesuai policy |  |  |  |
 | UAT-030 | Error Handling | Simulasikan API error di halaman kritis | UI menampilkan pesan error yang bisa dipahami (tidak blank/hang) |  |  |  |
+| UAT-031 | Owner Package Flow | Owner pilih/ganti paket dari onboarding atau owner panel | Paket tersimpan benar dan gating fitur mengikuti paket aktif |  |  |  |
+| UAT-032 | Branch Resource Toggle | Owner on/off resource per branch | Resource branch berubah sesuai toggle dan scope branch tetap benar |  |  |  |
+| UAT-033 | Member Pre-Event Info | Member selesai join event lalu buka dashboard/portal | Info pra-event tampil lengkap: jadwal, lokasi, status payment, instruksi |  |  |  |
+| UAT-034 | Member Program Lifecycle | Member booking program, cancel, lalu cek progress/performa | Booking/cancel mengikuti policy dan progress member ter-update |  |  |  |
+| UAT-035 | CS Daily Report | Staff CS buat order/payment lalu buka daily report | Daily report memuat transaksi dan aktivitas operasional hari itu |  |  |  |
+| UAT-036 | PT Incentive & Award | PT complete session, score member, lalu buka report | Incentive PT dan report award tampil sesuai aktivitas |  |  |  |
+| UAT-037 | Sales Order & Incentive | Sales tambah prospect, buat order, lalu buka report incentive | Order tercatat, conversion/linkage benar, incentive sales muncul di report |  |  |  |
 
 ## 7. Acceptance Criteria Rilis UAT
 

@@ -263,12 +263,17 @@ Last audited terhadap isi folder: **2026-03-27** (`foremoz/apps/api`, `foremoz/a
 
 ### Owner
 - [x] Signup -> signin -> onboarding -> dashboard
+- [~] Choose package
+  - [x] Pilih paket saat onboarding owner.
+  - [x] Ganti paket dari owner panel.
+  - [ ] Validasi UX package gating per fitur/flow operasional.
 - [~] Branch management
   - [x] list branch
   - [x] add branch (gated by package multi-branch/enterprise)
   - [x] edit branch
   - [x] data branch (name, slug, address, city, photo_url) dipakai di halaman `/a/:branch`
   - [x] delete/deactivate branch (soft delete via status `inactive`) + reactivate
+  - [ ] on/off resources per branch
   - [ ] branch-level policy/access control per user
 
 ### Tenant
@@ -293,6 +298,13 @@ Last audited terhadap isi folder: **2026-03-27** (`foremoz/apps/api`, `foremoz/a
   - Remark: detail event sudah ada image/description/schedule; masih bisa ditambah konten media.
 - [~] Member portal
   - Remark: overview portal sesudah sign in sekarang sudah menampilkan subscription/PT status, payment activity, booking summary, dan shortcut ke event/account/member ops.
+- [ ] Pre-event info untuk member setelah join event
+  - Ringkasan event terdaftar, jadwal, lokasi, instruksi, dan status payment/check-in.
+- [ ] Program booking flow lanjutan dari order CS
+  - Buka dari studio web/member portal setelah order dibuat CS.
+  - Register ke schedule.
+  - Cancel booking sesuai policy.
+  - Cek performa / progress sesudah ikut program.
 - [~] Member auth funnel
   - Remark: halaman member signup/signin sekarang sudah membawa context account dan value proposition yang nyambung ke portal member.
 - [~] Identity strategy: email tetap primary, phone untuk trust/activation
@@ -319,8 +331,17 @@ Last audited terhadap isi folder: **2026-03-27** (`foremoz/apps/api`, `foremoz/a
   - Remark tambahan: default route diarahkan ke `/events` (Foremoz Events), dan di landing events ada CTA `New Host` untuk pindah ke `/host`.
 - [~] PT workspace
   - Remark: PT dashboard sekarang sudah pakai flow nyata (book session, complete session, log activity) + read model `pt-balance` dan `pt-activity` dengan filter trainer, tidak lagi log local dummy. Form PT + checkin/checkout event kini mendukung `custom_fields` JSON untuk metadata operasional.
+- [ ] PT incentive reporting
+  - Report incentive per PT berdasarkan session/book/complete.
+- [ ] PT award reporting
+  - Score member dari PT dashboard.
+  - Rekap/report award.
 - [~] Sales workspace
   - Remark: Sales dashboard sekarang sudah pakai flow real (create prospect, follow-up, update stage, convert ke member) + timeline event prospect. Form sales juga sudah mendukung `custom_fields` JSON untuk metadata follow-up/convert.
+- [ ] Sales create order flow
+  - Prospect/member -> create order -> payment linkage.
+- [ ] Sales incentive reporting
+  - Report incentive per sales dari order/convert yang berhasil.
 - [ ] Reporting
   - [ ] Laporan komisi coach/team untuk event dan class per periode.
   - [ ] Read model komisi dari `coach_shares` x nilai transaksi/price aktual.
@@ -367,6 +388,7 @@ Last audited terhadap isi folder: **2026-03-27** (`foremoz/apps/api`, `foremoz/a
         - Remark: event flow sudah checkin/checkout penuh; class saat ini pakai booking cepat (belum checkout khusus class).
       - [x] scan barcode
     - [x] order -> payment
+    - [ ] daily report
 - [~] Member operational page `/a/:account/members/:memberId`
   - [x] Payment history load dari API (`/v1/read/payments/history`).
   - [x] Buy membership submit ke backend (`payment.recorded` + `payment.confirmed` + `subscription.activated`).
