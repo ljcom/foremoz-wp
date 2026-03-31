@@ -124,6 +124,46 @@ function formatAnswerEntries(value) {
     .filter((item) => item.label && item.answer);
 }
 
+function buildOrderTargetKey(sourceKind, sourceId) {
+  return `${String(sourceKind || '').trim()}:${String(sourceId || '').trim()}`;
+}
+
+function normalizeOrderType(value) {
+  const normalized = String(value || '').trim().toLowerCase();
+  return ['membership', 'event', 'class', 'product'].includes(normalized) ? normalized : 'membership';
+}
+
+function formatOrderTypeLabel(value) {
+  const normalized = normalizeOrderType(value);
+  if (normalized === 'membership') return 'Membership';
+  if (normalized === 'event') return 'Event';
+  if (normalized === 'class') return 'Program';
+  if (normalized === 'product') return 'Product';
+  return 'Order';
+}
+
+function resolveOrderReferenceLabel(item, lookups = {}) {
+  const referenceType = String(item?.reference_type || '').trim().toLowerCase();
+  const referenceId = String(item?.reference_id || '').trim();
+  const classesById = lookups.classesById || new Map();
+  const eventsById = lookups.eventsById || new Map();
+  const productsById = lookups.productsById || new Map();
+  const membershipsById = lookups.membershipsById || new Map();
+  if (referenceType === 'membership_purchase' || referenceType === 'open_access_purchase') {
+    return membershipsById.get(referenceId) || referenceId || '-';
+  }
+  if (referenceType === 'event_registration') {
+    return eventsById.get(referenceId) || referenceId || '-';
+  }
+  if (referenceType === 'class_booking') {
+    return classesById.get(referenceId) || referenceId || '-';
+  }
+  if (referenceType === 'product') {
+    return productsById.get(referenceId) || referenceId || '-';
+  }
+  return referenceId || '-';
+}
+
 export default function DashboardPage() {
   const { language } = useI18n();
   const copy = useMemo(() => (language === 'en'
@@ -220,6 +260,8 @@ export default function DashboardPage() {
   const [eventPanelQuery, setEventPanelQuery] = useState('');
   const [events, setEvents] = useState([]);
   const [classes, setClasses] = useState([]);
+  const [products, setProducts] = useState([]);
+  const [packages, setPackages] = useState([]);
   const [selectedMemberId, setSelectedMemberId] = useState('');
   const [selectedExperienceType, setSelectedExperienceType] = useState('event');
   const [selectedExperienceId, setSelectedExperienceId] = useState('');
@@ -240,11 +282,14 @@ export default function DashboardPage() {
   const [memberPaymentLoading, setMemberPaymentLoading] = useState(false);
   const [orderSaving, setOrderSaving] = useState(false);
   const [orderForm, setOrderForm] = useState({
+    order_type: 'membership',
+    target_key: '',
     label: '',
     qty: '1',
     unit_price: '',
     method: 'cash',
-    settlement: 'pending'
+    settlement: 'pending',
+    notes: ''
   });
   const [actionFeedback, setActionFeedback] = useState('');
   const [actionSaving, setActionSaving] = useState(false);
@@ -306,11 +351,13 @@ export default function DashboardPage() {
         });
       }
 
-      const [dashboardRes, membersRes, eventsRes, classesRes] = await Promise.all([
+      const [dashboardRes, membersRes, eventsRes, classesRes, productsRes, packagesRes] = await Promise.all([
         apiJson(`/v1/read/dashboard?tenant_id=${encodeURIComponent(tenantId)}&branch_id=${encodeURIComponent(branchId)}`),
         apiJson(`/v1/read/members?tenant_id=${encodeURIComponent(tenantId)}&limit=1000`),
         apiJson(`/v1/read/events?tenant_id=${encodeURIComponent(tenantId)}&branch_id=${encodeURIComponent(branchId)}&status=all&limit=200`),
-        apiJson(`/v1/admin/classes?tenant_id=${encodeURIComponent(tenantId)}&branch_id=${encodeURIComponent(branchId)}`)
+        apiJson(`/v1/admin/classes?tenant_id=${encodeURIComponent(tenantId)}&branch_id=${encodeURIComponent(branchId)}`),
+        apiJson(`/v1/admin/products?tenant_id=${encodeURIComponent(tenantId)}&branch_id=${encodeURIComponent(branchId)}`).catch(() => ({ rows: [] })),
+        apiJson(`/v1/admin/packages?tenant_id=${encodeURIComponent(tenantId)}&branch_id=${encodeURIComponent(branchId)}`).catch(() => ({ rows: [] }))
       ]);
 
       if (!dashboardRes.row && branchId !== 'core') {
@@ -324,6 +371,8 @@ export default function DashboardPage() {
       setMembers(membersRes.rows || []);
       setEvents(eventsRes.rows || []);
       setClasses(classesRes.rows || []);
+      setProducts(productsRes.rows || []);
+      setPackages(packagesRes.rows || []);
     } catch (err) {
       setError(err.message || 'failed to load dashboard');
     } finally {
@@ -405,23 +454,69 @@ export default function DashboardPage() {
     }
   }
 
+  function exportDailyReportCsv() {
+    const dateStamp = new Date().toISOString().slice(0, 10);
+    downloadCsvFile(
+      `cs-daily-report-${branchId}-${dateStamp}.csv`,
+      [
+        ['metric', 'value'],
+        ...dailyReportRows.map((item) => [item.label, item.value])
+      ]
+    );
+    setActionFeedback(`daily.report.exported: ${branchId} -> ${dateStamp}`);
+  }
+
+  function applyOrderTarget(target) {
+    if (!target) return;
+    setOrderForm((prev) => ({
+      ...prev,
+      target_key: target.key,
+      label: target.order_label || prev.label,
+      unit_price: String(target.unit_price || 0),
+      qty: normalizeOrderType(prev.order_type) === 'product' ? prev.qty || '1' : '1'
+    }));
+  }
+
+  function applyCurrentContextToOrder() {
+    if (selectedExperienceType === 'class' && selectedClass) {
+      const targetKey = buildOrderTargetKey('class', selectedClass.class_id);
+      const matched = classOrderTargets.find((item) => item.key === targetKey) || null;
+      setOrderForm((prev) => ({
+        ...prev,
+        order_type: 'class'
+      }));
+      applyOrderTarget(matched);
+      return;
+    }
+    if (selectedExperienceType === 'event' && selectedEvent) {
+      const targetKey = buildOrderTargetKey('event', selectedEvent.event_id);
+      const matched = eventOrderTargets.find((item) => item.key === targetKey) || null;
+      setOrderForm((prev) => ({
+        ...prev,
+        order_type: 'event'
+      }));
+      applyOrderTarget(matched);
+    }
+  }
+
   async function submitOrder() {
     if (!selectedMember) {
       setActionFeedback('Pilih member dulu sebelum membuat order.');
       return;
     }
-    const inferredLabel = selectedExperienceType === 'class' && selectedClass
-      ? `Program - ${selectedClass.class_name || selectedClass.class_id}`
-      : selectedExperienceType === 'event' && selectedEvent
-        ? `Event - ${selectedEvent.event_name || selectedEvent.event_id}`
-        : '';
-    const label = String(orderForm.label || '').trim() || inferredLabel;
+    const orderType = normalizeOrderType(orderForm.order_type);
+    if (!selectedOrderTarget) {
+      setActionFeedback('Pilih target order sesuai tipenya terlebih dulu.');
+      return;
+    }
+    const label = String(orderForm.label || '').trim() || selectedOrderTarget.order_label;
     if (!label) {
       setActionFeedback('Label order wajib diisi.');
       return;
     }
     const qty = Math.max(1, Number(orderForm.qty || 1));
-    const unitPrice = Math.max(0, Number(orderForm.unit_price || 0));
+    const resolvedQty = orderType === 'product' ? qty : 1;
+    const unitPrice = Math.max(0, Number(orderForm.unit_price || selectedOrderTarget.unit_price || 0));
     if (!Number.isFinite(unitPrice) || unitPrice <= 0) {
       setActionFeedback('Harga order harus lebih besar dari 0.');
       return;
@@ -436,38 +531,29 @@ export default function DashboardPage() {
           branch_id: branchId,
           member_id: selectedMember.member_id,
           order_label: label,
-          order_type: selectedExperienceType === 'class'
-            ? 'class'
-            : selectedExperienceType === 'event'
-              ? 'event'
-              : 'manual',
-          qty,
+          order_type: orderType,
+          qty: resolvedQty,
           unit_price: unitPrice,
           currency: 'IDR',
           payment_method: orderForm.method || 'cash',
           payment_settlement: orderForm.settlement || 'pending',
-          reference_type: selectedExperienceType === 'class'
-            ? 'class'
-            : selectedExperienceType === 'event'
-              ? 'event'
-              : 'manual',
-          reference_id: selectedExperienceType === 'class'
-            ? selectedClass?.class_id || null
-            : selectedExperienceType === 'event'
-              ? selectedEvent?.event_id || null
-              : label,
-          notes: `CS dashboard order for ${selectedMember.full_name || selectedMember.member_id}`
+          reference_type: selectedOrderTarget.reference_type,
+          reference_id: selectedOrderTarget.reference_id,
+          notes: String(orderForm.notes || '').trim() || `CS dashboard order for ${selectedMember.full_name || selectedMember.member_id}`
         })
       });
       await loadDashboard();
       await loadSelectedMemberOrders(selectedMember.member_id);
       await loadSelectedMemberPayments(selectedMember.member_id);
       setOrderForm({
+        order_type: orderType,
+        target_key: '',
         label: '',
         qty: '1',
         unit_price: '',
         method: 'cash',
-        settlement: 'pending'
+        settlement: 'pending',
+        notes: ''
       });
       setActionFeedback(
         `order.created: ${selectedMember.full_name || selectedMember.member_id} -> ${response?.order?.order_id || '-'} (${response?.order?.payment_status || 'pending'})`
@@ -526,6 +612,100 @@ export default function DashboardPage() {
       return startAt >= now - lookbackMs;
     });
   }, [classes]);
+  const membershipOrderTargets = useMemo(() => {
+    const activityTargets = classes
+      .filter((item) => String(item?.class_type || '').trim().toLowerCase() === 'open_access')
+      .map((item) => ({
+        key: buildOrderTargetKey('activity', item.class_id),
+        source_kind: 'activity',
+        source_id: String(item.class_id || ''),
+        label: item.class_name || item.title || item.class_id || 'Membership',
+        helper: 'activity / open access',
+        unit_price: Number(item.price || 0),
+        reference_type: 'open_access_purchase',
+        reference_id: item.class_id || null,
+        order_label: `Membership - ${item.class_name || item.title || item.class_id}`
+      }));
+    const packageTargets = packages
+      .filter((item) => String(item?.package_type || '').trim().toLowerCase() === 'membership')
+      .map((item) => ({
+        key: buildOrderTargetKey('package', item.package_id),
+        source_kind: 'package',
+        source_id: String(item.package_id || ''),
+        label: item.package_name || item.package_id || 'Membership Package',
+        helper: 'legacy package',
+        unit_price: Number(item.price || 0),
+        reference_type: 'membership_purchase',
+        reference_id: item.package_id || null,
+        order_label: `Membership - ${item.package_name || item.package_id}`
+      }));
+    return [...activityTargets, ...packageTargets];
+  }, [classes, packages]);
+  const eventOrderTargets = useMemo(() => (
+    activeEvents.map((item) => ({
+      key: buildOrderTargetKey('event', item.event_id),
+      source_kind: 'event',
+      source_id: String(item.event_id || ''),
+      label: item.event_name || item.event_id || 'Event',
+      helper: item.location || item.status || 'event',
+      unit_price: Number(item.price || 0),
+      reference_type: 'event_registration',
+      reference_id: item.event_id || null,
+      order_label: `Event - ${item.event_name || item.event_id}`
+    }))
+  ), [activeEvents]);
+  const classOrderTargets = useMemo(() => (
+    classes
+      .filter((item) => String(item?.class_type || 'scheduled').trim().toLowerCase() === 'scheduled')
+      .map((item) => ({
+        key: buildOrderTargetKey('class', item.class_id),
+        source_kind: 'class',
+        source_id: String(item.class_id || ''),
+        label: item.class_name || item.class_id || 'Program',
+        helper: item.trainer_name || item.branch_id || 'program',
+        unit_price: Number(item.price || 0),
+        reference_type: 'class_booking',
+        reference_id: item.class_id || null,
+        order_label: `Program - ${item.class_name || item.class_id}`
+      }))
+  ), [classes]);
+  const productOrderTargets = useMemo(() => (
+    products.map((item) => ({
+      key: buildOrderTargetKey('product', item.product_id),
+      source_kind: 'product',
+      source_id: String(item.product_id || ''),
+      label: item.product_name || item.product_id || 'Product',
+      helper: item.category || 'product',
+      unit_price: Number(item.price || 0),
+      reference_type: 'product',
+      reference_id: item.product_id || null,
+      order_label: `Product - ${item.product_name || item.product_id}`
+    }))
+  ), [products]);
+  const currentOrderTargets = useMemo(() => {
+    const orderType = normalizeOrderType(orderForm.order_type);
+    if (orderType === 'membership') return membershipOrderTargets;
+    if (orderType === 'event') return eventOrderTargets;
+    if (orderType === 'class') return classOrderTargets;
+    if (orderType === 'product') return productOrderTargets;
+    return [];
+  }, [orderForm.order_type, membershipOrderTargets, eventOrderTargets, classOrderTargets, productOrderTargets]);
+  const selectedOrderTarget = useMemo(
+    () => currentOrderTargets.find((item) => item.key === orderForm.target_key) || null,
+    [currentOrderTargets, orderForm.target_key]
+  );
+  const orderReferenceLookups = useMemo(() => {
+    const membershipsById = new Map();
+    membershipOrderTargets.forEach((item) => {
+      if (item.reference_id) membershipsById.set(String(item.reference_id), item.label);
+    });
+    return {
+      membershipsById,
+      eventsById: new Map(activeEvents.map((item) => [String(item.event_id || ''), item.event_name || item.event_id || '-'])),
+      classesById: new Map(classes.map((item) => [String(item.class_id || ''), item.class_name || item.class_id || '-'])),
+      productsById: new Map(products.map((item) => [String(item.product_id || ''), item.product_name || item.product_id || '-']))
+    };
+  }, [membershipOrderTargets, activeEvents, classes, products]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1268,8 +1448,15 @@ export default function DashboardPage() {
 
       <section className="ops-grid" style={{ marginTop: '1rem' }}>
         <article className="card">
-          <p className="eyebrow">Daily report</p>
-          <h2>Ringkasan operasional hari ini</h2>
+          <div className="panel-head" style={{ marginBottom: '0.5rem' }}>
+            <div>
+              <p className="eyebrow">Daily report</p>
+              <h2>Ringkasan operasional hari ini</h2>
+            </div>
+            <button className="btn ghost small" type="button" onClick={exportDailyReportCsv}>
+              Export CSV
+            </button>
+          </div>
           <div className="entity-list" style={{ marginTop: '0.75rem' }}>
             {dailyReportRows.map((item) => (
               <div className="entity-row" key={item.label}>
@@ -1282,10 +1469,36 @@ export default function DashboardPage() {
           </div>
         </article>
         <article className="card">
-          <p className="eyebrow">CS focus</p>
-          <h2>Prioritas berikutnya</h2>
-          <p className="feedback">Gunakan panel member untuk buat order riil dengan payment simulasi, lalu panel event untuk check-in / check-out participant.</p>
-          <p className="feedback">Alur minimum: pilih member, pilih event, lakukan check-in, lalu check-out saat acara selesai.</p>
+          <p className="eyebrow">CS start here</p>
+          <h2>Entry flow staf hari ini</h2>
+          <p className="feedback">1. Pilih member. 2. Pilih tipe order dan target. 3. Simulasikan payment bila perlu. 4. Lanjut ke event/program desk untuk check-in atau attendance.</p>
+          <div className="row-actions" style={{ marginTop: '0.75rem' }}>
+            <button className="btn ghost small" type="button" onClick={() => setWorkspaceTab('member')}>
+              Member desk
+            </button>
+            <button
+              className="btn ghost small"
+              type="button"
+              onClick={() => {
+                setWorkspaceTab('event');
+                setSelectedExperienceType('event');
+              }}
+            >
+              Event desk
+            </button>
+            {showClassWorkspace ? (
+              <button
+                className="btn ghost small"
+                type="button"
+                onClick={() => {
+                  setWorkspaceTab('class');
+                  setSelectedExperienceType('class');
+                }}
+              >
+                Program desk
+              </button>
+            ) : null}
+          </div>
         </article>
       </section>
 
@@ -1505,19 +1718,71 @@ export default function DashboardPage() {
               </article>
               <article className="card">
                 <p className="eyebrow">Create order</p>
-                <p className="feedback">Order akan tersimpan sebagai data transaksi. Payment tetap simulasi: bisa pending atau paid tanpa gateway asli.</p>
+                <p className="feedback">Order disusun per tipe supaya reference dan harga lebih konsisten. Payment tetap simulasi: bisa pending atau paid tanpa gateway asli.</p>
                 <div className="form">
+                  <label>
+                    Order type
+                    <select
+                      value={orderForm.order_type}
+                      onChange={(e) =>
+                        setOrderForm((prev) => ({
+                          ...prev,
+                          order_type: normalizeOrderType(e.target.value),
+                          target_key: '',
+                          label: '',
+                          qty: normalizeOrderType(e.target.value) === 'product' ? prev.qty : '1',
+                          unit_price: '',
+                          notes: ''
+                        }))
+                      }
+                    >
+                      <option value="membership">membership</option>
+                      <option value="event">event</option>
+                      <option value="class">class</option>
+                      <option value="product">product</option>
+                    </select>
+                  </label>
+                  <label>
+                    Target
+                    <select
+                      value={orderForm.target_key}
+                      onChange={(e) => {
+                        const nextTarget = currentOrderTargets.find((item) => item.key === e.target.value) || null;
+                        if (!nextTarget) {
+                          setOrderForm((prev) => ({ ...prev, target_key: '' }));
+                          return;
+                        }
+                        applyOrderTarget(nextTarget);
+                      }}
+                    >
+                      <option value="">
+                        {currentOrderTargets.length > 0
+                          ? `Pilih ${formatOrderTypeLabel(orderForm.order_type).toLowerCase()}`
+                          : `Belum ada ${formatOrderTypeLabel(orderForm.order_type).toLowerCase()} aktif`}
+                      </option>
+                      {currentOrderTargets.map((item) => (
+                        <option key={item.key} value={item.key}>
+                          {item.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  {selectedOrderTarget ? (
+                    <div className="card" style={{ borderStyle: 'dashed' }}>
+                      <p className="eyebrow">Selected target</p>
+                      <p><strong>{selectedOrderTarget.label}</strong></p>
+                      <p>{selectedOrderTarget.helper}</p>
+                      <p>Reference: {selectedOrderTarget.reference_type} / {selectedOrderTarget.reference_id || '-'}</p>
+                      <p>Default price: {formatIdr(selectedOrderTarget.unit_price || 0)}</p>
+                    </div>
+                  ) : null}
                   <label>
                     Order label
                     <input
                       value={orderForm.label}
                       onChange={(e) => setOrderForm((prev) => ({ ...prev, label: e.target.value }))}
                       placeholder={
-                        selectedExperienceType === 'class' && selectedClass
-                          ? `Program - ${selectedClass.class_name || selectedClass.class_id}`
-                          : selectedExperienceType === 'event' && selectedEvent
-                            ? `Event - ${selectedEvent.event_name || selectedEvent.event_id}`
-                            : 'Membership April / Walk-in / Produk'
+                        selectedOrderTarget?.order_label || 'Membership April / Event / Program / Product'
                       }
                     />
                   </label>
@@ -1528,6 +1793,7 @@ export default function DashboardPage() {
                       min="1"
                       value={orderForm.qty}
                       onChange={(e) => setOrderForm((prev) => ({ ...prev, qty: e.target.value }))}
+                      disabled={normalizeOrderType(orderForm.order_type) !== 'product'}
                     />
                   </label>
                   <label>
@@ -1562,6 +1828,14 @@ export default function DashboardPage() {
                       <option value="paid">paid</option>
                     </select>
                   </label>
+                  <label>
+                    Notes
+                    <input
+                      value={orderForm.notes}
+                      onChange={(e) => setOrderForm((prev) => ({ ...prev, notes: e.target.value }))}
+                      placeholder="Catatan internal order untuk CS"
+                    />
+                  </label>
                   <div className="row-actions">
                     <button className="btn" type="button" disabled={orderSaving} onClick={submitOrder}>
                       {orderSaving ? 'Menyimpan...' : 'Create order'}
@@ -1569,16 +1843,7 @@ export default function DashboardPage() {
                     <button
                       className="btn ghost"
                       type="button"
-                      onClick={() =>
-                        setOrderForm((prev) => ({
-                          ...prev,
-                          label: selectedExperienceType === 'class' && selectedClass
-                            ? `Program - ${selectedClass.class_name || selectedClass.class_id}`
-                            : selectedExperienceType === 'event' && selectedEvent
-                              ? `Event - ${selectedEvent.event_name || selectedEvent.event_id}`
-                              : prev.label
-                        }))
-                      }
+                      onClick={applyCurrentContextToOrder}
                     >
                       Use current context
                     </button>
@@ -1599,6 +1864,7 @@ export default function DashboardPage() {
                     <div className="entity-row" key={item.order_id}>
                       <div>
                         <strong>{item.order_label || item.order_id}</strong>
+                        <p>{formatOrderTypeLabel(item.order_type)} | {resolveOrderReferenceLabel(item, orderReferenceLookups)}</p>
                         <p>{item.order_id} | qty {item.qty || 0}</p>
                         <p>{formatDateTime(item.created_at || item.updated_at)}</p>
                       </div>

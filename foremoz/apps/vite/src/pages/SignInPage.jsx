@@ -24,6 +24,9 @@ export default function SignInPage() {
   const isAccountSignin = Boolean(account);
   const activationNotice = String(searchParams.get('activated') || '').trim() === '1';
   const resetNotice = String(searchParams.get('reset') || '').trim() === '1';
+  const staffSubtitle = isAccountSignin
+    ? 'Masuk staff untuk admin, customer service, PT, atau sales. Setelah login, sistem akan langsung mengarahkan ke dashboard sesuai role.'
+    : t('auth.owner.subtitle');
   const [form, setForm] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -198,11 +201,7 @@ export default function SignInPage() {
   return (
     <AuthLayout
       title={isAccountSignin ? t('auth.tenant.title', { account }) : t('auth.owner.title')}
-      subtitle={
-        isAccountSignin
-          ? t('auth.tenant.subtitle')
-          : t('auth.owner.subtitle')
-      }
+      subtitle={isAccountSignin ? staffSubtitle : t('auth.owner.subtitle')}
       alternateHref={isAccountSignin ? '' : '/signup'}
       alternateText={isAccountSignin ? '' : t('auth.owner.alternate')}
     >
@@ -228,6 +227,26 @@ export default function SignInPage() {
           </Link>
         </p>
       </form>
+      {isAccountSignin ? (
+        <div className="card" style={{ marginTop: '0.75rem', borderStyle: 'dashed' }}>
+          <p className="eyebrow">Staff entry</p>
+          <p className="feedback">Gunakan halaman ini untuk semua staff account di tenant ini.</p>
+          <p className="feedback"><strong>Admin</strong>: masuk ke settings, setup class/event, dan review transaksi.</p>
+          <p className="feedback"><strong>CS</strong>: masuk ke dashboard order, check-in, attendance, dan daily report.</p>
+          <p className="feedback"><strong>PT</strong>: masuk ke dashboard session, member activity, dan completion.</p>
+          <p className="feedback"><strong>Sales</strong>: masuk ke dashboard prospect, order, dan follow-up.</p>
+          <div className="hero-actions" style={{ marginTop: '0.75rem' }}>
+            {account ? (
+              <Link className="btn ghost small" to={`/a/${account}`}>
+                Open public account
+              </Link>
+            ) : null}
+            <Link className="btn ghost small" to={isAccountSignin && account ? `/a/${account}/member/signin` : '/a/tn_001/member/signin'}>
+              Member portal
+            </Link>
+          </div>
+        </div>
+      ) : null}
       <div className="card" style={{ marginTop: '0.75rem', borderStyle: 'dashed' }}>
         <p className="eyebrow">{t('auth.differentLogin')}</p>
         <div className="hero-actions">
