@@ -68,6 +68,30 @@ export async function runFitnessProjection({ tenantId, branchId }) {
        )`
     );
     await client.query(
+      `create table if not exists read.rm_order_list (
+         tenant_id text not null,
+         branch_id text,
+         order_id text not null,
+         member_id text not null,
+         order_label text not null,
+         order_type text not null default 'manual',
+         qty integer not null default 1,
+         unit_price integer not null default 0,
+         total_amount integer not null default 0,
+         currency text not null default 'IDR',
+         status text not null default 'pending_payment',
+         payment_id text,
+         payment_status text,
+         payment_method text,
+         reference_type text,
+         reference_id text,
+         notes text,
+         created_at timestamptz not null,
+         updated_at timestamptz not null,
+         primary key (tenant_id, order_id)
+       )`
+    );
+    await client.query(
       `alter table if exists read.rm_class_availability
          add column if not exists title text not null default '',
          add column if not exists description text,
@@ -147,6 +171,10 @@ export async function runFitnessProjection({ tenantId, branchId }) {
     await client.query(
       `create index if not exists idx_rm_activity_enrollment_payment
        on read.rm_activity_enrollment (tenant_id, payment_id)`
+    );
+    await client.query(
+      `create index if not exists idx_rm_order_member
+       on read.rm_order_list (tenant_id, member_id, updated_at desc)`
     );
     await client.query(
       `create index if not exists idx_rm_booking_payment
@@ -649,6 +677,7 @@ export async function runFitnessProjection({ tenantId, branchId }) {
       }
 
       if (event.event_type === 'payment.recorded') {
+        const orderId = String(refs.order_id || data.order_id || '').trim() || null;
         await client.query(
           `insert into read.rm_payment_queue (
              tenant_id, branch_id, payment_id, member_id, subscription_id,
@@ -708,6 +737,21 @@ export async function runFitnessProjection({ tenantId, branchId }) {
             data.recorded_at || eventTs
           ]
         );
+        if (orderId) {
+          await client.query(
+            `update read.rm_order_list
+             set payment_id = $3,
+                 payment_status = 'pending',
+                 payment_method = $4,
+                 status = case
+                   when lower(status) in ('paid', 'completed') then status
+                   else 'pending_payment'
+                 end,
+                 updated_at = $5
+             where tenant_id = $1 and order_id = $2`,
+            [tenant, orderId, data.payment_id, data.method || null, data.recorded_at || eventTs]
+          );
+        }
         applied += 1;
         continue;
       }
@@ -747,6 +791,73 @@ export async function runFitnessProjection({ tenantId, branchId }) {
              status = excluded.status,
              updated_at = excluded.updated_at`,
           [tenant, data.payment_id, paymentStatus, reviewedAt]
+        );
+        const orderId = String(refs.order_id || data.order_id || '').trim() || null;
+        if (orderId) {
+          await client.query(
+            `update read.rm_order_list
+             set payment_status = $3,
+                 status = $4,
+                 updated_at = $5
+             where tenant_id = $1 and order_id = $2`,
+            [tenant, orderId, paymentStatus, paymentStatus === 'confirmed' ? 'paid' : 'payment_rejected', reviewedAt]
+          );
+        }
+        applied += 1;
+        continue;
+      }
+
+      if (event.event_type === 'order.created') {
+        await client.query(
+          `insert into read.rm_order_list (
+             tenant_id, branch_id, order_id, member_id, order_label, order_type,
+             qty, unit_price, total_amount, currency, status, payment_id,
+             payment_status, payment_method, reference_type, reference_id,
+             notes, created_at, updated_at
+           ) values (
+             $1,$2,$3,$4,$5,$6,
+             $7,$8,$9,$10,$11,$12,
+             $13,$14,$15,$16,
+             $17,$18,$19
+           )
+           on conflict (tenant_id, order_id) do update set
+             branch_id = excluded.branch_id,
+             member_id = excluded.member_id,
+             order_label = excluded.order_label,
+             order_type = excluded.order_type,
+             qty = excluded.qty,
+             unit_price = excluded.unit_price,
+             total_amount = excluded.total_amount,
+             currency = excluded.currency,
+             status = excluded.status,
+             payment_id = excluded.payment_id,
+             payment_status = excluded.payment_status,
+             payment_method = excluded.payment_method,
+             reference_type = excluded.reference_type,
+             reference_id = excluded.reference_id,
+             notes = excluded.notes,
+             updated_at = excluded.updated_at`,
+          [
+            tenant,
+            branch,
+            data.order_id,
+            data.member_id,
+            data.order_label || data.label || data.order_id,
+            data.order_type || 'manual',
+            Number(data.qty || 1),
+            Number(data.unit_price || 0),
+            Number(data.total_amount || 0),
+            data.currency || 'IDR',
+            data.status || 'pending_payment',
+            data.payment_id || null,
+            data.payment_status || null,
+            data.payment_method || null,
+            data.reference_type || null,
+            data.reference_id || null,
+            data.notes || null,
+            data.created_at || eventTs,
+            eventTs
+          ]
         );
         applied += 1;
         continue;

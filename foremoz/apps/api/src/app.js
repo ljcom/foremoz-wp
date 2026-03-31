@@ -1665,6 +1665,18 @@ async function getPaymentQueueRow({ tenantId, paymentId }) {
   return rows[0] || null;
 }
 
+async function getOrderRowByPaymentId({ tenantId, paymentId }) {
+  const { rows } = await query(
+    `select tenant_id, order_id, member_id, status, payment_status
+     from read.rm_order_list
+     where tenant_id = $1 and payment_id = $2
+     order by updated_at desc
+     limit 1`,
+    [tenantId, paymentId]
+  );
+  return rows[0] || null;
+}
+
 async function getPtBalanceRow({ tenantId, ptPackageId }) {
   const { rows } = await query(
     `select tenant_id, branch_id, pt_package_id, member_id, trainer_id,
@@ -4660,6 +4672,168 @@ app.post('/v1/activities/access-check', async (req, res, next) => {
   }
 });
 
+app.post('/v1/orders', async (req, res, next) => {
+  try {
+    const data = req.body || {};
+    const tenantId = data.tenant_id || config.defaultTenantId;
+    const branchId = data.branch_id || null;
+    const memberId = required(data.member_id, 'member_id');
+    const orderId = String(data.order_id || `ord_${Date.now()}_${randomUUID().slice(0, 8)}`).trim();
+    const qty = asPositiveInteger(data.qty || 1, 'qty');
+    const unitPrice = Number(required(data.unit_price, 'unit_price'));
+    if (!Number.isFinite(unitPrice) || unitPrice < 0) {
+      throw fail(400, 'BAD_REQUEST', 'unit_price must be a non-negative number');
+    }
+    const totalAmount = qty * unitPrice;
+    if (!Number.isFinite(totalAmount) || totalAmount <= 0) {
+      throw fail(400, 'BAD_REQUEST', 'total_amount must be greater than 0');
+    }
+    const orderLabel = String(required(data.order_label || data.label, 'order_label')).trim();
+    const orderType = String(data.order_type || 'manual').trim().toLowerCase();
+    const paymentMethod = String(required(data.payment_method || data.method, 'payment_method')).trim().toLowerCase();
+    const paymentSettlement = String(data.payment_settlement || data.settlement || 'pending').trim().toLowerCase();
+    const allowedMethods = new Set(['cash', 'bank_transfer', 'virtual_account', 'ewallet', 'credit_card', 'debit_card', 'qris']);
+    if (!allowedMethods.has(paymentMethod)) {
+      throw fail(
+        400,
+        'BAD_REQUEST',
+        'payment_method must be one of: cash, bank_transfer, virtual_account, ewallet, credit_card, debit_card, qris'
+      );
+    }
+    if (!['pending', 'paid'].includes(paymentSettlement)) {
+      throw fail(400, 'BAD_REQUEST', 'payment_settlement must be either pending or paid');
+    }
+
+    const paymentId = String(data.payment_id || `pay_${Date.now()}_${randomUUID().slice(0, 8)}`).trim();
+    const createdAt = data.created_at || new Date().toISOString();
+    const paymentStatus = paymentSettlement === 'paid' ? 'confirmed' : 'pending';
+    const orderStatus = paymentSettlement === 'paid' ? 'paid' : 'pending_payment';
+    const referenceType = data.reference_type || null;
+    const referenceId = data.reference_id || null;
+    const currency = required(data.currency || 'IDR', 'currency');
+
+    const orderEvent = await appendDomainEvent({
+      tenantId,
+      branchId,
+      actorId: data.actor_id || config.defaultActorId,
+      eventType: 'order.created',
+      subjectKind: 'order',
+      subjectId: orderId,
+      data: {
+        tenant_id: tenantId,
+        branch_id: branchId,
+        order_id: orderId,
+        member_id: memberId,
+        order_label: orderLabel,
+        order_type: orderType,
+        qty,
+        unit_price: unitPrice,
+        total_amount: totalAmount,
+        currency,
+        status: orderStatus,
+        payment_id: paymentId,
+        payment_status: paymentStatus,
+        payment_method: paymentMethod,
+        reference_type: referenceType,
+        reference_id: referenceId,
+        notes: data.notes || null,
+        created_at: createdAt
+      },
+      refs: {
+        member_id: memberId,
+        order_id: orderId,
+        reference_type: referenceType,
+        reference_id: referenceId
+      },
+      uniqueIds: [{ scope: 'order.order_id', value: orderId }]
+    });
+
+    const paymentEvents = [];
+    const paymentRecordedEvent = await appendDomainEvent({
+      tenantId,
+      branchId,
+      actorId: data.actor_id || config.defaultActorId,
+      eventType: 'payment.recorded',
+      subjectKind: 'payment',
+      subjectId: paymentId,
+      data: {
+        tenant_id: tenantId,
+        branch_id: branchId,
+        payment_id: paymentId,
+        member_id: memberId,
+        subscription_id: data.subscription_id || null,
+        amount: totalAmount,
+        currency,
+        method: paymentMethod,
+        reference_type: referenceType || 'order',
+        reference_id: referenceId || orderId,
+        proof_url: data.proof_url || null,
+        recorded_at: data.recorded_at || createdAt,
+        order_id: orderId
+      },
+      refs: {
+        subscription_id: data.subscription_id || null,
+        order_id: orderId,
+        reference_type: referenceType || 'order',
+        reference_id: referenceId || orderId
+      },
+      uniqueIds: [{ scope: 'payment.payment_id', value: paymentId }]
+    });
+    paymentEvents.push(paymentRecordedEvent);
+
+    if (paymentSettlement === 'paid') {
+      const paymentConfirmedEvent = await appendDomainEvent({
+        tenantId,
+        branchId,
+        actorId: data.actor_id || config.defaultActorId,
+        eventType: 'payment.confirmed',
+        subjectKind: 'payment',
+        subjectId: paymentId,
+        data: {
+          tenant_id: tenantId,
+          branch_id: branchId,
+          payment_id: paymentId,
+          order_id: orderId,
+          confirmed_at: data.confirmed_at || createdAt,
+          confirmed_by: data.confirmed_by || data.actor_id || null,
+          note: data.note || `Mock payment confirmed for ${orderLabel}`
+        },
+        refs: {
+          order_id: orderId,
+          reference_type: referenceType || 'order',
+          reference_id: referenceId || orderId
+        }
+      });
+      paymentEvents.push(paymentConfirmedEvent);
+    }
+
+    await runFitnessProjection({ tenantId, branchId });
+    return created(res, {
+      event: orderEvent,
+      payment_events: paymentEvents,
+      order: {
+        order_id: orderId,
+        member_id: memberId,
+        order_label: orderLabel,
+        order_type: orderType,
+        qty,
+        unit_price: unitPrice,
+        total_amount: totalAmount,
+        currency,
+        status: orderStatus,
+        payment_id: paymentId,
+        payment_status: paymentStatus,
+        payment_method: paymentMethod,
+        reference_type: referenceType,
+        reference_id: referenceId,
+        created_at: createdAt
+      }
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
 app.post('/v1/payments/record', async (req, res, next) => {
   try {
     const data = req.body || {};
@@ -4702,6 +4876,7 @@ app.post('/v1/payments/record', async (req, res, next) => {
       },
       refs: {
         subscription_id: data.subscription_id || null,
+        order_id: data.order_id || null,
         reference_type: data.reference_type || null,
         reference_id: data.reference_id || null
       },
@@ -4737,6 +4912,7 @@ app.post('/v1/payments/:paymentId/confirm', async (req, res, next) => {
       throw fail(409, 'PAYMENT_ALREADY_REJECTED', `payment ${paymentId} already rejected`);
     }
 
+    const linkedOrder = data.order_id ? { order_id: data.order_id } : await getOrderRowByPaymentId({ tenantId, paymentId });
     const event = await appendDomainEvent({
       tenantId,
       branchId: data.branch_id || null,
@@ -4748,11 +4924,14 @@ app.post('/v1/payments/:paymentId/confirm', async (req, res, next) => {
         tenant_id: tenantId,
         branch_id: data.branch_id || null,
         payment_id: paymentId,
+        order_id: linkedOrder?.order_id || null,
         confirmed_at: data.confirmed_at || new Date().toISOString(),
         confirmed_by: data.confirmed_by || data.actor_id || null,
         note: data.note || null
       },
-      refs: {}
+      refs: {
+        order_id: linkedOrder?.order_id || null
+      }
     });
 
     return created(res, { event, payment_id: paymentId, status: 'confirmed' });
@@ -4785,6 +4964,7 @@ app.post('/v1/payments/:paymentId/reject', async (req, res, next) => {
       throw fail(409, 'PAYMENT_ALREADY_CONFIRMED', `payment ${paymentId} already confirmed`);
     }
 
+    const linkedOrder = data.order_id ? { order_id: data.order_id } : await getOrderRowByPaymentId({ tenantId, paymentId });
     const event = await appendDomainEvent({
       tenantId,
       branchId: data.branch_id || null,
@@ -4796,11 +4976,14 @@ app.post('/v1/payments/:paymentId/reject', async (req, res, next) => {
         tenant_id: tenantId,
         branch_id: data.branch_id || null,
         payment_id: paymentId,
+        order_id: linkedOrder?.order_id || null,
         rejected_at: data.rejected_at || new Date().toISOString(),
         rejected_by: data.rejected_by || data.actor_id || null,
         reason: data.reason || null
       },
-      refs: {}
+      refs: {
+        order_id: linkedOrder?.order_id || null
+      }
     });
 
     return created(res, { event, payment_id: paymentId, status: 'rejected' });
@@ -7456,6 +7639,36 @@ app.get('/v1/read/payments/history', async (req, res, next) => {
     sql += ` order by recorded_at desc`;
     const { rows } = await query(sql, params);
     return ok(res, { rows });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.get('/v1/read/orders', async (req, res, next) => {
+  try {
+    const tenantId = req.query.tenant_id || config.defaultTenantId;
+    const memberId = req.query.member_id || null;
+    const branchId = req.query.branch_id || null;
+    const status = req.query.status || 'all';
+    const limit = Math.min(Math.max(Number(req.query.limit || 50), 1), 200);
+    const params = [tenantId];
+    let sql = `select * from read.rm_order_list where tenant_id = $1`;
+    if (branchId) {
+      params.push(branchId);
+      sql += ` and branch_id = $${params.length}`;
+    }
+    if (memberId) {
+      params.push(memberId);
+      sql += ` and member_id = $${params.length}`;
+    }
+    if (status && String(status).trim().toLowerCase() !== 'all') {
+      params.push(String(status).trim().toLowerCase());
+      sql += ` and lower(status) = $${params.length}`;
+    }
+    params.push(limit);
+    sql += ` order by created_at desc nulls last, updated_at desc limit $${params.length}`;
+    const { rows } = await query(sql, params);
+    return ok(res, { rows, limit });
   } catch (error) {
     return next(error);
   }

@@ -234,6 +234,8 @@ export default function DashboardPage() {
   const [checkinCustomFieldsText, setCheckinCustomFieldsText] = useState('');
   const [checkoutCustomFieldsText, setCheckoutCustomFieldsText] = useState('');
   const [bookingRegistrationAnswers, setBookingRegistrationAnswers] = useState({});
+  const [memberOrderRows, setMemberOrderRows] = useState([]);
+  const [memberOrderLoading, setMemberOrderLoading] = useState(false);
   const [memberPaymentRows, setMemberPaymentRows] = useState([]);
   const [memberPaymentLoading, setMemberPaymentLoading] = useState(false);
   const [orderSaving, setOrderSaving] = useState(false);
@@ -384,7 +386,26 @@ export default function DashboardPage() {
     }
   }
 
-  async function submitMockOrder() {
+  async function loadSelectedMemberOrders(memberId) {
+    const targetMemberId = String(memberId || '').trim();
+    if (!targetMemberId) {
+      setMemberOrderRows([]);
+      return;
+    }
+    try {
+      setMemberOrderLoading(true);
+      const response = await apiJson(
+        `/v1/read/orders?tenant_id=${encodeURIComponent(tenantId)}&branch_id=${encodeURIComponent(branchId)}&member_id=${encodeURIComponent(targetMemberId)}&limit=20`
+      );
+      setMemberOrderRows(Array.isArray(response?.rows) ? response.rows : []);
+    } catch (err) {
+      setActionFeedback(err.message || 'failed to load member orders');
+    } finally {
+      setMemberOrderLoading(false);
+    }
+  }
+
+  async function submitOrder() {
     if (!selectedMember) {
       setActionFeedback('Pilih member dulu sebelum membuat order.');
       return;
@@ -405,36 +426,41 @@ export default function DashboardPage() {
       setActionFeedback('Harga order harus lebih besar dari 0.');
       return;
     }
-    const amount = qty * unitPrice;
-    const paymentId = `pay_cs_${Date.now()}`;
     try {
       setOrderSaving(true);
       setActionFeedback('');
-      await apiJson('/v1/payments/record', {
+      const response = await apiJson('/v1/orders', {
         method: 'POST',
         body: JSON.stringify({
           tenant_id: tenantId,
           branch_id: branchId,
-          payment_id: paymentId,
           member_id: selectedMember.member_id,
-          amount,
+          order_label: label,
+          order_type: selectedExperienceType === 'class'
+            ? 'class'
+            : selectedExperienceType === 'event'
+              ? 'event'
+              : 'manual',
+          qty,
+          unit_price: unitPrice,
           currency: 'IDR',
-          method: orderForm.method || 'cash',
-          reference_type: 'manual',
-          reference_id: label
+          payment_method: orderForm.method || 'cash',
+          payment_settlement: orderForm.settlement || 'pending',
+          reference_type: selectedExperienceType === 'class'
+            ? 'class'
+            : selectedExperienceType === 'event'
+              ? 'event'
+              : 'manual',
+          reference_id: selectedExperienceType === 'class'
+            ? selectedClass?.class_id || null
+            : selectedExperienceType === 'event'
+              ? selectedEvent?.event_id || null
+              : label,
+          notes: `CS dashboard order for ${selectedMember.full_name || selectedMember.member_id}`
         })
       });
-      if (String(orderForm.settlement || 'pending').trim().toLowerCase() === 'paid') {
-        await apiJson(`/v1/payments/${encodeURIComponent(paymentId)}/confirm`, {
-          method: 'POST',
-          body: JSON.stringify({
-            tenant_id: tenantId,
-            branch_id: branchId,
-            note: `Mock payment for ${label}`
-          })
-        });
-      }
       await loadDashboard();
+      await loadSelectedMemberOrders(selectedMember.member_id);
       await loadSelectedMemberPayments(selectedMember.member_id);
       setOrderForm({
         label: '',
@@ -443,9 +469,11 @@ export default function DashboardPage() {
         method: 'cash',
         settlement: 'pending'
       });
-      setActionFeedback(`order.created: ${selectedMember.full_name || selectedMember.member_id} -> ${paymentId}`);
+      setActionFeedback(
+        `order.created: ${selectedMember.full_name || selectedMember.member_id} -> ${response?.order?.order_id || '-'} (${response?.order?.payment_status || 'pending'})`
+      );
     } catch (err) {
-      setActionFeedback(err.message || 'failed to create mock order');
+      setActionFeedback(err.message || 'failed to create order');
     } finally {
       setOrderSaving(false);
     }
@@ -473,6 +501,11 @@ export default function DashboardPage() {
     loadClassBookings(selectedExperienceId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedExperienceId, selectedExperienceType, tenantId]);
+
+  useEffect(() => {
+    loadSelectedMemberOrders(selectedMemberId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedMemberId, tenantId, branchId]);
 
   useEffect(() => {
     loadSelectedMemberPayments(selectedMemberId);
@@ -1251,7 +1284,7 @@ export default function DashboardPage() {
         <article className="card">
           <p className="eyebrow">CS focus</p>
           <h2>Prioritas berikutnya</h2>
-          <p className="feedback">Gunakan panel member untuk create order mockup, lalu panel event untuk check-in / check-out participant.</p>
+          <p className="feedback">Gunakan panel member untuk buat order riil dengan payment simulasi, lalu panel event untuk check-in / check-out participant.</p>
           <p className="feedback">Alur minimum: pilih member, pilih event, lakukan check-in, lalu check-out saat acara selesai.</p>
         </article>
       </section>
@@ -1472,7 +1505,7 @@ export default function DashboardPage() {
               </article>
               <article className="card">
                 <p className="eyebrow">Create order</p>
-                <p className="feedback">Mockup order untuk CS. Akan membuat payment pending atau paid tanpa gateway asli.</p>
+                <p className="feedback">Order akan tersimpan sebagai data transaksi. Payment tetap simulasi: bisa pending atau paid tanpa gateway asli.</p>
                 <div className="form">
                   <label>
                     Order label
@@ -1530,7 +1563,7 @@ export default function DashboardPage() {
                     </select>
                   </label>
                   <div className="row-actions">
-                    <button className="btn" type="button" disabled={orderSaving} onClick={submitMockOrder}>
+                    <button className="btn" type="button" disabled={orderSaving} onClick={submitOrder}>
                       {orderSaving ? 'Menyimpan...' : 'Create order'}
                     </button>
                     <button
@@ -1552,6 +1585,34 @@ export default function DashboardPage() {
                   </div>
                 </div>
               </article>
+            </div>
+          ) : null}
+
+          {selectedMember ? (
+            <div className="payment-history" style={{ marginTop: '1rem' }}>
+              <h3>Member orders</h3>
+              {memberOrderLoading ? (
+                <p className="feedback">Memuat order member...</p>
+              ) : memberOrderRows.length > 0 ? (
+                <div className="entity-list">
+                  {memberOrderRows.slice(0, 8).map((item) => (
+                    <div className="entity-row" key={item.order_id}>
+                      <div>
+                        <strong>{item.order_label || item.order_id}</strong>
+                        <p>{item.order_id} | qty {item.qty || 0}</p>
+                        <p>{formatDateTime(item.created_at || item.updated_at)}</p>
+                      </div>
+                      <div className="payment-meta">
+                        <strong>{formatIdr(item.total_amount || 0)}</strong>
+                        <span className={`status ${item.status}`}>{item.status || '-'}</span>
+                        <small>{item.payment_status || 'no payment'}</small>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="muted">Belum ada order untuk member ini.</p>
+              )}
             </div>
           ) : null}
 
