@@ -26,6 +26,14 @@ const ADMIN_TABS = [
   // { id: 'saas', label: 'SaaS' }
 ];
 
+const PLAN_DISPLAY_LABELS = {
+  free: 'Free',
+  starter: 'Starter',
+  growth: 'Growth',
+  multi_branch: 'Multi-branch',
+  enterprise: 'Enterprise'
+};
+
 const DEFAULT_CLASSES = [
   {
     class_id: 'class_001',
@@ -2427,6 +2435,15 @@ export default function AdminPage() {
     () => ADMIN_TABS.filter((tab) => enabledAdminTabIds.includes(tab.id)),
     [enabledAdminTabIds]
   );
+  const lockedAdminTabs = useMemo(
+    () => ADMIN_TABS.filter((tab) => !enabledAdminTabIds.includes(tab.id)),
+    [enabledAdminTabIds]
+  );
+  const lockedWorkspaces = useMemo(() => {
+    const allWorkspaceIds = ['cs', 'pt', 'sales'];
+    return allWorkspaceIds.filter((env) => !allowedEnv.includes(env));
+  }, [allowedEnv]);
+  const packagePlanLabel = PLAN_DISPLAY_LABELS[packagePlan] || sentenceCase(String(packagePlan || 'starter').replace(/_/g, ' '));
 
   useEffect(() => {
     if (allowedEnv.length === 0) return;
@@ -4804,6 +4821,30 @@ export default function AdminPage() {
         }}
         onSignOut={signOut}
       />
+
+      {lockedAdminTabs.length > 0 || lockedWorkspaces.length > 0 ? (
+        <section className="card" style={{ marginTop: '1rem', borderStyle: 'dashed' }}>
+          <p className="eyebrow">Package gating</p>
+          <p className="feedback">
+            Paket aktif saat ini: <strong>{packagePlanLabel}</strong>.
+          </p>
+          {lockedAdminTabs.length > 0 ? (
+            <p className="feedback">
+              Modul yang belum terbuka: {lockedAdminTabs.map((tab) => tab.label).join(', ')}.
+            </p>
+          ) : null}
+          {lockedWorkspaces.length > 0 ? (
+            <p className="feedback">
+              Workspace yang belum terbuka: {lockedWorkspaces.map((env) => getEnvironmentLabel(env)).join(', ')}.
+            </p>
+          ) : null}
+          <div className="row-actions" style={{ marginTop: '0.5rem' }}>
+            <button className="btn ghost small" type="button" onClick={() => navigate('/host/owner')}>
+              Lihat paket & upgrade
+            </button>
+          </div>
+        </section>
+      ) : null}
 
       <section className="card admin-tabs-card">
         <p className="eyebrow">{dashboardMenuLabel}</p>

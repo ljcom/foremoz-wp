@@ -18,33 +18,45 @@ const PLANS = [
     key: 'free',
     name: 'Free',
     price: 'IDR 0 / bulan',
-    note: 'Event sekali pakai + check-in/check-out.'
+    note: 'Event sekali pakai + check-in/check-out.',
+    best_for: 'Cocok untuk coba sistem atau operasional event tunggal.',
+    features: ['1 admin owner', 'Event publish dasar', 'Check-in/check-out event']
   },
   {
     key: 'starter',
     name: 'Starter',
     price: 'IDR 499.000 / bulan',
-    note: 'Event + program + CS + produk + check-in/check-out.'
+    note: 'Event + program + CS + produk + check-in/check-out.',
+    best_for: 'Cocok untuk studio/gym dengan 1 tim operasional inti.',
+    features: ['Tambah user CS', 'Program/class management', 'Produk + transaksi']
   },
   {
     key: 'growth',
     name: 'Growth',
     price: 'IDR 1.490.000 / bulan',
-    note: 'Starter + team mode (multi coach) + sales.'
+    note: 'Starter + team mode (multi coach) + sales.',
+    best_for: 'Cocok untuk tim coach dan sales yang mulai aktif.',
+    features: ['Tambah PT / coach', 'Tambah sales', 'Package creation + team mode']
   },
   {
     key: 'multi_branch',
     name: 'Multi-branch',
     price: 'IDR 3.490.000 / bulan',
-    note: 'Growth + operasional multi lokasi.'
+    note: 'Growth + operasional multi lokasi.',
+    best_for: 'Cocok untuk bisnis dengan lebih dari satu lokasi.',
+    features: ['Tambah cabang', 'Scope account/cabang', 'Operasional multi lokasi']
   },
   {
     key: 'enterprise',
     name: 'Enterprise',
     price: 'Mulai IDR 7.500.000+ / bulan',
-    note: 'Untuk kebutuhan governance/compliance dan SLA custom.'
+    note: 'Untuk kebutuhan governance/compliance dan SLA custom.',
+    best_for: 'Cocok untuk operasi besar dengan kebutuhan governance khusus.',
+    features: ['Custom governance', 'SLA & support khusus', 'Kebutuhan integrasi lanjutan']
   }
 ];
+
+const PLAN_SEQUENCE = ['free', 'starter', 'growth', 'multi_branch', 'enterprise'];
 
 const PLAN_PRICE = {
   free: 0,
@@ -62,6 +74,18 @@ function normalizePackagePlan(value) {
   if (plan === 'basic') return 'starter';
   if (plan === 'pro') return 'growth';
   return plan || 'free';
+}
+
+function getPlanDetails(value) {
+  const plan = normalizePackagePlan(value);
+  return PLANS.find((item) => item.key === plan) || PLANS[0];
+}
+
+function getNextPlanDetails(value) {
+  const plan = normalizePackagePlan(value);
+  const currentIndex = PLAN_SEQUENCE.indexOf(plan);
+  if (currentIndex < 0 || currentIndex >= PLAN_SEQUENCE.length - 1) return null;
+  return getPlanDetails(PLAN_SEQUENCE[currentIndex + 1]);
 }
 
 function formatIdr(value) {
@@ -221,6 +245,8 @@ export default function WebOwnerPage() {
   });
 
   const selectedPlanMonthlyPrice = PLAN_PRICE[setupForm.package_plan] || 0;
+  const selectedPlanDetails = useMemo(() => getPlanDetails(setupForm.package_plan), [setupForm.package_plan]);
+  const nextPlanDetails = useMemo(() => getNextPlanDetails(setupForm.package_plan), [setupForm.package_plan]);
   const verticalOptions = listVerticalConfigs();
   const creatorLabel = getVerticalConfig(normalizeVerticalSlug(setupForm.industry_slug, 'fitness'))?.vocabulary?.creator || 'Coach';
   const selectedMonths = Number(saasForm.months || 1);
@@ -1200,8 +1226,16 @@ export default function WebOwnerPage() {
                     <strong>{plan.name}</strong>
                     <p>{plan.price}</p>
                     <small>{plan.note}</small>
+                    <small>{plan.best_for}</small>
+                    <small>Termasuk: {plan.features.join(' • ')}</small>
                   </button>
                 ))}
+              </div>
+              <div className="card" style={{ borderStyle: 'dashed' }}>
+                <p className="eyebrow">Ringkasan paket terpilih</p>
+                <p><strong>{selectedPlanDetails.name}</strong> {selectedPlanDetails.price}</p>
+                <p className="feedback">{selectedPlanDetails.best_for}</p>
+                <p className="feedback">Yang terbuka: {selectedPlanDetails.features.join(' • ')}</p>
               </div>
               {setupForm.package_plan === 'enterprise' ? (
                 <>
@@ -1662,6 +1696,17 @@ export default function WebOwnerPage() {
                 <h2>Paket</h2>
                 {saasInfo ? <p className="feedback">Total bulan aktif tambahan: {saasInfo.total_months || 0}</p> : null}
                 <p className="muted">Paket aktif saat ini: {setupForm.package_plan}</p>
+                <div className="card" style={{ borderStyle: 'dashed', marginBottom: '0.8rem' }}>
+                  <p className="eyebrow">Capability paket saat ini</p>
+                  <p><strong>{selectedPlanDetails.name}</strong> {selectedPlanDetails.price}</p>
+                  <p className="feedback">{selectedPlanDetails.best_for}</p>
+                  <p className="feedback">Yang terbuka: {selectedPlanDetails.features.join(' • ')}</p>
+                  {nextPlanDetails ? (
+                    <p className="feedback">Upgrade berikutnya: <strong>{nextPlanDetails.name}</strong> untuk membuka {nextPlanDetails.features.join(' • ')}.</p>
+                  ) : (
+                    <p className="feedback">Paket ini sudah ada di tier paling tinggi.</p>
+                  )}
+                </div>
                 {setupForm.package_plan === 'free' ? (
                   <p className="feedback">
                     Paket free aktif, jadi tidak perlu perpanjangan.
@@ -1700,6 +1745,8 @@ export default function WebOwnerPage() {
                         <strong>{plan.name}</strong>
                         <p>{plan.price}</p>
                         <small>{plan.note}</small>
+                        <small>{plan.best_for}</small>
+                        <small>Termasuk: {plan.features.join(' • ')}</small>
                       </button>
                     ))}
                   </div>
