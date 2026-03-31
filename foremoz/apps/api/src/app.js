@@ -693,6 +693,26 @@ function toIsoEndOfDate(dateValue) {
   return end.toISOString();
 }
 
+function addCalendarMonths(dateValue, months) {
+  const normalized = normalizeOptionalDate(dateValue, 'date', null);
+  const parsedMonths = Number(months || 0);
+  if (!normalized || !Number.isFinite(parsedMonths) || parsedMonths <= 0) return null;
+  const anchor = new Date(`${normalized}T00:00:00.000Z`);
+  const targetMonthIndex = anchor.getUTCMonth() + Math.floor(parsedMonths);
+  const targetYear = anchor.getUTCFullYear() + Math.floor(targetMonthIndex / 12);
+  const targetMonth = ((targetMonthIndex % 12) + 12) % 12;
+  const lastDayOfTargetMonth = new Date(Date.UTC(targetYear, targetMonth + 1, 0)).getUTCDate();
+  const targetDay = Math.min(anchor.getUTCDate(), lastDayOfTargetMonth);
+  return new Date(Date.UTC(targetYear, targetMonth, targetDay)).toISOString().slice(0, 10);
+}
+
+function normalizeOwnerPackagePlan(value) {
+  const normalized = String(value || 'free').trim().toLowerCase();
+  if (normalized === 'basic') return 'starter';
+  if (normalized === 'pro') return 'growth';
+  return normalized || 'free';
+}
+
 function addDurationToIso(anchorIso, unit, value) {
   const parsedValue = Number(value || 0);
   if (!anchorIso || !Number.isFinite(parsedValue) || parsedValue <= 0) return null;
@@ -2256,6 +2276,16 @@ async function ensureOwnerSetupIndustryColumn() {
   );
 }
 
+async function ensureOwnerSaasColumns() {
+  await query(
+    `alter table if exists read.rm_owner_saas
+       add column if not exists current_package_plan text,
+       add column if not exists bought_at timestamptz,
+       add column if not exists expires_at date,
+       add column if not exists last_term_months integer not null default 0`
+  );
+}
+
 async function ensureTenantUserProfileColumns() {
   await query(
     `alter table if exists read.rm_tenant_user_auth
@@ -2747,11 +2777,24 @@ app.post('/v1/tenant/auth/password/reset', async (req, res, next) => {
 app.get('/v1/owner/setup', async (req, res, next) => {
   try {
     await ensureOwnerSetupIndustryColumn();
+    await ensureOwnerSaasColumns();
     const tenantId = req.query.tenant_id || config.defaultTenantId;
     const { rows } = await query(
-      `select tenant_id, gym_name, branch_id, account_slug, address, city, photo_url, package_plan, industry_slug, status, updated_at
-       from read.rm_owner_setup
-       where tenant_id = $1
+      `select s.tenant_id, s.gym_name, s.branch_id, s.account_slug, s.address, s.city, s.photo_url,
+              case
+                when coalesce(s.package_plan, 'free') = 'free' then 'free'
+                when os.expires_at is not null and os.expires_at >= current_date then s.package_plan
+                else 'free'
+              end as package_plan,
+              s.package_plan as configured_package_plan,
+              os.current_package_plan,
+              os.bought_at as package_bought_at,
+              os.expires_at as package_expires_at,
+              case when os.expires_at is not null and os.expires_at < current_date then true else false end as package_expired,
+              s.industry_slug, s.status, s.updated_at
+       from read.rm_owner_setup s
+       left join read.rm_owner_saas os on os.tenant_id = s.tenant_id
+       where s.tenant_id = $1
        limit 1`,
       [tenantId]
     );
@@ -2764,6 +2807,7 @@ app.get('/v1/owner/setup', async (req, res, next) => {
 app.get('/v1/public/account/resolve', async (req, res, next) => {
   try {
     await ensureOwnerSetupIndustryColumn();
+    await ensureOwnerSaasColumns();
     const accountSlug = String(req.query.account_slug || '').trim().toLowerCase();
     if (!accountSlug) {
       throw fail(400, 'ACCOUNT_SLUG_REQUIRED', 'account_slug is required');
@@ -2774,17 +2818,30 @@ app.get('/v1/public/account/resolve', async (req, res, next) => {
     const { rows } = await query(
       `select *
        from (
-         select tenant_id, gym_name, branch_id, account_slug, address, city, photo_url, package_plan, industry_slug, status, updated_at
-         from read.rm_owner_setup
-         where lower(account_slug) = $1 and status = 'active'
+         select s.tenant_id, s.gym_name, s.branch_id, s.account_slug, s.address, s.city, s.photo_url,
+                case
+                  when coalesce(s.package_plan, 'free') = 'free' then 'free'
+                  when os.expires_at is not null and os.expires_at >= current_date then s.package_plan
+                  else 'free'
+                end as package_plan,
+                s.industry_slug, s.status, s.updated_at
+         from read.rm_owner_setup s
+         left join read.rm_owner_saas os on os.tenant_id = s.tenant_id
+         where lower(s.account_slug) = $1 and s.status = 'active'
          union all
          select b.tenant_id, coalesce(nullif(b.branch_name, ''), s.gym_name) as gym_name, b.branch_id, b.account_slug,
                 coalesce(nullif(b.address, ''), s.address) as address,
                 coalesce(nullif(b.city, ''), s.city) as city,
                 coalesce(nullif(b.photo_url, ''), s.photo_url) as photo_url,
-                s.package_plan, s.industry_slug, b.status, b.updated_at
+                case
+                  when coalesce(s.package_plan, 'free') = 'free' then 'free'
+                  when os.expires_at is not null and os.expires_at >= current_date then s.package_plan
+                  else 'free'
+                end as package_plan,
+                s.industry_slug, b.status, b.updated_at
          from read.rm_owner_branch b
          left join read.rm_owner_setup s on s.tenant_id = b.tenant_id
+         left join read.rm_owner_saas os on os.tenant_id = b.tenant_id
          where lower(b.account_slug) = $1 and b.status = 'active'
        ) x
        order by updated_at desc
@@ -2971,6 +3028,7 @@ app.get('/v1/public/account/coaches', async (req, res, next) => {
 app.get('/v1/public/passport', async (req, res, next) => {
   try {
     await ensureOwnerSetupIndustryColumn();
+    await ensureOwnerSaasColumns();
     const account = String(req.query.account || '').trim().toLowerCase();
     if (!account) {
       throw fail(400, 'ACCOUNT_REQUIRED', 'account is required');
@@ -2979,9 +3037,16 @@ app.get('/v1/public/passport', async (req, res, next) => {
     let ownerRow = null;
     {
       const { rows } = await query(
-        `select tenant_id, gym_name, branch_id, account_slug, address, city, photo_url, package_plan, industry_slug, status, updated_at
-         from read.rm_owner_setup
-         where lower(account_slug) = $1 and status = 'active'
+        `select s.tenant_id, s.gym_name, s.branch_id, s.account_slug, s.address, s.city, s.photo_url,
+                case
+                  when coalesce(s.package_plan, 'free') = 'free' then 'free'
+                  when os.expires_at is not null and os.expires_at >= current_date then s.package_plan
+                  else 'free'
+                end as package_plan,
+                s.industry_slug, s.status, s.updated_at
+         from read.rm_owner_setup s
+         left join read.rm_owner_saas os on os.tenant_id = s.tenant_id
+         where lower(s.account_slug) = $1 and s.status = 'active'
          order by updated_at desc
          limit 1`,
         [account]
@@ -2990,9 +3055,16 @@ app.get('/v1/public/passport', async (req, res, next) => {
     }
     if (!ownerRow && account.startsWith('tn_')) {
       const { rows } = await query(
-        `select tenant_id, gym_name, branch_id, account_slug, address, city, photo_url, package_plan, industry_slug, status, updated_at
-         from read.rm_owner_setup
-         where tenant_id = $1 and status = 'active'
+        `select s.tenant_id, s.gym_name, s.branch_id, s.account_slug, s.address, s.city, s.photo_url,
+                case
+                  when coalesce(s.package_plan, 'free') = 'free' then 'free'
+                  when os.expires_at is not null and os.expires_at >= current_date then s.package_plan
+                  else 'free'
+                end as package_plan,
+                s.industry_slug, s.status, s.updated_at
+         from read.rm_owner_setup s
+         left join read.rm_owner_saas os on os.tenant_id = s.tenant_id
+         where s.tenant_id = $1 and s.status = 'active'
          order by updated_at desc
          limit 1`,
         [account]
@@ -3043,9 +3115,16 @@ app.get('/v1/public/passport', async (req, res, next) => {
         const fallbackTenantId = String(registrationData?.tenant_id || '').trim() || null;
         if (!ownerRow && fallbackTenantId) {
           const ownerRes = await query(
-            `select tenant_id, gym_name, branch_id, account_slug, address, city, photo_url, package_plan, industry_slug, status, updated_at
-             from read.rm_owner_setup
-             where tenant_id = $1 and status = 'active'
+            `select s.tenant_id, s.gym_name, s.branch_id, s.account_slug, s.address, s.city, s.photo_url,
+                    case
+                      when coalesce(s.package_plan, 'free') = 'free' then 'free'
+                      when os.expires_at is not null and os.expires_at >= current_date then s.package_plan
+                      else 'free'
+                    end as package_plan,
+                    s.industry_slug, s.status, s.updated_at
+             from read.rm_owner_setup s
+             left join read.rm_owner_saas os on os.tenant_id = s.tenant_id
+             where s.tenant_id = $1 and s.status = 'active'
              order by updated_at desc
              limit 1`,
             [fallbackTenantId]
@@ -4039,9 +4118,13 @@ app.delete('/v1/owner/users/:userId', async (req, res, next) => {
 
 app.get('/v1/owner/saas', async (req, res, next) => {
   try {
+    await ensureOwnerSaasColumns();
     const tenantId = req.query.tenant_id || config.defaultTenantId;
     const { rows } = await query(
-      `select tenant_id, total_months, last_note, last_extended_at, updated_at
+      `select tenant_id, total_months, current_package_plan, last_term_months, bought_at, expires_at,
+              last_note, last_extended_at, updated_at,
+              case when expires_at is not null and expires_at < current_date then true else false end as is_expired,
+              case when expires_at is not null and expires_at < current_date then 'expired' else 'active' end as status
        from read.rm_owner_saas
        where tenant_id = $1
        limit 1`,
@@ -4055,11 +4138,44 @@ app.get('/v1/owner/saas', async (req, res, next) => {
 
 app.post('/v1/owner/saas/extend', async (req, res, next) => {
   try {
+    await ensureOwnerSaasColumns();
     const data = req.body || {};
     const tenantId = data.tenant_id || config.defaultTenantId;
     const months = Number(required(data.months, 'months'));
     if (!Number.isFinite(months) || months <= 0) {
       throw fail(400, 'BAD_REQUEST', 'months must be a positive number');
+    }
+    const boughtAt = new Date().toISOString();
+    const resetExpiry = Boolean(data.reset_expiry);
+    const { rows: setupRows } = await query(
+      `select package_plan
+       from read.rm_owner_setup
+       where tenant_id = $1
+       limit 1`,
+      [tenantId]
+    );
+    const { rows: saasRows } = await query(
+      `select expires_at, current_package_plan
+       from read.rm_owner_saas
+       where tenant_id = $1
+       limit 1`,
+      [tenantId]
+    );
+    const setupPlan = normalizeOwnerPackagePlan(setupRows[0]?.package_plan || 'free');
+    const selectedPlan = normalizeOwnerPackagePlan(
+      data.package_plan || setupPlan || saasRows[0]?.current_package_plan || 'free'
+    );
+    if (selectedPlan === 'free') {
+      throw fail(400, 'BAD_REQUEST', 'free package does not require paid SaaS duration');
+    }
+    const boughtDate = toDateOnly(boughtAt);
+    const existingExpiry = normalizeOptionalDate(saasRows[0]?.expires_at, 'expires_at', null);
+    const baseDate = !resetExpiry && existingExpiry && existingExpiry >= boughtDate
+      ? existingExpiry
+      : boughtDate;
+    const expiresAt = addCalendarMonths(baseDate, months);
+    if (!expiresAt) {
+      throw fail(400, 'BAD_REQUEST', 'failed to calculate expires_at');
     }
 
     const event = await appendDomainEvent({
@@ -4073,8 +4189,14 @@ app.post('/v1/owner/saas/extend', async (req, res, next) => {
       data: {
         tenant_id: tenantId,
         months,
+        package_plan: selectedPlan,
+        last_term_months: months,
+        bought_at: boughtAt,
+        expires_at: expiresAt,
+        reset_expiry: resetExpiry,
+        purchase_mode: data.purchase_mode || (resetExpiry ? 'switch' : 'extend'),
         note: data.note || null,
-        extended_at: new Date().toISOString()
+        extended_at: boughtAt
       },
       refs: {}
     });

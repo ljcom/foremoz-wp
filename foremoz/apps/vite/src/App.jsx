@@ -27,6 +27,7 @@ import SalesProspectEditPage from './pages/SalesProspectEditPage.jsx';
 import PtPage from './pages/PtPage.jsx';
 import { accountPath, getAllowedEnvironments, getSession } from './lib.js';
 import { getPassportSession } from './passport-client.js';
+import BuildFooter from './components/BuildFooter.jsx';
 import PageErrorBoundary from './components/PageErrorBoundary.jsx';
 import { getAppStage, getRootHomePath, isPassportEventsEnabled } from './stage.js';
 
@@ -164,84 +165,85 @@ export default function App() {
   const rootHome = getRootHomePath();
 
   return (
-    <Routes>
-      <Route path="/" element={<Navigate to={rootHome} replace />} />
-      <Route path="/host" element={stage <= 1 ? <Navigate to="/fitness" replace /> : <WebLandingPage />} />
-      <Route path="/newevent" element={<Navigate to="/host" replace />} />
-      <Route path="/web" element={<Navigate to="/host" replace />} />
-      <Route path="/events" element={eventsEnabled ? <PassportLandingPage /> : <Navigate to={rootHome} replace />} />
-      <Route path="/passport" element={eventsEnabled ? <PassportLandingPage /> : <Navigate to={rootHome} replace />} />
-      <Route
-        path="/p/:account"
-        element={
-          eventsEnabled ? (
-            <PageErrorBoundary
-              shellClassName="landing passport-fancy-public"
-              withBackdrop
-              title="Passport public tidak bisa dibuka"
-              description="Coba reload halaman ini atau kembali ke daftar event."
-              homeHref="/events"
-              homeLabel="Back to events"
-            >
-              <PassportPublicPage />
-            </PageErrorBoundary>
-          ) : <Navigate to={rootHome} replace />
-        }
-      />
-      <Route path="/events/signup" element={eventsEnabled ? <PassportSignUpPage /> : <Navigate to={rootHome} replace />} />
-      <Route path="/passport/signup" element={eventsEnabled ? <PassportSignUpPage /> : <Navigate to={rootHome} replace />} />
-      <Route path="/events/signin" element={eventsEnabled ? <PassportSignInPage /> : <Navigate to={rootHome} replace />} />
-      <Route path="/passport/signin" element={eventsEnabled ? <PassportSignInPage /> : <Navigate to={rootHome} replace />} />
-      <Route path="/events/forgot-password" element={eventsEnabled ? <ForgotPasswordPage /> : <Navigate to={rootHome} replace />} />
-      <Route path="/passport/forgot-password" element={eventsEnabled ? <ForgotPasswordPage /> : <Navigate to={rootHome} replace />} />
-      <Route
-        path="/events/register"
-        element={
-          eventsEnabled ? (
-            <PageErrorBoundary
-              shellClassName="dashboard"
-              title="Checkout event bermasalah"
-              description="Halaman checkout gagal dirender. Reload atau kembali ke daftar event."
-              homeHref="/events"
-              homeLabel="Back to events"
-            >
-              <EventCheckoutPage />
-            </PageErrorBoundary>
-          ) : <Navigate to={rootHome} replace />
-        }
-      />
-      <Route
-        path="/passport/register"
-        element={
-          eventsEnabled ? (
-            <PageErrorBoundary
-              shellClassName="dashboard"
-              title="Checkout event bermasalah"
-              description="Halaman checkout gagal dirender. Reload atau kembali ke daftar event."
-              homeHref="/events"
-              homeLabel="Back to events"
-            >
-              <EventCheckoutPage />
-            </PageErrorBoundary>
-          ) : <Navigate to={rootHome} replace />
-        }
-      />
-      <Route
-        path="/e/:eventId"
-        element={
-          eventsEnabled ? (
-            <PageErrorBoundary
-              shellClassName="dashboard"
-              title="Checkout event bermasalah"
-              description="Halaman checkout gagal dirender. Reload atau kembali ke daftar event."
-              homeHref="/events"
-              homeLabel="Back to events"
-            >
-              <EventCheckoutPage />
-            </PageErrorBoundary>
-          ) : <Navigate to={rootHome} replace />
-        }
-      />
+    <>
+      <Routes>
+        <Route path="/" element={<Navigate to={rootHome} replace />} />
+        <Route path="/host" element={stage <= 1 ? <Navigate to="/fitness" replace /> : <WebLandingPage />} />
+        <Route path="/newevent" element={<Navigate to="/host" replace />} />
+        <Route path="/web" element={<Navigate to="/host" replace />} />
+        <Route path="/events" element={eventsEnabled ? <PassportLandingPage /> : <Navigate to={rootHome} replace />} />
+        <Route path="/passport" element={eventsEnabled ? <PassportLandingPage /> : <Navigate to={rootHome} replace />} />
+        <Route
+          path="/p/:account"
+          element={
+            eventsEnabled ? (
+              <PageErrorBoundary
+                shellClassName="landing passport-fancy-public"
+                withBackdrop
+                title="Passport public tidak bisa dibuka"
+                description="Coba reload halaman ini atau kembali ke daftar event."
+                homeHref="/events"
+                homeLabel="Back to events"
+              >
+                <PassportPublicPage />
+              </PageErrorBoundary>
+            ) : <Navigate to={rootHome} replace />
+          }
+        />
+        <Route path="/events/signup" element={eventsEnabled ? <PassportSignUpPage /> : <Navigate to={rootHome} replace />} />
+        <Route path="/passport/signup" element={eventsEnabled ? <PassportSignUpPage /> : <Navigate to={rootHome} replace />} />
+        <Route path="/events/signin" element={eventsEnabled ? <PassportSignInPage /> : <Navigate to={rootHome} replace />} />
+        <Route path="/passport/signin" element={eventsEnabled ? <PassportSignInPage /> : <Navigate to={rootHome} replace />} />
+        <Route path="/events/forgot-password" element={eventsEnabled ? <ForgotPasswordPage /> : <Navigate to={rootHome} replace />} />
+        <Route path="/passport/forgot-password" element={eventsEnabled ? <ForgotPasswordPage /> : <Navigate to={rootHome} replace />} />
+        <Route
+          path="/events/register"
+          element={
+            eventsEnabled ? (
+              <PageErrorBoundary
+                shellClassName="dashboard"
+                title="Checkout event bermasalah"
+                description="Halaman checkout gagal dirender. Reload atau kembali ke daftar event."
+                homeHref="/events"
+                homeLabel="Back to events"
+              >
+                <EventCheckoutPage />
+              </PageErrorBoundary>
+            ) : <Navigate to={rootHome} replace />
+          }
+        />
+        <Route
+          path="/passport/register"
+          element={
+            eventsEnabled ? (
+              <PageErrorBoundary
+                shellClassName="dashboard"
+                title="Checkout event bermasalah"
+                description="Halaman checkout gagal dirender. Reload atau kembali ke daftar event."
+                homeHref="/events"
+                homeLabel="Back to events"
+              >
+                <EventCheckoutPage />
+              </PageErrorBoundary>
+            ) : <Navigate to={rootHome} replace />
+          }
+        />
+        <Route
+          path="/e/:eventId"
+          element={
+            eventsEnabled ? (
+              <PageErrorBoundary
+                shellClassName="dashboard"
+                title="Checkout event bermasalah"
+                description="Halaman checkout gagal dirender. Reload atau kembali ke daftar event."
+                homeHref="/events"
+                homeLabel="Back to events"
+              >
+                <EventCheckoutPage />
+              </PageErrorBoundary>
+            ) : <Navigate to={rootHome} replace />
+          }
+        />
       <Route
         path="/a/:account/e/:eventId"
         element={
@@ -464,6 +466,8 @@ export default function App() {
       <Route path="/pt" element={<Navigate to={accountPath(getSession(), '/pt/dashboard')} replace />} />
 
       <Route path="*" element={<Navigate to={rootHome} replace />} />
-    </Routes>
+      </Routes>
+      <BuildFooter />
+    </>
   );
 }

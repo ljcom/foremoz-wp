@@ -31,7 +31,7 @@
     {
       "name": "read.rm_owner_saas",
       "primary_key": ["tenant_id"],
-      "columns": ["tenant_id", "total_months", "last_note", "last_extended_at", "updated_at"],
+      "columns": ["tenant_id", "total_months", "current_package_plan", "last_term_months", "bought_at", "expires_at", "last_note", "last_extended_at", "updated_at"],
       "query_use": "owner SaaS extension status"
     },
     {

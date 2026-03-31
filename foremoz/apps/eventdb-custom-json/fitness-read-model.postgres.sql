@@ -95,11 +95,21 @@ ALTER TABLE read.rm_owner_setup
 CREATE TABLE IF NOT EXISTS read.rm_owner_saas (
   tenant_id TEXT NOT NULL,
   total_months INTEGER NOT NULL DEFAULT 0,
+  current_package_plan TEXT,
+  last_term_months INTEGER NOT NULL DEFAULT 0,
+  bought_at TIMESTAMPTZ,
+  expires_at DATE,
   last_note TEXT,
   last_extended_at TIMESTAMPTZ,
   updated_at TIMESTAMPTZ NOT NULL,
   PRIMARY KEY (tenant_id)
 );
+
+ALTER TABLE read.rm_owner_saas
+  ADD COLUMN IF NOT EXISTS current_package_plan TEXT,
+  ADD COLUMN IF NOT EXISTS last_term_months INTEGER NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS bought_at TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS expires_at DATE;
 
 CREATE TABLE IF NOT EXISTS read.rm_subscription_active (
   tenant_id TEXT NOT NULL,

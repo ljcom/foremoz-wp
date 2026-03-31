@@ -67,6 +67,10 @@ const PLAN_PRICE = {
   basic: 499000,
   pro: 1490000
 };
+const PACKAGE_TERM_OPTIONS = [
+  { value: '1', label: '1 bulan' },
+  { value: '12', label: '1 tahun' }
+];
 const ENTERPRISE_REQUEST_EMAIL = 'hello@foremoz.com';
 
 function normalizePackagePlan(value) {
@@ -90,6 +94,21 @@ function getNextPlanDetails(value) {
 
 function formatIdr(value) {
   return `IDR ${Number(value || 0).toLocaleString('id-ID')}`;
+}
+
+function formatDateId(value) {
+  const parsed = new Date(value || '');
+  if (Number.isNaN(parsed.getTime())) return '-';
+  return parsed.toLocaleDateString('id-ID', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric'
+  });
+}
+
+function isPaidPlan(planValue) {
+  const plan = normalizePackagePlan(planValue);
+  return plan !== 'free' && plan !== 'enterprise';
 }
 
 function normalizeSlug(value) {
@@ -199,6 +218,10 @@ export default function WebOwnerPage() {
   const [step, setStep] = useState(1);
   const [menu, setMenu] = useState('profile');
   const [setupRow, setSetupRow] = useState(null);
+  const [showWizardPlanOptions, setShowWizardPlanOptions] = useState(true);
+  const [showPackageChangeOptions, setShowPackageChangeOptions] = useState(false);
+  const [wizardPlanTermMonths, setWizardPlanTermMonths] = useState('1');
+  const [packageChangeTermMonths, setPackageChangeTermMonths] = useState('1');
 
   const [setupForm, setSetupForm] = useState({
     gym_name: existingSetup?.gym_name || session?.tenant?.gym_name || '',
@@ -251,6 +274,8 @@ export default function WebOwnerPage() {
   const creatorLabel = getVerticalConfig(normalizeVerticalSlug(setupForm.industry_slug, 'fitness'))?.vocabulary?.creator || 'Coach';
   const selectedMonths = Number(saasForm.months || 1);
   const extendTotalPrice = selectedPlanMonthlyPrice * selectedMonths;
+  const selectedWizardTermMonths = Number(wizardPlanTermMonths || 1);
+  const selectedPackageChangeTermMonths = Number(packageChangeTermMonths || 1);
   const isGrowthOrAbove = useMemo(
     () => ['growth', 'multi_branch', 'enterprise'].includes(normalizePackagePlan(setupForm.package_plan)),
     [setupForm.package_plan]
@@ -271,6 +296,30 @@ export default function WebOwnerPage() {
   const isSetupReady = Boolean(
     setupRow?.status === 'active' && setupRow?.gym_name && setupRow?.account_slug
   );
+
+  function choosePlan(planKey, options = {}) {
+    const {
+      collapseWizard = false,
+      collapsePackageChange = false
+    } = options;
+    setSetupForm((prev) => ({ ...prev, package_plan: planKey }));
+    if (collapseWizard) setShowWizardPlanOptions(false);
+    if (collapsePackageChange) setShowPackageChangeOptions(false);
+  }
+
+  async function activatePaidPlan({ tenantId, packagePlan, months, note, purchaseMode }) {
+    await apiJson('/v1/owner/saas/extend', {
+      method: 'POST',
+      body: JSON.stringify({
+        tenant_id: tenantId,
+        package_plan: packagePlan,
+        months,
+        note,
+        purchase_mode: purchaseMode,
+        reset_expiry: true
+      })
+    });
+  }
 
   function buildBusinessImageKeywords() {
     const verticalLabel = sentenceCase(normalizeVerticalSlug(setupForm.industry_slug, 'fitness'));
@@ -636,8 +685,21 @@ export default function WebOwnerPage() {
       };
 
       await persistSetup(payload);
+      if (isPaidPlan(payload.package_plan)) {
+        await activatePaidPlan({
+          tenantId: payload.tenant_id,
+          packagePlan: payload.package_plan,
+          months: selectedWizardTermMonths,
+          note: `owner setup package purchase (${selectedWizardTermMonths} month)`,
+          purchaseMode: 'setup_purchase'
+        });
+      }
       await refreshOwnerData(payload.tenant_id);
-      setFeedback(`Setup owner berhasil disimpan. Paket aktif: ${payload.package_plan}.`);
+      setFeedback(
+        isPaidPlan(payload.package_plan)
+          ? `Setup owner berhasil disimpan. Paket aktif: ${payload.package_plan} untuk ${selectedWizardTermMonths === 12 ? '1 tahun' : '1 bulan'}.`
+          : `Setup owner berhasil disimpan. Paket aktif: ${payload.package_plan}.`
+      );
       setMenu('profile');
       navigate('/host/owner', { replace: true });
     } catch (error) {
@@ -866,8 +928,21 @@ export default function WebOwnerPage() {
         photo_url: setupForm.photo_url
       };
       await persistSetup(payload);
+      if (isPaidPlan(payload.package_plan)) {
+        await activatePaidPlan({
+          tenantId: payload.tenant_id,
+          packagePlan: payload.package_plan,
+          months: selectedPackageChangeTermMonths,
+          note: `package changed to ${payload.package_plan} (${selectedPackageChangeTermMonths} month)`,
+          purchaseMode: 'switch_package'
+        });
+      }
       await refreshOwnerData(payload.tenant_id);
-      setFeedback(`Paket berhasil diganti ke ${payload.package_plan}.`);
+      setFeedback(
+        isPaidPlan(payload.package_plan)
+          ? `Paket berhasil diganti ke ${payload.package_plan} untuk ${selectedPackageChangeTermMonths === 12 ? '1 tahun' : '1 bulan'}.`
+          : `Paket berhasil diganti ke ${payload.package_plan}.`
+      );
     } catch (error) {
       setFeedback(error.message);
     } finally {
@@ -1215,27 +1290,51 @@ export default function WebOwnerPage() {
             <form className="form" onSubmit={submitWizard}>
               <p className="eyebrow">Langkah 2</p>
               <h2>Pilih paket</h2>
-              <div className="plan-grid">
-                {PLANS.map((plan) => (
-                  <button
-                    type="button"
-                    key={plan.key}
-                    className={`plan-card ${setupForm.package_plan === plan.key ? 'selected' : ''}`}
-                    onClick={() => setSetupForm((p) => ({ ...p, package_plan: plan.key }))}
-                  >
-                    <strong>{plan.name}</strong>
-                    <p>{plan.price}</p>
-                    <small>{plan.note}</small>
-                    <small>{plan.best_for}</small>
-                    <small>Termasuk: {plan.features.join(' • ')}</small>
-                  </button>
-                ))}
-              </div>
+              {showWizardPlanOptions ? (
+                <div className="plan-grid">
+                  {PLANS.map((plan) => (
+                    <button
+                      type="button"
+                      key={plan.key}
+                      className={`plan-card ${setupForm.package_plan === plan.key ? 'selected' : ''}`}
+                      onClick={() => choosePlan(plan.key, { collapseWizard: true })}
+                    >
+                      <strong>{plan.name}</strong>
+                      <p>{plan.price}</p>
+                      <small>{plan.note}</small>
+                      <small>{plan.best_for}</small>
+                      <small>Termasuk: {plan.features.join(' • ')}</small>
+                    </button>
+                  ))}
+                </div>
+              ) : null}
               <div className="card" style={{ borderStyle: 'dashed' }}>
                 <p className="eyebrow">Ringkasan paket terpilih</p>
                 <p><strong>{selectedPlanDetails.name}</strong> {selectedPlanDetails.price}</p>
                 <p className="feedback">{selectedPlanDetails.best_for}</p>
                 <p className="feedback">Yang terbuka: {selectedPlanDetails.features.join(' • ')}</p>
+                {isPaidPlan(setupForm.package_plan) ? (
+                  <>
+                    <label>
+                      Durasi paket
+                      <select value={wizardPlanTermMonths} onChange={(e) => setWizardPlanTermMonths(e.target.value)}>
+                        {PACKAGE_TERM_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>{option.label}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <p className="feedback">
+                      Harga {wizardPlanTermMonths === '12' ? '1 tahun' : '1 bulan'}: {formatIdr(selectedPlanMonthlyPrice * selectedWizardTermMonths)}
+                    </p>
+                  </>
+                ) : null}
+                <button
+                  className="btn ghost small"
+                  type="button"
+                  onClick={() => setShowWizardPlanOptions((prev) => !prev)}
+                >
+                  {showWizardPlanOptions ? 'Sembunyikan pilihan paket' : 'Pilih paket lain'}
+                </button>
               </div>
               {setupForm.package_plan === 'enterprise' ? (
                 <>
@@ -1701,6 +1800,9 @@ export default function WebOwnerPage() {
                   <p><strong>{selectedPlanDetails.name}</strong> {selectedPlanDetails.price}</p>
                   <p className="feedback">{selectedPlanDetails.best_for}</p>
                   <p className="feedback">Yang terbuka: {selectedPlanDetails.features.join(' • ')}</p>
+                  {saasInfo?.bought_at ? <p className="feedback">Tanggal beli terakhir: <strong>{formatDateId(saasInfo.bought_at)}</strong></p> : null}
+                  {saasInfo?.expires_at ? <p className="feedback">Aktif sampai: <strong>{formatDateId(saasInfo.expires_at)}</strong></p> : null}
+                  {saasInfo?.is_expired ? <p className="feedback">Paket SaaS sudah expired. Akses otomatis kembali ke Free package.</p> : null}
                   {nextPlanDetails ? (
                     <p className="feedback">Upgrade berikutnya: <strong>{nextPlanDetails.name}</strong> untuk membuka {nextPlanDetails.features.join(' • ')}.</p>
                   ) : (
@@ -1711,7 +1813,7 @@ export default function WebOwnerPage() {
                   <p className="feedback">
                     Paket free aktif, jadi tidak perlu perpanjangan.
                   </p>
-                ) : (
+                ) : !showPackageChangeOptions ? (
                   <form className="form" onSubmit={submitSaas}>
                     <label>
                       Tambah bulan
@@ -1731,26 +1833,52 @@ export default function WebOwnerPage() {
                     </p>
                     <button className="btn" type="submit" disabled={loading}>Perpanjang</button>
                   </form>
+                ) : (
+                  <p className="feedback">Form perpanjang disembunyikan selama pilihan ganti paket sedang dibuka.</p>
                 )}
                 <form className="form" onSubmit={changePackage}>
                   <p className="eyebrow">Ganti paket</p>
-                  <div className="plan-grid">
-                    {PLANS.map((plan) => (
-                      <button
-                        type="button"
-                        key={plan.key}
-                        className={`plan-card ${setupForm.package_plan === plan.key ? 'selected' : ''}`}
-                        onClick={() => setSetupForm((p) => ({ ...p, package_plan: plan.key }))}
-                      >
-                        <strong>{plan.name}</strong>
-                        <p>{plan.price}</p>
-                        <small>{plan.note}</small>
-                        <small>{plan.best_for}</small>
-                        <small>Termasuk: {plan.features.join(' • ')}</small>
-                      </button>
-                    ))}
-                  </div>
-                  {setupForm.package_plan === 'enterprise' ? (
+                  <button
+                    className="btn ghost small"
+                    type="button"
+                    onClick={() => setShowPackageChangeOptions((prev) => !prev)}
+                  >
+                    {showPackageChangeOptions ? 'Sembunyikan pilihan paket' : 'Pilih paket lain'}
+                  </button>
+                  {showPackageChangeOptions ? (
+                    <div className="plan-grid">
+                      {PLANS.map((plan) => (
+                        <button
+                          type="button"
+                          key={plan.key}
+                          className={`plan-card ${setupForm.package_plan === plan.key ? 'selected' : ''}`}
+                          onClick={() => choosePlan(plan.key, { collapsePackageChange: true })}
+                        >
+                          <strong>{plan.name}</strong>
+                          <p>{plan.price}</p>
+                          <small>{plan.note}</small>
+                          <small>{plan.best_for}</small>
+                          <small>Termasuk: {plan.features.join(' • ')}</small>
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+                  {showPackageChangeOptions && isPaidPlan(setupForm.package_plan) ? (
+                    <>
+                      <label>
+                        Durasi paket baru
+                        <select value={packageChangeTermMonths} onChange={(e) => setPackageChangeTermMonths(e.target.value)}>
+                          {PACKAGE_TERM_OPTIONS.map((option) => (
+                            <option key={option.value} value={option.value}>{option.label}</option>
+                          ))}
+                        </select>
+                      </label>
+                      <p className="feedback">
+                        Harga paket terpilih: {formatIdr(selectedPlanMonthlyPrice * selectedPackageChangeTermMonths)} / {packageChangeTermMonths === '12' ? 'tahun' : 'bulan'}
+                      </p>
+                    </>
+                  ) : null}
+                  {showPackageChangeOptions && setupForm.package_plan === 'enterprise' ? (
                     <>
                       <p className="eyebrow">Form request enterprise</p>
                       <label>
@@ -1803,14 +1931,11 @@ export default function WebOwnerPage() {
                         Kirim request enterprise
                       </button>
                     </>
-                  ) : (
+                  ) : showPackageChangeOptions ? (
                     <>
-                      <p className="feedback">
-                        Harga paket terpilih: {formatIdr(selectedPlanMonthlyPrice)} / bulan
-                      </p>
                       <button className="btn" type="submit" disabled={loading}>Ganti paket</button>
                     </>
-                  )}
+                  ) : null}
                 </form>
               </>
             ) : null}

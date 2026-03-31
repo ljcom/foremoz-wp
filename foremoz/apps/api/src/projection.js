@@ -27,6 +27,13 @@ export async function runFitnessProjection({ tenantId, branchId }) {
          add column if not exists industry_slug text not null default 'active'`
     );
     await client.query(
+      `alter table if exists read.rm_owner_saas
+         add column if not exists current_package_plan text,
+         add column if not exists bought_at timestamptz,
+         add column if not exists expires_at date,
+         add column if not exists last_term_months integer not null default 0`
+    );
+    await client.query(
       `alter table if exists read.rm_payment_queue
          add column if not exists reference_type text,
          add column if not exists reference_id text,
@@ -441,14 +448,27 @@ export async function runFitnessProjection({ tenantId, branchId }) {
       if (event.event_type === 'owner.saas.extended') {
         await client.query(
           `insert into read.rm_owner_saas (
-             tenant_id, total_months, last_note, last_extended_at, updated_at
-           ) values ($1,$2,$3,$4,$4)
+             tenant_id, total_months, current_package_plan, last_term_months, bought_at, expires_at, last_note, last_extended_at, updated_at
+           ) values ($1,$2,$3,$4,$5,$6,$7,$8,$8)
            on conflict (tenant_id) do update set
              total_months = read.rm_owner_saas.total_months + excluded.total_months,
+             current_package_plan = excluded.current_package_plan,
+             last_term_months = excluded.last_term_months,
+             bought_at = excluded.bought_at,
+             expires_at = excluded.expires_at,
              last_note = excluded.last_note,
              last_extended_at = excluded.last_extended_at,
              updated_at = excluded.updated_at`,
-          [tenant, Number(data.months || 0), data.note || null, data.extended_at || eventTs]
+          [
+            tenant,
+            Number(data.months || 0),
+            data.package_plan || null,
+            Number(data.last_term_months || data.months || 0),
+            data.bought_at || data.extended_at || eventTs,
+            data.expires_at || null,
+            data.note || null,
+            data.extended_at || eventTs
+          ]
         );
         applied += 1;
         continue;
