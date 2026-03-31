@@ -11,6 +11,24 @@
 Last audited terhadap isi folder: **2026-03-27** (`foremoz/apps/api`, `foremoz/apps/vite`, `foremoz/apps/eventdb-custom-json`)
 
 ## High Priority (90%)
+- [~] Priority flow completion end-to-end per role.
+  - Owner
+    - [x] Create account: web -> signup -> signin owner.
+    - [ ] Choose package.
+    - [x] Create event/program: dashboard -> admin -> create event/class -> share.
+    - [x] Add role: add role -> user cek email & confirm -> user muncul di list.
+    - [ ] Add branch: create -> image -> on/off resources per branch.
+  - Member
+    - [ ] Join event: public -> signup -> signin -> payment -> member dashboard -> pre-event info.
+    - [ ] Book program: lanjutan dari CS order -> studio web -> signin -> register schedule -> cancel -> cek performa.
+  - CS activity
+    - [ ] Order: signin staff -> CS dashboard -> create order -> payment -> daily report.
+    - [ ] CS check-in: studio signin staff -> CS dashboard -> check-in -> check-out.
+  - PT activity
+    - [ ] Signin staff -> PT dashboard -> add member -> book list -> complete list -> report incentive.
+    - [ ] Award: PT dashboard -> score member -> report award.
+  - Sales activity
+    - [ ] Sales: signin -> sales dashboard -> add prospect -> create order -> report incentive.
 - [~] Passport public page `/p/:account` sudah pakai real data inti.
   - Resolve `account -> tenant/passport` sudah ada via endpoint public passport.
   - Identity/stat utama sudah diambil dari API (profile, events, stats, relations).
