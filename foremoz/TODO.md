@@ -1,37 +1,37 @@
 # TODO Foremoz
 
 ## Progress Snapshot (Estimated)
-- Overall delivery progress: **79%**
-- Platform stability & routing: **88%**
-- Passport dashboard/public experience: **76%**
-- Admin operational workflow: **83%**
+- Overall delivery progress: **83%**
+- Platform stability & routing: **89%**
+- Passport dashboard/public experience: **80%**
+- Admin operational workflow: **86%**
 - QA automation & hardening: **41%**
 - Experience Network whitepaper scope: **36%**
 
-Last audited terhadap isi folder: **2026-03-27** (`foremoz/apps/api`, `foremoz/apps/vite`, `foremoz/apps/eventdb-custom-json`)
+Last audited terhadap isi folder: **2026-03-31** (`foremoz/apps/api`, `foremoz/apps/vite`, `foremoz/apps/eventdb-custom-json`)
 
 ## High Priority (90%)
 - [~] Priority flow completion end-to-end per role.
   - Core flow first
   - Owner
     - [x] Create account: web -> signup -> signin owner.
-    - [ ] Choose package.
+    - [~] Choose package.
     - [x] Create event/program: dashboard -> admin -> create event/class -> share.
     - [x] Add role: add role -> user cek email & confirm -> user muncul di list.
   - Member
-    - [ ] Join event: public -> signup -> signin -> member dashboard -> pre-event info.
-    - [ ] Book program: lanjutan dari CS order -> studio web -> signin -> register schedule -> cancel.
+    - [~] Join event: public -> signup -> signin -> member dashboard -> pre-event info.
+    - [~] Book program: lanjutan dari CS order -> studio web -> signin -> register schedule -> cancel.
   - CS activity
-    - [ ] Order: signin staff -> CS dashboard -> create order.
-    - [ ] CS check-in: studio signin staff -> CS dashboard -> check-in -> check-out.
+    - [~] Order: signin staff -> CS dashboard -> create order.
+    - [~] CS check-in: studio signin staff -> CS dashboard -> check-in -> check-out.
   - PT activity
-    - [ ] Signin staff -> PT dashboard -> add member -> book list -> complete list.
+    - [~] Signin staff -> PT dashboard -> add member -> book list -> complete list.
   - Sales activity
-    - [ ] Sales: signin -> sales dashboard -> add prospect -> create order.
+    - [~] Sales: signin -> sales dashboard -> add prospect -> create order.
   - Priority terakhir dalam wave ini
-    - [ ] Branch: owner add branch -> image -> on/off resources per branch.
-    - [ ] Payment: finalisasi payment lifecycle untuk join event, CS order, member booking/program, dan transaksi operasional lain.
-    - [ ] Report: CS daily report, PT incentive/award report, sales incentive report.
+    - [~] Branch: owner add branch -> image -> on/off resources per branch.
+    - [~] Payment: finalisasi payment lifecycle untuk join event, CS order, member booking/program, dan transaksi operasional lain.
+    - [~] Report: CS daily report, PT incentive/award report, sales incentive report.
 - [~] Passport public page `/p/:account` sudah pakai real data inti.
   - Resolve `account -> tenant/passport` sudah ada via endpoint public passport.
   - Identity/stat utama sudah diambil dari API (profile, events, stats, relations).
@@ -304,13 +304,15 @@ Last audited terhadap isi folder: **2026-03-27** (`foremoz/apps/api`, `foremoz/a
   - Remark: detail event sudah ada image/description/schedule; masih bisa ditambah konten media.
 - [~] Member portal
   - Remark: overview portal sesudah sign in sekarang sudah menampilkan subscription/PT status, payment activity, booking summary, dan shortcut ke event/account/member ops.
-- [ ] Pre-event info untuk member setelah join event
-  - Ringkasan event terdaftar, jadwal, lokasi, instruksi, dan status payment/check-in.
-- [ ] Program booking flow lanjutan dari order CS
+- [~] Pre-event info untuk member setelah join event
+  - Ringkasan event terdaftar, jadwal, lokasi, instruksi, dan status payment/check-in sekarang sudah tampil di member portal.
+  - Attachment before/after event dan jawaban custom field registrasi juga sudah ikut tampil.
+- [~] Program booking flow lanjutan dari order CS
   - Buka dari studio web/member portal setelah order dibuat CS.
   - Register ke schedule.
   - Cancel booking sesuai policy.
   - Cek performa / progress sesudah ikut program.
+  - Remark: flow dasar register schedule + cancel + performance summary sudah ada di member portal; payment lifecycle dan policy lanjut masih perlu diperdalam.
 - [~] Member auth funnel
   - Remark: halaman member signup/signin sekarang sudah membawa context account dan value proposition yang nyambung ke portal member.
 - [~] Identity strategy: email tetap primary, phone untuk trust/activation
@@ -336,21 +338,25 @@ Last audited terhadap isi folder: **2026-03-27** (`foremoz/apps/api`, `foremoz/a
   - Remark: route creator/host sekarang dipusatkan ke `/host` (dengan redirect legacy dari `/web` dan `/newevent`), sedangkan participant/member tetap di `/events`.
   - Remark tambahan: default route diarahkan ke `/events` (Foremoz Events), dan di landing events ada CTA `New Host` untuk pindah ke `/host`.
 - [~] PT workspace
-  - Remark: PT dashboard sekarang sudah pakai flow nyata (book session, complete session, log activity) + read model `pt-balance` dan `pt-activity` dengan filter trainer, tidak lagi log local dummy. Form PT + checkin/checkout event kini mendukung `custom_fields` JSON untuk metadata operasional.
-- [ ] PT incentive reporting
+  - Remark: PT dashboard sekarang sudah pakai flow nyata (book session, complete session, log activity, event award) + read model `pt-balance` dan `pt-activity` dengan filter trainer, tidak lagi log local dummy. Form PT + checkin/checkout event kini mendukung `custom_fields` JSON untuk metadata operasional.
+- [~] PT incentive reporting
   - Catatan prioritas: masuk wave terakhir.
   - Report incentive per PT berdasarkan session/book/complete.
-- [ ] PT award reporting
+  - Remark: ringkasan incentive basis sudah ada di PT dashboard; rule komisi final belum ada.
+- [~] PT award reporting
   - Catatan prioritas: masuk wave terakhir.
   - Score member dari PT dashboard.
   - Rekap/report award.
+  - Remark: tab event award + report per event sudah ada; award formal/rule lanjutan masih bisa diperdalam.
 - [~] Sales workspace
-  - Remark: Sales dashboard sekarang sudah pakai flow real (create prospect, follow-up, update stage, convert ke member) + timeline event prospect. Form sales juga sudah mendukung `custom_fields` JSON untuk metadata follow-up/convert.
-- [ ] Sales create order flow
+  - Remark: Sales dashboard sekarang sudah pakai flow real (create prospect, follow-up, update stage, convert ke member, create order pending) + timeline event prospect. Form sales juga sudah mendukung `custom_fields` JSON untuk metadata follow-up/convert.
+- [~] Sales create order flow
   - Prospect/member -> create order -> payment linkage.
-- [ ] Sales incentive reporting
+  - Remark: sales hanya bisa membuat order pending; payment harus dilakukan member side atau via CS.
+- [~] Sales incentive reporting
   - Catatan prioritas: masuk wave terakhir.
   - Report incentive per sales dari order/convert yang berhasil.
+  - Remark: report basis dari paid orders sudah ada di dashboard sales; rule komisi final belum ada.
 - [ ] Reporting
   - Catatan prioritas: seluruh reporting dikerjakan setelah flow inti per role stabil.
   - [ ] Laporan komisi coach/team untuk event dan class per periode.
@@ -398,7 +404,7 @@ Last audited terhadap isi folder: **2026-03-27** (`foremoz/apps/api`, `foremoz/a
         - Remark: event flow sudah checkin/checkout penuh; class saat ini pakai booking cepat (belum checkout khusus class).
       - [x] scan barcode
     - [x] order -> payment
-    - [ ] daily report
+    - [~] daily report
       - Catatan prioritas: masuk wave terakhir.
 - [~] Member operational page `/a/:account/members/:memberId`
   - [x] Payment history load dari API (`/v1/read/payments/history`).
