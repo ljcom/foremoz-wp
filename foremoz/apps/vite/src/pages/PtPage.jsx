@@ -114,6 +114,17 @@ function createActivityForm() {
   };
 }
 
+function createAwardForm() {
+  return {
+    rank: '',
+    score_points: '',
+    award_scope: 'overall',
+    award_title: '',
+    award_note: '',
+    custom_fields_text: ''
+  };
+}
+
 function buildPerformanceCustomFields(rawText, label, performanceFields = {}) {
   const parsed = parseCustomFieldsInput(rawText, label);
   const next = {
@@ -147,11 +158,31 @@ function describePtCustomFields(customFields) {
   return Object.keys(customFields).length > 0 ? `custom_fields: ${JSON.stringify(customFields)}` : 'custom_fields: -';
 }
 
+function isEventAwardEnabled(value, fallback = true) {
+  if (value === undefined || value === null || value === '') return fallback;
+  if (typeof value === 'boolean') return value;
+  const normalized = String(value).trim().toLowerCase();
+  if (['false', '0', 'no', 'off'].includes(normalized)) return false;
+  if (['true', '1', 'yes', 'on'].includes(normalized)) return true;
+  return fallback;
+}
+
+function eventParticipantKey(row) {
+  const registrationId = String(row?.registration_id || '').trim();
+  if (registrationId) return `registration:${registrationId}`;
+  const passportId = String(row?.passport_id || '').trim();
+  if (passportId) return `passport:${passportId}`;
+  const email = String(row?.email || '').trim().toLowerCase();
+  if (email) return `email:${email}`;
+  return '';
+}
+
 export default function PtPage() {
   const PT_TABS = [
     { id: 'profile', label: 'Coach profile' },
     { id: 'book', label: 'Book list' },
     { id: 'complete', label: 'Complete list' },
+    { id: 'award', label: 'Event award' },
     { id: 'member', label: 'Member' },
     { id: 'history', label: 'History sessions' },
     { id: 'incentive', label: 'Report incentive' }
@@ -179,6 +210,12 @@ export default function PtPage() {
   const [ptBalances, setPtBalances] = useState([]);
   const [ptActivityRows, setPtActivityRows] = useState([]);
   const [paymentRows, setPaymentRows] = useState([]);
+  const [eventRows, setEventRows] = useState([]);
+  const [eventParticipants, setEventParticipants] = useState([]);
+  const [selectedAwardEventId, setSelectedAwardEventId] = useState('');
+  const [selectedAwardParticipantKey, setSelectedAwardParticipantKey] = useState('');
+  const [awardForm, setAwardForm] = useState(createAwardForm);
+  const [awardLoading, setAwardLoading] = useState(false);
   const [bookForm, setBookForm] = useState(createBookForm);
   const [completeForm, setCompleteForm] = useState(createCompleteForm);
   const [activityForm, setActivityForm] = useState(createActivityForm);
@@ -319,6 +356,39 @@ export default function PtPage() {
     if (!memberId) return ptBalances;
     return ptBalances.filter((row) => String(row.member_id || '').trim() === memberId);
   }, [activityForm.member_id, ptBalances]);
+  const awardEventOptions = useMemo(
+    () => [...eventRows].sort((a, b) => new Date(b.start_at || b.updated_at || 0).getTime() - new Date(a.start_at || a.updated_at || 0).getTime()),
+    [eventRows]
+  );
+  const selectedAwardEvent = useMemo(
+    () => awardEventOptions.find((item) => String(item.event_id || '') === String(selectedAwardEventId || '')) || null,
+    [awardEventOptions, selectedAwardEventId]
+  );
+  const selectedAwardParticipant = useMemo(
+    () => eventParticipants.find((item) => eventParticipantKey(item) === selectedAwardParticipantKey) || null,
+    [eventParticipants, selectedAwardParticipantKey]
+  );
+  const awardedParticipants = useMemo(
+    () => eventParticipants
+      .filter((item) => item?.rank !== null || Number(item?.score_points || 0) > 0 || String(item?.award_title || '').trim())
+      .sort((a, b) => {
+        const rankA = a?.rank === null || a?.rank === undefined ? Number.MAX_SAFE_INTEGER : Number(a.rank);
+        const rankB = b?.rank === null || b?.rank === undefined ? Number.MAX_SAFE_INTEGER : Number(b.rank);
+        if (rankA !== rankB) return rankA - rankB;
+        return Number(b?.score_points || 0) - Number(a?.score_points || 0);
+      }),
+    [eventParticipants]
+  );
+  const awardSummary = useMemo(() => {
+    const awardedCount = awardedParticipants.length;
+    const totalScore = awardedParticipants.reduce((sum, item) => sum + Number(item.score_points || 0), 0);
+    const topRankedCount = awardedParticipants.filter((item) => item?.rank !== null && item?.rank !== undefined).length;
+    return {
+      awardedCount,
+      totalScore,
+      topRankedCount
+    };
+  }, [awardedParticipants]);
 
   function buildCoachImageKeywords() {
     const cityToken = String(session?.tenant?.city || '').trim().split(/[,\s]+/)[0] || 'Indonesia';
@@ -354,11 +424,12 @@ export default function PtPage() {
         })
       }).catch(() => {});
       const trainerFilter = trainerId ? `&trainer_id=${encodeURIComponent(trainerId)}` : '';
-      const [profileRes, balanceRes, activityRes, paymentRes] = await Promise.all([
+      const [profileRes, balanceRes, activityRes, paymentRes, eventRes] = await Promise.all([
         apiJson(`/v1/pt/profile?tenant_id=${encodeURIComponent(tenantId)}&user_id=${encodeURIComponent(trainerId || '')}`).catch(() => ({ row: null })),
         apiJson(`/v1/read/pt-balance?tenant_id=${encodeURIComponent(tenantId)}&branch_id=${encodeURIComponent(branchId)}${trainerFilter}`).catch(() => ({ rows: [] })),
         apiJson(`/v1/read/pt-activity?tenant_id=${encodeURIComponent(tenantId)}${trainerFilter}`).catch(() => ({ rows: [] })),
-        apiJson(`/v1/read/payments/history?tenant_id=${encodeURIComponent(tenantId)}`).catch(() => ({ rows: [] }))
+        apiJson(`/v1/read/payments/history?tenant_id=${encodeURIComponent(tenantId)}`).catch(() => ({ rows: [] })),
+        apiJson(`/v1/read/events?tenant_id=${encodeURIComponent(tenantId)}&branch_id=${encodeURIComponent(branchId)}&status=all&limit=200`).catch(() => ({ rows: [] }))
       ]);
       const profileRow = profileRes?.row || null;
       if (profileRow) {
@@ -371,6 +442,14 @@ export default function PtPage() {
       setPtBalances(balances);
       setPtActivityRows(Array.isArray(activityRes.rows) ? activityRes.rows : []);
       setPaymentRows(Array.isArray(paymentRes.rows) ? paymentRes.rows : []);
+      const nextEventRows = Array.isArray(eventRes.rows) ? eventRes.rows : [];
+      setEventRows(nextEventRows);
+      if (nextEventRows.length > 0) {
+        const preferredEvent =
+          nextEventRows.find((item) => isEventAwardEnabled(item?.award_enabled, true))
+          || nextEventRows[0];
+        setSelectedAwardEventId((prev) => prev || String(preferredEvent?.event_id || ''));
+      }
 
       if (balances.length > 0) {
         const first = balances[0];
@@ -397,6 +476,29 @@ export default function PtPage() {
     }
   }
 
+  async function loadAwardParticipants(eventId) {
+    const normalizedEventId = String(eventId || '').trim();
+    if (!normalizedEventId) {
+      setEventParticipants([]);
+      setSelectedAwardParticipantKey('');
+      return;
+    }
+    try {
+      setAwardLoading(true);
+      const result = await apiJson(
+        `/v1/admin/events/${encodeURIComponent(normalizedEventId)}/participants?tenant_id=${encodeURIComponent(tenantId)}&branch_id=${encodeURIComponent(branchId)}&limit=300`
+      ).catch(() => ({ rows: [] }));
+      const rows = Array.isArray(result.rows) ? result.rows : [];
+      setEventParticipants(rows);
+      setSelectedAwardParticipantKey((prev) => {
+        if (prev && rows.some((item) => eventParticipantKey(item) === prev)) return prev;
+        return rows[0] ? eventParticipantKey(rows[0]) : '';
+      });
+    } finally {
+      setAwardLoading(false);
+    }
+  }
+
   function goToEnv(env) {
     if (!allowedEnv.includes(env)) return;
     if (env === 'admin') {
@@ -417,6 +519,51 @@ export default function PtPage() {
   function signOut() {
     clearSession();
     navigate(`/a/${accountSlug}`, { replace: true });
+  }
+
+  async function submitAward(e) {
+    e.preventDefault();
+    if (!selectedAwardEventId) {
+      setFeedback('Pilih event dulu.');
+      return;
+    }
+    if (!selectedAwardParticipant) {
+      setFeedback('Pilih member event yang ingin diberi score atau award.');
+      return;
+    }
+    try {
+      setSaving(true);
+      setFeedback('');
+      const customFields = parseCustomFieldsInput(awardForm.custom_fields_text, 'Award');
+      const result = await apiJson(`/v1/admin/events/${encodeURIComponent(selectedAwardEventId)}/participants/award`, {
+        method: 'POST',
+        body: JSON.stringify({
+          tenant_id: tenantId,
+          branch_id: branchId,
+          actor_id: trainerId || undefined,
+          registration_id: selectedAwardParticipant.registration_id || null,
+          passport_id: selectedAwardParticipant.passport_id || null,
+          email: selectedAwardParticipant.email || null,
+          full_name: selectedAwardParticipant.full_name || null,
+          rank: awardForm.rank || null,
+          score_points: awardForm.score_points || null,
+          award_scope: awardForm.award_scope || 'overall',
+          award_title: awardForm.award_title || null,
+          award_note: awardForm.award_note || null,
+          custom_fields: customFields
+        })
+      });
+      setFeedback(
+        `Award saved untuk ${selectedAwardParticipant.full_name || selectedAwardParticipant.email || selectedAwardParticipant.passport_id || '-'}` +
+        `${result?.rank ? ` (rank ${result.rank})` : ''}`
+      );
+      setAwardForm(createAwardForm());
+      await loadAwardParticipants(selectedAwardEventId);
+    } catch (err) {
+      setFeedback(err.message || 'Gagal menyimpan award event.');
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function submitProfile(e) {
@@ -705,9 +852,35 @@ export default function PtPage() {
     setActiveTab('complete');
   }
 
+  function seedAwardFromParticipant(row) {
+    const key = eventParticipantKey(row);
+    setSelectedAwardParticipantKey(key);
+    setAwardForm({
+      rank: row?.rank === null || row?.rank === undefined ? '' : String(row.rank),
+      score_points: row?.score_points ? String(row.score_points) : '',
+      award_scope: String(row?.award_scope || 'overall'),
+      award_title: String(row?.award_title || ''),
+      award_note: String(row?.award_note || ''),
+      custom_fields_text:
+        row?.award_custom_fields && Object.keys(row.award_custom_fields).length > 0
+          ? JSON.stringify(row.award_custom_fields, null, 2)
+          : ''
+    });
+    setActiveTab('award');
+  }
+
   useEffect(() => {
     loadPtWorkspace();
   }, [tenantId, branchId, trainerId]);
+
+  useEffect(() => {
+    if (!selectedAwardEventId) {
+      setEventParticipants([]);
+      setSelectedAwardParticipantKey('');
+      return;
+    }
+    loadAwardParticipants(selectedAwardEventId);
+  }, [selectedAwardEventId, tenantId, branchId]);
 
   return (
     <main className="dashboard">
@@ -1022,6 +1195,198 @@ export default function PtPage() {
                     <div>
                       <strong>Belum ada sesi selesai</strong>
                       <p>Completed session akan tampil di sini.</p>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            </section>
+          </div>
+        ) : null}
+        {activeTab === 'award' ? (
+          <div style={{ marginTop: '1rem', display: 'grid', gap: '1rem' }}>
+            <div className="ops-grid">
+              <section className="card">
+                <p className="eyebrow">Give score or award</p>
+                <h2>Score member di event</h2>
+                <form className="form" onSubmit={submitAward}>
+                  <label>
+                    event
+                    <select
+                      value={selectedAwardEventId}
+                      onChange={(e) => {
+                        setSelectedAwardEventId(e.target.value);
+                        setSelectedAwardParticipantKey('');
+                        setAwardForm(createAwardForm());
+                      }}
+                    >
+                      <option value="">Pilih event</option>
+                      {awardEventOptions.map((item) => (
+                        <option key={item.event_id} value={item.event_id}>
+                          {item.event_name || item.title || item.event_id} | {item.start_at ? formatAppDateTime(item.start_at) : 'no schedule'}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <div className="card" style={{ borderStyle: 'dashed' }}>
+                    <p className="eyebrow">Event info</p>
+                    {selectedAwardEvent ? (
+                      <div style={{ display: 'grid', gap: '0.35rem' }}>
+                        <p><strong>{selectedAwardEvent.event_name || selectedAwardEvent.title || selectedAwardEvent.event_id}</strong></p>
+                        <p>Schedule: {selectedAwardEvent.start_at ? formatAppDateTime(selectedAwardEvent.start_at) : 'No schedule'}</p>
+                        <p>Award enabled: {isEventAwardEnabled(selectedAwardEvent.award_enabled, true) ? 'Yes' : 'No'}</p>
+                        <p>Top N: {selectedAwardEvent.award_top_n || 1}</p>
+                      </div>
+                    ) : (
+                      <p className="feedback">Pilih event dulu untuk mulai memberi score atau award.</p>
+                    )}
+                  </div>
+                  <label>
+                    participant
+                    <select
+                      value={selectedAwardParticipantKey}
+                      onChange={(e) => setSelectedAwardParticipantKey(e.target.value)}
+                      disabled={!selectedAwardEventId || awardLoading}
+                    >
+                      <option value="">Pilih participant</option>
+                      {eventParticipants.map((item) => (
+                        <option key={eventParticipantKey(item)} value={eventParticipantKey(item)}>
+                          {item.full_name || item.email || item.passport_id || item.registration_id || '-'}
+                          {item.rank !== null && item.rank !== undefined ? ` | rank ${item.rank}` : ''}
+                          {Number(item.score_points || 0) > 0 ? ` | score ${item.score_points}` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    rank
+                    <input
+                      type="number"
+                      min="1"
+                      max={selectedAwardEvent?.award_top_n || 1}
+                      value={awardForm.rank}
+                      onChange={(e) => setAwardForm((prev) => ({ ...prev, rank: e.target.value }))}
+                      placeholder="Opsional"
+                    />
+                  </label>
+                  <label>
+                    score_points
+                    <input
+                      type="number"
+                      min="0"
+                      value={awardForm.score_points}
+                      onChange={(e) => setAwardForm((prev) => ({ ...prev, score_points: e.target.value }))}
+                      placeholder="Kosongkan untuk auto score dari rank"
+                    />
+                  </label>
+                  <label>
+                    award_scope
+                    <select value={awardForm.award_scope} onChange={(e) => setAwardForm((prev) => ({ ...prev, award_scope: e.target.value }))}>
+                      <option value="overall">overall</option>
+                      <option value="category">category</option>
+                    </select>
+                  </label>
+                  <label>
+                    award_title
+                    <input
+                      value={awardForm.award_title}
+                      onChange={(e) => setAwardForm((prev) => ({ ...prev, award_title: e.target.value }))}
+                      placeholder="Contoh: Best Progress, Juara 1, MVP"
+                    />
+                  </label>
+                  <label>
+                    award_note
+                    <textarea
+                      rows={3}
+                      value={awardForm.award_note}
+                      onChange={(e) => setAwardForm((prev) => ({ ...prev, award_note: e.target.value }))}
+                      placeholder="Catatan kenapa member dapat score atau award ini"
+                    />
+                  </label>
+                  <label>
+                    custom_fields (JSON)
+                    <textarea
+                      rows={3}
+                      value={awardForm.custom_fields_text}
+                      onChange={(e) => setAwardForm((prev) => ({ ...prev, custom_fields_text: e.target.value }))}
+                      placeholder='{"category":"women_open","judge_note":"strong finish"}'
+                    />
+                  </label>
+                  <button
+                    className="btn"
+                    type="submit"
+                    disabled={
+                      saving
+                      || !selectedAwardEventId
+                      || !selectedAwardParticipant
+                      || !isEventAwardEnabled(selectedAwardEvent?.award_enabled, true)
+                    }
+                  >
+                    {saving ? 'Saving...' : 'Save award'}
+                  </button>
+                </form>
+              </section>
+
+              <section className="card">
+                <p className="eyebrow">Report award</p>
+                <h2>Ringkasan per event</h2>
+                <p><strong>Awarded members:</strong> {awardSummary.awardedCount}</p>
+                <p><strong>Ranked members:</strong> {awardSummary.topRankedCount}</p>
+                <p><strong>Total score:</strong> {awardSummary.totalScore}</p>
+                <p className="feedback">Laporan ini mengambil award terbaru per participant untuk event terpilih. Jika participant belum dapat award manual, rank atau score dari check-out event tetap ikut terbaca.</p>
+              </section>
+            </div>
+
+            <section className="card">
+              <p className="eyebrow">Participant list</p>
+              {awardLoading ? <p className="feedback">Loading event participant...</p> : null}
+              <div className="entity-list">
+                {eventParticipants.map((item) => (
+                  <div className="entity-row" key={eventParticipantKey(item)}>
+                    <div>
+                      <strong>{item.full_name || item.email || item.passport_id || item.registration_id || '-'}</strong>
+                      <p>{item.email || item.passport_id || item.registration_id || '-'}</p>
+                      <p>check-in: {item.checked_in_at ? 'yes' : 'no'} | check-out: {item.checked_out_at ? 'yes' : 'no'}</p>
+                      <p>rank: {item.rank ?? '-'} | score: {Number(item.score_points || 0)}</p>
+                      <p>{item.award_title ? `award: ${item.award_title}` : 'award: -'}</p>
+                    </div>
+                    <button className="btn ghost small" type="button" onClick={() => seedAwardFromParticipant(item)}>
+                      Give score
+                    </button>
+                  </div>
+                ))}
+                {!awardLoading && eventParticipants.length === 0 ? (
+                  <div className="entity-row">
+                    <div>
+                      <strong>Belum ada participant</strong>
+                      <p>Pilih event untuk melihat participant dan memberi score atau award.</p>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            </section>
+
+            <section className="card">
+              <p className="eyebrow">Award list</p>
+              <div className="entity-list">
+                {awardedParticipants.map((item) => (
+                  <div className="entity-row" key={`award-${eventParticipantKey(item)}`}>
+                    <div>
+                      <strong>{item.full_name || item.email || item.passport_id || item.registration_id || '-'}</strong>
+                      <p>rank: {item.rank ?? '-'} | score: {Number(item.score_points || 0)} | scope: {item.award_scope || 'overall'}</p>
+                      <p>{item.award_title || '-'}</p>
+                      <p>{item.award_note || '-'}</p>
+                    </div>
+                    <div className="payment-meta">
+                      <strong>{item.rank ? `#${item.rank}` : `${Number(item.score_points || 0)} pts`}</strong>
+                      <span className="passport-chip">{item.award_updated_at ? formatAppDateTime(item.award_updated_at) : 'from checkout/event score'}</span>
+                    </div>
+                  </div>
+                ))}
+                {awardedParticipants.length === 0 ? (
+                  <div className="entity-row">
+                    <div>
+                      <strong>Belum ada award</strong>
+                      <p>Score, rank, atau award yang disimpan untuk event ini akan tampil di sini.</p>
                     </div>
                   </div>
                 ) : null}

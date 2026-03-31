@@ -5758,6 +5758,16 @@ app.get('/v1/admin/events/:eventId/participants', async (req, res, next) => {
        order by sequence desc`,
       params
     );
+    const { rows: awardRows } = await query(
+      `select payload->'data' as data
+       from eventdb_event
+       where namespace_id = $1
+         and event_type = 'event.participant.awarded'
+         and payload->'data'->>'event_id' = $2
+         ${branchFilter}
+       order by sequence desc`,
+      params
+    );
 
     const { rows: checkinRows } = await query(
       `select payload->'data' as data
@@ -5770,6 +5780,13 @@ app.get('/v1/admin/events/:eventId/participants', async (req, res, next) => {
       params
     );
 
+    const awardByParticipantKey = new Map();
+    for (const row of awardRows) {
+      const data = row?.data || {};
+      const key = participantIdentityKey(data);
+      if (!key || awardByParticipantKey.has(key)) continue;
+      awardByParticipantKey.set(key, data);
+    }
     const checkoutByParticipantKey = new Map();
     for (const row of checkoutRows) {
       const data = row?.data || {};
@@ -5794,19 +5811,201 @@ app.get('/v1/admin/events/:eventId/participants', async (req, res, next) => {
       seen.add(key);
       const checkinData = checkinByParticipantKey.get(key);
       const checkoutData = checkoutByParticipantKey.get(key);
+      const awardData = awardByParticipantKey.get(key);
+      const effectiveRank = awardData?.rank ?? checkoutData?.rank ?? null;
+      const effectiveScorePoints = awardData?.score_points ?? checkoutData?.score_points ?? 0;
       deduped.push({
         ...data,
         checked_in_at: checkinData?.checked_in_at || null,
         checked_out_at: checkoutData?.checked_out_at || null,
         checkin_custom_fields: checkinData?.custom_fields || {},
         checkout_custom_fields: checkoutData?.custom_fields || {},
-        rank: checkoutData?.rank ?? null,
-        score_points: Number(checkoutData?.score_points || 0)
+        award_updated_at: awardData?.awarded_at || null,
+        award_scope: awardData?.award_scope || null,
+        award_title: awardData?.award_title || null,
+        award_note: awardData?.award_note || null,
+        award_custom_fields: awardData?.custom_fields || {},
+        rank: effectiveRank,
+        score_points: Number(effectiveScorePoints || 0)
       });
       if (deduped.length >= limit) break;
     }
 
     return ok(res, { rows: deduped, event_id: eventId, limit });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.post('/v1/admin/events/:eventId/participants/award', async (req, res, next) => {
+  try {
+    const data = req.body || {};
+    const customFields = normalizeCustomFields(data.custom_fields);
+    const eventId = required(req.params.eventId, 'eventId');
+    const tenantId = data.tenant_id || config.defaultTenantId;
+    const latestEvent = await getLatestEntityDataByEventTypes(
+      tenantId,
+      'event_id',
+      eventId,
+      ['event.created', 'event.updated']
+    );
+    if (!latestEvent) {
+      throw fail(404, 'EVENT_NOT_FOUND', `event ${eventId} not found`);
+    }
+
+    const awardEnabled = normalizeBoolean(latestEvent.award_enabled, true);
+    if (!awardEnabled) {
+      throw fail(400, 'BAD_REQUEST', 'award is not enabled for this event');
+    }
+
+    const branchId = data.branch_id || latestEvent.branch_id || null;
+    const passportId = String(data.passport_id || '').trim();
+    const email = String(data.email || '').trim().toLowerCase();
+    const registrationId = String(data.registration_id || '').trim();
+    if (!passportId && !email && !registrationId) {
+      throw fail(400, 'BAD_REQUEST', 'registration_id or passport_id or email is required');
+    }
+    const identity = { passport_id: passportId, email, registration_id: registrationId };
+    const identityKey = participantIdentityKey(identity);
+    if (!identityKey) {
+      throw fail(400, 'BAD_REQUEST', 'participant identity is required');
+    }
+    const registrationData = await findLatestEventParticipantEventData({
+      tenantId,
+      eventId,
+      branchId,
+      eventType: 'event.participant.registered',
+      identity
+    });
+    if (!registrationData) {
+      throw fail(404, 'PARTICIPANT_NOT_REGISTERED', 'participant is not registered for this event');
+    }
+
+    const awardScopes = normalizeEventAwardScopes(latestEvent.award_scopes ?? latestEvent.award_scope, ['overall']);
+    const awardScope = toPrimaryAwardScope(data.award_scope ?? data.award_scopes, awardScopes);
+    if (!awardScopes.includes(awardScope)) {
+      throw fail(400, 'BAD_REQUEST', 'award_scope is not enabled for this event');
+    }
+    const awardTopN = asPositiveInteger(latestEvent.award_top_n, 'award_top_n', 1);
+    const rank = data.rank === undefined || data.rank === null || data.rank === ''
+      ? null
+      : asPositiveInteger(data.rank, 'rank', null);
+    if (rank !== null && rank > awardTopN) {
+      throw fail(400, 'BAD_REQUEST', `rank must be between 1 and ${awardTopN}`);
+    }
+
+    let scorePoints = null;
+    if (!(data.score_points === undefined || data.score_points === null || data.score_points === '')) {
+      const parsedScore = Number(data.score_points);
+      if (!Number.isFinite(parsedScore) || parsedScore < 0 || !Number.isInteger(parsedScore)) {
+        throw fail(400, 'BAD_REQUEST', 'score_points must be a non-negative integer');
+      }
+      scorePoints = parsedScore;
+    }
+    if (scorePoints === null) {
+      scorePoints = rank === null ? 0 : Math.max(awardTopN - rank + 1, 1);
+    }
+
+    const namespaceId = resolveNamespaceId(tenantId);
+    const rankParams = [namespaceId, eventId];
+    let rankBranchFilter = '';
+    if (branchId) {
+      rankParams.push(branchId);
+      rankBranchFilter = ` and payload->'data'->>'branch_id' = $${rankParams.length}`;
+    }
+    const [checkoutQuery, awardQuery] = await Promise.all([
+      query(
+        `select payload->'data' as data
+         from eventdb_event
+         where namespace_id = $1
+           and event_type = 'event.participant.checked_out'
+           and payload->'data'->>'event_id' = $2
+           ${rankBranchFilter}
+         order by sequence desc`,
+        rankParams
+      ),
+      query(
+        `select payload->'data' as data
+         from eventdb_event
+         where namespace_id = $1
+           and event_type = 'event.participant.awarded'
+           and payload->'data'->>'event_id' = $2
+           ${rankBranchFilter}
+         order by sequence desc`,
+        rankParams
+      )
+    ]);
+
+    const checkoutByParticipantKey = new Map();
+    for (const row of checkoutQuery.rows || []) {
+      const rowData = row?.data || {};
+      const rowKey = participantIdentityKey(rowData);
+      if (!rowKey || checkoutByParticipantKey.has(rowKey)) continue;
+      checkoutByParticipantKey.set(rowKey, rowData);
+    }
+    const awardByParticipantKey = new Map();
+    for (const row of awardQuery.rows || []) {
+      const rowData = row?.data || {};
+      const rowKey = participantIdentityKey(rowData);
+      if (!rowKey || awardByParticipantKey.has(rowKey)) continue;
+      awardByParticipantKey.set(rowKey, rowData);
+    }
+    if (rank !== null) {
+      const participantKeys = new Set([
+        ...checkoutByParticipantKey.keys(),
+        ...awardByParticipantKey.keys()
+      ]);
+      for (const rowKey of participantKeys) {
+        if (!rowKey || rowKey === identityKey) continue;
+        const effectiveRank = awardByParticipantKey.get(rowKey)?.rank ?? checkoutByParticipantKey.get(rowKey)?.rank ?? null;
+        if (Number(effectiveRank || 0) === rank) {
+          throw fail(409, 'RANK_ALREADY_TAKEN', `rank ${rank} sudah dipakai participant lain`);
+        }
+      }
+    }
+
+    const awardId = data.award_id || `evaw_${Date.now()}_${randomUUID().slice(0, 8)}`;
+    const awardTitle = String(data.award_title || '').trim() || null;
+    const awardNote = String(data.award_note || data.note || '').trim() || null;
+    const awardedAt = data.awarded_at || new Date().toISOString();
+    const event = await appendDomainEvent({
+      tenantId,
+      branchId,
+      actorId: data.actor_id || config.defaultActorId,
+      eventType: 'event.participant.awarded',
+      subjectKind: 'event_award',
+      subjectId: awardId,
+      data: {
+        tenant_id: tenantId,
+        branch_id: branchId,
+        event_id: eventId,
+        award_id: awardId,
+        registration_id: registrationId || null,
+        passport_id: passportId || null,
+        email: email || null,
+        full_name: data.full_name || registrationData?.full_name || null,
+        award_scope: awardScope,
+        award_enabled: awardEnabled,
+        award_top_n: awardTopN,
+        award_title: awardTitle,
+        award_note: awardNote,
+        rank,
+        score_points: scorePoints,
+        awarded_at: awardedAt,
+        custom_fields: customFields
+      },
+      refs: {}
+    });
+
+    return created(res, {
+      event,
+      event_id: eventId,
+      award_id: awardId,
+      rank,
+      score_points: scorePoints,
+      award_scope: awardScope,
+      award_title: awardTitle
+    });
   } catch (error) {
     return next(error);
   }
