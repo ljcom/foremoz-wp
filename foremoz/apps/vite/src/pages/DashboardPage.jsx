@@ -838,6 +838,26 @@ export default function DashboardPage() {
       : classBookings;
     return rows;
   }, [classBookings, memberScopedFilter, selectedMember]);
+  const selectedEventParticipantForMember = useMemo(() => {
+    if (!selectedMember || !selectedEvent) return null;
+    return eventParticipants.find((participant) => isSameParticipant(selectedMember, participant)) || null;
+  }, [eventParticipants, selectedEvent, selectedMember]);
+  const dailyReportRows = useMemo(() => {
+    const reportDate = new Date().toLocaleDateString('id-ID', {
+      weekday: 'long',
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric'
+    });
+    return [
+      { label: 'Tanggal report', value: reportDate },
+      { label: 'Check-in hari ini', value: String(dashboardRow?.today_checkin_count ?? 0) },
+      { label: 'Booking hari ini', value: String(dashboardRow?.today_booking_count ?? 0) },
+      { label: 'Pending payment', value: String(dashboardRow?.pending_payment_count ?? 0) },
+      { label: 'Event aktif', value: String(activeEvents.length) },
+      { label: 'Program aktif', value: String(activeClasses.length) }
+    ];
+  }, [activeClasses.length, activeEvents.length, dashboardRow]);
 
   useEffect(() => {
     setBookingRegistrationAnswers({});
@@ -1181,6 +1201,29 @@ export default function DashboardPage() {
         {stats.map((s) => (
           <Stat key={s.label} label={s.label} value={s.value} iconClass={s.iconClass} tone={s.tone} hint={s.hint} />
         ))}
+      </section>
+
+      <section className="ops-grid" style={{ marginTop: '1rem' }}>
+        <article className="card">
+          <p className="eyebrow">Daily report</p>
+          <h2>Ringkasan operasional hari ini</h2>
+          <div className="entity-list" style={{ marginTop: '0.75rem' }}>
+            {dailyReportRows.map((item) => (
+              <div className="entity-row" key={item.label}>
+                <div>
+                  <strong>{item.label}</strong>
+                </div>
+                <span className="passport-chip">{item.value}</span>
+              </div>
+            ))}
+          </div>
+        </article>
+        <article className="card">
+          <p className="eyebrow">CS focus</p>
+          <h2>Prioritas berikutnya</h2>
+          <p className="feedback">Gunakan panel member untuk create order mockup, lalu panel event untuk check-in / check-out participant.</p>
+          <p className="feedback">Alur minimum: pilih member, pilih event, lakukan check-in, lalu check-out saat acara selesai.</p>
+        </article>
       </section>
 
       {loading ? <p className="feedback">{copy.loadingDashboard}</p> : null}
@@ -1576,6 +1619,51 @@ export default function DashboardPage() {
           {selectedExperienceType === 'event' && selectedEvent ? (
             <div className="payment-history">
               <h3>Event participants</h3>
+              {selectedMember ? (
+                <div className="card" style={{ marginBottom: '1rem', borderStyle: 'dashed' }}>
+                  <p className="eyebrow">Quick check-in / check-out</p>
+                  <p>
+                    Member: <strong>{selectedMember.full_name || selectedMember.member_id}</strong>
+                  </p>
+                  <p>
+                    Event: <strong>{selectedEvent.event_name || selectedEvent.event_id}</strong>
+                  </p>
+                  {selectedEventParticipantForMember ? (
+                    <>
+                      <p>
+                        Status:
+                        {' '}
+                        {selectedEventParticipantForMember.checked_out_at
+                          ? 'checked out'
+                          : selectedEventParticipantForMember.checked_in_at
+                            ? 'checked in'
+                            : 'registered'}
+                      </p>
+                      <p>Participant no: {selectedEventParticipantForMember.participant_no || '-'}</p>
+                      <div className="row-actions">
+                        <button
+                          className="btn ghost"
+                          type="button"
+                          disabled={actionSaving}
+                          onClick={() => checkinByIdentity({ member: selectedMember, participant: selectedEventParticipantForMember })}
+                        >
+                          {selectedEventParticipantForMember.checked_in_at ? 'Refresh check-in' : 'Check-in selected member'}
+                        </button>
+                        <button
+                          className="btn ghost"
+                          type="button"
+                          disabled={actionSaving || !selectedEventParticipantForMember.checked_in_at}
+                          onClick={() => checkoutByIdentity({ member: selectedMember, participant: selectedEventParticipantForMember })}
+                        >
+                          {selectedEventParticipantForMember.checked_out_at ? 'Refresh check-out' : 'Check-out selected member'}
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <p className="feedback">Member ini belum terdaftar di event terpilih, jadi belum bisa check-in / check-out.</p>
+                  )}
+                </div>
+              ) : null}
               <label>
                 Cari participant
                 <input
@@ -1602,6 +1690,22 @@ export default function DashboardPage() {
                   placeholder='{"judge":"staff-1","source":"manual"}'
                 />
               </label>
+              <div className="row-actions" style={{ marginBottom: '0.75rem' }}>
+                <button
+                  className="btn ghost small"
+                  type="button"
+                  onClick={() => setCheckinCustomFieldsText('{"scanner":"front-desk","shift":"morning"}')}
+                >
+                  Fill check-in sample
+                </button>
+                <button
+                  className="btn ghost small"
+                  type="button"
+                  onClick={() => setCheckoutCustomFieldsText('{"scanner":"front-desk","result":"completed"}')}
+                >
+                  Fill check-out sample
+                </button>
+              </div>
               {eventParticipantsLoading ? (
                 <p className="feedback">Memuat participant...</p>
               ) : filteredEventParticipants.length > 0 ? (
