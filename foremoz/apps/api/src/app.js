@@ -544,8 +544,8 @@ function normalizeClassSchedule(rawValue, fallback = {}) {
     ? fallback
     : {};
   const scheduleMode = String(source.schedule_mode ?? fallbackSource.schedule_mode ?? 'weekly').trim().toLowerCase();
-  if (!['weekly', 'manual', 'none'].includes(scheduleMode)) {
-    throw fail(400, 'BAD_REQUEST', 'schedule_mode must be either weekly, manual, or none');
+  if (!['everyday', 'weekly', 'manual', 'none'].includes(scheduleMode)) {
+    throw fail(400, 'BAD_REQUEST', 'schedule_mode must be either everyday, weekly, manual, or none');
   }
   if (scheduleMode === 'none') {
     return {
@@ -573,6 +573,9 @@ function normalizeClassSchedule(rawValue, fallback = {}) {
   const endTime = String(weeklySource.end_time || '').trim();
   if ((startTime && !endTime) || (!startTime && endTime)) {
     throw fail(400, 'BAD_REQUEST', 'weekly_schedule start_time and end_time must be provided together');
+  }
+  if (scheduleMode === 'everyday' && (!startTime || !endTime)) {
+    throw fail(400, 'BAD_REQUEST', 'everyday schedule requires start_time and end_time');
   }
   if (scheduleMode === 'weekly' && weekdays.length > 0 && (!startTime || !endTime)) {
     throw fail(400, 'BAD_REQUEST', 'weekly_schedule requires start_time and end_time when weekdays are selected');
@@ -725,6 +728,98 @@ function getActivityScheduleBounds({ classType, schedule, startDate, endDate }) 
   return {
     startAt: toIsoStartOfDate(startDate),
     endAt: toIsoEndOfDate(endDate || startDate)
+  };
+}
+
+const CLASS_WEEKDAY_LABELS = {
+  sun: 'Sunday',
+  mon: 'Monday',
+  tue: 'Tuesday',
+  wed: 'Wednesday',
+  thu: 'Thursday',
+  fri: 'Friday',
+  sat: 'Saturday'
+};
+
+function buildClassBookingScheduleOptions(activity) {
+  const schedule = normalizeClassSchedule({
+    schedule_mode: activity?.schedule_mode,
+    weekly_schedule: activity?.weekly_schedule,
+    manual_schedule: activity?.manual_schedule
+  });
+  const scheduleMode = String(schedule.schedule_mode || 'none').trim().toLowerCase();
+  if (scheduleMode === 'none') return [];
+  if (scheduleMode === 'manual') {
+    return (Array.isArray(schedule.manual_schedule) ? schedule.manual_schedule : []).map((item, index) => ({
+      key: `manual:${item.start_at}:${item.end_at}:${index}`,
+      label: `${item.start_at} -> ${item.end_at}`,
+      payload: {
+        schedule_mode: 'manual',
+        start_at: item.start_at,
+        end_at: item.end_at
+      }
+    }));
+  }
+  const weeklySchedule = schedule.weekly_schedule || {};
+  const startTime = String(weeklySchedule.start_time || '').trim();
+  const endTime = String(weeklySchedule.end_time || '').trim();
+  if (scheduleMode === 'everyday') {
+    return [{
+      key: `everyday:${startTime}:${endTime}`,
+      label: startTime && endTime ? `Everyday | ${startTime}-${endTime}` : 'Everyday',
+      payload: {
+        schedule_mode: 'everyday',
+        weekdays: ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'],
+        start_time: startTime,
+        end_time: endTime
+      }
+    }];
+  }
+  return (Array.isArray(weeklySchedule.weekdays) ? weeklySchedule.weekdays : [])
+    .map((weekday) => String(weekday || '').trim().toLowerCase())
+    .filter(Boolean)
+    .map((weekday) => ({
+      key: `weekly:${weekday}:${startTime}:${endTime}`,
+      label: `${CLASS_WEEKDAY_LABELS[weekday] || weekday.toUpperCase()} | ${startTime}-${endTime}`,
+      payload: {
+        schedule_mode: 'weekly',
+        weekday,
+        start_time: startTime,
+        end_time: endTime
+      }
+    }));
+}
+
+function resolveClassBookingScheduleSelection(activity, rawSelection, rawLabel) {
+  const options = buildClassBookingScheduleOptions(activity);
+  if (options.length === 0) {
+    return {
+      schedule_choice: null,
+      schedule_label: null
+    };
+  }
+  const selectionKey = String(
+    typeof rawSelection === 'string'
+      ? rawSelection
+      : rawSelection?.key || rawSelection?.value || rawSelection?.schedule_key || ''
+  ).trim();
+  const selectionLabel = String(rawLabel || rawSelection?.label || '').trim();
+  let matched = null;
+  if (selectionKey) {
+    matched = options.find((item) => item.key === selectionKey) || null;
+  }
+  if (!matched && selectionLabel) {
+    matched = options.find((item) => item.label === selectionLabel) || null;
+  }
+  if (!matched && options.length === 1) {
+    matched = options[0];
+  }
+  if (!matched) {
+    throw fail(400, 'BAD_REQUEST', 'schedule_choice is invalid');
+  }
+  return {
+    schedule_choice: matched.payload,
+    schedule_label: matched.label
   };
 }
 
@@ -6437,6 +6532,11 @@ app.post('/v1/bookings/classes/create', async (req, res, next) => {
       throw fail(404, 'CLASS_NOT_FOUND', `class ${classId} not found`);
     }
     const latestClassData = await getLatestClassScheduledData(tenantId, classId);
+    const bookingSchedule = resolveClassBookingScheduleSelection({
+      schedule_mode: latestClassData?.schedule_mode || classRow.schedule_mode,
+      weekly_schedule: latestClassData?.weekly_schedule || classRow.weekly_schedule,
+      manual_schedule: latestClassData?.manual_schedule || classRow.manual_schedule
+    }, data.schedule_choice, data.schedule_label);
     const registrationAnswers = normalizeRegistrationAnswers(
       data.registration_answers,
       getActivityRegistrationFields({
@@ -6453,6 +6553,15 @@ app.post('/v1/bookings/classes/create', async (req, res, next) => {
     }
     if (classRow.branch_id && resolvedBranchId !== String(classRow.branch_id)) {
       throw fail(409, 'CLASS_BRANCH_MISMATCH', `class ${classId} belongs to another branch`);
+    }
+    const nowMs = Date.now();
+    const registrationStartMs = classRow.registration_start ? new Date(classRow.registration_start).getTime() : null;
+    const registrationEndMs = classRow.registration_end ? new Date(classRow.registration_end).getTime() : null;
+    if (Number.isFinite(registrationStartMs) && nowMs < registrationStartMs) {
+      throw fail(409, 'REGISTRATION_NOT_OPEN', `registration for class ${classId} is not open yet`);
+    }
+    if (Number.isFinite(registrationEndMs) && nowMs > registrationEndMs) {
+      throw fail(409, 'REGISTRATION_CLOSED', `registration for class ${classId} is closed`);
     }
     const currentAvailable = Number(classRow.available_slots);
     if (!Number.isFinite(currentAvailable) || currentAvailable <= 0) {
@@ -6520,6 +6629,8 @@ app.post('/v1/bookings/classes/create', async (req, res, next) => {
         member_id: memberId,
         guest_name: guestName,
         registration_answers: registrationAnswers,
+        schedule_choice: bookingSchedule.schedule_choice,
+        schedule_label: bookingSchedule.schedule_label,
         status,
         booked_at: data.booked_at || new Date().toISOString()
       },
@@ -6533,6 +6644,8 @@ app.post('/v1/bookings/classes/create', async (req, res, next) => {
         class_id: classId,
         member_id: memberId,
         guest_name: guestName,
+        schedule_choice: bookingSchedule.schedule_choice,
+        schedule_label: bookingSchedule.schedule_label,
         status,
         payment_id: paymentId || null
       }

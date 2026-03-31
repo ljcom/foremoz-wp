@@ -125,6 +125,8 @@ export async function runFitnessProjection({ tenantId, branchId }) {
       `alter table if exists read.rm_booking_list
          add column if not exists payment_id text,
          add column if not exists registration_answers jsonb,
+         add column if not exists schedule_choice jsonb,
+         add column if not exists schedule_label text,
          add column if not exists attendance_checked_in_at timestamptz,
          add column if not exists attendance_checked_out_at timestamptz`
     );
@@ -1000,11 +1002,13 @@ export async function runFitnessProjection({ tenantId, branchId }) {
           `insert into read.rm_booking_list (
              tenant_id, branch_id, booking_id, class_id, booking_kind,
              member_id, guest_name, payment_id, registration_answers, status, booked_at,
-             canceled_at, attendance_confirmed_at, updated_at
-           ) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,null,null,$11)
+             schedule_choice, schedule_label, canceled_at, attendance_confirmed_at, updated_at
+           ) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,null,null,$11)
            on conflict (tenant_id, booking_id) do update set
              payment_id = excluded.payment_id,
              registration_answers = excluded.registration_answers,
+             schedule_choice = excluded.schedule_choice,
+             schedule_label = excluded.schedule_label,
              status = excluded.status,
              updated_at = excluded.updated_at`,
           [
@@ -1019,6 +1023,9 @@ export async function runFitnessProjection({ tenantId, branchId }) {
             JSON.stringify(data.registration_answers || {}),
             data.status || 'booked',
             data.booked_at || eventTs
+            ,
+            JSON.stringify(data.schedule_choice || null),
+            data.schedule_label || null
           ]
         );
 
