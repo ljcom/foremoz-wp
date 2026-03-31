@@ -5,6 +5,7 @@ import WorkspaceHeader from '../components/WorkspaceHeader.jsx';
 import {
   formatAppDateTime,
   getAppDateKey,
+  getAppDateTimeInputValue,
   getAppNowDateTimeInput,
   toAppIsoFromDateTimeInput
 } from '../time.js';
@@ -64,13 +65,96 @@ function sentenceCase(value) {
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
+function formatIdr(value) {
+  return `IDR ${Number(value || 0).toLocaleString('id-ID')}`;
+}
+
+function createPerformanceFields() {
+  return {
+    performance_score: '',
+    energy_level: '',
+    body_weight_kg: '',
+    reps: '',
+    load_kg: '',
+    next_focus: '',
+    coach_note: ''
+  };
+}
+
+function createBookForm() {
+  return {
+    pt_package_id: '',
+    member_id: '',
+    session_at: getAppNowDateTimeInput(),
+    activity_note: '',
+    custom_fields_text: ''
+  };
+}
+
+function createCompleteForm() {
+  return {
+    pt_package_id: '',
+    member_id: '',
+    session_id: '',
+    completed_at: getAppNowDateTimeInput(),
+    activity_note: '',
+    custom_fields_text: '',
+    performance_fields: createPerformanceFields()
+  };
+}
+
+function createActivityForm() {
+  return {
+    pt_package_id: '',
+    member_id: '',
+    session_at: getAppNowDateTimeInput(),
+    activity_note: '',
+    custom_fields_text: '',
+    performance_fields: createPerformanceFields()
+  };
+}
+
+function buildPerformanceCustomFields(rawText, label, performanceFields = {}) {
+  const parsed = parseCustomFieldsInput(rawText, label);
+  const next = {
+    ...parsed
+  };
+  const score = Number(performanceFields.performance_score || 0);
+  const energy = Number(performanceFields.energy_level || 0);
+  const bodyWeight = Number(performanceFields.body_weight_kg || 0);
+  const reps = Number(performanceFields.reps || 0);
+  const loadKg = Number(performanceFields.load_kg || 0);
+  if (Number.isFinite(score) && score > 0) next.performance_score = score;
+  if (Number.isFinite(energy) && energy > 0) next.energy_level = energy;
+  if (Number.isFinite(bodyWeight) && bodyWeight > 0) next.body_weight_kg = bodyWeight;
+  if (Number.isFinite(reps) && reps > 0) next.reps = reps;
+  if (Number.isFinite(loadKg) && loadKg > 0) next.load_kg = loadKg;
+  if (String(performanceFields.next_focus || '').trim()) next.next_focus = String(performanceFields.next_focus).trim();
+  if (String(performanceFields.coach_note || '').trim()) next.coach_note = String(performanceFields.coach_note).trim();
+  return next;
+}
+
+function describePtCustomFields(customFields) {
+  if (!customFields || typeof customFields !== 'object' || Array.isArray(customFields)) return 'custom_fields: -';
+  const snippets = [];
+  if (customFields.performance_score) snippets.push(`score ${customFields.performance_score}`);
+  if (customFields.energy_level) snippets.push(`energy ${customFields.energy_level}`);
+  if (customFields.body_weight_kg) snippets.push(`weight ${customFields.body_weight_kg}kg`);
+  if (customFields.reps) snippets.push(`reps ${customFields.reps}`);
+  if (customFields.load_kg) snippets.push(`load ${customFields.load_kg}kg`);
+  if (customFields.next_focus) snippets.push(`next ${customFields.next_focus}`);
+  if (snippets.length > 0) return snippets.join(' | ');
+  return Object.keys(customFields).length > 0 ? `custom_fields: ${JSON.stringify(customFields)}` : 'custom_fields: -';
+}
+
 export default function PtPage() {
   const PT_TABS = [
     { id: 'profile', label: 'Coach profile' },
-    { id: 'book', label: 'Book session' },
-    { id: 'complete', label: 'Complete session' },
+    { id: 'book', label: 'Book list' },
+    { id: 'complete', label: 'Complete list' },
     { id: 'member', label: 'Member' },
-    { id: 'history', label: 'History sessions' }
+    { id: 'history', label: 'History sessions' },
+    { id: 'incentive', label: 'Report incentive' }
   ];
   const navigate = useNavigate();
   const session = getSession();
@@ -94,28 +178,10 @@ export default function PtPage() {
   });
   const [ptBalances, setPtBalances] = useState([]);
   const [ptActivityRows, setPtActivityRows] = useState([]);
-  const [bookForm, setBookForm] = useState({
-    pt_package_id: '',
-    member_id: '',
-    session_at: getAppNowDateTimeInput(),
-    activity_note: '',
-    custom_fields_text: ''
-  });
-  const [completeForm, setCompleteForm] = useState({
-    pt_package_id: '',
-    member_id: '',
-    session_id: '',
-    completed_at: getAppNowDateTimeInput(),
-    activity_note: '',
-    custom_fields_text: ''
-  });
-  const [activityForm, setActivityForm] = useState({
-    pt_package_id: '',
-    member_id: '',
-    session_at: getAppNowDateTimeInput(),
-    activity_note: '',
-    custom_fields_text: ''
-  });
+  const [paymentRows, setPaymentRows] = useState([]);
+  const [bookForm, setBookForm] = useState(createBookForm);
+  const [completeForm, setCompleteForm] = useState(createCompleteForm);
+  const [activityForm, setActivityForm] = useState(createActivityForm);
   const allowedEnv = useMemo(() => {
     return getAllowedEnvironments(session, role);
   }, [session, role]);
@@ -180,6 +246,79 @@ export default function PtPage() {
     });
     return [...grouped.values()].sort((a, b) => a.member_id.localeCompare(b.member_id));
   }, [ptBalances]);
+  const balanceByPackageId = useMemo(
+    () => new Map(ptBalances.map((row) => [String(row.pt_package_id || ''), row])),
+    [ptBalances]
+  );
+  const bookedSessions = useMemo(
+    () => ptActivityRows.filter((row) => String(row.activity_type || '').trim().toLowerCase() === 'session_booked'),
+    [ptActivityRows]
+  );
+  const completedSessions = useMemo(
+    () => ptActivityRows.filter((row) => String(row.activity_type || '').trim().toLowerCase() === 'session_completed'),
+    [ptActivityRows]
+  );
+  const completedSessionIds = useMemo(
+    () => new Set(completedSessions.map((row) => String(row.session_id || '').trim()).filter(Boolean)),
+    [completedSessions]
+  );
+  const pendingBookedSessions = useMemo(
+    () => bookedSessions
+      .filter((row) => {
+        const sessionId = String(row.session_id || '').trim();
+        return !sessionId || !completedSessionIds.has(sessionId);
+      })
+      .sort((a, b) => new Date(a.session_at || 0).getTime() - new Date(b.session_at || 0).getTime()),
+    [bookedSessions, completedSessionIds]
+  );
+  const recentCompletedSessions = useMemo(
+    () => [...completedSessions].sort((a, b) => new Date(b.session_at || 0).getTime() - new Date(a.session_at || 0).getTime()),
+    [completedSessions]
+  );
+  const paymentById = useMemo(
+    () => new Map(paymentRows.map((row) => [String(row.payment_id || ''), row])),
+    [paymentRows]
+  );
+  const incentiveRows = useMemo(() => {
+    return recentCompletedSessions.map((row) => {
+      const balance = balanceByPackageId.get(String(row.pt_package_id || '')) || null;
+      const payment = balance?.payment_id ? paymentById.get(String(balance.payment_id || '')) || null : null;
+      const packageAmount = Number(payment?.amount || 0);
+      const totalSessions = Number(balance?.total_sessions || 0);
+      const estimatedSessionValue = totalSessions > 0 ? packageAmount / totalSessions : 0;
+      return {
+        ...row,
+        estimated_session_value: estimatedSessionValue,
+        payment_amount: packageAmount,
+        total_sessions: totalSessions
+      };
+    });
+  }, [recentCompletedSessions, balanceByPackageId, paymentById]);
+  const incentiveSummary = useMemo(() => {
+    const totalCompleted = incentiveRows.length;
+    const totalEstimatedValue = incentiveRows.reduce((sum, row) => sum + Number(row.estimated_session_value || 0), 0);
+    const activeMembers = new Set(incentiveRows.map((row) => String(row.member_id || '')).filter(Boolean)).size;
+    return {
+      totalCompleted,
+      totalEstimatedValue,
+      activeMembers
+    };
+  }, [incentiveRows]);
+  const bookPackageOptions = useMemo(() => {
+    const memberId = String(bookForm.member_id || '').trim();
+    if (!memberId) return ptBalances;
+    return ptBalances.filter((row) => String(row.member_id || '').trim() === memberId);
+  }, [bookForm.member_id, ptBalances]);
+  const completePackageOptions = useMemo(() => {
+    const memberId = String(completeForm.member_id || '').trim();
+    if (!memberId) return ptBalances;
+    return ptBalances.filter((row) => String(row.member_id || '').trim() === memberId);
+  }, [completeForm.member_id, ptBalances]);
+  const activityPackageOptions = useMemo(() => {
+    const memberId = String(activityForm.member_id || '').trim();
+    if (!memberId) return ptBalances;
+    return ptBalances.filter((row) => String(row.member_id || '').trim() === memberId);
+  }, [activityForm.member_id, ptBalances]);
 
   function buildCoachImageKeywords() {
     const cityToken = String(session?.tenant?.city || '').trim().split(/[,\s]+/)[0] || 'Indonesia';
@@ -215,10 +354,11 @@ export default function PtPage() {
         })
       }).catch(() => {});
       const trainerFilter = trainerId ? `&trainer_id=${encodeURIComponent(trainerId)}` : '';
-      const [profileRes, balanceRes, activityRes] = await Promise.all([
+      const [profileRes, balanceRes, activityRes, paymentRes] = await Promise.all([
         apiJson(`/v1/pt/profile?tenant_id=${encodeURIComponent(tenantId)}&user_id=${encodeURIComponent(trainerId || '')}`).catch(() => ({ row: null })),
         apiJson(`/v1/read/pt-balance?tenant_id=${encodeURIComponent(tenantId)}&branch_id=${encodeURIComponent(branchId)}${trainerFilter}`).catch(() => ({ rows: [] })),
-        apiJson(`/v1/read/pt-activity?tenant_id=${encodeURIComponent(tenantId)}${trainerFilter}`).catch(() => ({ rows: [] }))
+        apiJson(`/v1/read/pt-activity?tenant_id=${encodeURIComponent(tenantId)}${trainerFilter}`).catch(() => ({ rows: [] })),
+        apiJson(`/v1/read/payments/history?tenant_id=${encodeURIComponent(tenantId)}`).catch(() => ({ rows: [] }))
       ]);
       const profileRow = profileRes?.row || null;
       if (profileRow) {
@@ -230,6 +370,7 @@ export default function PtPage() {
       const balances = Array.isArray(balanceRes.rows) ? balanceRes.rows : [];
       setPtBalances(balances);
       setPtActivityRows(Array.isArray(activityRes.rows) ? activityRes.rows : []);
+      setPaymentRows(Array.isArray(paymentRes.rows) ? paymentRes.rows : []);
 
       if (balances.length > 0) {
         const first = balances[0];
@@ -424,6 +565,11 @@ export default function PtPage() {
         })
       });
       setFeedback('Session booked.');
+      setBookForm((prev) => ({
+        ...createBookForm(),
+        pt_package_id: prev.pt_package_id,
+        member_id: prev.member_id
+      }));
       await loadPtWorkspace();
     } catch (err) {
       setFeedback(err.message || 'Gagal booking session.');
@@ -441,7 +587,11 @@ export default function PtPage() {
     try {
       setSaving(true);
       setFeedback('');
-      const customFields = parseCustomFieldsInput(completeForm.custom_fields_text, 'Complete session');
+      const customFields = buildPerformanceCustomFields(
+        completeForm.custom_fields_text,
+        'Complete session',
+        completeForm.performance_fields
+      );
       await apiJson(`/v1/pt/sessions/${encodeURIComponent(completeForm.pt_package_id)}/complete`, {
         method: 'POST',
         body: JSON.stringify({
@@ -457,6 +607,11 @@ export default function PtPage() {
         })
       });
       setFeedback('Session completed.');
+      setCompleteForm((prev) => ({
+        ...createCompleteForm(),
+        pt_package_id: prev.pt_package_id,
+        member_id: prev.member_id
+      }));
       await loadPtWorkspace();
     } catch (err) {
       setFeedback(err.message || 'Gagal menyelesaikan session.');
@@ -474,7 +629,11 @@ export default function PtPage() {
     try {
       setSaving(true);
       setFeedback('');
-      const customFields = parseCustomFieldsInput(activityForm.custom_fields_text, 'Activity log');
+      const customFields = buildPerformanceCustomFields(
+        activityForm.custom_fields_text,
+        'Activity log',
+        activityForm.performance_fields
+      );
       await apiJson('/v1/pt/activity/log', {
         method: 'POST',
         body: JSON.stringify({
@@ -490,7 +649,11 @@ export default function PtPage() {
         })
       });
       setFeedback('Activity logged.');
-      setActivityForm((prev) => ({ ...prev, activity_note: '' }));
+      setActivityForm((prev) => ({
+        ...createActivityForm(),
+        pt_package_id: prev.pt_package_id,
+        member_id: prev.member_id
+      }));
       await loadPtWorkspace();
     } catch (err) {
       setFeedback(err.message || 'Gagal log activity.');
@@ -514,6 +677,32 @@ export default function PtPage() {
     setCompleteForm((prev) => ({ ...prev, member_id: normalizedMemberId }));
     setActivityForm((prev) => ({ ...prev, member_id: normalizedMemberId }));
     setActiveTab(nextTab);
+  }
+
+  function seedBookFromActivity(row) {
+    setBookForm((prev) => ({
+      ...prev,
+      pt_package_id: String(row?.pt_package_id || prev.pt_package_id || ''),
+      member_id: String(row?.member_id || prev.member_id || ''),
+      session_at: row?.session_at ? getAppDateTimeInputValue(row.session_at) : prev.session_at,
+      activity_note: String(row?.activity_note || prev.activity_note || ''),
+      custom_fields_text: row?.custom_fields && Object.keys(row.custom_fields).length > 0 ? JSON.stringify(row.custom_fields, null, 2) : ''
+    }));
+    setActiveTab('book');
+  }
+
+  function seedCompleteFromActivity(row) {
+    setCompleteForm((prev) => ({
+      ...prev,
+      pt_package_id: String(row?.pt_package_id || prev.pt_package_id || ''),
+      member_id: String(row?.member_id || prev.member_id || ''),
+      session_id: String(row?.session_id || prev.session_id || ''),
+      completed_at: row?.session_at ? getAppDateTimeInputValue(row.session_at) : prev.completed_at,
+      activity_note: String(row?.activity_note || prev.activity_note || ''),
+      custom_fields_text: row?.custom_fields && Object.keys(row.custom_fields).length > 0 ? JSON.stringify(row.custom_fields, null, 2) : '',
+      performance_fields: createPerformanceFields()
+    }));
+    setActiveTab('complete');
   }
 
   useEffect(() => {
@@ -629,30 +818,215 @@ export default function PtPage() {
           </div>
         ) : null}
         {activeTab === 'book' ? (
-          <div style={{ marginTop: '1rem' }}>
-            <h2>Book session</h2>
-            <form className="form" onSubmit={submitBookSession}>
-              <label>pt_package_id<input value={bookForm.pt_package_id} onChange={(e) => setBookForm((p) => ({ ...p, pt_package_id: e.target.value }))} /></label>
-              <label>member_id<input value={bookForm.member_id} onChange={(e) => setBookForm((p) => ({ ...p, member_id: e.target.value }))} /></label>
-              <label>session_at<input type="datetime-local" value={bookForm.session_at} onChange={(e) => setBookForm((p) => ({ ...p, session_at: e.target.value }))} /></label>
-              <label>activity_note<input value={bookForm.activity_note} onChange={(e) => setBookForm((p) => ({ ...p, activity_note: e.target.value }))} /></label>
-              <label>custom_fields (JSON)<textarea rows={3} value={bookForm.custom_fields_text} onChange={(e) => setBookForm((p) => ({ ...p, custom_fields_text: e.target.value }))} placeholder='{"intensity":"high","coach_note":"focus core"}' /></label>
-              <button className="btn" type="submit" disabled={saving}>{saving ? 'Saving...' : 'Book session'}</button>
-            </form>
+          <div style={{ marginTop: '1rem', display: 'grid', gap: '1rem' }}>
+            <div className="ops-grid">
+              <section className="card">
+                <p className="eyebrow">Add booking schedule</p>
+                <h2>Book session untuk member</h2>
+                <p className="feedback">Gunakan ini saat member belum booking dari sisi mereka. PT bisa langsung menambahkan jadwal sesi dari dashboard.</p>
+                <form className="form" onSubmit={submitBookSession}>
+                  <label>
+                    member_id
+                    <select
+                      value={bookForm.member_id}
+                      onChange={(e) =>
+                        setBookForm((p) => ({
+                          ...p,
+                          member_id: e.target.value,
+                          pt_package_id: ''
+                        }))
+                      }
+                    >
+                      <option value="">Pilih member</option>
+                      {memberRows.map((item) => (
+                        <option key={item.member_id} value={item.member_id}>
+                          {item.member_id} | remaining {item.remaining_sessions}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    pt_package_id
+                    <select
+                      value={bookForm.pt_package_id}
+                      onChange={(e) => setBookForm((p) => ({ ...p, pt_package_id: e.target.value }))}
+                    >
+                      <option value="">Pilih package PT</option>
+                      {bookPackageOptions.map((item) => (
+                        <option key={item.pt_package_id} value={item.pt_package_id}>
+                          {item.pt_package_id} | {item.member_id} | remaining {item.remaining_sessions}/{item.total_sessions}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>session_at<input type="datetime-local" value={bookForm.session_at} onChange={(e) => setBookForm((p) => ({ ...p, session_at: e.target.value }))} /></label>
+                  <label>activity_note<input value={bookForm.activity_note} onChange={(e) => setBookForm((p) => ({ ...p, activity_note: e.target.value }))} placeholder="Contoh: Upper body, mobility, assessment" /></label>
+                  <label>custom_fields (JSON)<textarea rows={3} value={bookForm.custom_fields_text} onChange={(e) => setBookForm((p) => ({ ...p, custom_fields_text: e.target.value }))} placeholder='{"booking_source":"pt_dashboard","planned_focus":"upper body"}' /></label>
+                  <button className="btn" type="submit" disabled={saving}>{saving ? 'Saving...' : 'Book session'}</button>
+                </form>
+              </section>
+
+              <section className="card">
+                <p className="eyebrow">Book list</p>
+                <h2>Upcoming booked sessions</h2>
+                <div className="entity-list">
+                  {pendingBookedSessions.slice(0, 12).map((item) => (
+                    <div className="entity-row" key={item.activity_id}>
+                      <div>
+                        <strong>{item.member_id} {item.pt_package_id ? `- ${item.pt_package_id}` : ''}</strong>
+                        <p>{formatAppDateTime(item.session_at)}</p>
+                        <p>{item.activity_note || '-'}</p>
+                        <p>{describePtCustomFields(item.custom_fields)}</p>
+                      </div>
+                      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                        <button className="btn ghost small" type="button" onClick={() => seedBookFromActivity(item)}>Edit base</button>
+                        <button className="btn ghost small" type="button" onClick={() => seedCompleteFromActivity(item)}>Go to complete</button>
+                      </div>
+                    </div>
+                  ))}
+                  {pendingBookedSessions.length === 0 ? (
+                    <div className="entity-row">
+                      <div>
+                        <strong>Belum ada booked session</strong>
+                        <p>Sesi yang sudah dibooking dan belum selesai akan muncul di sini.</p>
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              </section>
+            </div>
           </div>
         ) : null}
         {activeTab === 'complete' ? (
-          <div style={{ marginTop: '1rem' }}>
-            <h2>Complete session</h2>
-            <form className="form" onSubmit={submitCompleteSession}>
-              <label>pt_package_id<input value={completeForm.pt_package_id} onChange={(e) => setCompleteForm((p) => ({ ...p, pt_package_id: e.target.value }))} /></label>
-              <label>member_id<input value={completeForm.member_id} onChange={(e) => setCompleteForm((p) => ({ ...p, member_id: e.target.value }))} /></label>
-              <label>session_id<input value={completeForm.session_id} onChange={(e) => setCompleteForm((p) => ({ ...p, session_id: e.target.value }))} /></label>
-              <label>completed_at<input type="datetime-local" value={completeForm.completed_at} onChange={(e) => setCompleteForm((p) => ({ ...p, completed_at: e.target.value }))} /></label>
-              <label>completion_note<input value={completeForm.activity_note} onChange={(e) => setCompleteForm((p) => ({ ...p, activity_note: e.target.value }))} /></label>
-              <label>custom_fields (JSON)<textarea rows={3} value={completeForm.custom_fields_text} onChange={(e) => setCompleteForm((p) => ({ ...p, custom_fields_text: e.target.value }))} placeholder='{"session_quality":4,"mood":"good"}' /></label>
-              <button className="btn" type="submit" disabled={saving}>{saving ? 'Saving...' : 'Complete session'}</button>
-            </form>
+          <div style={{ marginTop: '1rem', display: 'grid', gap: '1rem' }}>
+            <div className="ops-grid">
+              <section className="card">
+                <p className="eyebrow">Complete session</p>
+                <h2>Submit hasil sesi member</h2>
+                <form className="form" onSubmit={submitCompleteSession}>
+                  <label>
+                    member_id
+                    <select
+                      value={completeForm.member_id}
+                      onChange={(e) =>
+                        setCompleteForm((p) => ({
+                          ...p,
+                          member_id: e.target.value,
+                          pt_package_id: '',
+                          session_id: ''
+                        }))
+                      }
+                    >
+                      <option value="">Pilih member</option>
+                      {memberRows.map((item) => (
+                        <option key={item.member_id} value={item.member_id}>
+                          {item.member_id} | remaining {item.remaining_sessions}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    pt_package_id
+                    <select
+                      value={completeForm.pt_package_id}
+                      onChange={(e) => setCompleteForm((p) => ({ ...p, pt_package_id: e.target.value }))}
+                    >
+                      <option value="">Pilih package PT</option>
+                      {completePackageOptions.map((item) => (
+                        <option key={item.pt_package_id} value={item.pt_package_id}>
+                          {item.pt_package_id} | {item.member_id} | remaining {item.remaining_sessions}/{item.total_sessions}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    session_id
+                    <select
+                      value={completeForm.session_id}
+                      onChange={(e) => setCompleteForm((p) => ({ ...p, session_id: e.target.value }))}
+                    >
+                      <option value="">Pilih booked session</option>
+                      {pendingBookedSessions
+                        .filter((item) => {
+                          const memberMatch = !completeForm.member_id || String(item.member_id || '') === String(completeForm.member_id || '');
+                          const packageMatch = !completeForm.pt_package_id || String(item.pt_package_id || '') === String(completeForm.pt_package_id || '');
+                          return memberMatch && packageMatch;
+                        })
+                        .map((item) => (
+                          <option key={item.activity_id} value={item.session_id || ''}>
+                            {item.session_id || item.activity_id} | {formatAppDateTime(item.session_at)}
+                          </option>
+                        ))}
+                    </select>
+                  </label>
+                  <label>completed_at<input type="datetime-local" value={completeForm.completed_at} onChange={(e) => setCompleteForm((p) => ({ ...p, completed_at: e.target.value }))} /></label>
+                  <label>completion_note<input value={completeForm.activity_note} onChange={(e) => setCompleteForm((p) => ({ ...p, activity_note: e.target.value }))} placeholder="Ringkasan sesi, hasil, atau evaluasi" /></label>
+                  <div className="card" style={{ borderStyle: 'dashed' }}>
+                    <p className="eyebrow">Member performance</p>
+                    <div className="form">
+                      <label>performance_score<input type="number" min="0" max="10" value={completeForm.performance_fields.performance_score} onChange={(e) => setCompleteForm((p) => ({ ...p, performance_fields: { ...p.performance_fields, performance_score: e.target.value } }))} /></label>
+                      <label>energy_level<input type="number" min="0" max="10" value={completeForm.performance_fields.energy_level} onChange={(e) => setCompleteForm((p) => ({ ...p, performance_fields: { ...p.performance_fields, energy_level: e.target.value } }))} /></label>
+                      <label>body_weight_kg<input type="number" min="0" value={completeForm.performance_fields.body_weight_kg} onChange={(e) => setCompleteForm((p) => ({ ...p, performance_fields: { ...p.performance_fields, body_weight_kg: e.target.value } }))} /></label>
+                      <label>reps<input type="number" min="0" value={completeForm.performance_fields.reps} onChange={(e) => setCompleteForm((p) => ({ ...p, performance_fields: { ...p.performance_fields, reps: e.target.value } }))} /></label>
+                      <label>load_kg<input type="number" min="0" value={completeForm.performance_fields.load_kg} onChange={(e) => setCompleteForm((p) => ({ ...p, performance_fields: { ...p.performance_fields, load_kg: e.target.value } }))} /></label>
+                      <label>next_focus<input value={completeForm.performance_fields.next_focus} onChange={(e) => setCompleteForm((p) => ({ ...p, performance_fields: { ...p.performance_fields, next_focus: e.target.value } }))} placeholder="Contoh: lower body stability" /></label>
+                      <label>coach_note<input value={completeForm.performance_fields.coach_note} onChange={(e) => setCompleteForm((p) => ({ ...p, performance_fields: { ...p.performance_fields, coach_note: e.target.value } }))} placeholder="Catatan performa member" /></label>
+                    </div>
+                  </div>
+                  <label>custom_fields (JSON)<textarea rows={3} value={completeForm.custom_fields_text} onChange={(e) => setCompleteForm((p) => ({ ...p, custom_fields_text: e.target.value }))} placeholder='{"sleep_hours":7,"pain_area":"hamstring"}' /></label>
+                  <button className="btn" type="submit" disabled={saving}>{saving ? 'Saving...' : 'Complete session'}</button>
+                </form>
+              </section>
+
+              <section className="card">
+                <p className="eyebrow">Complete list</p>
+                <h2>Sesi yang siap diselesaikan</h2>
+                <div className="entity-list">
+                  {pendingBookedSessions.slice(0, 12).map((item) => (
+                    <div className="entity-row" key={`${item.activity_id}-complete`}>
+                      <div>
+                        <strong>{item.member_id} {item.pt_package_id ? `- ${item.pt_package_id}` : ''}</strong>
+                        <p>{formatAppDateTime(item.session_at)} | session {item.session_id || '-'}</p>
+                        <p>{item.activity_note || '-'}</p>
+                      </div>
+                      <button className="btn ghost small" type="button" onClick={() => seedCompleteFromActivity(item)}>Use</button>
+                    </div>
+                  ))}
+                  {pendingBookedSessions.length === 0 ? (
+                    <div className="entity-row">
+                      <div>
+                        <strong>Tidak ada sesi pending</strong>
+                        <p>Booked session yang belum completed akan muncul di sini.</p>
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              </section>
+            </div>
+
+            <section className="card">
+              <p className="eyebrow">Completed list</p>
+              <div className="entity-list">
+                {recentCompletedSessions.slice(0, 12).map((item) => (
+                  <div className="entity-row" key={item.activity_id}>
+                    <div>
+                      <strong>{item.member_id} {item.pt_package_id ? `- ${item.pt_package_id}` : ''}</strong>
+                      <p>{formatAppDateTime(item.session_at)} | session {item.session_id || '-'}</p>
+                      <p>{item.activity_note || '-'}</p>
+                      <p>{describePtCustomFields(item.custom_fields)}</p>
+                    </div>
+                  </div>
+                ))}
+                {recentCompletedSessions.length === 0 ? (
+                  <div className="entity-row">
+                    <div>
+                      <strong>Belum ada sesi selesai</strong>
+                      <p>Completed session akan tampil di sini.</p>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            </section>
           </div>
         ) : null}
         {activeTab === 'member' ? (
@@ -669,6 +1043,7 @@ export default function PtPage() {
                   <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                     <button className="btn ghost small" type="button" onClick={() => seedMemberIntoForms(item.member_id, 'book')}>Book</button>
                     <button className="btn ghost small" type="button" onClick={() => seedMemberIntoForms(item.member_id, 'complete')}>Complete</button>
+                    <button className="btn ghost small" type="button" onClick={() => seedMemberIntoForms(item.member_id, 'history')}>Performance</button>
                   </div>
                 </div>
               ))}
@@ -694,7 +1069,7 @@ export default function PtPage() {
                       <strong>{item.member_id} {item.pt_package_id ? `- ${item.pt_package_id}` : ''}</strong>
                       <p>{formatAppDateTime(item.session_at)} | {item.activity_type || 'activity_logged'}{item.session_id ? ` | session ${item.session_id}` : ''}</p>
                       <p>{item.activity_note || '-'}</p>
-                      <p>{item.custom_fields && Object.keys(item.custom_fields).length > 0 ? `custom_fields: ${JSON.stringify(item.custom_fields)}` : 'custom_fields: -'}</p>
+                      <p>{describePtCustomFields(item.custom_fields)}</p>
                     </div>
                   </div>
                 ))}
@@ -709,16 +1084,103 @@ export default function PtPage() {
               </div>
             </div>
             <div>
-              <h2>Log activity</h2>
+              <h2>Log member performance</h2>
               <form className="form" onSubmit={submitActivityLog}>
-                <label>pt_package_id (optional)<input value={activityForm.pt_package_id} onChange={(e) => setActivityForm((p) => ({ ...p, pt_package_id: e.target.value }))} /></label>
-                <label>member_id<input value={activityForm.member_id} onChange={(e) => setActivityForm((p) => ({ ...p, member_id: e.target.value }))} /></label>
+                <label>
+                  member_id
+                  <select
+                    value={activityForm.member_id}
+                    onChange={(e) =>
+                      setActivityForm((p) => ({
+                        ...p,
+                        member_id: e.target.value,
+                        pt_package_id: ''
+                      }))
+                    }
+                  >
+                    <option value="">Pilih member</option>
+                    {memberRows.map((item) => (
+                      <option key={item.member_id} value={item.member_id}>
+                        {item.member_id} | remaining {item.remaining_sessions}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  pt_package_id (optional)
+                  <select value={activityForm.pt_package_id} onChange={(e) => setActivityForm((p) => ({ ...p, pt_package_id: e.target.value }))}>
+                    <option value="">Pilih package PT</option>
+                    {activityPackageOptions.map((item) => (
+                      <option key={item.pt_package_id} value={item.pt_package_id}>
+                        {item.pt_package_id} | {item.member_id} | remaining {item.remaining_sessions}/{item.total_sessions}
+                      </option>
+                    ))}
+                  </select>
+                </label>
                 <label>session_at<input type="datetime-local" value={activityForm.session_at} onChange={(e) => setActivityForm((p) => ({ ...p, session_at: e.target.value }))} /></label>
                 <label>activity_note<input value={activityForm.activity_note} onChange={(e) => setActivityForm((p) => ({ ...p, activity_note: e.target.value }))} /></label>
-                <label>custom_fields (JSON)<textarea rows={3} value={activityForm.custom_fields_text} onChange={(e) => setActivityForm((p) => ({ ...p, custom_fields_text: e.target.value }))} placeholder='{"exercise":"deadlift","weight_kg":80}' /></label>
+                <div className="card" style={{ borderStyle: 'dashed' }}>
+                  <p className="eyebrow">Member performance</p>
+                  <div className="form">
+                    <label>performance_score<input type="number" min="0" max="10" value={activityForm.performance_fields.performance_score} onChange={(e) => setActivityForm((p) => ({ ...p, performance_fields: { ...p.performance_fields, performance_score: e.target.value } }))} /></label>
+                    <label>energy_level<input type="number" min="0" max="10" value={activityForm.performance_fields.energy_level} onChange={(e) => setActivityForm((p) => ({ ...p, performance_fields: { ...p.performance_fields, energy_level: e.target.value } }))} /></label>
+                    <label>body_weight_kg<input type="number" min="0" value={activityForm.performance_fields.body_weight_kg} onChange={(e) => setActivityForm((p) => ({ ...p, performance_fields: { ...p.performance_fields, body_weight_kg: e.target.value } }))} /></label>
+                    <label>reps<input type="number" min="0" value={activityForm.performance_fields.reps} onChange={(e) => setActivityForm((p) => ({ ...p, performance_fields: { ...p.performance_fields, reps: e.target.value } }))} /></label>
+                    <label>load_kg<input type="number" min="0" value={activityForm.performance_fields.load_kg} onChange={(e) => setActivityForm((p) => ({ ...p, performance_fields: { ...p.performance_fields, load_kg: e.target.value } }))} /></label>
+                    <label>next_focus<input value={activityForm.performance_fields.next_focus} onChange={(e) => setActivityForm((p) => ({ ...p, performance_fields: { ...p.performance_fields, next_focus: e.target.value } }))} placeholder="Contoh: improve squat depth" /></label>
+                    <label>coach_note<input value={activityForm.performance_fields.coach_note} onChange={(e) => setActivityForm((p) => ({ ...p, performance_fields: { ...p.performance_fields, coach_note: e.target.value } }))} placeholder="Catatan khusus coach" /></label>
+                  </div>
+                </div>
+                <label>custom_fields (JSON)<textarea rows={3} value={activityForm.custom_fields_text} onChange={(e) => setActivityForm((p) => ({ ...p, custom_fields_text: e.target.value }))} placeholder='{"exercise":"deadlift","sleep_hours":7}' /></label>
                 <button className="btn" type="submit" disabled={saving}>{saving ? 'Saving...' : 'Log activity'}</button>
               </form>
             </div>
+          </div>
+        ) : null}
+        {activeTab === 'incentive' ? (
+          <div style={{ marginTop: '1rem', display: 'grid', gap: '1rem' }}>
+            <div className="ops-grid">
+              <section className="card">
+                <p className="eyebrow">Report incentive</p>
+                <h2>Ringkasan incentive basis</h2>
+                <p><strong>Completed sessions:</strong> {incentiveSummary.totalCompleted}</p>
+                <p><strong>Active members:</strong> {incentiveSummary.activeMembers}</p>
+                <p><strong>Estimated session value:</strong> {formatIdr(incentiveSummary.totalEstimatedValue)}</p>
+                <p className="feedback">Perhitungan ini memakai basis sederhana: nominal payment package PT dibagi total sesi package, lalu dijumlah dari sesi yang sudah completed. Belum memakai rule komisi terpisah.</p>
+              </section>
+              <section className="card">
+                <p className="eyebrow">Coach flow</p>
+                <h2>Alur minimum PT</h2>
+                <p className="feedback">1. Pilih member atau package PT. 2. Tambahkan booking schedule jika member belum booking. 3. Gunakan complete list saat sesi selesai. 4. Isi performance fields supaya histori member dan report incentive lebih rapi.</p>
+              </section>
+            </div>
+            <section className="card">
+              <p className="eyebrow">Incentive detail</p>
+              <div className="entity-list">
+                {incentiveRows.map((item) => (
+                  <div className="entity-row" key={`incentive-${item.activity_id}`}>
+                    <div>
+                      <strong>{item.member_id} {item.pt_package_id ? `- ${item.pt_package_id}` : ''}</strong>
+                      <p>{formatAppDateTime(item.session_at)} | session {item.session_id || '-'}</p>
+                      <p>{item.activity_note || '-'}</p>
+                      <p>{describePtCustomFields(item.custom_fields)}</p>
+                    </div>
+                    <div className="payment-meta">
+                      <strong>{formatIdr(item.estimated_session_value || 0)}</strong>
+                      <span className="passport-chip">package {formatIdr(item.payment_amount || 0)}</span>
+                    </div>
+                  </div>
+                ))}
+                {incentiveRows.length === 0 ? (
+                  <div className="entity-row">
+                    <div>
+                      <strong>Belum ada data incentive</strong>
+                      <p>Report akan muncul setelah ada completed session dan payment package PT tercatat.</p>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            </section>
           </div>
         ) : null}
         {activeTab === 'book' || activeTab === 'complete' ? (
