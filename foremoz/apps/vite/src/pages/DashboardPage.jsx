@@ -838,6 +838,10 @@ export default function DashboardPage() {
       : classBookings;
     return rows;
   }, [classBookings, memberScopedFilter, selectedMember]);
+  const selectedClassBookingForMember = useMemo(() => {
+    if (!selectedMember || !selectedClass) return null;
+    return classBookings.find((booking) => isSameBookingMember(selectedMember, booking)) || null;
+  }, [classBookings, selectedClass, selectedMember]);
   const selectedEventParticipantForMember = useMemo(() => {
     if (!selectedMember || !selectedEvent) return null;
     return eventParticipants.find((participant) => isSameParticipant(selectedMember, participant)) || null;
@@ -1151,12 +1155,12 @@ export default function DashboardPage() {
     }
   }
 
-  async function confirmClassAttendance(booking) {
+  async function checkinClassBooking(booking) {
     if (!booking?.booking_id) return;
     try {
       setActionSaving(true);
       setActionFeedback('');
-      const result = await apiJson(`/v1/bookings/classes/${encodeURIComponent(booking.booking_id)}/attendance-confirm`, {
+      const result = await apiJson(`/v1/bookings/classes/${encodeURIComponent(booking.booking_id)}/checkin`, {
         method: 'POST',
         body: JSON.stringify({
           tenant_id: tenantId,
@@ -1166,12 +1170,38 @@ export default function DashboardPage() {
       await loadClassBookings(booking.class_id || selectedClass?.class_id || selectedExperienceId);
       await loadDashboard();
       if (result?.duplicate) {
-        setActionFeedback(`attendance.skip: ${booking.booking_id} sudah confirmed sebelumnya.`);
+        setActionFeedback(`class.checkin.skip: ${booking.booking_id} sudah check-in sebelumnya.`);
       } else {
-        setActionFeedback(`attendance.confirmed: ${booking.booking_id}`);
+        setActionFeedback(`class.checkin.success: ${booking.booking_id}`);
       }
     } catch (err) {
-      setActionFeedback(err.message || 'failed to confirm attendance');
+      setActionFeedback(err.message || 'failed to check in class booking');
+    } finally {
+      setActionSaving(false);
+    }
+  }
+
+  async function checkoutClassBooking(booking) {
+    if (!booking?.booking_id) return;
+    try {
+      setActionSaving(true);
+      setActionFeedback('');
+      const result = await apiJson(`/v1/bookings/classes/${encodeURIComponent(booking.booking_id)}/checkout`, {
+        method: 'POST',
+        body: JSON.stringify({
+          tenant_id: tenantId,
+          branch_id: branchId
+        })
+      });
+      await loadClassBookings(booking.class_id || selectedClass?.class_id || selectedExperienceId);
+      await loadDashboard();
+      if (result?.duplicate) {
+        setActionFeedback(`class.checkout.skip: ${booking.booking_id} sudah check-out sebelumnya.`);
+      } else {
+        setActionFeedback(`class.checkout.success: ${booking.booking_id}`);
+      }
+    } catch (err) {
+      setActionFeedback(err.message || 'failed to check out class booking');
     } finally {
       setActionSaving(false);
     }
@@ -1893,6 +1923,56 @@ export default function DashboardPage() {
             </button>
           </div>
 
+          {selectedMember && selectedClass ? (
+            <div className="card" style={{ marginTop: '1rem', borderStyle: 'dashed' }}>
+              <p className="eyebrow">Quick class attendance</p>
+              <p>
+                Member: <strong>{selectedMember.full_name || selectedMember.member_id}</strong>
+              </p>
+              <p>
+                Program: <strong>{selectedClass.class_name || selectedClass.class_id}</strong>
+              </p>
+              {selectedClassBookingForMember ? (
+                <>
+                  <p>Booking: {selectedClassBookingForMember.booking_id || '-'}</p>
+                  <p>
+                    Status attendance:
+                    {' '}
+                    {selectedClassBookingForMember.attendance_checked_out_at
+                      ? 'checked out'
+                      : selectedClassBookingForMember.attendance_checked_in_at || selectedClassBookingForMember.attendance_confirmed_at
+                        ? 'checked in'
+                        : 'booked'}
+                  </p>
+                  <div className="row-actions">
+                    <button
+                      className="btn ghost"
+                      type="button"
+                      disabled={actionSaving}
+                      onClick={() => checkinClassBooking(selectedClassBookingForMember)}
+                    >
+                      {selectedClassBookingForMember.attendance_checked_in_at || selectedClassBookingForMember.attendance_confirmed_at
+                        ? 'Refresh check-in'
+                        : 'Check-in selected member'}
+                    </button>
+                    <button
+                      className="btn ghost"
+                      type="button"
+                      disabled={actionSaving || !(selectedClassBookingForMember.attendance_checked_in_at || selectedClassBookingForMember.attendance_confirmed_at)}
+                      onClick={() => checkoutClassBooking(selectedClassBookingForMember)}
+                    >
+                      {selectedClassBookingForMember.attendance_checked_out_at
+                        ? 'Refresh check-out'
+                        : 'Check-out selected member'}
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <p className="feedback">Member ini belum punya booking di program terpilih.</p>
+              )}
+            </div>
+          ) : null}
+
           {selectedExperienceType === 'class' && selectedClass ? (
             <div className="payment-history">
               <h3>Program bookings</h3>
@@ -1908,7 +1988,10 @@ export default function DashboardPage() {
                           {booking.member_id || '-'} | status: {booking.status || '-'} | booked: {formatDateTime(booking.booked_at)}
                         </p>
                         <p>
-                          attendance: {booking.attendance_confirmed_at ? formatDateTime(booking.attendance_confirmed_at) : '-'}
+                          check-in: {booking.attendance_checked_in_at || booking.attendance_confirmed_at ? formatDateTime(booking.attendance_checked_in_at || booking.attendance_confirmed_at) : '-'}
+                        </p>
+                        <p>
+                          check-out: {booking.attendance_checked_out_at ? formatDateTime(booking.attendance_checked_out_at) : '-'}
                         </p>
                         {formatAnswerEntries(booking.registration_answers).length > 0 ? (
                           <p>
@@ -1931,11 +2014,23 @@ export default function DashboardPage() {
                           disabled={
                             actionSaving ||
                             String(booking.status || '').toLowerCase() === 'canceled' ||
-                            Boolean(booking.attendance_confirmed_at)
+                            Boolean(booking.attendance_checked_out_at)
                           }
-                          onClick={() => confirmClassAttendance(booking)}
+                          onClick={() => checkinClassBooking(booking)}
                         >
-                          Confirm Attendance
+                          {booking.attendance_checked_in_at || booking.attendance_confirmed_at ? 'Refresh Check-in' : 'Check-in'}
+                        </button>
+                        <button
+                          className="btn ghost small"
+                          type="button"
+                          disabled={
+                            actionSaving ||
+                            String(booking.status || '').toLowerCase() === 'canceled' ||
+                            !(booking.attendance_checked_in_at || booking.attendance_confirmed_at)
+                          }
+                          onClick={() => checkoutClassBooking(booking)}
+                        >
+                          {booking.attendance_checked_out_at ? 'Refresh Check-out' : 'Check-out'}
                         </button>
                       </div>
                     </div>

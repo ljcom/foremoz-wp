@@ -100,7 +100,9 @@ export async function runFitnessProjection({ tenantId, branchId }) {
     await client.query(
       `alter table if exists read.rm_booking_list
          add column if not exists payment_id text,
-         add column if not exists registration_answers jsonb`
+         add column if not exists registration_answers jsonb,
+         add column if not exists attendance_checked_in_at timestamptz,
+         add column if not exists attendance_checked_out_at timestamptz`
     );
     await client.query(
       `alter table if exists read.rm_class_availability
@@ -943,13 +945,26 @@ export async function runFitnessProjection({ tenantId, branchId }) {
         continue;
       }
 
-      if (event.event_type === 'class.attendance.confirmed') {
+      if (event.event_type === 'class.attendance.confirmed' || event.event_type === 'class.attendance.checked_in') {
         await client.query(
           `update read.rm_booking_list
            set attendance_confirmed_at = $3,
+               attendance_checked_in_at = $3,
                updated_at = $3
            where tenant_id = $1 and booking_id = $2`,
-          [tenant, data.booking_id, data.confirmed_at || eventTs]
+          [tenant, data.booking_id, data.checked_in_at || data.confirmed_at || eventTs]
+        );
+        applied += 1;
+        continue;
+      }
+
+      if (event.event_type === 'class.attendance.checked_out') {
+        await client.query(
+          `update read.rm_booking_list
+           set attendance_checked_out_at = $3,
+               updated_at = $3
+           where tenant_id = $1 and booking_id = $2`,
+          [tenant, data.booking_id, data.checked_out_at || eventTs]
         );
         applied += 1;
         continue;

@@ -1589,13 +1589,69 @@ async function findActiveClassBooking({ tenantId, classId, memberId }) {
 
 async function getClassBookingRow({ tenantId, bookingId }) {
   const { rows } = await query(
-    `select tenant_id, branch_id, booking_id, class_id, booking_kind, member_id, guest_name, status, booked_at, canceled_at, attendance_confirmed_at
+    `select tenant_id, branch_id, booking_id, class_id, booking_kind, member_id, guest_name, status, booked_at, canceled_at,
+            attendance_confirmed_at, attendance_checked_in_at, attendance_checked_out_at
      from read.rm_booking_list
      where tenant_id = $1 and booking_id = $2
      limit 1`,
     [tenantId, bookingId]
   );
   return rows[0] || null;
+}
+
+async function handleClassBookingCheckin({ bookingId, data }) {
+  const tenantId = data.tenant_id || config.defaultTenantId;
+  const bookingRow = await getClassBookingRow({ tenantId, bookingId });
+  if (!bookingRow) {
+    throw fail(404, 'BOOKING_NOT_FOUND', `booking ${bookingId} not found`);
+  }
+  const currentStatus = String(bookingRow.status || '').toLowerCase();
+  if (currentStatus === 'canceled') {
+    throw fail(409, 'BOOKING_ALREADY_CANCELED', `booking ${bookingId} already canceled`);
+  }
+  if (bookingRow.attendance_checked_in_at || bookingRow.attendance_confirmed_at) {
+    return {
+      ok: true,
+      payload: {
+        booking_id: bookingId,
+        class_id: bookingRow.class_id,
+        attendance_checked_in_at: bookingRow.attendance_checked_in_at || bookingRow.attendance_confirmed_at,
+        attendance_confirmed_at: bookingRow.attendance_confirmed_at || bookingRow.attendance_checked_in_at,
+        duplicate: true
+      }
+    };
+  }
+
+  const checkedInAt = data.checked_in_at || data.confirmed_at || new Date().toISOString();
+  const event = await appendDomainEvent({
+    tenantId,
+    branchId: data.branch_id || bookingRow.branch_id || null,
+    actorId: data.actor_id || config.defaultActorId,
+    eventType: 'class.attendance.checked_in',
+    subjectKind: 'booking',
+    subjectId: bookingId,
+    data: {
+      tenant_id: tenantId,
+      branch_id: data.branch_id || bookingRow.branch_id || null,
+      booking_id: bookingId,
+      class_id: bookingRow.class_id,
+      member_id: bookingRow.member_id || null,
+      guest_name: bookingRow.guest_name || null,
+      checked_in_at: checkedInAt,
+      confirmed_at: checkedInAt
+    },
+    refs: {}
+  });
+  return {
+    created: true,
+    payload: {
+      event,
+      booking_id: bookingId,
+      class_id: bookingRow.class_id,
+      attendance_checked_in_at: checkedInAt,
+      attendance_confirmed_at: checkedInAt
+    }
+  };
 }
 
 async function getPaymentQueueRow({ tenantId, paymentId }) {
@@ -6356,7 +6412,35 @@ app.post('/v1/bookings/classes/:bookingId/cancel', async (req, res, next) => {
   }
 });
 
+app.post('/v1/bookings/classes/:bookingId/checkin', async (req, res, next) => {
+  try {
+    const data = req.body || {};
+    const bookingId = required(req.params.bookingId, 'bookingId');
+    const result = await handleClassBookingCheckin({ bookingId, data });
+    if (result.created) {
+      return created(res, result.payload);
+    }
+    return ok(res, result.payload);
+  } catch (error) {
+    return next(error);
+  }
+});
+
 app.post('/v1/bookings/classes/:bookingId/attendance-confirm', async (req, res, next) => {
+  try {
+    const data = req.body || {};
+    const bookingId = required(req.params.bookingId, 'bookingId');
+    const result = await handleClassBookingCheckin({ bookingId, data });
+    if (result.created) {
+      return created(res, result.payload);
+    }
+    return ok(res, result.payload);
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.post('/v1/bookings/classes/:bookingId/checkout', async (req, res, next) => {
   try {
     const data = req.body || {};
     const tenantId = data.tenant_id || config.defaultTenantId;
@@ -6369,21 +6453,24 @@ app.post('/v1/bookings/classes/:bookingId/attendance-confirm', async (req, res, 
     if (currentStatus === 'canceled') {
       throw fail(409, 'BOOKING_ALREADY_CANCELED', `booking ${bookingId} already canceled`);
     }
-    if (bookingRow.attendance_confirmed_at) {
+    if (!(bookingRow.attendance_checked_in_at || bookingRow.attendance_confirmed_at)) {
+      throw fail(409, 'BOOKING_NOT_CHECKED_IN', `booking ${bookingId} must be checked in first`);
+    }
+    if (bookingRow.attendance_checked_out_at) {
       return ok(res, {
         booking_id: bookingId,
         class_id: bookingRow.class_id,
-        attendance_confirmed_at: bookingRow.attendance_confirmed_at,
+        attendance_checked_out_at: bookingRow.attendance_checked_out_at,
         duplicate: true
       });
     }
 
-    const confirmedAt = data.confirmed_at || new Date().toISOString();
+    const checkedOutAt = data.checked_out_at || new Date().toISOString();
     const event = await appendDomainEvent({
       tenantId,
       branchId: data.branch_id || bookingRow.branch_id || null,
       actorId: data.actor_id || config.defaultActorId,
-      eventType: 'class.attendance.confirmed',
+      eventType: 'class.attendance.checked_out',
       subjectKind: 'booking',
       subjectId: bookingId,
       data: {
@@ -6393,7 +6480,7 @@ app.post('/v1/bookings/classes/:bookingId/attendance-confirm', async (req, res, 
         class_id: bookingRow.class_id,
         member_id: bookingRow.member_id || null,
         guest_name: bookingRow.guest_name || null,
-        confirmed_at: confirmedAt
+        checked_out_at: checkedOutAt
       },
       refs: {}
     });
@@ -6401,7 +6488,7 @@ app.post('/v1/bookings/classes/:bookingId/attendance-confirm', async (req, res, 
       event,
       booking_id: bookingId,
       class_id: bookingRow.class_id,
-      attendance_confirmed_at: confirmedAt
+      attendance_checked_out_at: checkedOutAt
     });
   } catch (error) {
     return next(error);
