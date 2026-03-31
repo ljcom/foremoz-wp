@@ -12,23 +12,26 @@ Last audited terhadap isi folder: **2026-03-27** (`foremoz/apps/api`, `foremoz/a
 
 ## High Priority (90%)
 - [~] Priority flow completion end-to-end per role.
+  - Core flow first
   - Owner
     - [x] Create account: web -> signup -> signin owner.
     - [ ] Choose package.
     - [x] Create event/program: dashboard -> admin -> create event/class -> share.
     - [x] Add role: add role -> user cek email & confirm -> user muncul di list.
-    - [ ] Add branch: create -> image -> on/off resources per branch.
   - Member
-    - [ ] Join event: public -> signup -> signin -> payment -> member dashboard -> pre-event info.
-    - [ ] Book program: lanjutan dari CS order -> studio web -> signin -> register schedule -> cancel -> cek performa.
+    - [ ] Join event: public -> signup -> signin -> member dashboard -> pre-event info.
+    - [ ] Book program: lanjutan dari CS order -> studio web -> signin -> register schedule -> cancel.
   - CS activity
-    - [ ] Order: signin staff -> CS dashboard -> create order -> payment -> daily report.
+    - [ ] Order: signin staff -> CS dashboard -> create order.
     - [ ] CS check-in: studio signin staff -> CS dashboard -> check-in -> check-out.
   - PT activity
-    - [ ] Signin staff -> PT dashboard -> add member -> book list -> complete list -> report incentive.
-    - [ ] Award: PT dashboard -> score member -> report award.
+    - [ ] Signin staff -> PT dashboard -> add member -> book list -> complete list.
   - Sales activity
-    - [ ] Sales: signin -> sales dashboard -> add prospect -> create order -> report incentive.
+    - [ ] Sales: signin -> sales dashboard -> add prospect -> create order.
+  - Priority terakhir dalam wave ini
+    - [ ] Branch: owner add branch -> image -> on/off resources per branch.
+    - [ ] Payment: finalisasi payment lifecycle untuk join event, CS order, member booking/program, dan transaksi operasional lain.
+    - [ ] Report: CS daily report, PT incentive/award report, sales incentive report.
 - [~] Passport public page `/p/:account` sudah pakai real data inti.
   - Resolve `account -> tenant/passport` sudah ada via endpoint public passport.
   - Identity/stat utama sudah diambil dari API (profile, events, stats, relations).
@@ -41,6 +44,7 @@ Last audited terhadap isi folder: **2026-03-27** (`foremoz/apps/api`, `foremoz/a
   - Endpoint: `POST /v1/admin/events/:eventId/participants/checkin`
   - Read status check-in sudah masuk di `GET /v1/admin/events/:eventId/participants` (`checked_in_at`).
 - [x] Branch management owner sudah terhubung ke backend DB.
+  - Catatan prioritas: follow-up branch resource/policy dikerjakan di wave terakhir.
   - Endpoint: `GET /v1/owner/branches`
   - Endpoint: `POST /v1/owner/branches`
   - Endpoint: `PATCH /v1/owner/branches/:branchId`
@@ -113,6 +117,7 @@ Last audited terhadap isi folder: **2026-03-27** (`foremoz/apps/api`, `foremoz/a
   - Product & Package CRUD.
   - Owner users + owner saas extension + account resolve/public passport.
 - [~] Transaction tab payment ops terhubung backend.
+  - Catatan prioritas: polish payment flow ditempatkan di wave terakhir setelah core flow stabil.
   - Record payment sudah pakai `POST /v1/payments/record`.
   - Pending payment bisa `confirm/reject` dari UI.
   - Catatan review (reason/note) sudah tersimpan dan tampil di tabel transaksi.
@@ -268,6 +273,7 @@ Last audited terhadap isi folder: **2026-03-27** (`foremoz/apps/api`, `foremoz/a
   - [x] Ganti paket dari owner panel.
   - [ ] Validasi UX package gating per fitur/flow operasional.
 - [~] Branch management
+  - Catatan prioritas: area ini bukan blocker flow inti, lanjutannya masuk wave terakhir.
   - [x] list branch
   - [x] add branch (gated by package multi-branch/enterprise)
   - [x] edit branch
@@ -332,8 +338,10 @@ Last audited terhadap isi folder: **2026-03-27** (`foremoz/apps/api`, `foremoz/a
 - [~] PT workspace
   - Remark: PT dashboard sekarang sudah pakai flow nyata (book session, complete session, log activity) + read model `pt-balance` dan `pt-activity` dengan filter trainer, tidak lagi log local dummy. Form PT + checkin/checkout event kini mendukung `custom_fields` JSON untuk metadata operasional.
 - [ ] PT incentive reporting
+  - Catatan prioritas: masuk wave terakhir.
   - Report incentive per PT berdasarkan session/book/complete.
 - [ ] PT award reporting
+  - Catatan prioritas: masuk wave terakhir.
   - Score member dari PT dashboard.
   - Rekap/report award.
 - [~] Sales workspace
@@ -341,8 +349,10 @@ Last audited terhadap isi folder: **2026-03-27** (`foremoz/apps/api`, `foremoz/a
 - [ ] Sales create order flow
   - Prospect/member -> create order -> payment linkage.
 - [ ] Sales incentive reporting
+  - Catatan prioritas: masuk wave terakhir.
   - Report incentive per sales dari order/convert yang berhasil.
 - [ ] Reporting
+  - Catatan prioritas: seluruh reporting dikerjakan setelah flow inti per role stabil.
   - [ ] Laporan komisi coach/team untuk event dan class per periode.
   - [ ] Read model komisi dari `coach_shares` x nilai transaksi/price aktual.
   - [ ] Breakdown per event/class: gross amount, coach involved, persen share, nominal komisi.
@@ -389,6 +399,7 @@ Last audited terhadap isi folder: **2026-03-27** (`foremoz/apps/api`, `foremoz/a
       - [x] scan barcode
     - [x] order -> payment
     - [ ] daily report
+      - Catatan prioritas: masuk wave terakhir.
 - [~] Member operational page `/a/:account/members/:memberId`
   - [x] Payment history load dari API (`/v1/read/payments/history`).
   - [x] Buy membership submit ke backend (`payment.recorded` + `payment.confirmed` + `subscription.activated`).

@@ -72,6 +72,7 @@ Contoh account uji:
 ## 6. Test Matrix UAT
 
 Isi kolom `Actual`, `Status`, dan `Evidence` saat eksekusi.
+Urutan eksekusi yang disarankan untuk wave sekarang: selesaikan core flow dulu; skenario `branch`, `payment`, dan `report` dikerjakan paling akhir.
 
 | ID | Area | Skenario Uji | Expected Result | Actual | Status | Evidence |
 |---|---|---|---|---|---|---|
