@@ -3,6 +3,44 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { apiJson, clearSession, getSession, setSession } from '../lib.js';
 import { formatAppDateTime } from '../time.js';
 
+function normalizeAttachmentUrls(value) {
+  return Array.isArray(value)
+    ? value.map((item) => String(item || '').trim()).filter(Boolean)
+    : [];
+}
+
+function resolveMemberInfo(customFields) {
+  const source = customFields && typeof customFields === 'object' && !Array.isArray(customFields) ? customFields : {};
+  return {
+    preText: String(source.member_pre_info_text || '').trim(),
+    preAttachments: normalizeAttachmentUrls(source.member_pre_info_attachments),
+    postText: String(source.member_post_info_text || '').trim(),
+    postAttachments: normalizeAttachmentUrls(source.member_post_info_attachments)
+  };
+}
+
+function formatRegistrationAnswers(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return [];
+  return Object.entries(value)
+    .map(([label, answer]) => ({
+      label: String(label || '').trim(),
+      answer: String(answer || '').trim()
+    }))
+    .filter((item) => item.label && item.answer);
+}
+
+function attachmentNameFromUrl(url) {
+  const value = String(url || '').trim();
+  if (!value) return 'Attachment';
+  const [path] = value.split('?');
+  const segments = path.split('/');
+  return decodeURIComponent(segments[segments.length - 1] || 'Attachment');
+}
+
+function isImageAttachment(url) {
+  return /\.(jpg|jpeg|png|webp|gif)(\?|$)/i.test(String(url || '').trim());
+}
+
 export default function MemberPortalPage() {
   const navigate = useNavigate();
   const { account } = useParams();
@@ -62,6 +100,12 @@ export default function MemberPortalPage() {
     () => orderedPayments.filter((item) => String(item?.status || '').toLowerCase() === 'pending'),
     [orderedPayments]
   );
+  const nextUpcomingEvent = useMemo(() => {
+    const now = Date.now();
+    return [...orderedMyEvents]
+      .filter((item) => new Date(item?.start_at || 0).getTime() >= now)
+      .sort((a, b) => new Date(a.start_at || 0).getTime() - new Date(b.start_at || 0).getTime())[0] || null;
+  }, [orderedMyEvents]);
 
   useEffect(
     () => () => {
@@ -109,11 +153,22 @@ export default function MemberPortalPage() {
             `/v1/read/pt-balance?tenant_id=${encodeURIComponent(session?.tenant?.id || 'tn_001')}&member_id=${encodeURIComponent(memberId)}`
           ).catch(() => ({ rows: [] }))
         ]);
+        const registrationRows = Array.isArray(registrationRes?.rows) ? registrationRes.rows : [];
+        const registrationByEventId = new Map(
+          registrationRows
+            .map((item) => [String(item?.event_id || '').trim(), item])
+            .filter(([eventId]) => eventId)
+        );
         const joinedIds = new Set(
           (Array.isArray(registrationRes?.event_ids) ? registrationRes.event_ids : []).map((id) => String(id))
         );
         const rows = Array.isArray(eventRes?.rows) ? eventRes.rows : [];
-        const items = rows.filter((row) => joinedIds.has(String(row?.event_id || '')));
+        const items = rows
+          .filter((row) => joinedIds.has(String(row?.event_id || '')))
+          .map((row) => ({
+            ...row,
+            member_registration: registrationByEventId.get(String(row?.event_id || '').trim()) || null
+          }));
         if (!active) return;
         setMyEvents(items);
         setPayments(Array.isArray(paymentRes?.rows) ? paymentRes.rows : []);
@@ -230,6 +285,49 @@ export default function MemberPortalPage() {
               </section>
             </div>
             <section className="card">
+              <p className="eyebrow">Pre-event info</p>
+              {nextUpcomingEvent ? (() => {
+                const memberInfo = resolveMemberInfo(nextUpcomingEvent.custom_fields);
+                const registrationAnswers = formatRegistrationAnswers(nextUpcomingEvent.member_registration?.registration_answers);
+                return (
+                  <>
+                    <h3>{nextUpcomingEvent.event_name || 'Upcoming event'}</h3>
+                    <p>{formatAppDateTime(nextUpcomingEvent.start_at)} | {nextUpcomingEvent.location || '-'}</p>
+                    {memberInfo.preText ? <p>{memberInfo.preText}</p> : <p className="sub">Belum ada briefing sebelum event.</p>}
+                    {memberInfo.preAttachments.length > 0 ? (
+                      <div className="entity-list">
+                        {memberInfo.preAttachments.map((url) => (
+                          <div className="entity-row" key={`overview-pre-${url}`}>
+                            <div>
+                              <strong>{attachmentNameFromUrl(url)}</strong>
+                              <p>{isImageAttachment(url) ? 'Image attachment' : 'File attachment'}</p>
+                            </div>
+                            <a className="btn ghost small" href={url} target="_blank" rel="noreferrer">
+                              Open
+                            </a>
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
+                    {registrationAnswers.length > 0 ? (
+                      <div className="entity-list" style={{ marginTop: '1rem' }}>
+                        {registrationAnswers.map((item) => (
+                          <div className="entity-row" key={`overview-answer-${item.label}`}>
+                            <div>
+                              <strong>{item.label}</strong>
+                              <p>{item.answer}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
+                  </>
+                );
+              })() : (
+                <p className="sub">Belum ada event mendatang yang kamu join.</p>
+              )}
+            </section>
+            <section className="card">
               <p className="eyebrow">Recent Activity</p>
               <div className="entity-list">
                 {orderedPayments.slice(0, 3).map((item) => (
@@ -255,34 +353,92 @@ export default function MemberPortalPage() {
             {myEventsLoading ? <p className="feedback">Loading my events...</p> : null}
             {myEventsError ? <p className="feedback">{myEventsError}</p> : null}
             <div className="passport-live-grid">
-              {orderedMyEvents.map((event) => (
-                <article className="passport-live-card" key={event.event_id}>
-                  <img
-                    className="passport-live-image"
-                    src={event.image_url || `https://picsum.photos/seed/member-portal-${encodeURIComponent(event.event_id || 'event')}/720/420`}
-                    alt={event.event_name || 'Event'}
-                  />
-                  <div className="passport-live-head">
-                    <span className="passport-live-badge">{String(event.status || '-').toUpperCase()}</span>
-                    <span className="passport-live-badge joined">Joined</span>
-                  </div>
-                  <h3>{event.event_name || 'Untitled Event'}</h3>
-                  <p className="passport-live-time">
-                    Mulai {formatAppDateTime(event.start_at)}
-                  </p>
-                  <p className="passport-live-host">{event.location || '-'}</p>
-                  <div style={{ marginTop: '1rem' }}>
-                    <Link
-                      className="btn ghost small"
-                      to={event.account_slug
-                        ? `/a/${encodeURIComponent(event.account_slug)}/e/${encodeURIComponent(event.event_id)}`
-                        : `/e/${encodeURIComponent(event.event_id)}`}
-                    >
-                      Open event
-                    </Link>
-                  </div>
-                </article>
-              ))}
+              {orderedMyEvents.map((event) => {
+                const memberInfo = resolveMemberInfo(event.custom_fields);
+                const registrationAnswers = formatRegistrationAnswers(event.member_registration?.registration_answers);
+                return (
+                  <article className="passport-live-card" key={event.event_id}>
+                    <img
+                      className="passport-live-image"
+                      src={event.image_url || `https://picsum.photos/seed/member-portal-${encodeURIComponent(event.event_id || 'event')}/720/420`}
+                      alt={event.event_name || 'Event'}
+                    />
+                    <div className="passport-live-head">
+                      <span className="passport-live-badge">{String(event.status || '-').toUpperCase()}</span>
+                      <span className="passport-live-badge joined">Joined</span>
+                    </div>
+                    <h3>{event.event_name || 'Untitled Event'}</h3>
+                    <p className="passport-live-time">
+                      Mulai {formatAppDateTime(event.start_at)}
+                    </p>
+                    <p className="passport-live-host">{event.location || '-'}</p>
+                    {registrationAnswers.length > 0 ? (
+                      <div className="entity-list" style={{ marginTop: '1rem' }}>
+                        {registrationAnswers.map((item) => (
+                          <div className="entity-row" key={`${event.event_id}-answer-${item.label}`}>
+                            <div>
+                              <strong>{item.label}</strong>
+                              <p>{item.answer}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
+                    {memberInfo.preText ? (
+                      <div className="card" style={{ marginTop: '1rem', borderStyle: 'dashed' }}>
+                        <p className="eyebrow">Before event</p>
+                        <p>{memberInfo.preText}</p>
+                      </div>
+                    ) : null}
+                    {memberInfo.preAttachments.length > 0 ? (
+                      <div className="entity-list" style={{ marginTop: '0.75rem' }}>
+                        {memberInfo.preAttachments.map((url) => (
+                          <div className="entity-row" key={`${event.event_id}-pre-${url}`}>
+                            <div>
+                              <strong>{attachmentNameFromUrl(url)}</strong>
+                              <p>{isImageAttachment(url) ? 'Image attachment' : 'File attachment'}</p>
+                            </div>
+                            <a className="btn ghost small" href={url} target="_blank" rel="noreferrer">
+                              Open
+                            </a>
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
+                    {memberInfo.postText ? (
+                      <div className="card" style={{ marginTop: '1rem', borderStyle: 'dashed' }}>
+                        <p className="eyebrow">After event</p>
+                        <p>{memberInfo.postText}</p>
+                      </div>
+                    ) : null}
+                    {memberInfo.postAttachments.length > 0 ? (
+                      <div className="entity-list" style={{ marginTop: '0.75rem' }}>
+                        {memberInfo.postAttachments.map((url) => (
+                          <div className="entity-row" key={`${event.event_id}-post-${url}`}>
+                            <div>
+                              <strong>{attachmentNameFromUrl(url)}</strong>
+                              <p>{isImageAttachment(url) ? 'Image attachment' : 'File attachment'}</p>
+                            </div>
+                            <a className="btn ghost small" href={url} target="_blank" rel="noreferrer">
+                              Open
+                            </a>
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
+                    <div style={{ marginTop: '1rem' }}>
+                      <Link
+                        className="btn ghost small"
+                        to={event.account_slug
+                          ? `/a/${encodeURIComponent(event.account_slug)}/e/${encodeURIComponent(event.event_id)}`
+                          : `/e/${encodeURIComponent(event.event_id)}`}
+                      >
+                        Open event
+                      </Link>
+                    </div>
+                  </article>
+                );
+              })}
               {!myEventsLoading && orderedMyEvents.length === 0 ? (
                 <article className="passport-live-card">
                   <h3>Belum ada event</h3>

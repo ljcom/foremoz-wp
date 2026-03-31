@@ -576,7 +576,11 @@ function createEmptyEventForm() {
     max_participants: '0',
     duration_value: '1',
     duration_unit: 'hours',
-    registration_fields: []
+    registration_fields: [],
+    pre_event_info_text: '',
+    pre_event_attachments_text: '',
+    post_event_info_text: '',
+    post_event_attachments_text: ''
   };
 }
 
@@ -612,7 +616,11 @@ function serializeEventForm(value) {
     max_participants: String(form.max_participants || '0'),
     duration_value: String(form.duration_value || '1'),
     duration_unit: String(form.duration_unit || 'hours'),
-    registration_fields: registrationFields
+    registration_fields: registrationFields,
+    pre_event_info_text: String(form.pre_event_info_text || ''),
+    pre_event_attachments_text: String(form.pre_event_attachments_text || ''),
+    post_event_info_text: String(form.post_event_info_text || ''),
+    post_event_attachments_text: String(form.post_event_attachments_text || '')
   });
 }
 
@@ -658,6 +666,10 @@ function createEmptyClassForm() {
     usage_mode: 'unlimited',
     usage_limit: '',
     usage_period: 'entire_validity',
+    pre_event_info_text: '',
+    pre_event_attachments_text: '',
+    post_event_info_text: '',
+    post_event_attachments_text: '',
     min_quota: '',
     max_quota: '',
     auto_start_when_quota_met: false
@@ -770,6 +782,7 @@ function createEventFormFromTemplate(template) {
 
 function splitClassCustomFields(value, primaryCategory = '') {
   const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  const memberInfo = splitMemberInfoCustomFields(source);
   const registrationFields = Array.isArray(source.registration_fields)
     ? source.registration_fields.map(toRegistrationFieldForm)
     : [];
@@ -790,6 +803,10 @@ function splitClassCustomFields(value, primaryCategory = '') {
     registration_fields: _registrationFields,
     category_tags: _categoryTags,
     registration_mode: _registrationMode,
+    member_pre_info_text: _memberPreInfoText,
+    member_pre_info_attachments: _memberPreInfoAttachments,
+    member_post_info_text: _memberPostInfoText,
+    member_post_info_attachments: _memberPostInfoAttachments,
     location: _location,
     image_url: _imageUrl,
     gallery_images: _galleryImages,
@@ -803,12 +820,19 @@ function splitClassCustomFields(value, primaryCategory = '') {
     registration_mode: normalizedRegistrationMode,
     location: String(source.location || ''),
     image_url: String(source.image_url || ''),
-    gallery_images_text: Array.isArray(source.gallery_images) ? source.gallery_images.join('\n') : ''
+    gallery_images_text: Array.isArray(source.gallery_images) ? source.gallery_images.join('\n') : '',
+    pre_event_info_text: memberInfo.pre_event_info_text,
+    pre_event_attachments_text: memberInfo.pre_event_attachments_text,
+    post_event_info_text: memberInfo.post_event_info_text,
+    post_event_attachments_text: memberInfo.post_event_attachments_text
   };
 }
 
 function buildClassCustomFieldsPayload(formValue) {
-  const base = parseCustomFieldsInput(formValue?.custom_fields_text || '', 'class');
+  const base = applyMemberInfoCustomFields(
+    parseCustomFieldsInput(formValue?.custom_fields_text || '', 'class'),
+    formValue
+  );
   const seoTags = normalizeEventCategoriesForPayload(formValue?.tags_text || '');
   const registrationFields = normalizeRegistrationFieldsForPayload(formValue?.registration_fields);
   const registrationMode = String(formValue?.registration_period_mode || 'always_open').trim().toLowerCase();
@@ -846,6 +870,61 @@ function buildClassCustomFieldsPayload(formValue) {
     delete base.gallery_images;
   }
   return base;
+}
+
+function normalizeAttachmentUrlsText(value) {
+  const rows = String(value || '')
+    .split('\n')
+    .map((item) => String(item || '').trim())
+    .filter(Boolean);
+  return [...new Set(rows)];
+}
+
+function splitMemberInfoCustomFields(value) {
+  const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  const preAttachments = Array.isArray(source.member_pre_info_attachments)
+    ? source.member_pre_info_attachments.map((item) => String(item || '').trim()).filter(Boolean)
+    : [];
+  const postAttachments = Array.isArray(source.member_post_info_attachments)
+    ? source.member_post_info_attachments.map((item) => String(item || '').trim()).filter(Boolean)
+    : [];
+  return {
+    pre_event_info_text: String(source.member_pre_info_text || ''),
+    pre_event_attachments_text: preAttachments.join('\n'),
+    post_event_info_text: String(source.member_post_info_text || ''),
+    post_event_attachments_text: postAttachments.join('\n')
+  };
+}
+
+function applyMemberInfoCustomFields(baseValue, formValue) {
+  const base = baseValue && typeof baseValue === 'object' && !Array.isArray(baseValue) ? { ...baseValue } : {};
+  const preText = String(formValue?.pre_event_info_text || '').trim();
+  const preAttachments = normalizeAttachmentUrlsText(formValue?.pre_event_attachments_text);
+  const postText = String(formValue?.post_event_info_text || '').trim();
+  const postAttachments = normalizeAttachmentUrlsText(formValue?.post_event_attachments_text);
+
+  if (preText) base.member_pre_info_text = preText;
+  else delete base.member_pre_info_text;
+  if (preAttachments.length > 0) base.member_pre_info_attachments = preAttachments;
+  else delete base.member_pre_info_attachments;
+  if (postText) base.member_post_info_text = postText;
+  else delete base.member_post_info_text;
+  if (postAttachments.length > 0) base.member_post_info_attachments = postAttachments;
+  else delete base.member_post_info_attachments;
+
+  return base;
+}
+
+function buildEventCustomFieldsPayload(formValue) {
+  return applyMemberInfoCustomFields({}, formValue);
+}
+
+function getAttachmentNameFromUrl(url) {
+  const value = String(url || '').trim();
+  if (!value) return 'Attachment';
+  const [path] = value.split('?');
+  const tokens = path.split('/');
+  return decodeURIComponent(tokens[tokens.length - 1] || 'Attachment');
 }
 
 function toCoachShareFormRows(value) {
@@ -2955,6 +3034,10 @@ export default function AdminPage() {
       tags_text: classCustomFields.tags_text,
       custom_fields_text: classCustomFields.metadata_text,
       registration_fields: classCustomFields.registration_fields,
+      pre_event_info_text: classCustomFields.pre_event_info_text,
+      pre_event_attachments_text: classCustomFields.pre_event_attachments_text,
+      post_event_info_text: classCustomFields.post_event_info_text,
+      post_event_attachments_text: classCustomFields.post_event_attachments_text,
       schedule_mode: item.schedule_mode || (item.class_type === 'scheduled' ? 'everyday' : 'none'),
       registration_period_mode: classCustomFields.registration_mode === 'closed'
         ? 'closed'
@@ -3370,6 +3453,48 @@ export default function AdminPage() {
     }
   }
 
+  async function uploadAttachmentAsset(file, folder) {
+    const selected = file || null;
+    if (!selected) return '';
+    const maxBytes = 10 * 1024 * 1024;
+    if (Number(selected.size || 0) > maxBytes) {
+      throw new Error('Ukuran attachment maksimal 10MB.');
+    }
+    const dataUrl = await readFileAsDataUrl(selected);
+    if (!dataUrl) {
+      throw new Error('Gagal memproses attachment.');
+    }
+    const uploadRes = await apiJson('/v1/admin/uploads/file', {
+      method: 'POST',
+      body: JSON.stringify({
+        tenant_id: tenantId,
+        folder,
+        filename: selected.name || 'attachment',
+        data_url: dataUrl
+      })
+    });
+    return String(uploadRes?.url || '').trim();
+  }
+
+  async function uploadEventInfoAttachment(file, phase) {
+    try {
+      const attachmentUrl = await uploadAttachmentAsset(file, 'event-info');
+      if (!attachmentUrl) {
+        throw new Error('Upload berhasil tapi URL attachment tidak tersedia.');
+      }
+      setEventForm((prev) => {
+        const key = phase === 'post' ? 'post_event_attachments_text' : 'pre_event_attachments_text';
+        return {
+          ...prev,
+          [key]: [...new Set([...normalizeAttachmentUrlsText(prev[key]), attachmentUrl].filter(Boolean))].join('\n')
+        };
+      });
+      setFeedback('event.info.attachment.uploaded: Attachment info event berhasil diunggah.');
+    } catch (error) {
+      setFeedback(error.message || 'Gagal upload attachment info event.');
+    }
+  }
+
   async function aiFillClassGalleryFromPexels() {
     try {
       setClassAiWorking(true);
@@ -3444,6 +3569,25 @@ export default function AdminPage() {
       setFeedback('program.image.uploaded: Cover image berhasil diunggah ke S3.');
     } catch (error) {
       setFeedback(error.message || 'Gagal upload cover image program.');
+    }
+  }
+
+  async function uploadClassInfoAttachment(file, phase) {
+    try {
+      const attachmentUrl = await uploadAttachmentAsset(file, 'class-info');
+      if (!attachmentUrl) {
+        throw new Error('Upload berhasil tapi URL attachment tidak tersedia.');
+      }
+      setClassForm((prev) => {
+        const key = phase === 'post' ? 'post_event_attachments_text' : 'pre_event_attachments_text';
+        return {
+          ...prev,
+          [key]: [...new Set([...normalizeAttachmentUrlsText(prev[key]), attachmentUrl].filter(Boolean))].join('\n')
+        };
+      });
+      setFeedback('program.info.attachment.uploaded: Attachment info program berhasil diunggah.');
+    } catch (error) {
+      setFeedback(error.message || 'Gagal upload attachment info program.');
     }
   }
 
@@ -4015,6 +4159,7 @@ export default function AdminPage() {
           max_participants: Math.max(0, Number(eventForm.max_participants || 0)),
           duration_minutes: durationMinutes,
           registration_fields: normalizeRegistrationFieldsForPayload(eventForm.registration_fields),
+          custom_fields: buildEventCustomFieldsPayload(eventForm),
           status: editingEventId ? (editingEvent?.status || 'scheduled') : 'scheduled'
         })
       });
@@ -4029,6 +4174,13 @@ export default function AdminPage() {
       setEventMode('list');
       await loadEvents();
     } catch (error) {
+      const message = String(error?.message || '').toLowerCase();
+      if (message.includes('registration field') || message.includes('lookup option') || message.includes('registration_answers')) {
+        setEventEditTab('custom_fields');
+      }
+      if (message.includes('custom_fields')) {
+        setEventEditTab('member_info');
+      }
       setFeedback(error.message);
     } finally {
       setEventSaving(false);
@@ -4038,6 +4190,7 @@ export default function AdminPage() {
   function viewEvent(item) {
     const durationInput = fromDurationMinutes(item.duration_minutes || '60');
     const eventTemplate = inferEventEditorTemplate(item);
+    const eventMemberInfo = splitMemberInfoCustomFields(item.custom_fields);
     const nextForm = {
       brief_event: item.brief_event || '',
       event_name: item.event_name || '',
@@ -4058,7 +4211,11 @@ export default function AdminPage() {
       max_participants: String(item.max_participants || '0'),
       duration_value: durationInput.duration_value,
       duration_unit: durationInput.duration_unit,
-      registration_fields: (Array.isArray(item.registration_fields) ? item.registration_fields : []).map(toRegistrationFieldForm)
+      registration_fields: (Array.isArray(item.registration_fields) ? item.registration_fields : []).map(toRegistrationFieldForm),
+      pre_event_info_text: eventMemberInfo.pre_event_info_text,
+      pre_event_attachments_text: eventMemberInfo.pre_event_attachments_text,
+      post_event_info_text: eventMemberInfo.post_event_info_text,
+      post_event_attachments_text: eventMemberInfo.post_event_attachments_text
     };
     setEventWalkinForm(createEmptyEventWalkinForm());
     setEventForm(nextForm);
@@ -5248,6 +5405,13 @@ export default function AdminPage() {
                     </button>
                     <button
                       type="button"
+                      className={`landing-tab ${eventEditTab === 'member_info' ? 'active' : ''}`}
+                      onClick={() => switchEventEditTab('member_info')}
+                    >
+                      Member info
+                    </button>
+                    <button
+                      type="button"
                       className={`landing-tab ${eventEditTab === 'participants' ? 'active' : ''}`}
                       onClick={() => switchEventEditTab('participants')}
                     >
@@ -5849,6 +6013,152 @@ export default function AdminPage() {
                         </aside>
                       </div>
                     ) : null}
+                    {eventEditTab === 'member_info' ? (
+                      <div className="editor-with-guide">
+                        <div className="editor-main">
+                          <div className="card" style={{ borderStyle: 'dashed' }}>
+                            <p className="eyebrow">Before event</p>
+                            <p className="feedback">Informasi yang muncul di dashboard member setelah mereka berhasil join, sebelum acara dimulai.</p>
+                            <label>
+                              Free text
+                              <textarea
+                                rows={5}
+                                placeholder="Contoh: registrasi ulang mulai jam 07:00, bawa KTP, gunakan sepatu lari, parkir di gate B."
+                                value={eventForm.pre_event_info_text}
+                                onChange={(e) => setEventForm((prev) => ({ ...prev, pre_event_info_text: e.target.value }))}
+                              />
+                            </label>
+                            <label>
+                              Attachment URLs
+                              <textarea
+                                rows={4}
+                                placeholder={'https://.../guide.pdf\nhttps://.../map.png'}
+                                value={eventForm.pre_event_attachments_text}
+                                onChange={(e) => setEventForm((prev) => ({ ...prev, pre_event_attachments_text: e.target.value }))}
+                              />
+                            </label>
+                            <div className="row-actions">
+                              <label className="btn ghost small" style={{ cursor: 'pointer' }}>
+                                Upload attachment
+                                <input
+                                  type="file"
+                                  style={{ display: 'none' }}
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0] || null;
+                                    if (file) uploadEventInfoAttachment(file, 'pre');
+                                    e.target.value = '';
+                                  }}
+                                />
+                              </label>
+                            </div>
+                            <div className="entity-list">
+                              {normalizeAttachmentUrlsText(eventForm.pre_event_attachments_text).map((url) => (
+                                <div className="entity-row" key={`event-pre-${url}`}>
+                                  <div>
+                                    <strong>{getAttachmentNameFromUrl(url)}</strong>
+                                    <p>{url}</p>
+                                  </div>
+                                  <button
+                                    className="btn ghost small"
+                                    type="button"
+                                    onClick={() =>
+                                      setEventForm((prev) => ({
+                                        ...prev,
+                                        pre_event_attachments_text: normalizeAttachmentUrlsText(prev.pre_event_attachments_text)
+                                          .filter((item) => item !== url)
+                                          .join('\n')
+                                      }))
+                                    }
+                                  >
+                                    Hapus
+                                  </button>
+                                </div>
+                              ))}
+                              {normalizeAttachmentUrlsText(eventForm.pre_event_attachments_text).length === 0 ? (
+                                <p className="feedback">Belum ada attachment sebelum event.</p>
+                              ) : null}
+                            </div>
+                          </div>
+                          <div className="card" style={{ borderStyle: 'dashed' }}>
+                            <p className="eyebrow">After event</p>
+                            <p className="feedback">Informasi follow-up setelah acara selesai, misalnya link sertifikat, dokumentasi, atau langkah lanjutan.</p>
+                            <label>
+                              Free text
+                              <textarea
+                                rows={5}
+                                placeholder="Contoh: materi slide, link dokumentasi, form feedback, atau instruksi redeem benefit."
+                                value={eventForm.post_event_info_text}
+                                onChange={(e) => setEventForm((prev) => ({ ...prev, post_event_info_text: e.target.value }))}
+                              />
+                            </label>
+                            <label>
+                              Attachment URLs
+                              <textarea
+                                rows={4}
+                                placeholder={'https://.../deck.pdf\nhttps://.../sertifikat.png'}
+                                value={eventForm.post_event_attachments_text}
+                                onChange={(e) => setEventForm((prev) => ({ ...prev, post_event_attachments_text: e.target.value }))}
+                              />
+                            </label>
+                            <div className="row-actions">
+                              <label className="btn ghost small" style={{ cursor: 'pointer' }}>
+                                Upload attachment
+                                <input
+                                  type="file"
+                                  style={{ display: 'none' }}
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0] || null;
+                                    if (file) uploadEventInfoAttachment(file, 'post');
+                                    e.target.value = '';
+                                  }}
+                                />
+                              </label>
+                            </div>
+                            <div className="entity-list">
+                              {normalizeAttachmentUrlsText(eventForm.post_event_attachments_text).map((url) => (
+                                <div className="entity-row" key={`event-post-${url}`}>
+                                  <div>
+                                    <strong>{getAttachmentNameFromUrl(url)}</strong>
+                                    <p>{url}</p>
+                                  </div>
+                                  <button
+                                    className="btn ghost small"
+                                    type="button"
+                                    onClick={() =>
+                                      setEventForm((prev) => ({
+                                        ...prev,
+                                        post_event_attachments_text: normalizeAttachmentUrlsText(prev.post_event_attachments_text)
+                                          .filter((item) => item !== url)
+                                          .join('\n')
+                                      }))
+                                    }
+                                  >
+                                    Hapus
+                                  </button>
+                                </div>
+                              ))}
+                              {normalizeAttachmentUrlsText(eventForm.post_event_attachments_text).length === 0 ? (
+                                <p className="feedback">Belum ada attachment sesudah event.</p>
+                              ) : null}
+                            </div>
+                          </div>
+                        </div>
+                        <aside className="editor-guide">
+                          <div className="card" style={{ borderStyle: 'dashed' }}>
+                            <p className="eyebrow">Panduan cepat</p>
+                            <p className="feedback">
+                              <strong>Before event:</strong> isi hal yang harus diketahui member sebelum datang, seperti rundown, dress code, meeting point, atau barang yang wajib dibawa.
+                            </p>
+                            <p className="feedback">
+                              <strong>After event:</strong> isi follow-up seperti materi, dokumentasi, sertifikat, hasil acara, atau CTA lanjutan.
+                            </p>
+                            <p className="feedback">
+                              <strong>Attachment:</strong> gunakan untuk map, guidebook, rundown PDF, poster, atau file pendukung lain. URL manual tetap bisa dipakai jika file sudah ada di tempat lain.
+                            </p>
+                          </div>
+                        </aside>
+                      </div>
+                    ) : null}
                     {eventEditTab === 'participants' ? (
                       editingEventId ? (
                         <div className="card" style={{ borderStyle: 'dashed' }}>
@@ -6249,6 +6559,13 @@ export default function AdminPage() {
                       onClick={() => setClassEditTab('custom_fields')}
                     >
                       Custom fields
+                    </button>
+                    <button
+                      type="button"
+                      className={`landing-tab ${classEditTab === 'member_info' ? 'active' : ''}`}
+                      onClick={() => setClassEditTab('member_info')}
+                    >
+                      Member info
                     </button>
                     <button
                       type="button"
@@ -7330,6 +7647,152 @@ export default function AdminPage() {
                             </p>
                             <p className="feedback">
                               <strong>Metadata JSON:</strong> simpan flag operasional tambahan seperti room, level, atau notes internal yang tidak perlu ditanya ke member.
+                            </p>
+                          </div>
+                        </aside>
+                      </div>
+                    ) : null}
+                    {classEditTab === 'member_info' ? (
+                      <div className="editor-with-guide">
+                        <div className="editor-main">
+                          <div className="card" style={{ borderStyle: 'dashed' }}>
+                            <p className="eyebrow">Before program</p>
+                            <p className="feedback">Informasi yang muncul setelah member booking atau membeli program, sebelum sesi berjalan.</p>
+                            <label>
+                              Free text
+                              <textarea
+                                rows={5}
+                                placeholder="Contoh: datang 15 menit lebih awal, bawa handuk, check-in di front desk, gunakan pakaian training."
+                                value={classForm.pre_event_info_text}
+                                onChange={(e) => setClassForm((prev) => ({ ...prev, pre_event_info_text: e.target.value }))}
+                              />
+                            </label>
+                            <label>
+                              Attachment URLs
+                              <textarea
+                                rows={4}
+                                placeholder={'https://.../program-guide.pdf\nhttps://.../floor-map.png'}
+                                value={classForm.pre_event_attachments_text}
+                                onChange={(e) => setClassForm((prev) => ({ ...prev, pre_event_attachments_text: e.target.value }))}
+                              />
+                            </label>
+                            <div className="row-actions">
+                              <label className="btn ghost small" style={{ cursor: 'pointer' }}>
+                                Upload attachment
+                                <input
+                                  type="file"
+                                  style={{ display: 'none' }}
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0] || null;
+                                    if (file) uploadClassInfoAttachment(file, 'pre');
+                                    e.target.value = '';
+                                  }}
+                                />
+                              </label>
+                            </div>
+                            <div className="entity-list">
+                              {normalizeAttachmentUrlsText(classForm.pre_event_attachments_text).map((url) => (
+                                <div className="entity-row" key={`class-pre-${url}`}>
+                                  <div>
+                                    <strong>{getAttachmentNameFromUrl(url)}</strong>
+                                    <p>{url}</p>
+                                  </div>
+                                  <button
+                                    className="btn ghost small"
+                                    type="button"
+                                    onClick={() =>
+                                      setClassForm((prev) => ({
+                                        ...prev,
+                                        pre_event_attachments_text: normalizeAttachmentUrlsText(prev.pre_event_attachments_text)
+                                          .filter((item) => item !== url)
+                                          .join('\n')
+                                      }))
+                                    }
+                                  >
+                                    Hapus
+                                  </button>
+                                </div>
+                              ))}
+                              {normalizeAttachmentUrlsText(classForm.pre_event_attachments_text).length === 0 ? (
+                                <p className="feedback">Belum ada attachment sebelum program.</p>
+                              ) : null}
+                            </div>
+                          </div>
+                          <div className="card" style={{ borderStyle: 'dashed' }}>
+                            <p className="eyebrow">After program</p>
+                            <p className="feedback">Informasi follow-up setelah sesi selesai, misalnya materi latihan, evaluasi, atau langkah berikutnya.</p>
+                            <label>
+                              Free text
+                              <textarea
+                                rows={5}
+                                placeholder="Contoh: form evaluasi, video replay, homework, atau instruksi booking sesi berikutnya."
+                                value={classForm.post_event_info_text}
+                                onChange={(e) => setClassForm((prev) => ({ ...prev, post_event_info_text: e.target.value }))}
+                              />
+                            </label>
+                            <label>
+                              Attachment URLs
+                              <textarea
+                                rows={4}
+                                placeholder={'https://.../homework.pdf\nhttps://.../video-link.txt'}
+                                value={classForm.post_event_attachments_text}
+                                onChange={(e) => setClassForm((prev) => ({ ...prev, post_event_attachments_text: e.target.value }))}
+                              />
+                            </label>
+                            <div className="row-actions">
+                              <label className="btn ghost small" style={{ cursor: 'pointer' }}>
+                                Upload attachment
+                                <input
+                                  type="file"
+                                  style={{ display: 'none' }}
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0] || null;
+                                    if (file) uploadClassInfoAttachment(file, 'post');
+                                    e.target.value = '';
+                                  }}
+                                />
+                              </label>
+                            </div>
+                            <div className="entity-list">
+                              {normalizeAttachmentUrlsText(classForm.post_event_attachments_text).map((url) => (
+                                <div className="entity-row" key={`class-post-${url}`}>
+                                  <div>
+                                    <strong>{getAttachmentNameFromUrl(url)}</strong>
+                                    <p>{url}</p>
+                                  </div>
+                                  <button
+                                    className="btn ghost small"
+                                    type="button"
+                                    onClick={() =>
+                                      setClassForm((prev) => ({
+                                        ...prev,
+                                        post_event_attachments_text: normalizeAttachmentUrlsText(prev.post_event_attachments_text)
+                                          .filter((item) => item !== url)
+                                          .join('\n')
+                                      }))
+                                    }
+                                  >
+                                    Hapus
+                                  </button>
+                                </div>
+                              ))}
+                              {normalizeAttachmentUrlsText(classForm.post_event_attachments_text).length === 0 ? (
+                                <p className="feedback">Belum ada attachment sesudah program.</p>
+                              ) : null}
+                            </div>
+                          </div>
+                        </div>
+                        <aside className="editor-guide">
+                          <div className="card" style={{ borderStyle: 'dashed' }}>
+                            <p className="eyebrow">Panduan cepat</p>
+                            <p className="feedback">
+                              <strong>Before program:</strong> isi briefing sebelum sesi, termasuk pakaian, alat, lokasi, atau persiapan khusus.
+                            </p>
+                            <p className="feedback">
+                              <strong>After program:</strong> isi tindak lanjut setelah sesi, seperti materi, evaluasi, atau langkah lanjutan.
+                            </p>
+                            <p className="feedback">
+                              <strong>Attachment:</strong> cocok untuk PDF panduan, meal plan, poster, map, atau file workbook.
                             </p>
                           </div>
                         </aside>

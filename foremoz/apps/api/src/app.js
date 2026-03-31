@@ -108,6 +108,19 @@ const IMAGE_MIME_TO_EXT = {
   'image/gif': 'gif'
 };
 
+const ATTACHMENT_MIME_TO_EXT = {
+  ...IMAGE_MIME_TO_EXT,
+  'application/pdf': 'pdf',
+  'text/plain': 'txt',
+  'text/csv': 'csv',
+  'application/msword': 'doc',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
+  'application/vnd.ms-excel': 'xls',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
+  'application/vnd.ms-powerpoint': 'ppt',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation': 'pptx'
+};
+
 let s3Client = null;
 
 function getS3Client() {
@@ -135,27 +148,34 @@ function sanitizeObjectKeySegment(value, fallback = 'file') {
 }
 
 function parseImageDataUrl(dataUrl) {
+  return parseAttachmentDataUrl(dataUrl, { imageOnly: true });
+}
+
+function parseAttachmentDataUrl(dataUrl, options = {}) {
   const raw = String(dataUrl || '').trim();
   if (!raw) {
     throw fail(400, 'BAD_REQUEST', 'data_url is required');
   }
-  const match = raw.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,([a-zA-Z0-9+/=\s]+)$/i);
+  const match = raw.match(/^data:([a-zA-Z0-9.+-]+\/[a-zA-Z0-9.+-]+);base64,([a-zA-Z0-9+/=\s]+)$/i);
   if (!match) {
-    throw fail(400, 'BAD_REQUEST', 'data_url must be a valid base64 image data URL');
+    throw fail(400, 'BAD_REQUEST', 'data_url must be a valid base64 data URL');
   }
   const mimeType = String(match[1] || '').toLowerCase();
-  const fileExt = IMAGE_MIME_TO_EXT[mimeType];
+  if (options.imageOnly && !mimeType.startsWith('image/')) {
+    throw fail(400, 'BAD_REQUEST', 'data_url must be a valid base64 image data URL');
+  }
+  const fileExt = ATTACHMENT_MIME_TO_EXT[mimeType];
   if (!fileExt) {
-    throw fail(400, 'BAD_REQUEST', 'unsupported image type. allowed: jpg, png, webp, gif');
+    throw fail(400, 'BAD_REQUEST', 'unsupported attachment type');
   }
   const payload = String(match[2] || '').replace(/\s+/g, '');
   const buffer = Buffer.from(payload, 'base64');
   if (!buffer.length) {
-    throw fail(400, 'BAD_REQUEST', 'image data is empty');
+    throw fail(400, 'BAD_REQUEST', 'attachment data is empty');
   }
-  const maxBytes = 5 * 1024 * 1024;
+  const maxBytes = options.imageOnly ? 5 * 1024 * 1024 : 10 * 1024 * 1024;
   if (buffer.length > maxBytes) {
-    throw fail(400, 'BAD_REQUEST', 'image size must be 5MB or less');
+    throw fail(400, 'BAD_REQUEST', options.imageOnly ? 'image size must be 5MB or less' : 'attachment size must be 10MB or less');
   }
   return { mimeType, fileExt, buffer };
 }
@@ -237,6 +257,79 @@ function normalizeEventRegistrationFields(value, fallback = []) {
       options
     };
   });
+}
+
+function normalizeLegacyRegistrationAnswers(value, fieldName = 'registration_answers') {
+  if (value === undefined || value === null) return {};
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw fail(400, 'BAD_REQUEST', `${fieldName} must be an object`);
+  }
+  const normalized = {};
+  for (const [rawKey, rawValue] of Object.entries(value)) {
+    const key = String(rawKey || '').trim();
+    if (!key) continue;
+    if (rawValue === undefined || rawValue === null) continue;
+    if (typeof rawValue === 'object') {
+      throw fail(400, 'BAD_REQUEST', `${fieldName}.${key} must be a primitive value`);
+    }
+    const answer = String(rawValue || '').trim();
+    if (!answer) continue;
+    normalized[key] = answer;
+  }
+  return normalized;
+}
+
+function normalizeRegistrationAnswers(rawValue, registrationFields, fieldName = 'registration_answers') {
+  const fields = normalizeEventRegistrationFields(registrationFields, []);
+  if (fields.length === 0) {
+    return normalizeLegacyRegistrationAnswers(rawValue, fieldName);
+  }
+  if (rawValue === undefined || rawValue === null) {
+    throw fail(400, 'BAD_REQUEST', `${fieldName} is required`);
+  }
+  if (!rawValue || typeof rawValue !== 'object' || Array.isArray(rawValue)) {
+    throw fail(400, 'BAD_REQUEST', `${fieldName} must be an object`);
+  }
+
+  const answersByKey = new Map(
+    Object.entries(rawValue).map(([key, value]) => [String(key || '').trim().toLowerCase(), value])
+  );
+  const normalized = {};
+
+  fields.forEach((field, index) => {
+    const fieldId = String(field.field_id || '').trim();
+    const label = String(field.label || '').trim();
+    const rawAnswer = answersByKey.get(fieldId.toLowerCase()) ?? answersByKey.get(label.toLowerCase());
+    if (rawAnswer && typeof rawAnswer === 'object') {
+      throw fail(400, 'BAD_REQUEST', `${fieldName}.${fieldId || index} must be a primitive value`);
+    }
+    const answerValue = rawAnswer === undefined || rawAnswer === null ? '' : String(rawAnswer).trim();
+
+    if (!answerValue) {
+      if (field.required !== false) {
+        throw fail(400, 'BAD_REQUEST', `${fieldName}.${fieldId || index} is required`);
+      }
+      return;
+    }
+
+    if (field.type === 'lookup') {
+      const options = Array.isArray(field.options) ? field.options.map((item) => String(item || '').trim()) : [];
+      if (!options.includes(answerValue)) {
+        throw fail(400, 'BAD_REQUEST', `${fieldName}.${fieldId || index} must match one of the configured options`);
+      }
+    }
+
+    if (field.type === 'date') {
+      const parsedDate = new Date(answerValue);
+      if (Number.isNaN(parsedDate.getTime())) {
+        throw fail(400, 'BAD_REQUEST', `${fieldName}.${fieldId || index} must be a valid date`);
+      }
+    }
+
+    normalized[label || fieldId || `field_${index + 1}`] = answerValue;
+  });
+
+  return normalized;
 }
 
 function normalizeEventGalleryImages(value, fallback = []) {
@@ -5014,6 +5107,43 @@ app.post('/v1/admin/uploads/image', async (req, res, next) => {
   }
 });
 
+app.post('/v1/admin/uploads/file', async (req, res, next) => {
+  try {
+    const data = req.body || {};
+    const tenantId = String(data.tenant_id || config.defaultTenantId).trim() || config.defaultTenantId;
+    await requireActiveTenantUser(req, tenantId);
+    if (!config.s3UploadEnabled) {
+      throw fail(503, 'S3_UPLOAD_DISABLED', 'S3 upload belum diaktifkan di server');
+    }
+
+    const { mimeType, fileExt, buffer } = parseAttachmentDataUrl(data.data_url);
+    const folder = sanitizeObjectKeySegment(data.folder || 'attachments', 'attachments');
+    const tenantSegment = sanitizeObjectKeySegment(tenantId, 'tenant');
+    const basename = sanitizeObjectKeySegment(data.filename || 'attachment', 'attachment');
+    const objectKey = `${folder}/${tenantSegment}/${Date.now()}-${randomUUID().slice(0, 8)}-${basename}.${fileExt}`;
+    const contentDisposition = `${mimeType.startsWith('image/') ? 'inline' : 'attachment'}; filename="${basename}.${fileExt}"`;
+
+    await getS3Client().send(new PutObjectCommand({
+      Bucket: config.s3Bucket,
+      Key: objectKey,
+      Body: buffer,
+      ContentType: mimeType,
+      ContentDisposition: contentDisposition,
+      CacheControl: 'public, max-age=31536000, immutable'
+    }));
+
+    return created(res, {
+      url: buildS3PublicUrl(objectKey),
+      key: objectKey,
+      bucket: config.s3Bucket,
+      content_type: mimeType,
+      size_bytes: buffer.length
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
 app.post('/v1/admin/events', async (req, res, next) => {
   try {
     const data = req.body || {};
@@ -5027,6 +5157,7 @@ app.post('/v1/admin/events', async (req, res, next) => {
     }
     const durationMinutes = asPositiveInteger(data.duration_minutes, 'duration_minutes', 60);
     const registrationFields = normalizeEventRegistrationFields(data.registration_fields, []);
+    const customFields = normalizeCustomFields(data.custom_fields);
     const galleryImages = normalizeEventGalleryImages(data.gallery_images, []);
     const scheduleItems = normalizeEventScheduleItems(data.schedule_items, []);
     const eventCategories = normalizeEventCategories(data.event_categories, []);
@@ -5076,6 +5207,7 @@ app.post('/v1/admin/events', async (req, res, next) => {
         start_at: startAt.toISOString(),
         duration_minutes: durationMinutes,
         registration_fields: registrationFields,
+        custom_fields: customFields,
         status: data.status || 'scheduled',
         updated_at: new Date().toISOString()
       },
@@ -5119,6 +5251,9 @@ app.patch('/v1/admin/events/:eventId', async (req, res, next) => {
       data.registration_fields,
       Array.isArray(latest.registration_fields) ? latest.registration_fields : []
     );
+    const customFields = data.custom_fields === undefined
+      ? normalizeCustomFields(latest.custom_fields || {})
+      : normalizeCustomFields(data.custom_fields);
     const galleryImages = normalizeEventGalleryImages(
       data.gallery_images,
       Array.isArray(latest.gallery_images) ? latest.gallery_images : []
@@ -5195,6 +5330,7 @@ app.patch('/v1/admin/events/:eventId', async (req, res, next) => {
         start_at: startAt.toISOString(),
         duration_minutes: durationMinutes,
         registration_fields: registrationFields,
+        custom_fields: customFields,
         status: data.status || latest.status || 'scheduled',
         updated_at: new Date().toISOString()
       },
@@ -5606,10 +5742,11 @@ app.post('/v1/events/:eventId/register', async (req, res, next) => {
     }
 
     const branchId = data.branch_id || latest.branch_id || null;
-    const answers =
-      data.registration_answers && typeof data.registration_answers === 'object' && !Array.isArray(data.registration_answers)
-        ? data.registration_answers
-        : {};
+    const answers = normalizeRegistrationAnswers(
+      data.registration_answers,
+      Array.isArray(latest.registration_fields) ? latest.registration_fields : [],
+      'registration_answers'
+    );
     const passportId = String(data.passport_id || '').trim();
     const email = String(data.email || '').trim().toLowerCase();
     const fullName = String(data.full_name || '').trim();
@@ -6900,17 +7037,27 @@ app.get('/v1/read/event-registrations', async (req, res, next) => {
       params
     );
 
-    const dedupedEventIds = [];
+    const dedupedRows = [];
     const seenEventIds = new Set();
     for (const row of rows) {
-      const eventId = String(row?.data?.event_id || '').trim();
+      const data = row?.data && typeof row.data === 'object' ? row.data : {};
+      const eventId = String(data.event_id || '').trim();
       if (!eventId || seenEventIds.has(eventId)) continue;
       seenEventIds.add(eventId);
-      dedupedEventIds.push(eventId);
-      if (dedupedEventIds.length >= limit) break;
+      dedupedRows.push({
+        ...data,
+        registration_answers: data.registration_answers && typeof data.registration_answers === 'object' && !Array.isArray(data.registration_answers)
+          ? data.registration_answers
+          : {}
+      });
+      if (dedupedRows.length >= limit) break;
     }
 
-    return ok(res, { event_ids: dedupedEventIds, limit });
+    return ok(res, {
+      event_ids: dedupedRows.map((row) => String(row.event_id || '')).filter(Boolean),
+      rows: dedupedRows,
+      limit
+    });
   } catch (error) {
     return next(error);
   }
