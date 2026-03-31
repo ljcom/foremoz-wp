@@ -332,6 +332,13 @@ function normalizeRegistrationAnswers(rawValue, registrationFields, fieldName = 
   return normalized;
 }
 
+function getActivityRegistrationFields(activity) {
+  const customFields = activity?.custom_fields && typeof activity.custom_fields === 'object' && !Array.isArray(activity.custom_fields)
+    ? activity.custom_fields
+    : {};
+  return Array.isArray(customFields.registration_fields) ? customFields.registration_fields : [];
+}
+
 function normalizeEventGalleryImages(value, fallback = []) {
   if (value === undefined || value === null) return fallback;
   if (!Array.isArray(value)) {
@@ -1456,7 +1463,7 @@ async function getClassAvailabilityRow(tenantId, classId) {
             has_coach, coach_id, category_id, capacity_mode, quota_mode, validity_mode,
             start_date, end_date, registration_start, registration_end, start_at, end_at,
             capacity, usage_mode, usage_limit, usage_period, validity_unit, validity_value,
-            validity_anchor, min_quota, max_quota, auto_start_when_quota_met,
+            validity_anchor, custom_fields, min_quota, max_quota, auto_start_when_quota_met,
             booked_count, available_slots
      from read.rm_class_availability
      where tenant_id = $1 and class_id = $2
@@ -6190,6 +6197,14 @@ app.post('/v1/bookings/classes/create', async (req, res, next) => {
     if (!classRow) {
       throw fail(404, 'CLASS_NOT_FOUND', `class ${classId} not found`);
     }
+    const latestClassData = await getLatestClassScheduledData(tenantId, classId);
+    const registrationAnswers = normalizeRegistrationAnswers(
+      data.registration_answers,
+      getActivityRegistrationFields({
+        custom_fields: latestClassData?.custom_fields || classRow.custom_fields || {}
+      }),
+      'registration_answers'
+    );
     if (String(classRow.class_type || 'scheduled').trim().toLowerCase() !== 'scheduled') {
       throw fail(409, 'ACTIVITY_NOT_BOOKABLE', `activity ${classId} is not bookable`);
     }
@@ -6265,6 +6280,7 @@ app.post('/v1/bookings/classes/create', async (req, res, next) => {
         booking_kind: data.booking_kind || 'member',
         member_id: memberId,
         guest_name: guestName,
+        registration_answers: registrationAnswers,
         status,
         booked_at: data.booked_at || new Date().toISOString()
       },
@@ -7200,7 +7216,45 @@ app.get('/v1/read/class-availability', async (req, res, next) => {
     }
     sql += ` order by coalesce(start_at, registration_start, updated_at) asc nulls last`;
     const { rows } = await query(sql, params);
-    return ok(res, { rows });
+
+    const classIds = rows.map((row) => String(row?.class_id || '').trim()).filter(Boolean);
+    const latestByClassId = new Map();
+    if (classIds.length > 0) {
+      const namespaceId = resolveNamespaceId(tenantId);
+      const { rows: latestRows } = await query(
+        `select distinct on (payload->'data'->>'class_id')
+            payload->'data' as data
+         from eventdb_event
+         where namespace_id = $1
+           and event_type = 'class.scheduled'
+           and payload->'data'->>'class_id' = any($2::text[])
+         order by payload->'data'->>'class_id', sequence desc`,
+        [namespaceId, classIds]
+      );
+      latestRows.forEach((row) => {
+        if (!row.data?.class_id) return;
+        latestByClassId.set(String(row.data.class_id), row.data);
+      });
+    }
+
+    return ok(res, {
+      rows: rows.map((row) => {
+        const latest = latestByClassId.get(String(row.class_id || '')) || {};
+        return {
+          ...row,
+          ...latest,
+          title: latest.title || row.title || row.class_name,
+          class_name: latest.class_name || row.class_name,
+          description: latest.description || row.description || null,
+          custom_fields: latest.custom_fields || row.custom_fields || {},
+          trainer_name: latest.trainer_name || '',
+          has_coach: latest.has_coach ?? row.has_coach ?? false,
+          coach_id: latest.coach_id || row.coach_id || null,
+          category: latest.category || row.category_id || '',
+          category_id: latest.category_id || row.category_id || null
+        };
+      })
+    });
   } catch (error) {
     return next(error);
   }

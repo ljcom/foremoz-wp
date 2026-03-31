@@ -19,6 +19,16 @@ function resolveMemberInfo(customFields) {
   };
 }
 
+function resolveProgramInfo(classItem) {
+  const customFields = classItem?.custom_fields && typeof classItem.custom_fields === 'object' && !Array.isArray(classItem.custom_fields)
+    ? classItem.custom_fields
+    : {};
+  return {
+    preText: String(customFields.member_pre_info_text || '').trim(),
+    postText: String(customFields.member_post_info_text || '').trim()
+  };
+}
+
 function formatRegistrationAnswers(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return [];
   return Object.entries(value)
@@ -137,7 +147,7 @@ export default function MemberPortalPage() {
             branch_id: session?.branch?.id || null
           })
         }).catch(() => {});
-        const [registrationRes, eventRes, paymentRes, bookingRes, subscriptionRes, ptBalanceRes] = await Promise.all([
+        const [registrationRes, eventRes, paymentRes, bookingRes, subscriptionRes, ptBalanceRes, classRes] = await Promise.all([
           apiJson(`/v1/read/event-registrations?email=${encodeURIComponent(memberEmail)}&passport_id=${encodeURIComponent(memberId)}&limit=400`),
           apiJson('/v1/read/events?status=all&limit=400'),
           apiJson(
@@ -151,6 +161,10 @@ export default function MemberPortalPage() {
           ).catch(() => ({ rows: [] })),
           apiJson(
             `/v1/read/pt-balance?tenant_id=${encodeURIComponent(session?.tenant?.id || 'tn_001')}&member_id=${encodeURIComponent(memberId)}`
+          ).catch(() => ({ rows: [] }))
+          ,
+          apiJson(
+            `/v1/read/class-availability?tenant_id=${encodeURIComponent(session?.tenant?.id || 'tn_001')}&branch_id=${encodeURIComponent(session?.branch?.id || '')}`
           ).catch(() => ({ rows: [] }))
         ]);
         const registrationRows = Array.isArray(registrationRes?.rows) ? registrationRes.rows : [];
@@ -169,10 +183,20 @@ export default function MemberPortalPage() {
             ...row,
             member_registration: registrationByEventId.get(String(row?.event_id || '').trim()) || null
           }));
+        const classRows = Array.isArray(classRes?.rows) ? classRes.rows : [];
+        const classById = new Map(
+          classRows
+            .map((item) => [String(item?.class_id || '').trim(), item])
+            .filter(([classId]) => classId)
+        );
+        const enrichedBookings = (Array.isArray(bookingRes?.rows) ? bookingRes.rows : []).map((item) => ({
+          ...item,
+          class_detail: classById.get(String(item?.class_id || '').trim()) || null
+        }));
         if (!active) return;
         setMyEvents(items);
         setPayments(Array.isArray(paymentRes?.rows) ? paymentRes.rows : []);
-        setBookings(Array.isArray(bookingRes?.rows) ? bookingRes.rows : []);
+        setBookings(enrichedBookings);
         setSubscriptions(Array.isArray(subscriptionRes?.rows) ? subscriptionRes.rows : []);
         setPtBalances(Array.isArray(ptBalanceRes?.rows) ? ptBalanceRes.rows : []);
       } catch (error) {
@@ -453,8 +477,19 @@ export default function MemberPortalPage() {
                   <div className="entity-row" key={item.booking_id}>
                     <div>
                       <strong>{item.booking_id}</strong>
-                      <p>{item.class_id || '-'} | {item.status || '-'}</p>
+                      <p>{item.class_detail?.class_name || item.class_id || '-'} | {item.status || '-'}</p>
                       <p>{formatAppDateTime(item.booked_at)}</p>
+                      {resolveProgramInfo(item.class_detail).preText ? (
+                        <p><strong>Before:</strong> {resolveProgramInfo(item.class_detail).preText}</p>
+                      ) : null}
+                      {resolveProgramInfo(item.class_detail).postText ? (
+                        <p><strong>After:</strong> {resolveProgramInfo(item.class_detail).postText}</p>
+                      ) : null}
+                      {formatRegistrationAnswers(item.registration_answers).length > 0 ? (
+                        <p>
+                          Answers: {formatRegistrationAnswers(item.registration_answers).map((entry) => `${entry.label}: ${entry.answer}`).join(' | ')}
+                        </p>
+                      ) : null}
                     </div>
                     <span className="passport-chip">{item.payment_id || 'no payment link'}</span>
                   </div>

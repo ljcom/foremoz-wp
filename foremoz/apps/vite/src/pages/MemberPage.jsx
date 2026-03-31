@@ -27,6 +27,35 @@ function formatMemberPaymentReference(item, lookups = {}) {
   return referenceType || referenceId ? `${referenceType || 'payment'}:${referenceId || '-'}` : '-';
 }
 
+function resolveClassCustomFields(classItem) {
+  return classItem?.custom_fields && typeof classItem.custom_fields === 'object' && !Array.isArray(classItem.custom_fields)
+    ? classItem.custom_fields
+    : {};
+}
+
+function getClassRegistrationFields(classItem) {
+  const customFields = resolveClassCustomFields(classItem);
+  return Array.isArray(customFields.registration_fields) ? customFields.registration_fields : [];
+}
+
+function resolveProgramInfo(classItem) {
+  const customFields = resolveClassCustomFields(classItem);
+  return {
+    preText: String(customFields.member_pre_info_text || '').trim(),
+    postText: String(customFields.member_post_info_text || '').trim()
+  };
+}
+
+function formatAnswerEntries(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return [];
+  return Object.entries(value)
+    .map(([label, answer]) => ({
+      label: String(label || '').trim(),
+      answer: String(answer || '').trim()
+    }))
+    .filter((item) => item.label && item.answer);
+}
+
 export default function MemberPage() {
   const navigate = useNavigate();
   const session = getSession();
@@ -57,7 +86,8 @@ export default function MemberPage() {
   const [bookingForm, setBookingForm] = useState({
     class_id: '',
     amount: '0',
-    method: 'virtual_account'
+    method: 'virtual_account',
+    registration_answers: {}
   });
   const [membershipForm, setMembershipForm] = useState({
     plan_id: 'membership_monthly',
@@ -368,6 +398,9 @@ export default function MemberPage() {
       .map((item) => [String(item?.class_id || ''), String(item?.class_name || '').trim()])
       .filter(([id]) => Boolean(id))
   );
+  const selectedBookingClass = classes.find((item) => String(item?.class_id || '') === String(bookingForm.class_id || '')) || null;
+  const selectedBookingRegistrationFields = getClassRegistrationFields(selectedBookingClass);
+  const selectedBookingProgramInfo = resolveProgramInfo(selectedBookingClass);
   const packageNameById = new Map(
     availablePackages
       .map((item) => [String(item?.package_id || ''), String(item?.package_name || '').trim()])
@@ -455,6 +488,16 @@ export default function MemberPage() {
       setFeedback('Pilih program terlebih dulu.');
       return;
     }
+    for (let index = 0; index < selectedBookingRegistrationFields.length; index += 1) {
+      const field = selectedBookingRegistrationFields[index] || {};
+      const fieldId = String(field.field_id || '');
+      const label = String(field.label || `Field ${index + 1}`);
+      const value = String(bookingForm.registration_answers[fieldId] || '').trim();
+      if (field.required !== false && !value) {
+        setFeedback(`${label} wajib diisi.`);
+        return;
+      }
+    }
     const amount = Math.max(0, Number(bookingForm.amount || 0));
     if (!Number.isFinite(amount) || amount < 0) {
       setFeedback('Nominal payment program tidak valid.');
@@ -498,6 +541,7 @@ export default function MemberPage() {
           booking_kind: 'member',
           member_id: memberData.member_id,
           guest_name: memberData.full_name || null,
+          registration_answers: bookingForm.registration_answers,
           status: 'booked',
           payment_id: paymentId
         })
@@ -511,6 +555,12 @@ export default function MemberPage() {
       }).catch(() => {});
       await refreshMemberOperationalData();
       setFeedback(`program.booking.created: ${memberData.member_id} -> ${bookingForm.class_id}${paymentId ? ` (payment ${paymentId})` : ''}`);
+      setBookingForm({
+        class_id: '',
+        amount: '0',
+        method: 'virtual_account',
+        registration_answers: {}
+      });
     } catch (error) {
       setFeedback(error.message || 'Gagal booking program.');
     } finally {
@@ -734,7 +784,13 @@ export default function MemberPage() {
                   class_id
                   <select
                     value={bookingForm.class_id}
-                    onChange={(e) => setBookingForm((prev) => ({ ...prev, class_id: e.target.value }))}
+                    onChange={(e) =>
+                      setBookingForm((prev) => ({
+                        ...prev,
+                        class_id: e.target.value,
+                        registration_answers: {}
+                      }))
+                    }
                   >
                     <option value="">Pilih program</option>
                     {classes.map((item) => (
@@ -766,6 +822,83 @@ export default function MemberPage() {
                     <option value="cash">cash</option>
                   </select>
                 </label>
+                {selectedBookingClass ? (
+                  <div className="card" style={{ borderStyle: 'dashed' }}>
+                    <p className="eyebrow">Program info</p>
+                    <p><strong>{selectedBookingClass.class_name || selectedBookingClass.class_id}</strong></p>
+                    <p>Mulai: {selectedBookingClass.start_at || '-'}</p>
+                    {selectedBookingProgramInfo.preText ? <p><strong>Before program:</strong> {selectedBookingProgramInfo.preText}</p> : null}
+                    {selectedBookingProgramInfo.postText ? <p><strong>After program:</strong> {selectedBookingProgramInfo.postText}</p> : null}
+                  </div>
+                ) : null}
+                {selectedBookingRegistrationFields.length > 0 ? (
+                  <div className="card" style={{ borderStyle: 'dashed' }}>
+                    <p className="eyebrow">Custom fields</p>
+                    <p className="feedback">Isi field yang diminta program ini sebelum booking dibuat.</p>
+                    {selectedBookingRegistrationFields.map((field, index) => {
+                      const fieldId = String(field?.field_id || `field_${index}`);
+                      const type = String(field?.type || 'free_type');
+                      const label = String(field?.label || `Field ${index + 1}`);
+                      const isRequired = field?.required !== false;
+                      const value = String(bookingForm.registration_answers[fieldId] || '');
+                      if (type === 'date') {
+                        return (
+                          <label key={fieldId}>
+                            {label}{isRequired ? ' *' : ''}
+                            <input
+                              type="date"
+                              value={value}
+                              onChange={(e) =>
+                                setBookingForm((prev) => ({
+                                  ...prev,
+                                  registration_answers: { ...prev.registration_answers, [fieldId]: e.target.value }
+                                }))
+                              }
+                            />
+                          </label>
+                        );
+                      }
+                      if (type === 'lookup') {
+                        const options = Array.isArray(field?.options) ? field.options : [];
+                        return (
+                          <label key={fieldId}>
+                            {label}{isRequired ? ' *' : ''}
+                            <select
+                              value={value}
+                              onChange={(e) =>
+                                setBookingForm((prev) => ({
+                                  ...prev,
+                                  registration_answers: { ...prev.registration_answers, [fieldId]: e.target.value }
+                                }))
+                              }
+                            >
+                              <option value="">Pilih</option>
+                              {options.map((optionValue, optionIndex) => (
+                                <option key={`${fieldId}-${optionIndex}`} value={String(optionValue)}>
+                                  {String(optionValue)}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                        );
+                      }
+                      return (
+                        <label key={fieldId}>
+                          {label}{isRequired ? ' *' : ''}
+                          <input
+                            value={value}
+                            onChange={(e) =>
+                              setBookingForm((prev) => ({
+                                ...prev,
+                                registration_answers: { ...prev.registration_answers, [fieldId]: e.target.value }
+                              }))
+                            }
+                          />
+                        </label>
+                      );
+                    })}
+                  </div>
+                ) : null}
                 <button className="btn" type="button" disabled={bookingSaving} onClick={submitClassBooking}>
                   {bookingSaving ? 'Booking...' : 'Book program'}
                 </button>
@@ -785,6 +918,11 @@ export default function MemberPage() {
                         <p>{item.class_id} | {item.status || '-'}</p>
                         <p>booked: {item.booked_at || '-'}</p>
                         <p>payment: {item.payment_id || '-'}</p>
+                        {formatAnswerEntries(item.registration_answers).length > 0 ? (
+                          <p>
+                            answers: {formatAnswerEntries(item.registration_answers).map((entry) => `${entry.label}: ${entry.answer}`).join(' | ')}
+                          </p>
+                        ) : null}
                       </div>
                     </div>
                   ))}

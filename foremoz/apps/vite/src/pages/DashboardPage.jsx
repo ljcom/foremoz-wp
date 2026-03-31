@@ -95,6 +95,35 @@ function isSameBookingMember(member, booking) {
   return false;
 }
 
+function resolveClassCustomFields(classItem) {
+  return classItem?.custom_fields && typeof classItem.custom_fields === 'object' && !Array.isArray(classItem.custom_fields)
+    ? classItem.custom_fields
+    : {};
+}
+
+function getClassRegistrationFields(classItem) {
+  const customFields = resolveClassCustomFields(classItem);
+  return Array.isArray(customFields.registration_fields) ? customFields.registration_fields : [];
+}
+
+function resolveProgramInfo(classItem) {
+  const customFields = resolveClassCustomFields(classItem);
+  return {
+    preText: String(customFields.member_pre_info_text || '').trim(),
+    postText: String(customFields.member_post_info_text || '').trim()
+  };
+}
+
+function formatAnswerEntries(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return [];
+  return Object.entries(value)
+    .map(([label, answer]) => ({
+      label: String(label || '').trim(),
+      answer: String(answer || '').trim()
+    }))
+    .filter((item) => item.label && item.answer);
+}
+
 export default function DashboardPage() {
   const { language } = useI18n();
   const copy = useMemo(() => (language === 'en'
@@ -204,6 +233,7 @@ export default function DashboardPage() {
   const [participantSearchLoading, setParticipantSearchLoading] = useState(false);
   const [checkinCustomFieldsText, setCheckinCustomFieldsText] = useState('');
   const [checkoutCustomFieldsText, setCheckoutCustomFieldsText] = useState('');
+  const [bookingRegistrationAnswers, setBookingRegistrationAnswers] = useState({});
   const [actionFeedback, setActionFeedback] = useState('');
   const [actionSaving, setActionSaving] = useState(false);
 
@@ -669,6 +699,8 @@ export default function DashboardPage() {
     if (selectedExperienceType !== 'class') return null;
     return classes.find((row) => String(row.class_id || '') === String(selectedExperienceId || '')) || null;
   }, [classes, selectedExperienceId, selectedExperienceType]);
+  const selectedClassRegistrationFields = useMemo(() => getClassRegistrationFields(selectedClass), [selectedClass]);
+  const selectedClassProgramInfo = useMemo(() => resolveProgramInfo(selectedClass), [selectedClass]);
   const selectedExperienceLabel = useMemo(() => {
     if (selectedExperienceType === 'event') {
       return selectedEvent ? `Event: ${selectedEvent.event_name || selectedEvent.event_id}` : '';
@@ -705,6 +737,10 @@ export default function DashboardPage() {
       : classBookings;
     return rows;
   }, [classBookings, memberScopedFilter, selectedMember]);
+
+  useEffect(() => {
+    setBookingRegistrationAnswers({});
+  }, [selectedClass?.class_id]);
 
   function clearMemberScopedFilter() {
     setMemberScopedFilter(null);
@@ -930,6 +966,16 @@ export default function DashboardPage() {
       setActionFeedback('Pilih member dan class dulu sebelum booking.');
       return;
     }
+    for (let index = 0; index < selectedClassRegistrationFields.length; index += 1) {
+      const field = selectedClassRegistrationFields[index] || {};
+      const fieldId = String(field.field_id || '');
+      const label = String(field.label || `Field ${index + 1}`);
+      const value = String(bookingRegistrationAnswers[fieldId] || '').trim();
+      if (field.required !== false && !value) {
+        setActionFeedback(`${label} wajib diisi.`);
+        return;
+      }
+    }
 
     try {
       setActionSaving(true);
@@ -944,10 +990,12 @@ export default function DashboardPage() {
           booking_kind: 'member',
           member_id: selectedMember.member_id,
           guest_name: selectedMember.full_name,
+          registration_answers: bookingRegistrationAnswers,
           status: 'booked'
         })
       });
       await loadDashboard();
+      setBookingRegistrationAnswers({});
       setActionFeedback(`booking.success: ${selectedMember.full_name} -> ${selectedClass.class_name}`);
     } catch (err) {
       setActionFeedback(err.message || 'failed to create booking');
@@ -1448,12 +1496,70 @@ export default function DashboardPage() {
                   <p>ID: {selectedClass.class_id}</p>
                   <p>Trainer: {selectedClass.trainer_name || '-'}</p>
                   <p>Mulai: {formatDateTime(selectedClass.start_at)}</p>
+                  {selectedClassProgramInfo.preText ? <p><strong>Before program:</strong> {selectedClassProgramInfo.preText}</p> : null}
+                  {selectedClassProgramInfo.postText ? <p><strong>After program:</strong> {selectedClassProgramInfo.postText}</p> : null}
                 </>
               ) : (
                 <p className="muted">Pilih program dari daftar di atas.</p>
               )}
             </article>
           </div>
+
+          {selectedClassRegistrationFields.length > 0 ? (
+            <div className="card" style={{ marginTop: '1rem', borderStyle: 'dashed' }}>
+              <p className="eyebrow">Custom fields</p>
+              <p className="feedback">Isi field yang diwajibkan program sebelum booking dibuat.</p>
+              <div className="form">
+                {selectedClassRegistrationFields.map((field, index) => {
+                  const fieldId = String(field?.field_id || `field_${index}`);
+                  const type = String(field?.type || 'free_type');
+                  const label = String(field?.label || `Field ${index + 1}`);
+                  const isRequired = field?.required !== false;
+                  const value = String(bookingRegistrationAnswers[fieldId] || '');
+                  if (type === 'date') {
+                    return (
+                      <label key={fieldId}>
+                        {label}{isRequired ? ' *' : ''}
+                        <input
+                          type="date"
+                          value={value}
+                          onChange={(e) => setBookingRegistrationAnswers((prev) => ({ ...prev, [fieldId]: e.target.value }))}
+                        />
+                      </label>
+                    );
+                  }
+                  if (type === 'lookup') {
+                    const options = Array.isArray(field?.options) ? field.options : [];
+                    return (
+                      <label key={fieldId}>
+                        {label}{isRequired ? ' *' : ''}
+                        <select
+                          value={value}
+                          onChange={(e) => setBookingRegistrationAnswers((prev) => ({ ...prev, [fieldId]: e.target.value }))}
+                        >
+                          <option value="">Pilih</option>
+                          {options.map((optionValue, optionIndex) => (
+                            <option key={`${fieldId}-${optionIndex}`} value={String(optionValue)}>
+                              {String(optionValue)}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    );
+                  }
+                  return (
+                    <label key={fieldId}>
+                      {label}{isRequired ? ' *' : ''}
+                      <input
+                        value={value}
+                        onChange={(e) => setBookingRegistrationAnswers((prev) => ({ ...prev, [fieldId]: e.target.value }))}
+                      />
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
 
           <div className="member-actions">
             <button className="btn ghost" type="button" disabled={actionSaving || !selectedMember || !selectedClass} onClick={bookClassForMember}>
@@ -1478,6 +1584,11 @@ export default function DashboardPage() {
                         <p>
                           attendance: {booking.attendance_confirmed_at ? formatDateTime(booking.attendance_confirmed_at) : '-'}
                         </p>
+                        {formatAnswerEntries(booking.registration_answers).length > 0 ? (
+                          <p>
+                            answers: {formatAnswerEntries(booking.registration_answers).map((entry) => `${entry.label}: ${entry.answer}`).join(' | ')}
+                          </p>
+                        ) : null}
                       </div>
                       <div className="row-actions">
                         <button

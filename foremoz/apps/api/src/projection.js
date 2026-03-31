@@ -99,7 +99,12 @@ export async function runFitnessProjection({ tenantId, branchId }) {
     );
     await client.query(
       `alter table if exists read.rm_booking_list
-         add column if not exists payment_id text`
+         add column if not exists payment_id text,
+         add column if not exists registration_answers jsonb`
+    );
+    await client.query(
+      `alter table if exists read.rm_class_availability
+         add column if not exists custom_fields jsonb`
     );
     await client.query(
       `alter table if exists read.rm_pt_balance
@@ -783,16 +788,16 @@ export async function runFitnessProjection({ tenantId, branchId }) {
              start_date, end_date, registration_start, registration_end, start_at, end_at,
              capacity, usage_mode, usage_limit, usage_period, validity_unit, validity_value,
              validity_anchor, min_quota, max_quota, auto_start_when_quota_met,
-             booked_count, available_slots, updated_at
+             custom_fields, booked_count, available_slots, updated_at
            ) values (
              $1,$2,$3,$4,$5,$6,$7,
              $8,$9,$10,$11,$12,$13,
              $14,$15,$16,$17,$18,$19,
              $20,$21,$22,$23,$24,$25,
-             $26,$27,$28,$29,
+             $26,$27,$28,$29,$30,
              0,
              case when $7 = 'scheduled' then greatest(0, $20) else greatest(0, coalesce($28, 0)) end,
-             $30
+             $31
            )
            on conflict (tenant_id, class_id) do update set
              branch_id = excluded.branch_id,
@@ -822,6 +827,7 @@ export async function runFitnessProjection({ tenantId, branchId }) {
              min_quota = excluded.min_quota,
              max_quota = excluded.max_quota,
              auto_start_when_quota_met = excluded.auto_start_when_quota_met,
+             custom_fields = excluded.custom_fields,
              available_slots = case
                when excluded.class_type = 'scheduled'
                  then greatest(0, excluded.capacity - read.rm_class_availability.booked_count)
@@ -858,6 +864,7 @@ export async function runFitnessProjection({ tenantId, branchId }) {
             data.min_quota ?? null,
             data.max_quota ?? null,
             Boolean(data.auto_start_when_quota_met),
+            JSON.stringify(data.custom_fields || {}),
             eventTs
           ]
         );
@@ -879,11 +886,12 @@ export async function runFitnessProjection({ tenantId, branchId }) {
         await client.query(
           `insert into read.rm_booking_list (
              tenant_id, branch_id, booking_id, class_id, booking_kind,
-             member_id, guest_name, payment_id, status, booked_at,
+             member_id, guest_name, payment_id, registration_answers, status, booked_at,
              canceled_at, attendance_confirmed_at, updated_at
-           ) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,null,null,$10)
+           ) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,null,null,$11)
            on conflict (tenant_id, booking_id) do update set
              payment_id = excluded.payment_id,
+             registration_answers = excluded.registration_answers,
              status = excluded.status,
              updated_at = excluded.updated_at`,
           [
@@ -895,6 +903,7 @@ export async function runFitnessProjection({ tenantId, branchId }) {
             data.member_id || null,
             data.guest_name || null,
             refs.payment_id || null,
+            JSON.stringify(data.registration_answers || {}),
             data.status || 'booked',
             data.booked_at || eventTs
           ]
