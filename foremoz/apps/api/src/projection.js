@@ -96,6 +96,8 @@ export async function runFitnessProjection({ tenantId, branchId }) {
          payment_responsibility text,
          reference_type text,
          reference_id text,
+         item_count integer not null default 1,
+         order_items jsonb,
          notes text,
          created_at timestamptz not null,
          updated_at timestamptz not null,
@@ -107,7 +109,9 @@ export async function runFitnessProjection({ tenantId, branchId }) {
          add column if not exists sales_owner_id text,
          add column if not exists prospect_id text,
          add column if not exists created_by_role text,
-         add column if not exists payment_responsibility text`
+         add column if not exists payment_responsibility text,
+         add column if not exists item_count integer not null default 1,
+         add column if not exists order_items jsonb`
     );
     await client.query(
       `alter table if exists read.rm_class_availability
@@ -717,8 +721,10 @@ export async function runFitnessProjection({ tenantId, branchId }) {
         continue;
       }
 
-      if (event.event_type === 'payment.recorded') {
+      if (event.event_type === 'payment.recorded' || event.event_type === 'payment.updated') {
         const orderId = String(refs.order_id || data.order_id || '').trim() || null;
+        const queueStatus = String(data.status || 'pending').trim().toLowerCase() || 'pending';
+        const reviewNote = data.review_note || data.note || null;
         await client.query(
           `insert into read.rm_payment_queue (
              tenant_id, branch_id, payment_id, member_id, subscription_id,
@@ -735,8 +741,8 @@ export async function runFitnessProjection({ tenantId, branchId }) {
              proof_url = excluded.proof_url,
              reference_type = excluded.reference_type,
              reference_id = excluded.reference_id,
-             status = 'pending',
-             review_note = null,
+             status = $13,
+             review_note = $14,
              updated_at = excluded.updated_at`,
           [
             tenant,
@@ -750,21 +756,23 @@ export async function runFitnessProjection({ tenantId, branchId }) {
             data.proof_url || null,
             data.reference_type || null,
             data.reference_id || null,
-            data.recorded_at || eventTs
+            data.recorded_at || eventTs,
+            queueStatus,
+            reviewNote
           ]
         );
         await client.query(
           `insert into read.rm_payment_history (
              tenant_id, payment_id, member_id, amount, currency, reference_type, reference_id, review_note, status, recorded_at, updated_at
-           ) values ($1,$2,$3,$4,$5,$6,$7,null,'pending',$8,$8)
+           ) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$10)
            on conflict (tenant_id, payment_id) do update set
              member_id = excluded.member_id,
              amount = excluded.amount,
              currency = excluded.currency,
              reference_type = excluded.reference_type,
              reference_id = excluded.reference_id,
-             review_note = null,
-             status = 'pending',
+             review_note = $8,
+             status = $9,
              recorded_at = excluded.recorded_at,
              updated_at = excluded.updated_at`,
           [
@@ -775,6 +783,8 @@ export async function runFitnessProjection({ tenantId, branchId }) {
             data.currency,
             data.reference_type || null,
             data.reference_id || null,
+            reviewNote,
+            queueStatus,
             data.recorded_at || eventTs
           ]
         );
@@ -782,15 +792,16 @@ export async function runFitnessProjection({ tenantId, branchId }) {
           await client.query(
             `update read.rm_order_list
              set payment_id = $3,
-                 payment_status = 'pending',
-                 payment_method = $4,
+                 payment_status = $4,
+                 payment_method = $5,
                  status = case
                    when lower(status) in ('paid', 'completed') then status
+                   when $4 = 'deleted' then 'deleted'
                    else 'pending_payment'
                  end,
-                 updated_at = $5
+                 updated_at = $6
              where tenant_id = $1 and order_id = $2`,
-            [tenant, orderId, data.payment_id, data.method || null, data.recorded_at || eventTs]
+            [tenant, orderId, data.payment_id, queueStatus, data.method || null, data.recorded_at || eventTs]
           );
         }
         applied += 1;
@@ -848,18 +859,18 @@ export async function runFitnessProjection({ tenantId, branchId }) {
         continue;
       }
 
-      if (event.event_type === 'order.created') {
+      if (event.event_type === 'order.created' || event.event_type === 'order.updated') {
         await client.query(
           `insert into read.rm_order_list (
              tenant_id, branch_id, order_id, member_id, sales_owner_id, prospect_id, created_by_role, order_label, order_type,
              qty, unit_price, total_amount, currency, status, payment_id,
              payment_status, payment_method, payment_responsibility, reference_type, reference_id,
-             notes, created_at, updated_at
+             item_count, order_items, notes, created_at, updated_at
            ) values (
              $1,$2,$3,$4,$5,$6,$7,$8,$9,
              $10,$11,$12,$13,$14,$15,
              $16,$17,$18,$19,$20,
-             $21,$22,$23
+             $21,$22,$23,$24,$25
            )
            on conflict (tenant_id, order_id) do update set
              branch_id = excluded.branch_id,
@@ -880,6 +891,8 @@ export async function runFitnessProjection({ tenantId, branchId }) {
              payment_responsibility = excluded.payment_responsibility,
              reference_type = excluded.reference_type,
              reference_id = excluded.reference_id,
+             item_count = excluded.item_count,
+             order_items = excluded.order_items,
              notes = excluded.notes,
              updated_at = excluded.updated_at`,
           [
@@ -903,6 +916,8 @@ export async function runFitnessProjection({ tenantId, branchId }) {
             data.payment_responsibility || null,
             data.reference_type || null,
             data.reference_id || null,
+            Number(data.item_count || 1),
+            Array.isArray(data.order_items) ? JSON.stringify(data.order_items) : null,
             data.notes || null,
             data.created_at || eventTs,
             eventTs

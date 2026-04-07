@@ -218,6 +218,52 @@ function asNonNegativeInteger(value, fieldName, fallback = null) {
   return Math.floor(parsed);
 }
 
+function normalizeOrderTypeValue(value, fallback = 'manual') {
+  const normalized = String(value || fallback).trim().toLowerCase();
+  return normalized || fallback;
+}
+
+function normalizeOrderItems(data = {}) {
+  const rawItems = Array.isArray(data.items) && data.items.length > 0
+    ? data.items
+    : [{
+        order_type: data.order_type || 'manual',
+        order_label: data.item_label || data.order_label || data.label || null,
+        qty: data.qty || 1,
+        unit_price: data.unit_price,
+        reference_type: data.reference_type || null,
+        reference_id: data.reference_id || null
+      }];
+
+  return rawItems.map((item, index) => {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) {
+      throw fail(400, 'BAD_REQUEST', `items[${index}] must be an object`);
+    }
+    const orderType = normalizeOrderTypeValue(item.order_type || data.order_type || 'manual');
+    const orderLabel = String(required(item.order_label || item.label || item.target_label, `items[${index}].order_label`)).trim();
+    const qty = asPositiveInteger(item.qty || 1, `items[${index}].qty`);
+    const unitPrice = Number(required(item.unit_price, `items[${index}].unit_price`));
+    if (!Number.isFinite(unitPrice) || unitPrice < 0) {
+      throw fail(400, 'BAD_REQUEST', `items[${index}].unit_price must be a non-negative number`);
+    }
+    const totalAmount = qty * unitPrice;
+    if (!Number.isFinite(totalAmount) || totalAmount <= 0) {
+      throw fail(400, 'BAD_REQUEST', `items[${index}].total_amount must be greater than 0`);
+    }
+    return {
+      item_id: String(item.item_id || `itm_${index + 1}`).trim(),
+      order_type: orderType,
+      order_label: orderLabel,
+      target_label: String(item.target_label || orderLabel).trim() || orderLabel,
+      qty,
+      unit_price: unitPrice,
+      total_amount: totalAmount,
+      reference_type: item.reference_type || null,
+      reference_id: item.reference_id || null
+    };
+  });
+}
+
 function normalizeEventRegistrationFields(value, fallback = []) {
   if (value === undefined || value === null) return fallback;
   if (!Array.isArray(value)) {
@@ -1792,6 +1838,287 @@ async function getOrderRowByPaymentId({ tenantId, paymentId }) {
   return rows[0] || null;
 }
 
+async function getOrderRow({ tenantId, orderId }) {
+  const { rows } = await query(
+    `select *
+     from read.rm_order_list
+     where tenant_id = $1 and order_id = $2
+     limit 1`,
+    [tenantId, orderId]
+  );
+  return rows[0] || null;
+}
+
+function normalizeStoredOrderItems(orderRow) {
+  const rawItems = Array.isArray(orderRow?.order_items) && orderRow.order_items.length > 0
+    ? orderRow.order_items
+    : [{
+        item_id: `${String(orderRow?.order_id || 'order').trim()}_1`,
+        order_type: orderRow?.order_type || 'manual',
+        order_label: orderRow?.order_label || orderRow?.order_id || 'Order',
+        target_label: orderRow?.order_label || orderRow?.order_id || 'Order',
+        qty: Number(orderRow?.qty || 1),
+        unit_price: Number(orderRow?.unit_price || 0),
+        total_amount: Number(orderRow?.total_amount || 0),
+        reference_type: orderRow?.reference_type || null,
+        reference_id: orderRow?.reference_id || null
+      }];
+  return rawItems.map((item, index) => ({
+    item_id: String(item?.item_id || `itm_${index + 1}`).trim(),
+    order_type: normalizeOrderTypeValue(item?.order_type || 'manual'),
+    order_label: String(item?.order_label || item?.target_label || orderRow?.order_label || '').trim(),
+    target_label: String(item?.target_label || item?.order_label || orderRow?.order_label || '').trim(),
+    qty: Number(item?.qty || 1),
+    unit_price: Number(item?.unit_price || 0),
+    total_amount: Number(item?.total_amount || (Number(item?.qty || 1) * Number(item?.unit_price || 0)) || 0),
+    reference_type: item?.reference_type || null,
+    reference_id: item?.reference_id || null
+  }));
+}
+
+async function ensureOrderEntitlements({ tenantId, orderId, actorId }) {
+  const orderRow = await getOrderRow({ tenantId, orderId });
+  if (!orderRow) {
+    throw fail(404, 'ORDER_NOT_FOUND', `order ${orderId} not found`);
+  }
+  const paymentId = String(orderRow.payment_id || '').trim();
+  if (!paymentId) {
+    return { order_id: orderId, fulfilled: false, reason: 'missing_payment' };
+  }
+  const paymentRow = await getPaymentQueueRow({ tenantId, paymentId });
+  if (!paymentRow || String(paymentRow.status || '').toLowerCase() !== 'confirmed') {
+    return { order_id: orderId, fulfilled: false, reason: 'payment_not_confirmed' };
+  }
+
+  const memberId = String(orderRow.member_id || '').trim();
+  const member = memberId ? await findMemberByEmailOrId({ tenantId, memberId, email: memberId }) : null;
+  const effectiveActorId = actorId || memberId || config.defaultActorId;
+  const items = normalizeStoredOrderItems(orderRow);
+  const touchedBranches = new Set([String(orderRow.branch_id || '').trim()].filter(Boolean));
+  const results = [];
+
+  for (let index = 0; index < items.length; index += 1) {
+    const item = items[index];
+    const referenceType = String(item.reference_type || '').trim().toLowerCase();
+    const referenceId = String(item.reference_id || '').trim();
+    if (!referenceType || !referenceId) {
+      results.push({ item_id: item.item_id, skipped: true, reason: 'missing_reference' });
+      continue;
+    }
+
+    if (referenceType === 'event_registration') {
+      const relation = await ensureEventParticipantRelation({
+        tenantId,
+        branchId: orderRow.branch_id || null,
+        actorId: effectiveActorId,
+        eventId: referenceId,
+        passportId: null,
+        email: member?.email || memberId,
+        fullName: member?.full_name || null
+      });
+      results.push({ item_id: item.item_id, kind: 'event_registration', created: relation.created !== false });
+      continue;
+    }
+
+    if (referenceType === 'class_booking') {
+      const relation = await ensureClassBookingRelation({
+        tenantId,
+        branchId: orderRow.branch_id || null,
+        actorId: effectiveActorId,
+        classId: referenceId,
+        memberId
+      });
+      results.push({ item_id: item.item_id, kind: 'class_booking', created: relation.created !== false });
+      continue;
+    }
+
+    if (['open_access_purchase', 'activity_purchase', 'session_pack_purchase'].includes(referenceType)) {
+      let packageRow = null;
+      let activityReferenceId = referenceId;
+      let activityRow = await getClassAvailabilityRow(tenantId, activityReferenceId);
+      if (!activityRow) {
+        packageRow = await getLatestEntityDataByEventTypes(
+          tenantId,
+          'package_id',
+          referenceId,
+          ['package.created', 'package.updated']
+        );
+        activityReferenceId = String(packageRow?.class_id || '').trim();
+        activityRow = activityReferenceId ? await getClassAvailabilityRow(tenantId, activityReferenceId) : null;
+      }
+      if (!activityRow) {
+        results.push({ item_id: item.item_id, skipped: true, reason: 'activity_not_found' });
+        continue;
+      }
+      const enrollmentId = `enr_ord_${orderId}_${index + 1}`;
+      const existingEnrollment = await query(
+        `select enrollment_id
+         from read.rm_activity_enrollment
+         where tenant_id = $1 and enrollment_id = $2
+         limit 1`,
+        [tenantId, enrollmentId]
+      );
+      if (existingEnrollment.rows[0]?.enrollment_id) {
+        results.push({ item_id: item.item_id, kind: 'activity_enrollment', created: false, duplicate: true });
+        continue;
+      }
+      touchedBranches.add(String(activityRow.branch_id || '').trim());
+      const enrollmentState = buildActivityEnrollmentState({
+        activity: activityRow,
+        memberId,
+        purchasedAt: paymentRow.recorded_at || new Date().toISOString(),
+        paymentRow,
+        activatedAt: paymentRow.reviewed_at || new Date().toISOString(),
+        explicitStatus: 'active'
+      });
+      const packageDurationMonths = Math.max(0, Number(packageRow?.max_months || packageRow?.duration_months || 0));
+      const packageSessionCount = Math.max(0, Number(packageRow?.session_count || 0));
+      if (packageDurationMonths > 0) {
+        enrollmentState.valid_until = addDurationToIso(
+          enrollmentState.valid_from || paymentRow.reviewed_at || paymentRow.recorded_at || new Date().toISOString(),
+          'month',
+          packageDurationMonths
+        ) || enrollmentState.valid_until;
+      }
+      if (packageSessionCount > 0) {
+        enrollmentState.usage_mode = 'limited';
+        enrollmentState.usage_limit = packageSessionCount;
+        enrollmentState.usage_period = 'entire_validity';
+        enrollmentState.remaining_usage = packageSessionCount;
+      }
+      await appendDomainEvent({
+        tenantId,
+        branchId: activityRow.branch_id || orderRow.branch_id || null,
+        actorId: effectiveActorId,
+        eventType: 'activity.enrollment.upserted',
+        subjectKind: 'activity_enrollment',
+        subjectId: enrollmentId,
+        data: {
+          tenant_id: tenantId,
+          branch_id: activityRow.branch_id || orderRow.branch_id || null,
+          enrollment_id: enrollmentId,
+          legacy_subscription_id: String(activityRow.class_type || '').trim().toLowerCase() === 'open_access'
+            ? `sub_ord_${orderId}_${index + 1}`
+            : null,
+          ...enrollmentState,
+          enrollment_id: enrollmentId
+        },
+        refs: { payment_id: paymentId }
+      });
+      results.push({ item_id: item.item_id, kind: 'activity_enrollment', created: true });
+      continue;
+    }
+
+    if (referenceType === 'membership_purchase') {
+      const latestPackage = await getLatestEntityDataByEventTypes(
+        tenantId,
+        'package_id',
+        referenceId,
+        ['package.created', 'package.updated']
+      );
+      if (!latestPackage) {
+        results.push({ item_id: item.item_id, skipped: true, reason: 'package_not_found' });
+        continue;
+      }
+      const subscriptionId = `sub_ord_${orderId}_${index + 1}`;
+      const existingSubscription = await query(
+        `select subscription_id
+         from read.rm_subscription_active
+         where tenant_id = $1 and subscription_id = $2
+         limit 1`,
+        [tenantId, subscriptionId]
+      );
+      if (existingSubscription.rows[0]?.subscription_id) {
+        results.push({ item_id: item.item_id, kind: 'subscription', created: false, duplicate: true });
+        continue;
+      }
+      const startDate = toDateOnly(paymentRow.reviewed_at || paymentRow.recorded_at || new Date().toISOString());
+      const durationMonths = Math.max(1, Number(latestPackage.max_months || latestPackage.duration_months || 1));
+      const endDate = addCalendarMonths(startDate, durationMonths) || startDate;
+      await appendDomainEvent({
+        tenantId,
+        branchId: orderRow.branch_id || latestPackage.branch_id || null,
+        actorId: effectiveActorId,
+        eventType: 'subscription.activated',
+        subjectKind: 'subscription',
+        subjectId: subscriptionId,
+        data: {
+          tenant_id: tenantId,
+          branch_id: orderRow.branch_id || latestPackage.branch_id || null,
+          subscription_id: subscriptionId,
+          member_id: memberId,
+          plan_id: referenceId,
+          class_id: latestPackage.class_id || null,
+          start_date: startDate,
+          end_date: endDate,
+          status: 'active'
+        },
+        refs: { payment_id: paymentId },
+        uniqueIds: [{ scope: 'subscription.subscription_id', value: subscriptionId }]
+      });
+      results.push({ item_id: item.item_id, kind: 'subscription', created: true, end_date: endDate });
+      continue;
+    }
+
+    if (referenceType === 'pt_package_purchase') {
+      const latestPackage = await getLatestEntityDataByEventTypes(
+        tenantId,
+        'package_id',
+        referenceId,
+        ['package.created', 'package.updated']
+      );
+      if (!latestPackage) {
+        results.push({ item_id: item.item_id, skipped: true, reason: 'pt_package_not_found' });
+        continue;
+      }
+      const assignedPtPackageId = `ptpkg_ord_${orderId}_${index + 1}`;
+      const existingPtPackage = await getPtBalanceRow({ tenantId, ptPackageId: assignedPtPackageId });
+      if (existingPtPackage) {
+        results.push({ item_id: item.item_id, kind: 'pt_package', created: false, duplicate: true });
+        continue;
+      }
+      const totalSessions = Math.max(1, Number(latestPackage.session_count || 1));
+      await appendDomainEvent({
+        tenantId,
+        branchId: orderRow.branch_id || latestPackage.branch_id || null,
+        actorId: effectiveActorId,
+        eventType: 'pt.package.assigned',
+        subjectKind: 'pt_package',
+        subjectId: assignedPtPackageId,
+        data: {
+          tenant_id: tenantId,
+          branch_id: orderRow.branch_id || latestPackage.branch_id || null,
+          pt_package_id: assignedPtPackageId,
+          member_id: memberId,
+          trainer_id: latestPackage.trainer_user_id || null,
+          total_sessions: totalSessions,
+          assigned_at: paymentRow.reviewed_at || paymentRow.recorded_at || new Date().toISOString()
+        },
+        refs: { payment_id: paymentId },
+        uniqueIds: [{ scope: 'pt_package.pt_package_id', value: assignedPtPackageId }]
+      });
+      results.push({
+        item_id: item.item_id,
+        kind: 'pt_package',
+        created: true,
+        pt_package_id: assignedPtPackageId,
+        total_sessions: totalSessions
+      });
+      continue;
+    }
+
+    results.push({ item_id: item.item_id, skipped: true, reason: 'unsupported_reference' });
+  }
+
+  await runFitnessProjection({ tenantId, branchId: null });
+  for (const touchedBranchId of touchedBranches) {
+    if (!touchedBranchId) continue;
+    await runFitnessProjection({ tenantId, branchId: touchedBranchId });
+  }
+
+  return { order_id: orderId, fulfilled: true, items: results };
+}
+
 async function getPtBalanceRow({ tenantId, ptPackageId }) {
   const { rows } = await query(
     `select tenant_id, branch_id, pt_package_id, member_id, trainer_id,
@@ -2185,6 +2512,48 @@ async function ensureMemberIdentityUnique({ tenantId, email, phone, idCard }) {
     email: normalizedEmail,
     phone: normalizedPhone,
     idCard: normalizedIdCard
+  };
+}
+
+async function ensureMemberIdentityAvailableForUpdate({ tenantId, memberId, email, phone }) {
+  const normalizedMemberId = String(required(memberId, 'member_id')).trim();
+  const normalizedEmail = normalizeEmail(required(email, 'email'));
+  const normalizedPhone = String(required(phone, 'phone')).trim();
+
+  const [memberEmailRes, authEmailRes, memberPhoneRes] = await Promise.all([
+    query(
+      `select member_id
+       from read.rm_member
+       where tenant_id = $1 and lower(email) = lower($2) and member_id <> $3
+       limit 1`,
+      [tenantId, normalizedEmail, normalizedMemberId]
+    ),
+    query(
+      `select member_id
+       from read.rm_member_auth
+       where tenant_id = $1 and lower(email) = lower($2) and member_id <> $3
+       limit 1`,
+      [tenantId, normalizedEmail, normalizedMemberId]
+    ),
+    query(
+      `select member_id
+       from read.rm_member
+       where tenant_id = $1 and phone = $2 and member_id <> $3
+       limit 1`,
+      [tenantId, normalizedPhone, normalizedMemberId]
+    )
+  ]);
+
+  if (memberEmailRes.rows[0] || authEmailRes.rows[0]) {
+    throw fail(409, 'MEMBER_EMAIL_EXISTS', 'email already registered');
+  }
+  if (memberPhoneRes.rows[0]) {
+    throw fail(409, 'MEMBER_PHONE_EXISTS', 'phone already registered');
+  }
+
+  return {
+    email: normalizedEmail,
+    phone: normalizedPhone
   };
 }
 
@@ -4577,6 +4946,45 @@ app.post('/v1/members/register', async (req, res, next) => {
   }
 });
 
+app.post('/v1/members/:memberId/update', async (req, res, next) => {
+  try {
+    const data = req.body || {};
+    const tenantId = data.tenant_id || config.defaultTenantId;
+    const memberId = required(req.params.memberId, 'memberId');
+    const existing = await findMemberByEmailOrId({ tenantId, memberId });
+    if (!existing) {
+      throw fail(404, 'MEMBER_NOT_FOUND', `member ${memberId} not found`);
+    }
+
+    const uniqueIdentity = await ensureMemberIdentityAvailableForUpdate({
+      tenantId,
+      memberId,
+      email: data.email === undefined ? existing.email : data.email,
+      phone: data.phone === undefined ? existing.phone : data.phone
+    });
+
+    const result = await upsertMemberRecord({
+      tenantId,
+      branchId: data.branch_id || existing.branch_id || null,
+      actorId: data.actor_id || config.defaultActorId,
+      memberId,
+      fullName: required(data.full_name === undefined ? existing.full_name : data.full_name, 'full_name'),
+      phone: uniqueIdentity.phone,
+      email: uniqueIdentity.email,
+      status: data.status || existing.status || 'active'
+    });
+
+    await runFitnessProjection({ tenantId, branchId: data.branch_id || existing.branch_id || 'core' });
+    return ok(res, {
+      member_id: memberId,
+      updated: Boolean(result?.event),
+      event: result?.event || null
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
 app.post('/v1/admin/members/upsert-with-relations', async (req, res, next) => {
   try {
     const data = req.body || {};
@@ -4899,17 +5307,23 @@ app.post('/v1/orders', async (req, res, next) => {
     const salesOwnerId = String(data.sales_owner_id || '').trim() || null;
     const prospectId = String(data.prospect_id || '').trim() || null;
     const orderId = String(data.order_id || `ord_${Date.now()}_${randomUUID().slice(0, 8)}`).trim();
-    const qty = asPositiveInteger(data.qty || 1, 'qty');
-    const unitPrice = Number(required(data.unit_price, 'unit_price'));
-    if (!Number.isFinite(unitPrice) || unitPrice < 0) {
-      throw fail(400, 'BAD_REQUEST', 'unit_price must be a non-negative number');
-    }
-    const totalAmount = qty * unitPrice;
+    const orderItems = normalizeOrderItems(data);
+    const itemCount = orderItems.length;
+    const totalQty = orderItems.reduce((sum, item) => sum + Number(item.qty || 0), 0);
+    const totalAmount = orderItems.reduce((sum, item) => sum + Number(item.total_amount || 0), 0);
     if (!Number.isFinite(totalAmount) || totalAmount <= 0) {
       throw fail(400, 'BAD_REQUEST', 'total_amount must be greater than 0');
     }
-    const orderLabel = String(required(data.order_label || data.label, 'order_label')).trim();
-    const orderType = String(data.order_type || 'manual').trim().toLowerCase();
+    const primaryItem = itemCount === 1 ? orderItems[0] : null;
+    const orderLabel = String(
+      data.order_label
+      || data.label
+      || (primaryItem ? primaryItem.order_label : `Bundle (${itemCount} items)`)
+    ).trim();
+    const uniqueOrderTypes = [...new Set(orderItems.map((item) => normalizeOrderTypeValue(item.order_type)))];
+    const orderType = uniqueOrderTypes.length === 1 ? uniqueOrderTypes[0] : 'bundle';
+    const qty = itemCount === 1 ? Number(primaryItem?.qty || 1) : Math.max(1, totalQty);
+    const unitPrice = itemCount === 1 ? Number(primaryItem?.unit_price || 0) : totalAmount;
     const paymentMethod = String(required(data.payment_method || data.method, 'payment_method')).trim().toLowerCase();
     const paymentSettlement = String(data.payment_settlement || data.settlement || 'pending').trim().toLowerCase();
     const paymentResponsibility = String(data.payment_responsibility || 'member_self').trim().toLowerCase();
@@ -4940,8 +5354,10 @@ app.post('/v1/orders', async (req, res, next) => {
     const createdAt = data.created_at || new Date().toISOString();
     const paymentStatus = paymentSettlement === 'paid' ? 'confirmed' : 'pending';
     const orderStatus = paymentSettlement === 'paid' ? 'paid' : 'pending_payment';
-    const referenceType = data.reference_type || null;
-    const referenceId = data.reference_id || null;
+    const referenceType = primaryItem?.reference_type || data.reference_type || null;
+    const referenceId = primaryItem?.reference_id || data.reference_id || null;
+    const paymentReferenceType = itemCount === 1 ? (referenceType || 'order') : 'order';
+    const paymentReferenceId = itemCount === 1 ? (referenceId || orderId) : orderId;
     const currency = required(data.currency || 'IDR', 'currency');
 
     const orderEvent = await appendDomainEvent({
@@ -4972,6 +5388,8 @@ app.post('/v1/orders', async (req, res, next) => {
         payment_responsibility: paymentResponsibility,
         reference_type: referenceType,
         reference_id: referenceId,
+        item_count: itemCount,
+        order_items: orderItems,
         notes: data.notes || null,
         created_at: createdAt
       },
@@ -4980,8 +5398,8 @@ app.post('/v1/orders', async (req, res, next) => {
         order_id: orderId,
         sales_owner_id: salesOwnerId,
         prospect_id: prospectId,
-        reference_type: referenceType,
-        reference_id: referenceId
+        reference_type: paymentReferenceType,
+        reference_id: paymentReferenceId
       },
       uniqueIds: [{ scope: 'order.order_id', value: orderId }]
     });
@@ -5003,8 +5421,8 @@ app.post('/v1/orders', async (req, res, next) => {
         amount: totalAmount,
         currency,
         method: paymentMethod,
-        reference_type: referenceType || 'order',
-        reference_id: referenceId || orderId,
+        reference_type: paymentReferenceType,
+        reference_id: paymentReferenceId,
         proof_url: data.proof_url || null,
         recorded_at: data.recorded_at || createdAt,
         order_id: orderId
@@ -5012,8 +5430,8 @@ app.post('/v1/orders', async (req, res, next) => {
       refs: {
         subscription_id: data.subscription_id || null,
         order_id: orderId,
-        reference_type: referenceType || 'order',
-        reference_id: referenceId || orderId
+        reference_type: paymentReferenceType,
+        reference_id: paymentReferenceId
       },
       uniqueIds: [{ scope: 'payment.payment_id', value: paymentId }]
     });
@@ -5038,17 +5456,26 @@ app.post('/v1/orders', async (req, res, next) => {
         },
         refs: {
           order_id: orderId,
-          reference_type: referenceType || 'order',
-          reference_id: referenceId || orderId
+          reference_type: paymentReferenceType,
+          reference_id: paymentReferenceId
         }
       });
       paymentEvents.push(paymentConfirmedEvent);
     }
 
     await runFitnessProjection({ tenantId, branchId });
+    let fulfillment = null;
+    if (paymentSettlement === 'paid') {
+      fulfillment = await ensureOrderEntitlements({
+        tenantId,
+        orderId,
+        actorId: data.actor_id || config.defaultActorId
+      });
+    }
     return created(res, {
       event: orderEvent,
       payment_events: paymentEvents,
+      fulfillment,
       order: {
         order_id: orderId,
         member_id: memberId,
@@ -5068,8 +5495,252 @@ app.post('/v1/orders', async (req, res, next) => {
         payment_responsibility: paymentResponsibility,
         reference_type: referenceType,
         reference_id: referenceId,
+        item_count: itemCount,
+        order_items: orderItems,
         created_at: createdAt
       }
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.patch('/v1/orders/:orderId', async (req, res, next) => {
+  try {
+    const data = req.body || {};
+    const tenantId = data.tenant_id || config.defaultTenantId;
+    const orderId = required(req.params.orderId, 'orderId');
+    const existingOrder = await getOrderRow({ tenantId, orderId });
+    if (!existingOrder) {
+      throw fail(404, 'ORDER_NOT_FOUND', `order ${orderId} not found`);
+    }
+    if (String(existingOrder.payment_status || '').trim().toLowerCase() === 'confirmed' || String(existingOrder.status || '').trim().toLowerCase() === 'paid') {
+      throw fail(409, 'ORDER_ALREADY_PAID', `order ${orderId} already paid and cannot be edited`);
+    }
+
+    const memberId = required(data.member_id || existingOrder.member_id, 'member_id');
+    const orderItems = normalizeOrderItems({
+      ...existingOrder,
+      ...data,
+      items: Array.isArray(data.items) && data.items.length > 0 ? data.items : data.items
+    });
+    const itemCount = orderItems.length;
+    const totalQty = orderItems.reduce((sum, item) => sum + Number(item.qty || 0), 0);
+    const totalAmount = orderItems.reduce((sum, item) => sum + Number(item.total_amount || 0), 0);
+    if (!Number.isFinite(totalAmount) || totalAmount <= 0) {
+      throw fail(400, 'BAD_REQUEST', 'total_amount must be greater than 0');
+    }
+    const primaryItem = itemCount === 1 ? orderItems[0] : null;
+    const orderLabel = String(
+      data.order_label
+      || data.label
+      || (primaryItem ? primaryItem.order_label : existingOrder.order_label || `Bundle (${itemCount} items)`)
+    ).trim();
+    const uniqueOrderTypes = [...new Set(orderItems.map((item) => normalizeOrderTypeValue(item.order_type)))];
+    const orderType = uniqueOrderTypes.length === 1 ? uniqueOrderTypes[0] : 'bundle';
+    const qty = itemCount === 1 ? Number(primaryItem?.qty || 1) : Math.max(1, totalQty);
+    const unitPrice = itemCount === 1 ? Number(primaryItem?.unit_price || 0) : totalAmount;
+    const paymentMethod = String(required(data.payment_method || data.method || existingOrder.payment_method, 'payment_method')).trim().toLowerCase();
+    const paymentSettlement = String(data.payment_settlement || data.settlement || 'pending').trim().toLowerCase();
+    if (paymentSettlement !== 'pending') {
+      throw fail(409, 'PENDING_ORDER_EDIT_ONLY', 'pending order edit must keep payment_settlement pending');
+    }
+    const paymentResponsibility = String(data.payment_responsibility || existingOrder.payment_responsibility || 'member_self').trim().toLowerCase();
+    const currency = required(data.currency || existingOrder.currency || 'IDR', 'currency');
+    const referenceType = primaryItem?.reference_type || null;
+    const referenceId = primaryItem?.reference_id || null;
+    const paymentId = required(existingOrder.payment_id, 'payment_id');
+    const updatedAt = new Date().toISOString();
+
+    const orderEvent = await appendDomainEvent({
+      tenantId,
+      branchId: data.branch_id || existingOrder.branch_id || null,
+      actorId: data.actor_id || config.defaultActorId,
+      eventType: 'order.updated',
+      subjectKind: 'order',
+      subjectId: orderId,
+      data: {
+        tenant_id: tenantId,
+        branch_id: data.branch_id || existingOrder.branch_id || null,
+        order_id: orderId,
+        member_id: memberId,
+        sales_owner_id: data.sales_owner_id === undefined ? existingOrder.sales_owner_id : (data.sales_owner_id || null),
+        prospect_id: data.prospect_id === undefined ? existingOrder.prospect_id : (data.prospect_id || null),
+        created_by_role: data.created_by_role || existingOrder.created_by_role || null,
+        order_label: orderLabel,
+        order_type: orderType,
+        qty,
+        unit_price: unitPrice,
+        total_amount: totalAmount,
+        currency,
+        status: 'pending_payment',
+        payment_id: paymentId,
+        payment_status: 'pending',
+        payment_method: paymentMethod,
+        payment_responsibility: paymentResponsibility,
+        reference_type: referenceType,
+        reference_id: referenceId,
+        item_count: itemCount,
+        order_items: orderItems,
+        notes: data.notes === undefined ? existingOrder.notes : (data.notes || null),
+        created_at: existingOrder.created_at,
+        updated_at: updatedAt
+      },
+      refs: {
+        member_id: memberId,
+        order_id: orderId,
+        reference_type: itemCount === 1 ? (referenceType || 'order') : 'order',
+        reference_id: itemCount === 1 ? (referenceId || orderId) : orderId
+      }
+    });
+
+    const paymentEvent = await appendDomainEvent({
+      tenantId,
+      branchId: data.branch_id || existingOrder.branch_id || null,
+      actorId: data.actor_id || config.defaultActorId,
+      eventType: 'payment.updated',
+      subjectKind: 'payment',
+      subjectId: paymentId,
+      data: {
+        tenant_id: tenantId,
+        branch_id: data.branch_id || existingOrder.branch_id || null,
+        payment_id: paymentId,
+        member_id: memberId,
+        amount: totalAmount,
+        currency,
+        method: paymentMethod,
+        reference_type: itemCount === 1 ? (referenceType || 'order') : 'order',
+        reference_id: itemCount === 1 ? (referenceId || orderId) : orderId,
+        proof_url: data.proof_url || null,
+        recorded_at: existingOrder.created_at,
+        order_id: orderId
+      },
+      refs: {
+        order_id: orderId,
+        reference_type: itemCount === 1 ? (referenceType || 'order') : 'order',
+        reference_id: itemCount === 1 ? (referenceId || orderId) : orderId
+      }
+    });
+
+    await runFitnessProjection({ tenantId, branchId: data.branch_id || existingOrder.branch_id || null });
+    return ok(res, {
+      event: orderEvent,
+      payment_event: paymentEvent,
+      order_id: orderId,
+      payment_id: paymentId,
+      status: 'pending'
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.delete('/v1/orders/:orderId', async (req, res, next) => {
+  try {
+    const data = req.body || {};
+    const tenantId = data.tenant_id || req.query.tenant_id || config.defaultTenantId;
+    const orderId = required(req.params.orderId, 'orderId');
+    const existingOrder = await getOrderRow({ tenantId, orderId });
+    if (!existingOrder) {
+      throw fail(404, 'ORDER_NOT_FOUND', `order ${orderId} not found`);
+    }
+    const currentStatus = String(existingOrder.status || '').trim().toLowerCase();
+    const currentPaymentStatus = String(existingOrder.payment_status || '').trim().toLowerCase();
+    if (currentPaymentStatus === 'confirmed' || currentStatus === 'paid') {
+      throw fail(409, 'ORDER_ALREADY_PAID', `order ${orderId} already paid and cannot be deleted`);
+    }
+    if (currentStatus === 'deleted') {
+      throw fail(409, 'ORDER_ALREADY_DELETED', `order ${orderId} already deleted`);
+    }
+
+    const deletedAt = new Date().toISOString();
+    const memberId = required(existingOrder.member_id, 'member_id');
+    const paymentId = String(existingOrder.payment_id || '').trim() || null;
+    const note = String(data.note || `Order ${orderId} deleted from CS history`).trim();
+
+    const orderEvent = await appendDomainEvent({
+      tenantId,
+      branchId: data.branch_id || existingOrder.branch_id || null,
+      actorId: data.actor_id || config.defaultActorId,
+      eventType: 'order.updated',
+      subjectKind: 'order',
+      subjectId: orderId,
+      data: {
+        tenant_id: tenantId,
+        branch_id: data.branch_id || existingOrder.branch_id || null,
+        order_id: orderId,
+        member_id: memberId,
+        sales_owner_id: existingOrder.sales_owner_id || null,
+        prospect_id: existingOrder.prospect_id || null,
+        created_by_role: existingOrder.created_by_role || null,
+        order_label: existingOrder.order_label || orderId,
+        order_type: existingOrder.order_type || 'manual',
+        qty: Number(existingOrder.qty || 1),
+        unit_price: Number(existingOrder.unit_price || 0),
+        total_amount: Number(existingOrder.total_amount || 0),
+        currency: existingOrder.currency || 'IDR',
+        status: 'deleted',
+        payment_id: paymentId,
+        payment_status: paymentId ? 'deleted' : (existingOrder.payment_status || null),
+        payment_method: existingOrder.payment_method || null,
+        payment_responsibility: existingOrder.payment_responsibility || null,
+        reference_type: existingOrder.reference_type || null,
+        reference_id: existingOrder.reference_id || null,
+        item_count: Number(existingOrder.item_count || 1),
+        order_items: normalizeStoredOrderItems(existingOrder),
+        notes: existingOrder.notes || null,
+        created_at: existingOrder.created_at,
+        updated_at: deletedAt,
+        deleted_at: deletedAt
+      },
+      refs: {
+        member_id: memberId,
+        order_id: orderId,
+        reference_type: existingOrder.reference_type || 'order',
+        reference_id: existingOrder.reference_id || orderId
+      }
+    });
+
+    let paymentEvent = null;
+    if (paymentId) {
+      paymentEvent = await appendDomainEvent({
+        tenantId,
+        branchId: data.branch_id || existingOrder.branch_id || null,
+        actorId: data.actor_id || config.defaultActorId,
+        eventType: 'payment.updated',
+        subjectKind: 'payment',
+        subjectId: paymentId,
+        data: {
+          tenant_id: tenantId,
+          branch_id: data.branch_id || existingOrder.branch_id || null,
+          payment_id: paymentId,
+          member_id: memberId,
+          amount: Number(existingOrder.total_amount || 0),
+          currency: existingOrder.currency || 'IDR',
+          method: existingOrder.payment_method || 'cash',
+          reference_type: existingOrder.reference_type || 'order',
+          reference_id: existingOrder.reference_id || orderId,
+          proof_url: null,
+          recorded_at: existingOrder.created_at || deletedAt,
+          order_id: orderId,
+          status: 'deleted',
+          review_note: note
+        },
+        refs: {
+          order_id: orderId,
+          reference_type: existingOrder.reference_type || 'order',
+          reference_id: existingOrder.reference_id || orderId
+        }
+      });
+    }
+
+    await runFitnessProjection({ tenantId, branchId: data.branch_id || existingOrder.branch_id || null });
+    return ok(res, {
+      event: orderEvent,
+      payment_event: paymentEvent,
+      order_id: orderId,
+      payment_id: paymentId,
+      status: 'deleted'
     });
   } catch (error) {
     return next(error);
@@ -5176,7 +5847,16 @@ app.post('/v1/payments/:paymentId/confirm', async (req, res, next) => {
       }
     });
 
-    return created(res, { event, payment_id: paymentId, status: 'confirmed' });
+    await runFitnessProjection({ tenantId, branchId: data.branch_id || null });
+    let fulfillment = null;
+    if (linkedOrder?.order_id) {
+      fulfillment = await ensureOrderEntitlements({
+        tenantId,
+        orderId: linkedOrder.order_id,
+        actorId: data.actor_id || config.defaultActorId
+      });
+    }
+    return created(res, { event, payment_id: paymentId, status: 'confirmed', fulfillment });
   } catch (error) {
     return next(error);
   }
@@ -5228,6 +5908,7 @@ app.post('/v1/payments/:paymentId/reject', async (req, res, next) => {
       }
     });
 
+    await runFitnessProjection({ tenantId, branchId: data.branch_id || null });
     return created(res, { event, payment_id: paymentId, status: 'rejected' });
   } catch (error) {
     return next(error);

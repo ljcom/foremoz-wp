@@ -1358,9 +1358,21 @@ code {
   transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
+.stat.is-clickable {
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+}
+
 .stat:hover {
   transform: translateY(-2px);
   box-shadow: inset 0 1px 0 #ffffff, 0 14px 30px #0f172a1a;
+}
+
+.stat.active {
+  border-color: #a7bfdc;
+  box-shadow: inset 0 1px 0 #ffffff, 0 14px 30px #0f172a1f;
 }
 
 .stat-top {
@@ -1619,6 +1631,63 @@ code {
   grid-template-columns: 220px 1fr;
   gap: 0.75rem;
   margin-top: 0.72rem;
+}
+
+.member-search-box {
+  grid-template-columns: 1fr;
+  gap: 0.9rem;
+  padding: 0.9rem;
+  border: 1px solid #dfe8f4;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #fcfdff, #f5f9ff);
+}
+
+.member-search-box label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.search-box-row {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.search-box-row-primary {
+  grid-template-columns: minmax(180px, 220px) minmax(0, 1fr);
+}
+
+.search-box-row-secondary {
+  grid-template-columns: minmax(180px, 220px) minmax(0, 1fr);
+  align-items: end;
+}
+
+.search-box-keyword {
+  min-width: 0;
+}
+
+.member-search-context {
+  margin-top: 0.75rem;
+}
+
+.member-focus-shell {
+  margin-top: 0.25rem;
+}
+
+.member-focus-summary {
+  margin-top: 0.9rem;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+
+.member-workspace-tabs {
+  margin-top: 0.9rem;
+  margin-bottom: 0;
+}
+
+.member-focus-history {
+  margin-top: 0.1rem;
 }
 
 .member-layout {
@@ -2321,6 +2390,75 @@ code {
   line-height: 1.4;
 }
 
+.payment-checkout-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(280px, 0.9fr);
+  gap: 0.9rem;
+}
+
+.payment-checkout-card {
+  border: 1px solid #ddceb8;
+  border-radius: 16px;
+  padding: 1rem;
+  background: linear-gradient(180deg, #fffefb, #fff7ee);
+}
+
+.payment-method-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.7rem;
+  margin-bottom: 0.9rem;
+}
+
+.payment-method-card {
+  border: 1px solid #ddceb8;
+  border-radius: 14px;
+  padding: 0.85rem;
+  text-align: left;
+  background: #fff;
+  color: var(--text);
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.payment-method-card:hover {
+  transform: translateY(-1px);
+  border-color: #caab88;
+  box-shadow: 0 10px 20px #6e563912;
+}
+
+.payment-method-card.selected {
+  border-color: #cb8b61;
+  background: linear-gradient(180deg, #fff2e8, #ffecde);
+  box-shadow: 0 12px 22px #8d68411c;
+}
+
+.payment-method-card small {
+  display: block;
+  margin-top: 0.35rem;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.payment-method-preview {
+  border: 1px dashed #d9b997;
+  border-radius: 14px;
+  padding: 0.9rem;
+  margin-bottom: 0.9rem;
+  background: #fff8ef;
+}
+
+.payment-summary-card {
+  align-self: start;
+}
+
+.payment-summary-total {
+  margin: 1rem 0 0.35rem;
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--accent-dark);
+}
+
 @keyframes slideUp {
   from {
     opacity: 0;
@@ -2341,6 +2479,8 @@ code {
   .pricing-grid,
   .passport-live-grid,
   .info-grid,
+  .payment-checkout-grid,
+  .payment-method-grid,
   .event-card-grid,
   .plan-grid,
   .stats-grid,
@@ -2351,7 +2491,13 @@ code {
   .workspace,
   .search-box,
   .member-layout,
+  .member-focus-summary,
   .admin-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .search-box-row-primary,
+  .search-box-row-secondary {
     grid-template-columns: 1fr;
   }
 

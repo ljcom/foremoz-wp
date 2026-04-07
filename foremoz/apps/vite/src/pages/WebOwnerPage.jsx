@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
-  APP_ORIGIN,
   apiJson,
   clearSession,
   getOwnerSetup,
@@ -72,6 +71,28 @@ const PACKAGE_TERM_OPTIONS = [
   { value: '12', label: '1 tahun' }
 ];
 const ENTERPRISE_REQUEST_EMAIL = 'hello@foremoz.com';
+const PAYMENT_METHOD_OPTIONS = [
+  {
+    value: 'qris',
+    label: 'QRIS',
+    note: 'Scan QR untuk bayar instan dari e-wallet atau mobile banking.'
+  },
+  {
+    value: 'credit_card',
+    label: 'Kartu kredit',
+    note: 'Mockup kartu kredit/debit online untuk pembayaran cepat.'
+  },
+  {
+    value: 'virtual_account',
+    label: 'Virtual account',
+    note: 'Nomor VA otomatis untuk transfer dari ATM atau m-banking.'
+  },
+  {
+    value: 'bank_transfer',
+    label: 'Transfer bank',
+    note: 'Konfirmasi manual untuk transfer ke rekening bisnis.'
+  }
+];
 
 function normalizePackagePlan(value) {
   const plan = String(value || 'free').trim().toLowerCase();
@@ -106,6 +127,21 @@ function formatDateId(value) {
   });
 }
 
+function toDateOnlyValue(value) {
+  const parsed = new Date(value || '');
+  if (Number.isNaN(parsed.getTime())) return null;
+  return new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate());
+}
+
+function addCalendarMonthsLocal(value, months) {
+  const base = toDateOnlyValue(value);
+  const parsedMonths = Number(months || 0);
+  if (!base || !Number.isFinite(parsedMonths) || parsedMonths <= 0) return null;
+  const result = new Date(base.getFullYear(), base.getMonth(), base.getDate());
+  result.setMonth(result.getMonth() + Math.floor(parsedMonths));
+  return result;
+}
+
 function isPaidPlan(planValue) {
   const plan = normalizePackagePlan(planValue);
   return plan !== 'free' && plan !== 'enterprise';
@@ -138,10 +174,14 @@ function getAssignableUserRoles(planValue) {
   return ['cs', 'sales', 'pt'];
 }
 
+function getPaymentMethodMeta(value) {
+  return PAYMENT_METHOD_OPTIONS.find((item) => item.value === value) || PAYMENT_METHOD_OPTIONS[0];
+}
+
 function openDashboardInNewTab(accountSlug) {
   const slug = String(accountSlug || '').trim();
   if (!slug) return;
-  const baseOrigin = APP_ORIGIN || window.location.origin;
+  const baseOrigin = window.location.origin;
   const targetUrl = `${baseOrigin}/a/${slug}/admin/dashboard`;
   window.open(targetUrl, '_blank', 'noopener,noreferrer');
 }
@@ -150,7 +190,7 @@ function openAccountPathInNewTab(accountSlug, pathSuffix = '') {
   const slug = String(accountSlug || '').trim();
   if (!slug) return;
   const suffix = String(pathSuffix || '').trim();
-  const baseOrigin = APP_ORIGIN || window.location.origin;
+  const baseOrigin = window.location.origin;
   const normalizedSuffix = suffix ? `/${suffix.replace(/^\/+/, '')}` : '';
   const targetUrl = `${baseOrigin}/a/${slug}${normalizedSuffix}`;
   window.open(targetUrl, '_blank', 'noopener,noreferrer');
@@ -256,6 +296,13 @@ export default function WebOwnerPage() {
   const [editingUserId, setEditingUserId] = useState('');
   const [editingUser, setEditingUser] = useState({ full_name: '', role: 'staff' });
   const [dangerConfirm, setDangerConfirm] = useState('');
+  const [paymentDraft, setPaymentDraft] = useState(null);
+  const [paymentForm, setPaymentForm] = useState({
+    method: PAYMENT_METHOD_OPTIONS[0].value,
+    payer_name: session?.user?.fullName || '',
+    payer_email: session?.user?.email || '',
+    note: ''
+  });
   const businessImageInputRef = useRef(null);
   const branchImageInputRef = useRef(null);
   const [enterpriseRequest, setEnterpriseRequest] = useState({
@@ -267,13 +314,19 @@ export default function WebOwnerPage() {
     requirement: ''
   });
 
+  const currentPlanKey = normalizePackagePlan(
+    setupRow?.package_plan || existingSetup?.package_plan || session?.tenant?.package_plan || setupForm.package_plan || 'free'
+  );
+  const currentPlanMonthlyPrice = PLAN_PRICE[currentPlanKey] || 0;
   const selectedPlanMonthlyPrice = PLAN_PRICE[setupForm.package_plan] || 0;
   const selectedPlanDetails = useMemo(() => getPlanDetails(setupForm.package_plan), [setupForm.package_plan]);
-  const nextPlanDetails = useMemo(() => getNextPlanDetails(setupForm.package_plan), [setupForm.package_plan]);
+  const currentPlanDetails = useMemo(() => getPlanDetails(currentPlanKey), [currentPlanKey]);
+  const nextPlanDetails = useMemo(() => getNextPlanDetails(currentPlanKey), [currentPlanKey]);
+  const paymentMethodMeta = useMemo(() => getPaymentMethodMeta(paymentForm.method), [paymentForm.method]);
   const verticalOptions = listVerticalConfigs();
   const creatorLabel = getVerticalConfig(normalizeVerticalSlug(setupForm.industry_slug, 'fitness'))?.vocabulary?.creator || 'Coach';
   const selectedMonths = Number(saasForm.months || 1);
-  const extendTotalPrice = selectedPlanMonthlyPrice * selectedMonths;
+  const extendTotalPrice = currentPlanMonthlyPrice * selectedMonths;
   const selectedWizardTermMonths = Number(wizardPlanTermMonths || 1);
   const selectedPackageChangeTermMonths = Number(packageChangeTermMonths || 1);
   const isGrowthOrAbove = useMemo(
@@ -297,6 +350,51 @@ export default function WebOwnerPage() {
     setupRow?.status === 'active' && setupRow?.gym_name && setupRow?.account_slug
   );
 
+  function openPackagePayment({
+    flow,
+    payload,
+    months,
+    note,
+    purchaseMode,
+    currentExpiry = null
+  }) {
+    const normalizedPlan = normalizePackagePlan(payload?.package_plan);
+    const planDetails = getPlanDetails(normalizedPlan);
+    const today = new Date();
+    const todayDateOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const currentExpiryDate = toDateOnlyValue(currentExpiry);
+    const effectiveBaseDate = flow === 'extend_saas' && currentExpiryDate && currentExpiryDate >= todayDateOnly
+      ? currentExpiryDate
+      : todayDateOnly;
+    const projectedExpiryDate = addCalendarMonthsLocal(effectiveBaseDate, months);
+    setPaymentDraft({
+      flow,
+      payload: {
+        ...payload,
+        package_plan: normalizedPlan
+      },
+      months,
+      note,
+      purchaseMode,
+      planName: planDetails.name,
+      totalPrice: (PLAN_PRICE[normalizedPlan] || 0) * Number(months || 1),
+      currentExpiry: currentExpiryDate ? currentExpiryDate.toISOString() : null,
+      projectedExpiry: projectedExpiryDate ? projectedExpiryDate.toISOString() : null
+    });
+  }
+
+  function closePackagePayment() {
+    const currentFlow = paymentDraft?.flow || '';
+    setPaymentDraft(null);
+    if (currentFlow === 'wizard') {
+      setStep(2);
+      return;
+    }
+    if (currentFlow === 'change_package') {
+      setShowPackageChangeOptions(true);
+    }
+  }
+
   function choosePlan(planKey, options = {}) {
     const {
       collapseWizard = false,
@@ -317,6 +415,19 @@ export default function WebOwnerPage() {
         note,
         purchase_mode: purchaseMode,
         reset_expiry: true
+      })
+    });
+  }
+
+  async function extendPaidPlan({ tenantId, packagePlan, months, note, purchaseMode }) {
+    await apiJson('/v1/owner/saas/extend', {
+      method: 'POST',
+      body: JSON.stringify({
+        tenant_id: tenantId,
+        package_plan: packagePlan,
+        months,
+        note,
+        purchase_mode: purchaseMode
       })
     });
   }
@@ -671,7 +782,6 @@ export default function WebOwnerPage() {
     if (!setupForm.gym_name || !setupForm.account_slug || !setupForm.package_plan) return;
 
     try {
-      setLoading(true);
       const payload = {
         gym_name: setupForm.gym_name,
         tenant_id: setupForm.tenant_id,
@@ -684,21 +794,23 @@ export default function WebOwnerPage() {
         photo_url: setupForm.photo_url
       };
 
-      await persistSetup(payload);
       if (isPaidPlan(payload.package_plan)) {
-        await activatePaidPlan({
-          tenantId: payload.tenant_id,
-          packagePlan: payload.package_plan,
+        openPackagePayment({
+          flow: 'wizard',
+          payload,
           months: selectedWizardTermMonths,
           note: `owner setup package purchase (${selectedWizardTermMonths} month)`,
           purchaseMode: 'setup_purchase'
         });
+        setStep(3);
+        return;
       }
+
+      setLoading(true);
+      await persistSetup(payload);
       await refreshOwnerData(payload.tenant_id);
       setFeedback(
-        isPaidPlan(payload.package_plan)
-          ? `Setup owner berhasil disimpan. Paket aktif: ${payload.package_plan} untuk ${selectedWizardTermMonths === 12 ? '1 tahun' : '1 bulan'}.`
-          : `Setup owner berhasil disimpan. Paket aktif: ${payload.package_plan}.`
+        `Setup owner berhasil disimpan. Paket aktif: ${payload.package_plan}.`
       );
       setMenu('profile');
       navigate('/host/owner', { replace: true });
@@ -884,27 +996,31 @@ export default function WebOwnerPage() {
 
   async function submitSaas(e) {
     e.preventDefault();
-    if (setupForm.package_plan === 'free') {
+    if (currentPlanKey === 'free') {
       setFeedback('Paket free tidak memerlukan perpanjangan.');
       return;
     }
     try {
-      setLoading(true);
-      await apiJson('/v1/owner/saas/extend', {
-        method: 'POST',
-        body: JSON.stringify({
+      openPackagePayment({
+        flow: 'extend_saas',
+        payload: {
+          gym_name: setupForm.gym_name,
           tenant_id: setupForm.tenant_id || tenantSeed,
-          months: Number(saasForm.months),
-          note: saasForm.note
-        })
+          branch_id: setupForm.branch_id,
+          account_slug: setupForm.account_slug,
+          package_plan: currentPlanKey,
+          industry_slug: normalizeVerticalSlug(setupForm.industry_slug, 'fitness'),
+          address: setupForm.address,
+          city: setupForm.city,
+          photo_url: setupForm.photo_url
+        },
+        months: Number(saasForm.months),
+        note: saasForm.note || `extend package ${currentPlanKey} (${Number(saasForm.months)} month)`,
+        purchaseMode: 'extend',
+        currentExpiry: saasInfo?.expires_at || null
       });
-      setFeedback(`Masa aktif paket berhasil ditambah ${saasForm.months} bulan.`);
-      setSaasForm({ months: '1', note: '' });
-      await refreshOwnerData(setupForm.tenant_id || tenantSeed);
     } catch (error) {
       setFeedback(error.message);
-    } finally {
-      setLoading(false);
     }
   }
 
@@ -915,7 +1031,6 @@ export default function WebOwnerPage() {
       return;
     }
     try {
-      setLoading(true);
       const payload = {
         gym_name: setupForm.gym_name,
         tenant_id: setupForm.tenant_id,
@@ -927,22 +1042,73 @@ export default function WebOwnerPage() {
         city: setupForm.city,
         photo_url: setupForm.photo_url
       };
-      await persistSetup(payload);
+
       if (isPaidPlan(payload.package_plan)) {
-        await activatePaidPlan({
-          tenantId: payload.tenant_id,
-          packagePlan: payload.package_plan,
+        openPackagePayment({
+          flow: 'change_package',
+          payload,
           months: selectedPackageChangeTermMonths,
           note: `package changed to ${payload.package_plan} (${selectedPackageChangeTermMonths} month)`,
           purchaseMode: 'switch_package'
         });
+        return;
+      }
+
+      setLoading(true);
+      await persistSetup(payload);
+      await refreshOwnerData(payload.tenant_id);
+      setFeedback(`Paket berhasil diganti ke ${payload.package_plan}.`);
+    } catch (error) {
+      setFeedback(error.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function submitPackagePayment(e) {
+    e.preventDefault();
+    if (!paymentDraft?.payload) return;
+
+    try {
+      setLoading(true);
+      const payload = paymentDraft.payload;
+      const paymentLabel = getPaymentMethodMeta(paymentForm.method).label;
+      if (paymentDraft.flow === 'extend_saas') {
+        await extendPaidPlan({
+          tenantId: payload.tenant_id,
+          packagePlan: payload.package_plan,
+          months: Number(paymentDraft.months || 1),
+          note: `${paymentDraft.note} | mock payment via ${paymentLabel}${paymentForm.note ? ` | ${paymentForm.note}` : ''}`,
+          purchaseMode: paymentDraft.purchaseMode
+        });
+      } else {
+        await persistSetup(payload);
+        await activatePaidPlan({
+          tenantId: payload.tenant_id,
+          packagePlan: payload.package_plan,
+          months: Number(paymentDraft.months || 1),
+          note: `${paymentDraft.note} | mock payment via ${paymentLabel}${paymentForm.note ? ` | ${paymentForm.note}` : ''}`,
+          purchaseMode: paymentDraft.purchaseMode
+        });
       }
       await refreshOwnerData(payload.tenant_id);
       setFeedback(
-        isPaidPlan(payload.package_plan)
-          ? `Paket berhasil diganti ke ${payload.package_plan} untuk ${selectedPackageChangeTermMonths === 12 ? '1 tahun' : '1 bulan'}.`
-          : `Paket berhasil diganti ke ${payload.package_plan}.`
+        paymentDraft.flow === 'wizard'
+          ? `Payment mockup via ${paymentLabel} berhasil. Setup owner aktif dengan paket ${payload.package_plan}.`
+          : paymentDraft.flow === 'extend_saas'
+            ? `Payment mockup via ${paymentLabel} berhasil. Expired paket diperpanjang sampai ${formatDateId(paymentDraft.projectedExpiry)}.`
+            : `Payment mockup via ${paymentLabel} berhasil. Paket berpindah ke ${payload.package_plan}.`
       );
+      setPaymentDraft(null);
+      if (paymentDraft.flow === 'wizard') {
+        setMenu('profile');
+        navigate('/host/owner', { replace: true });
+      } else {
+        setShowPackageChangeOptions(false);
+        if (paymentDraft.flow === 'extend_saas') {
+          setSaasForm({ months: '1', note: '' });
+        }
+      }
     } catch (error) {
       setFeedback(error.message);
     } finally {
@@ -1241,6 +1407,7 @@ export default function WebOwnerPage() {
           <div className="wizard-steps">
             <span className={step === 1 ? 'active' : ''}>1. Penamaan</span>
             <span className={step === 2 ? 'active' : ''}>2. Paket</span>
+            <span className={step === 3 ? 'active' : ''}>3. Payment</span>
           </div>
 
           {step === 1 ? (
@@ -1286,7 +1453,7 @@ export default function WebOwnerPage() {
                 <button className="btn" type="submit" disabled={loading}>Lanjut pilih paket</button>
               </form>
             </div>
-          ) : (
+          ) : step === 2 ? (
             <form className="form" onSubmit={submitWizard}>
               <p className="eyebrow">Langkah 2</p>
               <h2>Pilih paket</h2>
@@ -1394,8 +1561,81 @@ export default function WebOwnerPage() {
                     Kirim request enterprise
                   </button>
                 ) : (
-                  <button className="btn" type="submit" disabled={loading}>Simpan setup</button>
+                  <button className="btn" type="submit" disabled={loading}>
+                    {isPaidPlan(setupForm.package_plan) ? 'Lanjut ke payment' : 'Simpan setup'}
+                  </button>
                 )}
+              </div>
+            </form>
+          ) : (
+            <form className="form" onSubmit={submitPackagePayment}>
+              <p className="eyebrow">Langkah 3</p>
+              <h2>Payment package</h2>
+              <p className="feedback">
+                Ini mockup payment page. Pilih metode bayar, lalu konfirmasi supaya paket aktif.
+              </p>
+              <div className="payment-checkout-grid">
+                <div className="payment-checkout-card">
+                  <p className="eyebrow">Metode payment</p>
+                  <div className="payment-method-grid">
+                    {PAYMENT_METHOD_OPTIONS.map((option) => (
+                      <button
+                        key={option.value}
+                        type="button"
+                        className={`payment-method-card ${paymentForm.method === option.value ? 'selected' : ''}`}
+                        onClick={() => setPaymentForm((prev) => ({ ...prev, method: option.value }))}
+                      >
+                        <strong>{option.label}</strong>
+                        <small>{option.note}</small>
+                      </button>
+                    ))}
+                  </div>
+                  <div className="payment-method-preview">
+                    <p><strong>{paymentMethodMeta.label}</strong></p>
+                    <p className="muted">{paymentMethodMeta.note}</p>
+                    <p className="feedback">Status mockup: siap dibayar dan langsung auto-confirm saat tombol ditekan.</p>
+                  </div>
+                  <label>
+                    Nama pembayar
+                    <input
+                      value={paymentForm.payer_name}
+                      onChange={(e) => setPaymentForm((prev) => ({ ...prev, payer_name: e.target.value }))}
+                    />
+                  </label>
+                  <label>
+                    Email pembayar
+                    <input
+                      type="email"
+                      value={paymentForm.payer_email}
+                      onChange={(e) => setPaymentForm((prev) => ({ ...prev, payer_email: e.target.value }))}
+                    />
+                  </label>
+                  <label>
+                    Catatan payment
+                    <input
+                      placeholder="Opsional: nama bank, referensi invoice, dll"
+                      value={paymentForm.note}
+                      onChange={(e) => setPaymentForm((prev) => ({ ...prev, note: e.target.value }))}
+                    />
+                  </label>
+                </div>
+                <div className="payment-checkout-card payment-summary-card">
+                  <p className="eyebrow">Ringkasan order</p>
+                  <p><strong>{paymentDraft?.planName || selectedPlanDetails.name}</strong></p>
+                  <p className="feedback">Durasi: {Number(paymentDraft?.months || 1) === 12 ? '1 tahun' : '1 bulan'}</p>
+                  <p className="feedback">Tenant: {paymentDraft?.payload?.gym_name || setupForm.gym_name || '-'}</p>
+                  <p className="feedback">Metode: {paymentMethodMeta.label}</p>
+                  <p className="payment-summary-total">{formatIdr(paymentDraft?.totalPrice || 0)}</p>
+                  <small>Mockup checkout ini belum terhubung payment gateway production.</small>
+                </div>
+              </div>
+              <div className="member-actions">
+                <button className="btn ghost" type="button" onClick={closePackagePayment} disabled={loading}>
+                  Kembali
+                </button>
+                <button className="btn" type="submit" disabled={loading}>
+                  Bayar & aktifkan paket
+                </button>
               </div>
             </form>
           )}
@@ -1792,151 +2032,245 @@ export default function WebOwnerPage() {
             {menu === 'package' ? (
               <>
                 <p className="eyebrow">Paket dan SaaS</p>
-                <h2>Paket</h2>
-                {saasInfo ? <p className="feedback">Total bulan aktif tambahan: {saasInfo.total_months || 0}</p> : null}
-                <p className="muted">Paket aktif saat ini: {setupForm.package_plan}</p>
-                <div className="card" style={{ borderStyle: 'dashed', marginBottom: '0.8rem' }}>
-                  <p className="eyebrow">Capability paket saat ini</p>
-                  <p><strong>{selectedPlanDetails.name}</strong> {selectedPlanDetails.price}</p>
-                  <p className="feedback">{selectedPlanDetails.best_for}</p>
-                  <p className="feedback">Yang terbuka: {selectedPlanDetails.features.join(' • ')}</p>
-                  {saasInfo?.bought_at ? <p className="feedback">Tanggal beli terakhir: <strong>{formatDateId(saasInfo.bought_at)}</strong></p> : null}
-                  {saasInfo?.expires_at ? <p className="feedback">Aktif sampai: <strong>{formatDateId(saasInfo.expires_at)}</strong></p> : null}
-                  {saasInfo?.is_expired ? <p className="feedback">Paket SaaS sudah expired. Akses otomatis kembali ke Free package.</p> : null}
-                  {nextPlanDetails ? (
-                    <p className="feedback">Upgrade berikutnya: <strong>{nextPlanDetails.name}</strong> untuk membuka {nextPlanDetails.features.join(' • ')}.</p>
-                  ) : (
-                    <p className="feedback">Paket ini sudah ada di tier paling tinggi.</p>
-                  )}
-                </div>
-                {setupForm.package_plan === 'free' ? (
-                  <p className="feedback">
-                    Paket free aktif, jadi tidak perlu perpanjangan.
-                  </p>
-                ) : !showPackageChangeOptions ? (
-                  <form className="form" onSubmit={submitSaas}>
-                    <label>
-                      Tambah bulan
-                      <select value={saasForm.months} onChange={(e) => setSaasForm((p) => ({ ...p, months: e.target.value }))}>
-                        <option value="1">1</option>
-                        <option value="3">3</option>
-                        <option value="6">6</option>
-                        <option value="12">12</option>
-                      </select>
-                    </label>
-                    <label>
-                      Catatan
-                      <input value={saasForm.note} onChange={(e) => setSaasForm((p) => ({ ...p, note: e.target.value }))} />
-                    </label>
+                <h2>{paymentDraft?.flow === 'change_package' || paymentDraft?.flow === 'extend_saas' ? 'Payment package' : 'Paket'}</h2>
+                {paymentDraft?.flow === 'change_package' || paymentDraft?.flow === 'extend_saas' ? (
+                  <form className="form" onSubmit={submitPackagePayment}>
                     <p className="feedback">
-                      Harga perpanjang {selectedMonths} bulan: {formatIdr(extendTotalPrice)}
+                      {paymentDraft?.flow === 'extend_saas'
+                        ? 'Mockup payment untuk perpanjang masa aktif paket. Setelah payment dikonfirmasi, expiry date langsung bertambah.'
+                        : 'Mockup payment untuk perpindahan paket. Setelah payment dikonfirmasi, paket baru langsung aktif.'}
                     </p>
-                    <button className="btn" type="submit" disabled={loading}>Perpanjang</button>
+                    <div className="payment-checkout-grid">
+                      <div className="payment-checkout-card">
+                        <p className="eyebrow">Pilih payment method</p>
+                        <div className="payment-method-grid">
+                          {PAYMENT_METHOD_OPTIONS.map((option) => (
+                            <button
+                              key={option.value}
+                              type="button"
+                              className={`payment-method-card ${paymentForm.method === option.value ? 'selected' : ''}`}
+                              onClick={() => setPaymentForm((prev) => ({ ...prev, method: option.value }))}
+                            >
+                              <strong>{option.label}</strong>
+                              <small>{option.note}</small>
+                            </button>
+                          ))}
+                        </div>
+                        <div className="payment-method-preview">
+                          <p><strong>{paymentMethodMeta.label}</strong></p>
+                          <p className="muted">{paymentMethodMeta.note}</p>
+                          <p className="feedback">Mockup ini akan auto-confirm saat tombol payment ditekan.</p>
+                        </div>
+                        <label>
+                          Nama pembayar
+                          <input
+                            value={paymentForm.payer_name}
+                            onChange={(e) => setPaymentForm((prev) => ({ ...prev, payer_name: e.target.value }))}
+                          />
+                        </label>
+                        <label>
+                          Email pembayar
+                          <input
+                            type="email"
+                            value={paymentForm.payer_email}
+                            onChange={(e) => setPaymentForm((prev) => ({ ...prev, payer_email: e.target.value }))}
+                          />
+                        </label>
+                        <label>
+                          Catatan payment
+                          <input
+                            placeholder="Opsional"
+                            value={paymentForm.note}
+                            onChange={(e) => setPaymentForm((prev) => ({ ...prev, note: e.target.value }))}
+                          />
+                        </label>
+                      </div>
+                      <div className="payment-checkout-card payment-summary-card">
+                        <p className="eyebrow">{paymentDraft.flow === 'extend_saas' ? 'Ringkasan perpanjangan' : 'Ringkasan paket baru'}</p>
+                        <p><strong>{paymentDraft.planName}</strong></p>
+                        <p className="feedback">Durasi: {Number(paymentDraft.months || 1) === 12 ? '1 tahun' : '1 bulan'}</p>
+                        <p className="feedback">Tenant: {paymentDraft.payload?.gym_name || '-'}</p>
+                        <p className="feedback">
+                          {paymentDraft.flow === 'extend_saas' ? 'Paket aktif' : 'Target package'}: {paymentDraft.payload?.package_plan || '-'}
+                        </p>
+                        <p className="feedback">Expired saat ini: {formatDateId(paymentDraft.currentExpiry)}</p>
+                        <p className="feedback">Expired setelah payment: {formatDateId(paymentDraft.projectedExpiry)}</p>
+                        <p className="payment-summary-total">{formatIdr(paymentDraft.totalPrice)}</p>
+                        <small>
+                          {paymentDraft.flow === 'extend_saas'
+                            ? 'Pilih QRIS, kartu kredit, VA, atau transfer bank untuk mockup perpanjangan paket.'
+                            : 'Pilih QRIS, kartu kredit, VA, atau transfer bank sebagai mock payment method.'}
+                        </small>
+                      </div>
+                    </div>
+                    <div className="member-actions">
+                      <button className="btn ghost" type="button" onClick={closePackagePayment} disabled={loading}>
+                        {paymentDraft.flow === 'extend_saas' ? 'Kembali ke perpanjangan' : 'Kembali ke pilih paket'}
+                      </button>
+                      <button className="btn" type="submit" disabled={loading}>
+                        {paymentDraft.flow === 'extend_saas' ? 'Bayar & perpanjang paket' : 'Bayar & pindah paket'}
+                      </button>
+                    </div>
                   </form>
                 ) : (
-                  <p className="feedback">Form perpanjang disembunyikan selama pilihan ganti paket sedang dibuka.</p>
-                )}
-                <form className="form" onSubmit={changePackage}>
-                  <p className="eyebrow">Ganti paket</p>
-                  <button
-                    className="btn ghost small"
-                    type="button"
-                    onClick={() => setShowPackageChangeOptions((prev) => !prev)}
-                  >
-                    {showPackageChangeOptions ? 'Sembunyikan pilihan paket' : 'Pilih paket lain'}
-                  </button>
-                  {showPackageChangeOptions ? (
-                    <div className="plan-grid">
-                      {PLANS.map((plan) => (
-                        <button
-                          type="button"
-                          key={plan.key}
-                          className={`plan-card ${setupForm.package_plan === plan.key ? 'selected' : ''}`}
-                          onClick={() => choosePlan(plan.key, { collapsePackageChange: true })}
-                        >
-                          <strong>{plan.name}</strong>
-                          <p>{plan.price}</p>
-                          <small>{plan.note}</small>
-                          <small>{plan.best_for}</small>
-                          <small>Termasuk: {plan.features.join(' • ')}</small>
-                        </button>
-                      ))}
+                  <>
+                    {saasInfo ? <p className="feedback">Total bulan aktif tambahan: {saasInfo.total_months || 0}</p> : null}
+                    <p className="muted">Paket aktif saat ini: {currentPlanKey}</p>
+                    <div className="card" style={{ borderStyle: 'dashed', marginBottom: '0.8rem' }}>
+                      <p className="eyebrow">Capability paket saat ini</p>
+                      <p><strong>{currentPlanDetails.name}</strong> {currentPlanDetails.price}</p>
+                      <p className="feedback">{currentPlanDetails.best_for}</p>
+                      <p className="feedback">Yang terbuka: {currentPlanDetails.features.join(' • ')}</p>
+                      {saasInfo?.bought_at ? <p className="feedback">Tanggal beli terakhir: <strong>{formatDateId(saasInfo.bought_at)}</strong></p> : null}
+                      {saasInfo?.expires_at ? <p className="feedback">Expired / aktif sampai: <strong>{formatDateId(saasInfo.expires_at)}</strong></p> : <p className="feedback">Expired / aktif sampai: <strong>belum ada</strong></p>}
+                      {saasInfo?.is_expired ? <p className="feedback">Paket SaaS sudah expired. Akses otomatis kembali ke Free package.</p> : null}
+                      {nextPlanDetails ? (
+                        <p className="feedback">Upgrade berikutnya: <strong>{nextPlanDetails.name}</strong> untuk membuka {nextPlanDetails.features.join(' • ')}.</p>
+                      ) : (
+                        <p className="feedback">Paket ini sudah ada di tier paling tinggi.</p>
+                      )}
                     </div>
-                  ) : null}
-                  {showPackageChangeOptions && isPaidPlan(setupForm.package_plan) ? (
-                    <>
-                      <label>
-                        Durasi paket baru
-                        <select value={packageChangeTermMonths} onChange={(e) => setPackageChangeTermMonths(e.target.value)}>
-                          {PACKAGE_TERM_OPTIONS.map((option) => (
-                            <option key={option.value} value={option.value}>{option.label}</option>
-                          ))}
-                        </select>
-                      </label>
+                    {currentPlanKey === 'free' ? (
                       <p className="feedback">
-                        Harga paket terpilih: {formatIdr(selectedPlanMonthlyPrice * selectedPackageChangeTermMonths)} / {packageChangeTermMonths === '12' ? 'tahun' : 'bulan'}
+                        Paket free aktif, jadi tidak perlu perpanjangan.
                       </p>
-                    </>
-                  ) : null}
-                  {showPackageChangeOptions && setupForm.package_plan === 'enterprise' ? (
-                    <>
-                      <p className="eyebrow">Form request enterprise</p>
-                      <label>
-                        Nama PIC
-                        <input
-                          value={enterpriseRequest.requester_name}
-                          onChange={(e) => setEnterpriseRequest((p) => ({ ...p, requester_name: e.target.value }))}
-                        />
-                      </label>
-                      <label>
-                        Email PIC
-                        <input
-                          type="email"
-                          value={enterpriseRequest.requester_email}
-                          onChange={(e) => setEnterpriseRequest((p) => ({ ...p, requester_email: e.target.value }))}
-                        />
-                      </label>
-                      <label>
-                        No. telepon
-                        <input
-                          value={enterpriseRequest.phone}
-                          onChange={(e) => setEnterpriseRequest((p) => ({ ...p, phone: e.target.value }))}
-                        />
-                      </label>
-                      <label>
-                        Nama perusahaan
-                        <input
-                          value={enterpriseRequest.company_name}
-                          onChange={(e) => setEnterpriseRequest((p) => ({ ...p, company_name: e.target.value }))}
-                        />
-                      </label>
-                      <label>
-                        Jumlah lokasi
-                        <input
-                          type="number"
-                          min="1"
-                          value={enterpriseRequest.location_count}
-                          onChange={(e) => setEnterpriseRequest((p) => ({ ...p, location_count: e.target.value }))}
-                        />
-                      </label>
-                      <label>
-                        Kebutuhan
-                        <textarea
-                          rows={4}
-                          value={enterpriseRequest.requirement}
-                          onChange={(e) => setEnterpriseRequest((p) => ({ ...p, requirement: e.target.value }))}
-                        />
-                      </label>
-                      <button className="btn" type="button" onClick={sendEnterpriseRequest}>
-                        Kirim request enterprise
+                    ) : !showPackageChangeOptions ? (
+                      <form className="form" onSubmit={submitSaas}>
+                        <label>
+                          Tambah bulan
+                          <select value={saasForm.months} onChange={(e) => setSaasForm((p) => ({ ...p, months: e.target.value }))}>
+                            <option value="1">1</option>
+                            <option value="3">3</option>
+                            <option value="6">6</option>
+                            <option value="12">12</option>
+                          </select>
+                        </label>
+                        <label>
+                          Catatan
+                          <input value={saasForm.note} onChange={(e) => setSaasForm((p) => ({ ...p, note: e.target.value }))} />
+                        </label>
+                        <p className="feedback">
+                          Harga perpanjang {selectedMonths} bulan: {formatIdr(extendTotalPrice)}
+                        </p>
+                        <p className="feedback">Expired saat ini: <strong>{formatDateId(saasInfo?.expires_at)}</strong></p>
+                        <p className="feedback">
+                          Expired setelah tambah {selectedMonths} bulan: <strong>{formatDateId(addCalendarMonthsLocal(
+                            (toDateOnlyValue(saasInfo?.expires_at) && toDateOnlyValue(saasInfo?.expires_at) >= toDateOnlyValue(new Date()))
+                              ? saasInfo?.expires_at
+                              : new Date(),
+                            selectedMonths
+                          ))}</strong>
+                        </p>
+                        <button className="btn" type="submit" disabled={loading}>Lanjut ke payment</button>
+                      </form>
+                    ) : (
+                      <p className="feedback">Form perpanjang disembunyikan selama pilihan ganti paket sedang dibuka.</p>
+                    )}
+                    <form className="form" onSubmit={changePackage}>
+                      <p className="eyebrow">Ganti paket</p>
+                      <button
+                        className="btn ghost small"
+                        type="button"
+                        onClick={() => setShowPackageChangeOptions((prev) => !prev)}
+                      >
+                        {showPackageChangeOptions ? 'Sembunyikan pilihan paket' : 'Pilih paket lain'}
                       </button>
-                    </>
-                  ) : showPackageChangeOptions ? (
-                    <>
-                      <button className="btn" type="submit" disabled={loading}>Ganti paket</button>
-                    </>
-                  ) : null}
-                </form>
+                      {showPackageChangeOptions ? (
+                        <div className="plan-grid">
+                          {PLANS.map((plan) => (
+                            <button
+                              type="button"
+                              key={plan.key}
+                              className={`plan-card ${setupForm.package_plan === plan.key ? 'selected' : ''}`}
+                              onClick={() => choosePlan(plan.key)}
+                            >
+                              <strong>{plan.name}</strong>
+                              <p>{plan.price}</p>
+                              <small>{plan.note}</small>
+                              <small>{plan.best_for}</small>
+                              <small>Termasuk: {plan.features.join(' • ')}</small>
+                            </button>
+                          ))}
+                        </div>
+                      ) : null}
+                      {showPackageChangeOptions && isPaidPlan(setupForm.package_plan) ? (
+                        <>
+                          <label>
+                            Durasi paket baru
+                            <select value={packageChangeTermMonths} onChange={(e) => setPackageChangeTermMonths(e.target.value)}>
+                              {PACKAGE_TERM_OPTIONS.map((option) => (
+                                <option key={option.value} value={option.value}>{option.label}</option>
+                              ))}
+                            </select>
+                          </label>
+                          <p className="feedback">
+                            Harga paket terpilih: {formatIdr(selectedPlanMonthlyPrice * selectedPackageChangeTermMonths)} / {packageChangeTermMonths === '12' ? 'tahun' : 'bulan'}
+                          </p>
+                        </>
+                      ) : null}
+                      {showPackageChangeOptions && setupForm.package_plan === 'enterprise' ? (
+                        <>
+                          <p className="eyebrow">Form request enterprise</p>
+                          <label>
+                            Nama PIC
+                            <input
+                              value={enterpriseRequest.requester_name}
+                              onChange={(e) => setEnterpriseRequest((p) => ({ ...p, requester_name: e.target.value }))}
+                            />
+                          </label>
+                          <label>
+                            Email PIC
+                            <input
+                              type="email"
+                              value={enterpriseRequest.requester_email}
+                              onChange={(e) => setEnterpriseRequest((p) => ({ ...p, requester_email: e.target.value }))}
+                            />
+                          </label>
+                          <label>
+                            No. telepon
+                            <input
+                              value={enterpriseRequest.phone}
+                              onChange={(e) => setEnterpriseRequest((p) => ({ ...p, phone: e.target.value }))}
+                            />
+                          </label>
+                          <label>
+                            Nama perusahaan
+                            <input
+                              value={enterpriseRequest.company_name}
+                              onChange={(e) => setEnterpriseRequest((p) => ({ ...p, company_name: e.target.value }))}
+                            />
+                          </label>
+                          <label>
+                            Jumlah lokasi
+                            <input
+                              type="number"
+                              min="1"
+                              value={enterpriseRequest.location_count}
+                              onChange={(e) => setEnterpriseRequest((p) => ({ ...p, location_count: e.target.value }))}
+                            />
+                          </label>
+                          <label>
+                            Kebutuhan
+                            <textarea
+                              rows={4}
+                              value={enterpriseRequest.requirement}
+                              onChange={(e) => setEnterpriseRequest((p) => ({ ...p, requirement: e.target.value }))}
+                            />
+                          </label>
+                          <button className="btn" type="button" onClick={sendEnterpriseRequest}>
+                            Kirim request enterprise
+                          </button>
+                        </>
+                      ) : showPackageChangeOptions ? (
+                        <>
+                          <button className="btn" type="submit" disabled={loading}>
+                            {isPaidPlan(setupForm.package_plan) ? 'Lanjut ke payment' : 'Ganti paket'}
+                          </button>
+                        </>
+                      ) : null}
+                    </form>
+                  </>
+                )}
               </>
             ) : null}
 
