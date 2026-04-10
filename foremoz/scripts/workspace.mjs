@@ -18,8 +18,8 @@ const APPS = {
     eventdbPortDefault: '3020',
     apiPortEnv: 'API_FITNESS_PORT',
     apiPortDefault: '3310',
-    apiPrefix: './foremoz/apps/api',
-    vitePrefix: './foremoz/apps/vite'
+    apiPrefix: './apps/api',
+    vitePrefix: './apps/vite'
   },
   passport: {
     dbEnv: 'DB_PASSPORT_URL',
@@ -28,7 +28,7 @@ const APPS = {
     eventdbPortDefault: '3022',
     apiPortEnv: 'API_PASSPORT_PORT',
     apiPortDefault: '3600',
-    apiPrefix: './passport/apps/api',
+    apiPrefix: './apps/passport/apps/api',
     vitePrefix: null
   }
 };
@@ -72,7 +72,7 @@ async function setupApp(appName) {
   const app = appRuntime(appName);
   const env = { ...process.env, DATABASE_URL: app.dbUrl };
   console.log(`[setup:${appName}] DATABASE_URL=${app.dbUrl}`);
-  await runNpm(['--prefix', './eventdb/mvp-node', 'run', 'db:schema'], env);
+  await runNpm(['--prefix', './apps/eventdb/mvp-node', 'run', 'db:schema'], env);
   await runNpm(['--prefix', app.apiPrefix, 'run', 'db:read-model'], env);
 }
 
@@ -87,7 +87,7 @@ function devApp(appName, options = {}) {
   const children = [];
   if (includeEventdb) {
     children.push(
-      spawnNpm(['--prefix', './eventdb/mvp-node', 'run', 'dev'], {
+      spawnNpm(['--prefix', './apps/eventdb/mvp-node', 'run', 'dev'], {
         ...baseEnv,
         PORT: app.eventdbPort
       })

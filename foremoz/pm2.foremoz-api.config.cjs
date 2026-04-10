@@ -1,8 +1,10 @@
+const path = require('node:path');
+
 module.exports = {
   apps: [
     {
       name: 'foremoz-eventdb',
-      cwd: '/opt/apps/foremoz-wp/eventdb/mvp-node',
+      cwd: path.resolve(__dirname, 'apps/eventdb/mvp-node'),
       script: 'npm',
       args: 'run start',
       env: {
@@ -11,7 +13,7 @@ module.exports = {
     },
     {
       name: 'foremoz-api',
-      cwd: '/opt/apps/foremoz-wp/foremoz/apps/api',
+      cwd: path.resolve(__dirname, 'apps/api'),
       script: 'npm',
       args: 'run start',
       env: {
@@ -20,7 +22,7 @@ module.exports = {
     },
     {
       name: 'foremoz-passport-api',
-      cwd: '/opt/apps/foremoz-wp/passport/apps/api',
+      cwd: path.resolve(__dirname, 'apps/passport/apps/api'),
       script: 'npm',
       args: 'run start',
       env: {
