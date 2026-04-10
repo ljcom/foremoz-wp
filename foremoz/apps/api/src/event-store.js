@@ -36,6 +36,13 @@ function duplicateIdError(scope, value) {
   return error;
 }
 
+function isSequenceConflictError(error) {
+  return (
+    error?.code === '23505' &&
+    error?.constraint === 'eventdb_event_namespace_id_chain_id_sequence_key'
+  );
+}
+
 export async function appendDomainEvent({
   tenantId,
   branchId,
@@ -53,102 +60,120 @@ export async function appendDomainEvent({
   const chainId = resolveChainId(branchId);
   const eventTime = ts || new Date().toISOString();
 
-  return withTx(async (client) => {
-    await client.query(
-      `create table if not exists eventdb_unique_id (
-         namespace_id text not null,
-         id_scope text not null,
-         id_value text not null,
-         reserved_by_event_id text not null,
-         created_at timestamptz not null default now(),
-         primary key (namespace_id, id_scope, id_value)
-       )`
-    );
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      return await withTx(async (client) => {
+        await client.query(
+          `create table if not exists eventdb_unique_id (
+             namespace_id text not null,
+             id_scope text not null,
+             id_value text not null,
+             reserved_by_event_id text not null,
+             created_at timestamptz not null default now(),
+             primary key (namespace_id, id_scope, id_value)
+           )`
+        );
 
-    await client.query(
-      `insert into eventdb_chain (namespace_id, chain_id)
-       values ($1, $2)
-       on conflict (namespace_id, chain_id) do nothing`,
-      [namespaceId, chainId]
-    );
+        await client.query(
+          `insert into eventdb_chain (namespace_id, chain_id)
+           values ($1, $2)
+           on conflict (namespace_id, chain_id) do nothing`,
+          [namespaceId, chainId]
+        );
 
-    const { rows } = await client.query(
-      `select namespace_id, chain_id, event_id, sequence, prev_hash, account_id, event_type, event_time, payload
-       from eventdb_event
-       where namespace_id = $1 and chain_id = $2
-       order by sequence desc
-       limit 1
-       for update`,
-      [namespaceId, chainId]
-    );
+        // Serialize appends per chain so concurrent requests cannot reuse the
+        // same next sequence number.
+        await client.query(
+          `select namespace_id
+           from eventdb_chain
+           where namespace_id = $1 and chain_id = $2
+           for update`,
+          [namespaceId, chainId]
+        );
 
-    const prev = rows[0] || null;
-    const sequence = prev ? Number(prev.sequence) + 1 : 1;
-    const prevHash = prev
-      ? hashCanonicalObject(buildEventSigningObject(prev))
-      : config.eventGenesisPrevHash;
+        const { rows } = await client.query(
+          `select namespace_id, chain_id, event_id, sequence, prev_hash, account_id, event_type, event_time, payload
+           from eventdb_event
+           where namespace_id = $1 and chain_id = $2
+           order by sequence desc
+           limit 1`,
+          [namespaceId, chainId]
+        );
 
-    const eventId = `evt_${Date.now()}_${randomUUID().slice(0, 8)}`;
+        const prev = rows[0] || null;
+        const sequence = prev ? Number(prev.sequence) + 1 : 1;
+        const prevHash = prev
+          ? hashCanonicalObject(buildEventSigningObject(prev))
+          : config.eventGenesisPrevHash;
 
-    for (const item of uniqueIds || []) {
-      const scope = String(item?.scope || '').trim();
-      const value = String(item?.value || '').trim().toLowerCase();
-      if (!scope || !value) continue;
+        const eventId = `evt_${Date.now()}_${randomUUID().slice(0, 8)}`;
 
-      const reserve = await client.query(
-        `insert into eventdb_unique_id (namespace_id, id_scope, id_value, reserved_by_event_id)
-         values ($1, $2, $3, $4)
-         on conflict do nothing
-         returning id_value`,
-        [namespaceId, scope, value, eventId]
-      );
+        for (const item of uniqueIds || []) {
+          const scope = String(item?.scope || '').trim();
+          const value = String(item?.value || '').trim().toLowerCase();
+          if (!scope || !value) continue;
 
-      if (reserve.rowCount !== 1) {
-        throw duplicateIdError(scope, value);
+          const reserve = await client.query(
+            `insert into eventdb_unique_id (namespace_id, id_scope, id_value, reserved_by_event_id)
+             values ($1, $2, $3, $4)
+             on conflict do nothing
+             returning id_value`,
+            [namespaceId, scope, value, eventId]
+          );
+
+          if (reserve.rowCount !== 1) {
+            throw duplicateIdError(scope, value);
+          }
+        }
+
+        const payload = {
+          type: eventType,
+          actor: {
+            kind: actorKind,
+            id: actorId || config.defaultActorId
+          },
+          subject: {
+            kind: subjectKind,
+            id: subjectId
+          },
+          data: data || {},
+          refs: refs || {},
+          ts: eventTime
+        };
+
+        await client.query(
+          `insert into eventdb_event (
+             namespace_id, chain_id, event_id, sequence, prev_hash,
+             account_id, event_type, event_time, payload, signature
+           ) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+          [
+            namespaceId,
+            chainId,
+            eventId,
+            sequence,
+            prevHash,
+            actorId || config.defaultActorId,
+            eventType,
+            eventTime,
+            payload,
+            `sig_${eventId}`
+          ]
+        );
+
+        return {
+          namespace_id: namespaceId,
+          chain_id: chainId,
+          event_id: eventId,
+          sequence,
+          event_type: eventType,
+          ts: eventTime
+        };
+      });
+    } catch (error) {
+      if (attempt < 3 && isSequenceConflictError(error)) {
+        continue;
       }
+      throw error;
     }
-
-    const payload = {
-      type: eventType,
-      actor: {
-        kind: actorKind,
-        id: actorId || config.defaultActorId
-      },
-      subject: {
-        kind: subjectKind,
-        id: subjectId
-      },
-      data: data || {},
-      refs: refs || {},
-      ts: eventTime
-    };
-
-    await client.query(
-      `insert into eventdb_event (
-         namespace_id, chain_id, event_id, sequence, prev_hash,
-         account_id, event_type, event_time, payload, signature
-       ) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
-      [
-        namespaceId,
-        chainId,
-        eventId,
-        sequence,
-        prevHash,
-        actorId || config.defaultActorId,
-        eventType,
-        eventTime,
-        payload,
-        `sig_${eventId}`
-      ]
-    );
-
-    return {
-      namespace_id: namespaceId,
-      chain_id: chainId,
-      event_id: eventId,
-      sequence,
-      event_type: eventType,
-      ts: eventTime
-    };
-  });
+  }
 }

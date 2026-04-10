@@ -17,6 +17,22 @@ function normalizeActivityUsageMode(value) {
   return String(value || '').trim().toLowerCase() === 'limited' ? 'limited' : 'unlimited';
 }
 
+function isTimestampUdtName(value) {
+  const normalized = String(value || '').trim().toLowerCase();
+  return normalized === 'timestamp' || normalized === 'timestamptz';
+}
+
+async function getColumnMetadata(client, tableName, columnName) {
+  const { rows } = await client.query(
+    `select data_type, udt_name
+     from information_schema.columns
+     where table_schema = 'read' and table_name = $1 and column_name = $2
+     limit 1`,
+    [tableName, columnName]
+  );
+  return rows[0] || null;
+}
+
 export async function runFitnessProjection({ tenantId, branchId }) {
   const namespaceId = resolveNamespaceId(tenantId);
   const chainId = resolveChainId(branchId);
@@ -37,13 +53,15 @@ export async function runFitnessProjection({ tenantId, branchId }) {
       `alter table if exists read.rm_payment_queue
          add column if not exists reference_type text,
          add column if not exists reference_id text,
-         add column if not exists review_note text`
+         add column if not exists review_note text,
+         alter column review_note type text using review_note::text`
     );
     await client.query(
       `alter table if exists read.rm_payment_history
          add column if not exists reference_type text,
          add column if not exists reference_id text,
-         add column if not exists review_note text`
+         add column if not exists review_note text,
+         alter column review_note type text using review_note::text`
     );
     await client.query(
       `alter table if exists read.rm_subscription_active
@@ -253,6 +271,11 @@ export async function runFitnessProjection({ tenantId, branchId }) {
        order by sequence asc`,
       [namespaceId, chainId, lastSequence]
     );
+
+    const queueReviewNoteMeta = await getColumnMetadata(client, 'rm_payment_queue', 'review_note');
+    const historyReviewNoteMeta = await getColumnMetadata(client, 'rm_payment_history', 'review_note');
+    const queueReviewNoteIsTimestamp = isTimestampUdtName(queueReviewNoteMeta?.udt_name);
+    const historyReviewNoteIsTimestamp = isTimestampUdtName(historyReviewNoteMeta?.udt_name);
 
     let applied = 0;
     for (const event of eventRows) {
@@ -725,6 +748,8 @@ export async function runFitnessProjection({ tenantId, branchId }) {
         const orderId = String(refs.order_id || data.order_id || '').trim() || null;
         const queueStatus = String(data.status || 'pending').trim().toLowerCase() || 'pending';
         const reviewNote = data.review_note || data.note || null;
+        const queueReviewNoteValue = queueReviewNoteIsTimestamp ? null : reviewNote;
+        const historyReviewNoteValue = historyReviewNoteIsTimestamp ? null : reviewNote;
         await client.query(
           `insert into read.rm_payment_queue (
              tenant_id, branch_id, payment_id, member_id, subscription_id,
@@ -758,7 +783,7 @@ export async function runFitnessProjection({ tenantId, branchId }) {
             data.reference_id || null,
             data.recorded_at || eventTs,
             queueStatus,
-            reviewNote
+            queueReviewNoteValue
           ]
         );
         await client.query(
@@ -783,7 +808,7 @@ export async function runFitnessProjection({ tenantId, branchId }) {
             data.currency,
             data.reference_type || null,
             data.reference_id || null,
-            reviewNote,
+            historyReviewNoteValue,
             queueStatus,
             data.recorded_at || eventTs
           ]
@@ -812,6 +837,7 @@ export async function runFitnessProjection({ tenantId, branchId }) {
         const paymentStatus = event.event_type === 'payment.confirmed' ? 'confirmed' : 'rejected';
         const reviewedAt = data.confirmed_at || data.rejected_at || eventTs;
         const reviewNote = data.note || data.reason || null;
+        const queueReviewNoteValue = queueReviewNoteIsTimestamp ? null : reviewNote;
         await client.query(
           `update read.rm_payment_queue
            set status = $3,
@@ -826,14 +852,16 @@ export async function runFitnessProjection({ tenantId, branchId }) {
             paymentStatus,
             reviewedAt,
             data.confirmed_by || data.rejected_by || payload.actor?.id || null,
-            reviewNote
+            queueReviewNoteValue
           ]
         );
         await client.query(
           `insert into read.rm_payment_history (
              tenant_id, payment_id, member_id, amount, currency, reference_type, reference_id, review_note, status, recorded_at, updated_at
            )
-           select tenant_id, payment_id, member_id, amount, currency, reference_type, reference_id, review_note, $3, recorded_at, $4
+           select tenant_id, payment_id, member_id, amount, currency, reference_type, reference_id, ${
+             historyReviewNoteIsTimestamp ? 'null' : 'review_note'
+           }, $3, recorded_at, $4
            from read.rm_payment_queue
            where tenant_id = $1 and payment_id = $2
            on conflict (tenant_id, payment_id) do update set

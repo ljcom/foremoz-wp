@@ -41,7 +41,7 @@ app.use(express.json({ limit: '10mb' }));
 
 function required(value, name) {
   if (value === undefined || value === null || value === '') {
-    throw new Error(`${name} is required`);
+    throw fail(400, 'BAD_REQUEST', `${name} is required`);
   }
   return value;
 }
