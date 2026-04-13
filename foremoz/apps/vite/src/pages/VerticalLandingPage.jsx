@@ -205,6 +205,17 @@ function visualForVertical(slug) {
   };
 }
 
+function operatorAudienceForVertical(slug, creator) {
+  const key = String(slug || '').toLowerCase();
+  if (key === 'fitness') return 'gym dan coach';
+  if (key === 'sport') return 'klub dan coach';
+  if (key === 'learning') return 'lembaga dan instructor';
+  if (key === 'performance') return 'venue dan performer';
+  if (key === 'arts') return 'galeri dan artist';
+  if (key === 'tourism') return 'operator dan guide';
+  return `tim operasional dan ${String(creator || 'creator').toLowerCase()}`;
+}
+
 export default function VerticalLandingPage() {
   const eventsEnabled = isPassportEventsEnabled();
   const publicHome = getPublicHomePath();
@@ -216,36 +227,40 @@ export default function VerticalLandingPage() {
   const navVerticals = listVerticalConfigs();
   const pricing = PRICING_BY_VERTICAL[activeSlug] || PRICING_BY_VERTICAL.fitness;
   const creator = config?.vocabulary?.creator || 'Creator';
-  const participant = config?.vocabulary?.participant || 'Member';
   const experience = config?.vocabulary?.experience || 'Event';
   const visual = visualForVertical(activeSlug);
-
+  const creatorLabelLower = String(creator || 'creator').toLowerCase();
+  const experienceLabelLower = String(experience || 'event').toLowerCase();
+  const operatorAudience = operatorAudienceForVertical(activeSlug, creator);
+  const heroTitle = `Tools operasional untuk ${operatorAudience}`;
+  const heroDescription = `Kelola ${experienceLabelLower}, offering, jadwal, check-in, dan transaksi dari satu workspace yang dipakai owner, admin, dan ${creatorLabelLower}.`;
   const quickPoints = [
-    { icon: 'fa-solid fa-bolt', title: `${experience} lebih cepat publish` },
-    { icon: 'fa-solid fa-users', title: `${participant} lebih mudah join` },
-    { icon: 'fa-solid fa-clipboard-check', title: 'Check-in lebih rapi' },
-    { icon: 'fa-solid fa-chart-line', title: 'Progress lebih terlihat' }
+    { icon: visual.icon, title: `${label} ops lebih rapi` },
+    { icon: 'fa-solid fa-user-group', title: `${creator} punya alur kerja yang jelas` },
+    { icon: 'fa-solid fa-clipboard-check', title: 'Check-in, booking, dan attendance lebih cepat' },
+    { icon: 'fa-solid fa-chart-line', title: 'Transaksi dan performa lebih terkontrol' }
   ];
   const whyCards = [
     {
-      title: `${creator} tidak lagi kerja manual`,
-      body: `Publish ${experience.toLowerCase()}, atur jadwal, dan buka registration tanpa lompat antar tool.`
+      title: `${label} tidak lagi kerja manual`,
+      body: `Kelola ${experienceLabelLower}, offering, jadwal, dan transaksi tanpa pecah di chat, sheet, dan form.`
     },
     {
-      title: `${participant} masuk ke flow yang jelas`,
-      body: `Dari discover, daftar, bayar, sampai hadir di hari H semuanya lebih konsisten.`
+      title: `${creator} punya workspace operasional yang jelas`,
+      body: 'Jadwal, daftar peserta, attendance, dan catatan pelaksanaan bisa dilihat dari panel yang sama.'
     },
     {
-      title: 'Tim operasional punya audit trail',
-      body: 'Payment, attendance, booking, dan outcome bisa direview tanpa bongkar chat atau sheet.'
+      title: 'Owner dan tim ops punya audit trail',
+      body: 'Booking, attendance, payment, dan aktivitas tim bisa direview tanpa bongkar data satu per satu.'
     }
   ];
   const howFlow = [
-    `${experience} dipublish dengan identitas brand`,
-    'Audience register dan masuk ke payment flow',
-    'Ops menjalankan attendance dan review transaksi',
-    'Riwayat creator dan participant terbentuk di passport'
+    `Setup akun, cabang, staff, dan ${creatorLabelLower}`,
+    `Atur ${experienceLabelLower}, jadwal, offering, dan kapasitas`,
+    'Jalankan attendance, booking, dan review transaksi',
+    'Pantau performa operasional tim dan unit bisnis'
   ];
+  const ctaTitle = `Mulai workspace ${label.toLowerCase()} kamu hari ini`;
 
   return (
     <main className="landing">
@@ -266,8 +281,8 @@ export default function VerticalLandingPage() {
       <section className="hero web-hero-visual">
         <div>
           <p className="eyebrow">{label}</p>
-          <h1>{`${label} untuk ${creator} dan ${participant}`}</h1>
-          <p>Kelola event dan program lebih mudah, biar kamu fokus ke pengalaman terbaik untuk komunitas.</p>
+          <h1>{heroTitle}</h1>
+          <p>{heroDescription}</p>
           <div className="hero-actions">
             {eventsEnabled ? <Link className="btn" to={publicHome}>Lihat Events</Link> : null}
             <Link className="btn ghost" to={`/signup?industry=${activeSlug}`}>Mulai Sekarang</Link>
@@ -350,7 +365,7 @@ export default function VerticalLandingPage() {
 
       <section className="cta">
         <p className="eyebrow">Start</p>
-        <h2>{`Mulai ${label} kamu hari ini`}</h2>
+        <h2>{ctaTitle}</h2>
         <div className="hero-actions">
           {eventsEnabled ? <Link className="btn" to={publicHome}>Explore Events</Link> : null}
           <Link className="btn ghost" to="/signin">Sign In</Link>
