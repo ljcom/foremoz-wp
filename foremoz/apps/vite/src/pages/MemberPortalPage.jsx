@@ -138,6 +138,22 @@ function getBookingAttendanceStatus(booking) {
   return String(booking?.status || 'booked').trim().toLowerCase() || 'booked';
 }
 
+function getEventSortTime(event) {
+  return new Date(
+    event?.start_at
+      || event?.member_attendance?.checked_out_at
+      || event?.member_attendance?.checked_in_at
+      || 0
+  ).getTime();
+}
+
+function getEventAttendanceSummary(attendance) {
+  if (!attendance || typeof attendance !== 'object' || Array.isArray(attendance)) return '';
+  if (attendance.checked_out_at) return `Check-out ${formatAppDateTime(attendance.checked_out_at)}`;
+  if (attendance.checked_in_at) return `Check-in ${formatAppDateTime(attendance.checked_in_at)}`;
+  return '';
+}
+
 export default function MemberPortalPage() {
   const navigate = useNavigate();
   const { account } = useParams();
@@ -180,7 +196,7 @@ export default function MemberPortalPage() {
   const branchId = session?.branch?.id || 'core';
 
   const orderedMyEvents = useMemo(() => {
-    return [...myEvents].sort((a, b) => new Date(b.start_at || 0).getTime() - new Date(a.start_at || 0).getTime());
+    return [...myEvents].sort((a, b) => getEventSortTime(b) - getEventSortTime(a));
   }, [myEvents]);
   const orderedPayments = useMemo(
     () => [...payments].sort((a, b) => new Date(b.recorded_at || 0).getTime() - new Date(a.recorded_at || 0).getTime()),
@@ -286,9 +302,10 @@ export default function MemberPortalPage() {
           branch_id: branchId
         })
       }).catch(() => {});
-      const [registrationRes, eventRes, paymentRes, bookingRes, subscriptionRes, ptBalanceRes, classRes] = await Promise.all([
-        apiJson(`/v1/read/event-registrations?email=${encodeURIComponent(memberEmail)}&passport_id=${encodeURIComponent(memberId)}&limit=400`),
-        apiJson('/v1/read/events?status=all&limit=400'),
+      const [registrationRes, attendanceHistoryRes, eventRes, paymentRes, bookingRes, subscriptionRes, ptBalanceRes, classRes] = await Promise.all([
+        apiJson(`/v1/read/event-registrations?tenant_id=${encodeURIComponent(tenantId)}&email=${encodeURIComponent(memberEmail)}&passport_id=${encodeURIComponent(memberId)}&limit=400`),
+        apiJson(`/v1/read/passport-event-history?tenant_id=${encodeURIComponent(tenantId)}&email=${encodeURIComponent(memberEmail)}&passport_id=${encodeURIComponent(memberId)}&limit=400`).catch(() => ({ rows: [], event_ids: [] })),
+        apiJson(`/v1/read/events?tenant_id=${encodeURIComponent(tenantId)}&status=all&limit=400`),
         apiJson(`/v1/read/payments/history?tenant_id=${encodeURIComponent(tenantId)}&member_id=${encodeURIComponent(memberId)}`).catch(() => ({ rows: [] })),
         apiJson(`/v1/read/bookings?tenant_id=${encodeURIComponent(tenantId)}&member_id=${encodeURIComponent(memberId)}`).catch(() => ({ rows: [] })),
         apiJson(`/v1/read/subscriptions/active?tenant_id=${encodeURIComponent(tenantId)}&member_id=${encodeURIComponent(memberId)}`).catch(() => ({ rows: [] })),
@@ -301,15 +318,25 @@ export default function MemberPortalPage() {
           .map((item) => [String(item?.event_id || '').trim(), item])
           .filter(([eventId]) => eventId)
       );
+      const attendanceRows = Array.isArray(attendanceHistoryRes?.rows) ? attendanceHistoryRes.rows : [];
+      const attendanceByEventId = new Map(
+        attendanceRows
+          .map((item) => [String(item?.event_id || '').trim(), item])
+          .filter(([eventId]) => eventId)
+      );
       const joinedIds = new Set(
-        (Array.isArray(registrationRes?.event_ids) ? registrationRes.event_ids : []).map((id) => String(id))
+        [
+          ...(Array.isArray(registrationRes?.event_ids) ? registrationRes.event_ids : []),
+          ...(Array.isArray(attendanceHistoryRes?.event_ids) ? attendanceHistoryRes.event_ids : [])
+        ].map((id) => String(id))
       );
       const eventRows = Array.isArray(eventRes?.rows) ? eventRes.rows : [];
       const joinedEvents = eventRows
         .filter((row) => joinedIds.has(String(row?.event_id || '')))
         .map((row) => ({
           ...row,
-          member_registration: registrationByEventId.get(String(row?.event_id || '').trim()) || null
+          member_registration: registrationByEventId.get(String(row?.event_id || '').trim()) || null,
+          member_attendance: attendanceByEventId.get(String(row?.event_id || '').trim()) || null
         }));
       const classRows = Array.isArray(classRes?.rows) ? classRes.rows : [];
       const classById = new Map(
@@ -935,6 +962,7 @@ export default function MemberPortalPage() {
               {orderedMyEvents.map((event) => {
                 const memberInfo = resolveMemberInfo(event.custom_fields);
                 const registrationAnswers = formatRegistrationAnswers(event.member_registration?.registration_answers);
+                const attendanceSummary = getEventAttendanceSummary(event.member_attendance);
                 return (
                   <article className="passport-live-card" key={event.event_id}>
                     <img
@@ -951,6 +979,7 @@ export default function MemberPortalPage() {
                       Mulai {formatAppDateTime(event.start_at)}
                     </p>
                     <p className="passport-live-host">{event.location || '-'}</p>
+                    {attendanceSummary ? <p className="passport-live-host">{attendanceSummary}</p> : null}
                     {registrationAnswers.length > 0 ? (
                       <div className="entity-list" style={{ marginTop: '1rem' }}>
                         {registrationAnswers.map((item) => (

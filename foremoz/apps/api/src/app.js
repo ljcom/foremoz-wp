@@ -8489,6 +8489,88 @@ app.get('/v1/read/event-registrations', async (req, res, next) => {
   }
 });
 
+app.get('/v1/read/passport-event-history', async (req, res, next) => {
+  try {
+    const tenantId = req.query.tenant_id || '';
+    const passportId = String(req.query.passport_id || '').trim();
+    const email = String(req.query.email || '').trim().toLowerCase();
+    const limit = Math.min(Math.max(Number(req.query.limit || 300), 1), 1000);
+    if (!passportId && !email) {
+      throw fail(400, 'BAD_REQUEST', 'passport_id or email is required');
+    }
+
+    const whereClauses = [`event_type = any($1::text[])`];
+    const params = [['event.participant.checked_in', 'event.participant.checked_out']];
+    if (tenantId && tenantId !== 'all') {
+      params.push(resolveNamespaceId(tenantId));
+      whereClauses.push(`namespace_id = $${params.length}`);
+    }
+    if (passportId && email) {
+      params.push(passportId, email);
+      whereClauses.push(`(payload->'data'->>'passport_id' = $${params.length - 1} or lower(payload->'data'->>'email') = $${params.length})`);
+    } else if (passportId) {
+      params.push(passportId);
+      whereClauses.push(`payload->'data'->>'passport_id' = $${params.length}`);
+    } else {
+      params.push(email);
+      whereClauses.push(`lower(payload->'data'->>'email') = $${params.length}`);
+    }
+
+    const { rows } = await query(
+      `select event_type, payload->'data' as data
+       from eventdb_event
+       where ${whereClauses.join(' and ')}
+       order by sequence desc`,
+      params
+    );
+
+    const historyByEventId = new Map();
+    for (const row of rows) {
+      const data = row?.data && typeof row.data === 'object' ? row.data : {};
+      const eventId = String(data.event_id || '').trim();
+      if (!eventId) continue;
+
+      const existing = historyByEventId.get(eventId) || {
+        event_id: eventId,
+        registration_id: null,
+        passport_id: null,
+        email: null,
+        full_name: null,
+        checked_in_at: null,
+        checked_out_at: null,
+        rank: null,
+        score_points: 0
+      };
+
+      if (!existing.registration_id) existing.registration_id = String(data.registration_id || '').trim() || null;
+      if (!existing.passport_id) existing.passport_id = String(data.passport_id || '').trim() || null;
+      if (!existing.email) existing.email = String(data.email || '').trim().toLowerCase() || null;
+      if (!existing.full_name) existing.full_name = String(data.full_name || '').trim() || null;
+
+      if (row.event_type === 'event.participant.checked_out') {
+        if (!existing.checked_out_at) {
+          existing.checked_out_at = data.checked_out_at || null;
+          existing.rank = data.rank ?? null;
+          existing.score_points = Number(data.score_points || 0);
+        }
+      } else if (!existing.checked_in_at) {
+        existing.checked_in_at = data.checked_in_at || data.confirmed_at || null;
+      }
+
+      historyByEventId.set(eventId, existing);
+    }
+
+    const dedupedRows = [...historyByEventId.values()].slice(0, limit);
+    return ok(res, {
+      event_ids: dedupedRows.map((row) => String(row.event_id || '')).filter(Boolean),
+      rows: dedupedRows,
+      limit
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
 app.get('/v1/read/passport-event-scores', async (req, res, next) => {
   try {
     const tenantId = req.query.tenant_id || '';

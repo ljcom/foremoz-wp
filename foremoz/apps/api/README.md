@@ -114,6 +114,7 @@ TURNSTILE_SECRET_KEY=your_turnstile_secret_key
 - `GET /v1/read/members`
 - `GET /v1/read/events`
 - `GET /v1/read/event-registrations`
+- `GET /v1/read/passport-event-history`
 - `GET /v1/read/creator-growth`
 - `GET /v1/read/subscriptions/active`
 - `GET /v1/read/class-availability`
