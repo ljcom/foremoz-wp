@@ -1893,8 +1893,8 @@ export default function DashboardPage() {
     [selectedClass]
   );
   const selectedClassIsMembershipMode = useMemo(() => (
-    selectedClassType === 'open_access'
-  ), [selectedClassType]);
+    selectedClassType === 'open_access' && selectedClass?.has_coach === false
+  ), [selectedClass, selectedClassType]);
   const selectedEventParticipantForMember = useMemo(() => {
     if (!selectedMember || !selectedEvent) return null;
     const selectedEventId = String(selectedEvent?.event_id || '').trim();
