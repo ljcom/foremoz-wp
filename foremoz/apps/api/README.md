@@ -69,6 +69,7 @@ TURNSTILE_SECRET_KEY=your_turnstile_secret_key
 - `POST /v1/auth/password/reset`
 - `GET /v1/auth/me` (Bearer token)
 - `POST /v1/tenant/auth/signup`
+- `POST /v1/prelaunch/leads`
 - `POST /v1/tenant/auth/signin`
 - `POST /v1/tenant/auth/password/forgot`
 - `POST /v1/tenant/auth/password/reset`

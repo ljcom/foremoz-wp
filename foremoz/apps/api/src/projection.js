@@ -123,6 +123,32 @@ export async function runFitnessProjection({ tenantId, branchId }) {
        )`
     );
     await client.query(
+      `create table if not exists read.rm_member_history_override (
+         tenant_id text not null,
+         branch_id text not null default 'all',
+         member_id text not null,
+         history_key text not null,
+         kind text,
+         source_id text,
+         source_name text,
+         full_name text,
+         email text,
+         participant_no text,
+         registration_id text,
+         status text,
+         linked_status text,
+         booked_at timestamptz,
+         checked_in_at timestamptz,
+         checked_out_at timestamptz,
+         updated_at timestamptz not null,
+         primary key (tenant_id, branch_id, history_key)
+       )`
+    );
+    await client.query(
+      `create index if not exists idx_rm_member_history_member
+       on read.rm_member_history_override (tenant_id, branch_id, member_id, updated_at desc)`
+    );
+    await client.query(
       `alter table if exists read.rm_order_list
          add column if not exists sales_owner_id text,
          add column if not exists prospect_id text,

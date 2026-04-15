@@ -1,3 +1,7 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 :root {
   --bg: #f3efe8;
   --bg-2: #e8dfd1;
@@ -389,6 +393,12 @@ select:focus-visible {
   font-size: 0.74rem;
   line-height: 1.2;
   backdrop-filter: blur(8px);
+}
+
+.app-build-footer.dark .app-build-pill {
+  border-color: rgba(148, 163, 184, 0.35);
+  background: rgba(15, 23, 42, 0.72);
+  color: #cbd5e1;
 }
 
 @media (max-width: 640px) {

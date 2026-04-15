@@ -290,6 +290,27 @@ CREATE TABLE IF NOT EXISTS read.rm_payment_history (
   PRIMARY KEY (tenant_id, payment_id)
 );
 
+CREATE TABLE IF NOT EXISTS read.rm_member_history_override (
+  tenant_id TEXT NOT NULL,
+  branch_id TEXT NOT NULL DEFAULT 'all',
+  member_id TEXT NOT NULL,
+  history_key TEXT NOT NULL,
+  kind TEXT,
+  source_id TEXT,
+  source_name TEXT,
+  full_name TEXT,
+  email TEXT,
+  participant_no TEXT,
+  registration_id TEXT,
+  status TEXT,
+  linked_status TEXT,
+  booked_at TIMESTAMPTZ,
+  checked_in_at TIMESTAMPTZ,
+  checked_out_at TIMESTAMPTZ,
+  updated_at TIMESTAMPTZ NOT NULL,
+  PRIMARY KEY (tenant_id, branch_id, history_key)
+);
+
 CREATE TABLE IF NOT EXISTS read.rm_sales_prospect (
   tenant_id TEXT NOT NULL,
   prospect_id TEXT NOT NULL,
@@ -398,3 +419,4 @@ CREATE INDEX IF NOT EXISTS idx_rm_sales_owner ON read.rm_sales_prospect (tenant_
 CREATE INDEX IF NOT EXISTS idx_rm_pt_activity_member ON read.rm_pt_activity_log (tenant_id, member_id, session_at DESC);
 CREATE INDEX IF NOT EXISTS idx_rm_pt_activity_trainer ON read.rm_pt_activity_log (tenant_id, trainer_id, session_at DESC);
 CREATE INDEX IF NOT EXISTS idx_rm_invitation_status ON read.rm_invitation_queue (tenant_id, status, updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_rm_member_history_member ON read.rm_member_history_override (tenant_id, branch_id, member_id, updated_at DESC);

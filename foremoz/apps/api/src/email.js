@@ -331,3 +331,33 @@ export async function sendPasswordResetEmail({
   `;
   return sendEmail({ to: email, subject, text, html });
 }
+
+export async function sendPrelaunchEarlyAccessEmail({
+  email,
+  fullName,
+  role
+}) {
+  const safeName = String(fullName || '').trim() || 'Coach';
+  const safeRole = String(role || '').trim() || 'Coach';
+  const subject = 'Foremoz Early Access - Pendaftaran diterima';
+  const text = [
+    `Hi ${safeName},`,
+    '',
+    'Terima kasih sudah daftar di Foremoz Early Access.',
+    `Role: ${safeRole}`,
+    '',
+    'Akses awal bersifat terbatas dan invitation-based.',
+    'Kalau profil Anda terpilih, tim kami akan menghubungi lebih dulu.',
+    '',
+    'Foremoz Team'
+  ].join('\n');
+  const html = `
+    <p>Hi ${escapeHtml(safeName)},</p>
+    <p>Terima kasih sudah daftar di <strong>Foremoz Early Access</strong>.</p>
+    <p><strong>Role:</strong> ${escapeHtml(safeRole)}</p>
+    <p>Akses awal bersifat terbatas dan invitation-based.</p>
+    <p>Kalau profil Anda terpilih, tim kami akan menghubungi lebih dulu.</p>
+    <p>Foremoz Team</p>
+  `;
+  return sendEmail({ to: email, subject, text, html });
+}

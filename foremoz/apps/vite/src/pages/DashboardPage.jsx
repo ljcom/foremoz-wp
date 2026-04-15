@@ -108,6 +108,11 @@ function parseCustomFieldsInput(raw, label) {
 }
 
 function isSameParticipant(member, participant) {
+  const memberId = String(member?.member_id || '').trim();
+  const participantMemberId = String(participant?.member_id || '').trim();
+  const participantPassportId = String(participant?.passport_id || '').trim();
+  if (memberId && participantMemberId) return memberId === participantMemberId;
+  if (memberId && participantPassportId) return memberId === participantPassportId;
   const memberEmail = toLowerText(member?.email);
   const participantEmail = toLowerText(participant?.email);
   if (memberEmail && participantEmail) return memberEmail === participantEmail;
@@ -128,6 +133,39 @@ function isSameBookingMember(member, booking) {
   const bookingName = toLowerText(booking?.guest_name);
   if (memberName && bookingName) return memberName === bookingName;
   return false;
+}
+
+function buildMemberHistoryRowKey(item) {
+  const kind = String(item?.kind || item?.source_kind || '').trim() || 'history';
+  const sourceId = String(item?.source_id || item?.event_id || item?.class_id || '').trim() || 'unknown';
+  const registrationId = String(item?.registration_id || '').trim();
+  const participantNo = String(item?.participant_no || '').trim();
+  const memberId = String(item?.member_id || '').trim();
+  const email = toLowerText(item?.email);
+  const fallback = String(item?.source_name || item?.full_name || '').trim() || 'row';
+  return `${kind}:${sourceId}:${registrationId || participantNo || memberId || email || fallback}`;
+}
+
+function sortMemberHistoryRows(rows) {
+  return [...rows].sort((a, b) => {
+    const aTime = new Date(a?.checked_out_at || a?.checked_in_at || a?.booked_at || 0).getTime();
+    const bTime = new Date(b?.checked_out_at || b?.checked_in_at || b?.booked_at || 0).getTime();
+    return bTime - aTime;
+  });
+}
+
+function mergeMemberHistoryRows(...collections) {
+  const merged = [];
+  const seen = new Set();
+  collections.flat().forEach((item) => {
+    const row = item && typeof item === 'object' ? item : null;
+    if (!row) return;
+    const key = buildMemberHistoryRowKey(row);
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    merged.push(row);
+  });
+  return sortMemberHistoryRows(merged);
 }
 
 function resolveClassCustomFields(classItem) {
@@ -376,6 +414,7 @@ export default function DashboardPage() {
   const [eventParticipantQuery, setEventParticipantQuery] = useState('');
   const [memberScopedFilter, setMemberScopedFilter] = useState(null);
   const [participantSearchRows, setParticipantSearchRows] = useState([]);
+  const [memberHistoryOverrides, setMemberHistoryOverrides] = useState([]);
   const [participantSearchLoading, setParticipantSearchLoading] = useState(false);
   const [checkinCustomFieldsText, setCheckinCustomFieldsText] = useState('');
   const [checkoutCustomFieldsText, setCheckoutCustomFieldsText] = useState('');
@@ -384,6 +423,8 @@ export default function DashboardPage() {
   const [memberOrderLoading, setMemberOrderLoading] = useState(false);
   const [memberPaymentRows, setMemberPaymentRows] = useState([]);
   const [memberPaymentLoading, setMemberPaymentLoading] = useState(false);
+  const [memberHistoryRows, setMemberHistoryRows] = useState([]);
+  const [memberHistoryLoading, setMemberHistoryLoading] = useState(false);
   const [orderSaving, setOrderSaving] = useState(false);
   const [orderFlowStep, setOrderFlowStep] = useState('form');
   const [orderPaymentDraft, setOrderPaymentDraft] = useState(null);
@@ -428,6 +469,7 @@ export default function DashboardPage() {
   const branchId = session?.branch?.id || 'core';
   const role = String(session?.role || 'admin').toLowerCase();
   const packagePlan = getSessionPackagePlan(session);
+  const isMultiBranchPlan = packagePlan === 'multi_branch';
   const fullName = session?.user?.fullName || session?.user?.full_name || 'User';
   const resolvedVerticalSlug = String(session?.tenant?.industry_slug || '').trim().toLowerCase()
     || guessVerticalSlugByText(`${session?.tenant?.gym_name || ''} ${accountSlug}`, 'fitness');
@@ -516,10 +558,19 @@ export default function DashboardPage() {
     }
     try {
       setEventParticipantsLoading(true);
-      const response = await apiJson(
+      const scopedResponse = await apiJson(
         `/v1/admin/events/${encodeURIComponent(eventId)}/participants?tenant_id=${encodeURIComponent(tenantId)}&branch_id=${encodeURIComponent(branchId)}&limit=500`
-      );
-      setEventParticipants(response.rows || []);
+      ).catch(() => ({ rows: [] }));
+
+      let scopedRows = Array.isArray(scopedResponse?.rows) ? scopedResponse.rows : [];
+      if (scopedRows.length === 0) {
+        const unscopedResponse = await apiJson(
+          `/v1/admin/events/${encodeURIComponent(eventId)}/participants?tenant_id=${encodeURIComponent(tenantId)}&limit=500`
+        ).catch(() => ({ rows: [] }));
+        scopedRows = Array.isArray(unscopedResponse?.rows) ? unscopedResponse.rows : [];
+      }
+
+      setEventParticipants(scopedRows);
     } catch (err) {
       setActionFeedback(err.message || 'failed to load participants');
     } finally {
@@ -562,6 +613,109 @@ export default function DashboardPage() {
     } finally {
       setMemberPaymentLoading(false);
     }
+  }
+
+  async function loadSelectedMemberHistory(member) {
+    const targetMemberId = String(member?.member_id || '').trim();
+    const targetEmail = toLowerText(member?.email);
+    if (!targetMemberId && !targetEmail) {
+      return [];
+    }
+
+    const [bookingRes, registrationRes] = await Promise.all([
+      targetMemberId
+        ? apiJson(
+          `/v1/read/bookings?tenant_id=${encodeURIComponent(tenantId)}&member_id=${encodeURIComponent(targetMemberId)}`
+        ).catch(() => ({ rows: [] }))
+        : Promise.resolve({ rows: [] }),
+      apiJson(
+        `/v1/read/event-registrations?tenant_id=${encodeURIComponent(tenantId)}&passport_id=${encodeURIComponent(targetMemberId)}&email=${encodeURIComponent(targetEmail)}&limit=300`
+      ).catch(() => ({ rows: [], event_ids: [] }))
+    ]);
+
+    const eventNameById = new Map(
+      events
+        .map((item) => [String(item?.event_id || '').trim(), String(item?.event_name || '').trim()])
+        .filter(([eventId]) => eventId)
+    );
+    const classNameById = new Map(
+      classes
+        .map((item) => [String(item?.class_id || '').trim(), String(item?.class_name || '').trim()])
+        .filter(([classId]) => classId)
+    );
+
+    const bookingRows = Array.isArray(bookingRes?.rows) ? bookingRes.rows : [];
+    const classHistoryRows = bookingRows.map((booking) => {
+      const checkedInAt = booking?.attendance_checked_in_at || booking?.attendance_confirmed_at || '';
+      const checkedOutAt = booking?.attendance_checked_out_at || '';
+      return {
+        key: `class:${booking?.class_id || ''}:${booking?.booking_id || booking?.member_id || booking?.guest_name || 'booking'}`,
+        member_id: targetMemberId,
+        kind: 'class',
+        source_id: booking?.class_id || '',
+        source_name: booking?.class_name || classNameById.get(String(booking?.class_id || '').trim()) || booking?.class_id || 'Program',
+        full_name: member?.full_name || booking?.guest_name || '',
+        email: targetEmail || '',
+        participant_no: '',
+        registration_id: booking?.booking_id || '',
+        status: checkedOutAt ? 'checked_out' : checkedInAt ? 'checked_in' : booking?.status || 'booked',
+        linked_status: checkedOutAt ? 'checked_out' : checkedInAt ? 'checked_in' : booking?.status || 'booked',
+        booked_at: booking?.booked_at || '',
+        checked_in_at: checkedInAt,
+        checked_out_at: checkedOutAt
+      };
+    });
+
+    const registrationRows = Array.isArray(registrationRes?.rows) ? registrationRes.rows : [];
+    const eventIds = [...new Set(
+      registrationRows
+        .map((row) => String(row?.event_id || '').trim())
+        .filter(Boolean)
+    )];
+    const participantResponses = await Promise.all(
+      eventIds.map((eventId) =>
+        apiJson(
+          `/v1/admin/events/${encodeURIComponent(eventId)}/participants?tenant_id=${encodeURIComponent(tenantId)}&limit=500`
+        ).catch(() => ({ rows: [] }))
+      )
+    );
+    const participantRowsByEventId = new Map(
+      eventIds.map((eventId, index) => [
+        eventId,
+        Array.isArray(participantResponses[index]?.rows) ? participantResponses[index].rows : []
+      ])
+    );
+    const eventHistoryRows = registrationRows.map((registration) => {
+      const eventId = String(registration?.event_id || '').trim();
+      const eventParticipants = participantRowsByEventId.get(eventId) || [];
+      const matchedParticipant = eventParticipants.find((participant) => {
+        const registrationId = String(registration?.registration_id || '').trim();
+        const participantRegistrationId = String(participant?.registration_id || '').trim();
+        if (registrationId && participantRegistrationId) return registrationId === participantRegistrationId;
+        return isSameParticipant(member, participant);
+      }) || null;
+      const checkedInAt = matchedParticipant?.checked_in_at || '';
+      const checkedOutAt = matchedParticipant?.checked_out_at || '';
+      return {
+        key: `event:${eventId}:${registration?.registration_id || registration?.email || registration?.passport_id || 'registration'}`,
+        member_id: targetMemberId,
+        kind: 'event',
+        source_id: eventId,
+        source_name: eventNameById.get(eventId) || eventId || 'Event',
+        full_name: matchedParticipant?.full_name || registration?.full_name || member?.full_name || '',
+        email: matchedParticipant?.email || registration?.email || targetEmail || '',
+        participant_no: matchedParticipant?.participant_no || registration?.participant_no || '',
+        registration_id: matchedParticipant?.registration_id || registration?.registration_id || '',
+        status: checkedOutAt ? 'checked_out' : checkedInAt ? 'checked_in' : 'registered',
+        linked_status: checkedOutAt ? 'checked_out' : checkedInAt ? 'checked_in' : 'registered',
+        booked_at: matchedParticipant?.registered_at || registration?.registered_at || '',
+        checked_in_at: checkedInAt,
+        checked_out_at: checkedOutAt
+      };
+    });
+
+    const merged = mergeMemberHistoryRows(eventHistoryRows, classHistoryRows);
+    return merged.filter((row) => row.checked_in_at || row.checked_out_at);
   }
 
   async function loadSelectedMemberOrders(memberId) {
@@ -1252,6 +1406,49 @@ export default function DashboardPage() {
     () => currentOrderTargets.find((item) => item.key === orderForm.target_key) || null,
     [currentOrderTargets, orderForm.target_key]
   );
+  const purchasedProgramSourceIds = useMemo(() => {
+    const allowedReferenceTypes = new Set([
+      'class_booking',
+      'open_access_purchase',
+      'activity_purchase',
+      'session_pack_purchase'
+    ]);
+    const ids = new Set();
+    memberOrderRows.forEach((order) => {
+      const status = String(order?.status || '').trim().toLowerCase();
+      const paymentStatus = String(order?.payment_status || '').trim().toLowerCase();
+      const isPurchased = status === 'paid' || paymentStatus === 'confirmed';
+      if (!isPurchased) return;
+      const items = Array.isArray(order?.order_items) && order.order_items.length > 0
+        ? order.order_items
+        : [order];
+      items.forEach((item) => {
+        const referenceType = String(item?.reference_type || '').trim().toLowerCase();
+        const referenceId = String(item?.reference_id || '').trim();
+        if (!referenceId || !allowedReferenceTypes.has(referenceType)) return;
+        ids.add(referenceId);
+      });
+    });
+    return ids;
+  }, [memberOrderRows]);
+  const checkinEventTargets = useMemo(
+    () => eventOrderTargets,
+    [eventOrderTargets]
+  );
+  const checkinClassTargets = useMemo(
+    () => classOrderTargets
+      .filter((item) => item.source_kind === 'class' || item.source_kind === 'activity')
+      .filter((item) => purchasedProgramSourceIds.has(String(item?.source_id || '').trim())),
+    [classOrderTargets, purchasedProgramSourceIds]
+  );
+  const currentCheckinTargets = useMemo(() => {
+    if (selectedExperienceType === 'class') return checkinClassTargets;
+    return checkinEventTargets;
+  }, [checkinClassTargets, checkinEventTargets, selectedExperienceType]);
+  const selectedCheckinTarget = useMemo(
+    () => currentCheckinTargets.find((item) => String(item.source_id || '') === String(selectedExperienceId || '')) || null,
+    [currentCheckinTargets, selectedExperienceId]
+  );
   const orderReferenceLookups = useMemo(() => {
     const packagesById = new Map(
       packages
@@ -1289,7 +1486,7 @@ export default function DashboardPage() {
         });
 
         const eventParticipantResponses = await Promise.all(
-          activeEvents.map((eventItem) =>
+          events.map((eventItem) =>
             apiJson(
               `/v1/admin/events/${encodeURIComponent(eventItem.event_id)}/participants?tenant_id=${encodeURIComponent(tenantId)}&branch_id=${encodeURIComponent(branchId)}&limit=500`
             ).catch(() => ({ rows: [] }))
@@ -1297,15 +1494,17 @@ export default function DashboardPage() {
         );
         const eventRows = [];
         eventParticipantResponses.forEach((response, index) => {
-          const eventItem = activeEvents[index];
+          const eventItem = events[index];
           (response.rows || []).forEach((participant, participantIndex) => {
-            const linkedMember = memberByEmail.get(toLowerText(participant?.email)) || null;
+            const linkedMember = memberById.get(String(participant?.member_id || '').trim())
+              || memberByEmail.get(toLowerText(participant?.email))
+              || null;
             eventRows.push({
               key: `event:${eventItem?.event_id || 'unknown'}:${participant?.registration_id || participant?.email || participant?.passport_id || participantIndex}`,
               source_kind: 'event',
               source_id: eventItem?.event_id || '',
               source_name: eventItem?.event_name || 'Event',
-              member_id: linkedMember?.member_id || '',
+              member_id: String(participant?.member_id || linkedMember?.member_id || '').trim(),
               full_name: participant?.full_name || linkedMember?.full_name || '',
               phone: linkedMember?.phone || '',
               email: participant?.email || linkedMember?.email || '',
@@ -1320,7 +1519,7 @@ export default function DashboardPage() {
         });
 
         const classBookingResponses = await Promise.all(
-          activeClasses.map((classItem) =>
+          classes.map((classItem) =>
             apiJson(
               `/v1/read/bookings?tenant_id=${encodeURIComponent(tenantId)}&class_id=${encodeURIComponent(classItem.class_id)}`
             ).catch(() => ({ rows: [] }))
@@ -1328,7 +1527,7 @@ export default function DashboardPage() {
         );
         const classRows = [];
         classBookingResponses.forEach((response, index) => {
-          const classItem = activeClasses[index];
+          const classItem = classes[index];
           (response.rows || []).forEach((booking, bookingIndex) => {
             const linkedMember = memberById.get(String(booking?.member_id || '').trim()) || null;
             classRows.push({
@@ -1370,7 +1569,7 @@ export default function DashboardPage() {
     return () => {
       cancelled = true;
     };
-  }, [tenantId, branchId, activeEvents, activeClasses, members]);
+  }, [tenantId, branchId, events, classes, members]);
 
   const stats = useMemo(
     () => [
@@ -1434,6 +1633,40 @@ export default function DashboardPage() {
     [searchSource, selectedMemberId]
   );
 
+  useEffect(() => {
+    let cancelled = false;
+    async function refreshSelectedMemberHistory() {
+      if (!selectedMember) {
+        setMemberHistoryRows([]);
+        setMemberHistoryLoading(false);
+        return;
+      }
+      try {
+        setMemberHistoryLoading(true);
+        const rows = await loadSelectedMemberHistory(selectedMember);
+        if (cancelled) return;
+        setMemberHistoryRows(rows);
+      } catch (err) {
+        if (cancelled) return;
+        setActionFeedback(err.message || 'failed to load member history');
+        setMemberHistoryRows([]);
+      } finally {
+        if (!cancelled) setMemberHistoryLoading(false);
+      }
+    }
+    refreshSelectedMemberHistory();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedMember, tenantId, events, classes]);
+
+  useEffect(() => {
+    if (!selectedMemberId) return;
+    loadMemberHistoryOverrides(selectedMemberId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedMemberId, tenantId, branchId]);
+
   const memberAttachmentMap = useMemo(() => {
     const memberById = new Map();
     const memberByEmail = new Map();
@@ -1492,8 +1725,20 @@ export default function DashboardPage() {
   }, [searchSource, memberAttachmentMap]);
   const selectedMemberExperiences = useMemo(() => {
     if (!selectedMember) return [];
-    return memberCardExperienceMap.get(String(selectedMember.member_id || '').trim()) || [];
-  }, [memberCardExperienceMap, selectedMember]);
+    const memberId = String(selectedMember.member_id || '').trim();
+    const linkedRows = memberCardExperienceMap.get(memberId) || [];
+    const overrideRows = memberHistoryOverrides.filter((item) => String(item?.member_id || '').trim() === memberId);
+    const merged = [...overrideRows, ...linkedRows];
+    const deduped = [];
+    const seen = new Set();
+    merged.forEach((item) => {
+      const dedupeKey = `${String(item?.kind || '').trim()}:${String(item?.source_id || '').trim()}:${String(item?.registration_id || '').trim() || String(item?.participant_no || '').trim() || String(item?.source_name || '').trim()}`;
+      if (!dedupeKey || seen.has(dedupeKey)) return;
+      seen.add(dedupeKey);
+      deduped.push(item);
+    });
+    return deduped;
+  }, [memberCardExperienceMap, memberHistoryOverrides, selectedMember]);
   const selectedMemberEventLinks = useMemo(
     () => selectedMemberExperiences.filter((item) => item.kind === 'event'),
     [selectedMemberExperiences]
@@ -1502,14 +1747,16 @@ export default function DashboardPage() {
     () => selectedMemberExperiences.filter((item) => item.kind === 'class'),
     [selectedMemberExperiences]
   );
+  const selectedMemberPurchasedClassLinks = useMemo(
+    () => selectedMemberClassLinks.filter((item) => purchasedProgramSourceIds.has(String(item?.source_id || '').trim())),
+    [purchasedProgramSourceIds, selectedMemberClassLinks]
+  );
   const selectedMemberHistoryRows = useMemo(() => {
-    return [...selectedMemberExperiences]
-      .sort((a, b) => {
-        const aTime = new Date(a.checked_out_at || a.checked_in_at || a.booked_at || 0).getTime();
-        const bTime = new Date(b.checked_out_at || b.checked_in_at || b.booked_at || 0).getTime();
-        return bTime - aTime;
-      });
-  }, [selectedMemberExperiences]);
+    const memberId = String(selectedMember?.member_id || '').trim();
+    const overrideRows = memberHistoryOverrides.filter((item) => String(item?.member_id || '').trim() === memberId);
+    return mergeMemberHistoryRows(overrideRows, memberHistoryRows)
+      .filter((row) => row.checked_in_at || row.checked_out_at);
+  }, [memberHistoryOverrides, memberHistoryRows, selectedMember]);
 
   const searchResults = useMemo(() => {
     const q = String(query || '').trim().toLowerCase();
@@ -1641,10 +1888,46 @@ export default function DashboardPage() {
     if (!selectedMember || !selectedClass) return null;
     return classBookings.find((booking) => isSameBookingMember(selectedMember, booking)) || null;
   }, [classBookings, selectedClass, selectedMember]);
+  const selectedClassType = useMemo(
+    () => String(selectedClass?.class_type || 'scheduled').trim().toLowerCase(),
+    [selectedClass]
+  );
+  const selectedClassIsMembershipMode = useMemo(() => (
+    selectedClassType === 'open_access'
+  ), [selectedClassType]);
   const selectedEventParticipantForMember = useMemo(() => {
     if (!selectedMember || !selectedEvent) return null;
+    const selectedEventId = String(selectedEvent?.event_id || '').trim();
+    const selectedEventLinks = selectedMemberEventLinks.filter(
+      (item) => String(item?.source_id || '').trim() === selectedEventId
+    );
+
+    const registrationIdCandidates = new Set(
+      selectedEventLinks
+        .map((item) => String(item?.registration_id || '').trim())
+        .filter(Boolean)
+    );
+    if (registrationIdCandidates.size > 0) {
+      const matchedByRegistration = eventParticipants.find((participant) =>
+        registrationIdCandidates.has(String(participant?.registration_id || '').trim())
+      );
+      if (matchedByRegistration) return matchedByRegistration;
+    }
+
+    const participantNoCandidates = new Set(
+      selectedEventLinks
+        .map((item) => String(item?.participant_no || '').trim())
+        .filter(Boolean)
+    );
+    if (participantNoCandidates.size > 0) {
+      const matchedByParticipantNo = eventParticipants.find((participant) =>
+        participantNoCandidates.has(String(participant?.participant_no || '').trim())
+      );
+      if (matchedByParticipantNo) return matchedByParticipantNo;
+    }
+
     return eventParticipants.find((participant) => isSameParticipant(selectedMember, participant)) || null;
-  }, [eventParticipants, selectedEvent, selectedMember]);
+  }, [eventParticipants, selectedEvent, selectedMember, selectedMemberEventLinks]);
   const dailyReportRows = useMemo(() => {
     const reportDate = new Date().toLocaleDateString('id-ID', {
       weekday: 'long',
@@ -1750,14 +2033,45 @@ export default function DashboardPage() {
     if (!selectedMember) return;
     if (memberWorkspaceTab !== 'checkin' && memberWorkspaceTab !== 'checkout') return;
 
+    if (isMultiBranchPlan) {
+      const hasSelectedEvent = selectedExperienceType === 'event'
+        && checkinEventTargets.some((item) => String(item.source_id || '') === String(selectedExperienceId || ''));
+      const hasSelectedClass = selectedExperienceType === 'class'
+        && checkinClassTargets.some((item) => String(item.source_id || '') === String(selectedExperienceId || ''));
+      if (hasSelectedEvent || hasSelectedClass) return;
+
+      const firstEvent = selectedMemberEventLinks[0] || checkinEventTargets[0] || null;
+      const firstClass = selectedMemberPurchasedClassLinks[0] || checkinClassTargets[0] || null;
+      if (selectedExperienceType === 'class' && firstClass) {
+        setSelectedExperienceId(firstClass.source_id);
+        return;
+      }
+      if (selectedExperienceType === 'event' && firstEvent) {
+        setSelectedExperienceId(firstEvent.source_id);
+        return;
+      }
+      if (firstEvent) {
+        setSelectedExperienceType('event');
+        setSelectedExperienceId(firstEvent.source_id);
+        return;
+      }
+      if (firstClass) {
+        setSelectedExperienceType('class');
+        setSelectedExperienceId(firstClass.source_id);
+        return;
+      }
+      setSelectedExperienceId('');
+      return;
+    }
+
     const hasSelectedEvent = selectedExperienceType === 'event'
       && selectedMemberEventLinks.some((item) => String(item.source_id || '') === String(selectedExperienceId || ''));
     const hasSelectedClass = selectedExperienceType === 'class'
-      && selectedMemberClassLinks.some((item) => String(item.source_id || '') === String(selectedExperienceId || ''));
+      && selectedMemberPurchasedClassLinks.some((item) => String(item.source_id || '') === String(selectedExperienceId || ''));
     if (hasSelectedEvent || hasSelectedClass) return;
 
     const firstEvent = selectedMemberEventLinks[0] || null;
-    const firstClass = selectedMemberClassLinks[0] || null;
+    const firstClass = selectedMemberPurchasedClassLinks[0] || null;
     if (firstEvent) {
       setSelectedExperienceType('event');
       setSelectedExperienceId(firstEvent.source_id);
@@ -1770,11 +2084,14 @@ export default function DashboardPage() {
     }
     setSelectedExperienceId('');
   }, [
+    checkinClassTargets,
+    checkinEventTargets,
+    isMultiBranchPlan,
     memberWorkspaceTab,
     selectedExperienceId,
     selectedExperienceType,
     selectedMember,
-    selectedMemberClassLinks,
+    selectedMemberPurchasedClassLinks,
     selectedMemberEventLinks
   ]);
 
@@ -1940,9 +2257,94 @@ export default function DashboardPage() {
     downloadCsvFile(`cs-classes-${Date.now()}.csv`, rows);
   }
 
-  async function checkinByIdentity({ member = null, participant = null }) {
+  function upsertParticipantSearchRow(nextRow) {
+    const rowKey = String(nextRow?.key || '').trim();
+    if (!rowKey) return;
+    setParticipantSearchRows((prev) => {
+      let found = false;
+      const updated = prev.map((row) => {
+        if (String(row?.key || '').trim() !== rowKey) return row;
+        found = true;
+        return { ...row, ...nextRow };
+      });
+      return found ? updated : [nextRow, ...prev];
+    });
+  }
+
+  function upsertMemberHistoryOverride(nextRow) {
+    const rowKey = String(nextRow?.key || '').trim();
+    const memberId = String(nextRow?.member_id || '').trim();
+    if (!rowKey || !memberId) return;
+    setMemberHistoryOverrides((prev) => {
+      let found = false;
+      const updated = prev.map((row) => {
+        if (String(row?.key || '').trim() !== rowKey) return row;
+        found = true;
+        return { ...row, ...nextRow };
+      });
+      return found ? updated : [nextRow, ...prev];
+    });
+    persistMemberHistoryOverride(nextRow);
+  }
+
+  async function persistMemberHistoryOverride(row) {
+    const rowKey = String(row?.key || '').trim();
+    const memberId = String(row?.member_id || '').trim();
+    if (!rowKey || !memberId) return;
+    try {
+      await apiJson('/v1/member-history-overrides', {
+        method: 'POST',
+        body: JSON.stringify({
+          tenant_id: tenantId,
+          branch_id: branchId || 'all',
+          member_id: memberId,
+          history_key: rowKey,
+          kind: row?.kind || row?.source_kind || null,
+          source_id: row?.source_id || null,
+          source_name: row?.source_name || null,
+          full_name: row?.full_name || null,
+          email: row?.email || null,
+          participant_no: row?.participant_no || null,
+          registration_id: row?.registration_id || null,
+          status: row?.status || null,
+          linked_status: row?.linked_status || null,
+          booked_at: row?.booked_at || null,
+          checked_in_at: row?.checked_in_at || null,
+          checked_out_at: row?.checked_out_at || null
+        })
+      });
+    } catch {
+      // Persist errors should not block UI; backend will be retried on next action.
+    }
+  }
+
+  async function loadMemberHistoryOverrides(memberId) {
+    const targetMemberId = String(memberId || '').trim();
+    if (!targetMemberId) return;
+    try {
+      const response = await apiJson(
+        `/v1/read/member-history-overrides?tenant_id=${encodeURIComponent(tenantId)}&branch_id=${encodeURIComponent(branchId || 'all')}&member_id=${encodeURIComponent(targetMemberId)}&limit=200`
+      );
+      const rows = Array.isArray(response?.rows) ? response.rows.map((row) => ({
+        ...row,
+        key: row.history_key || row.key || buildMemberHistoryRowKey(row)
+      })) : [];
+      setMemberHistoryOverrides((prev) => {
+        const filtered = prev.filter((row) => String(row?.member_id || '').trim() !== targetMemberId);
+        return [...rows, ...filtered];
+      });
+    } catch {
+      // Ignore load errors to avoid interrupting CS flow.
+    }
+  }
+
+  async function checkinByIdentity({ member = null, participant = null, moveToCheckout = false }) {
     if (!selectedEvent) {
       setActionFeedback('Pilih event dulu sebelum check in.');
+      return;
+    }
+    if (participant?.checked_in_at && !participant?.checked_out_at) {
+      setActionFeedback('Tidak bisa check-in lagi: participant sudah check-in dan belum check-out.');
       return;
     }
     const email = String(member?.email || participant?.email || '').trim();
@@ -1972,10 +2374,45 @@ export default function DashboardPage() {
       });
       await loadEventParticipants(selectedEvent.event_id);
       await loadDashboard();
+      upsertParticipantSearchRow({
+        key: `event:${selectedEvent.event_id}:${registrationId || email || passportId || 'member'}`,
+        source_kind: 'event',
+        source_id: selectedEvent.event_id || '',
+        source_name: selectedEvent.event_name || 'Event',
+        member_id: String(member?.member_id || selectedMember?.member_id || '').trim(),
+        full_name: fullName || '',
+        phone: member?.phone || selectedMember?.phone || '',
+        email: email || '',
+        status: 'checked_in',
+        participant_no: participant?.participant_no || '',
+        registration_id: registrationId || '',
+        passport_id: passportId || '',
+        checked_in_at: result?.checked_in_at || participant?.checked_in_at || new Date().toISOString(),
+        checked_out_at: ''
+      });
+      upsertMemberHistoryOverride({
+        key: `event:${selectedEvent.event_id}:${registrationId || email || passportId || 'member'}`,
+        member_id: String(member?.member_id || selectedMember?.member_id || '').trim(),
+        kind: 'event',
+        source_id: selectedEvent.event_id || '',
+        source_name: selectedEvent.event_name || 'Event',
+        full_name: fullName || '',
+        email: email || '',
+        participant_no: participant?.participant_no || '',
+        registration_id: registrationId || '',
+        status: 'checked_in',
+        linked_status: 'checked_in',
+        booked_at: participant?.booked_at || '',
+        checked_in_at: result?.checked_in_at || participant?.checked_in_at || new Date().toISOString(),
+        checked_out_at: ''
+      });
       if (result?.duplicate) {
         setActionFeedback(`checkin.skip: ${fullName || email || passportId || registrationId || '-'} sudah check-in sebelumnya.`);
       } else {
         setActionFeedback(`checkin.success: ${fullName || email || passportId || registrationId || '-'}`);
+      }
+      if (moveToCheckout) {
+        setMemberWorkspaceTab('checkout');
       }
     } catch (err) {
       setActionFeedback(err.message || 'failed to check in participant');
@@ -1984,7 +2421,7 @@ export default function DashboardPage() {
     }
   }
 
-  async function checkoutByIdentity({ member = null, participant = null }) {
+  async function checkoutByIdentity({ member = null, participant = null, moveToHistory = false }) {
     if (!selectedEvent) {
       setActionFeedback('Pilih event dulu sebelum check out.');
       return;
@@ -2020,10 +2457,45 @@ export default function DashboardPage() {
       });
       await loadEventParticipants(selectedEvent.event_id);
       await loadDashboard();
+      upsertParticipantSearchRow({
+        key: `event:${selectedEvent.event_id}:${registrationId || email || passportId || 'member'}`,
+        source_kind: 'event',
+        source_id: selectedEvent.event_id || '',
+        source_name: selectedEvent.event_name || 'Event',
+        member_id: String(member?.member_id || selectedMember?.member_id || '').trim(),
+        full_name: fullName || '',
+        phone: member?.phone || selectedMember?.phone || '',
+        email: email || '',
+        status: 'checked_out',
+        participant_no: participant?.participant_no || '',
+        registration_id: registrationId || '',
+        passport_id: passportId || '',
+        checked_in_at: participant?.checked_in_at || '',
+        checked_out_at: result?.checked_out_at || participant?.checked_out_at || new Date().toISOString()
+      });
+      upsertMemberHistoryOverride({
+        key: `event:${selectedEvent.event_id}:${registrationId || email || passportId || 'member'}`,
+        member_id: String(member?.member_id || selectedMember?.member_id || '').trim(),
+        kind: 'event',
+        source_id: selectedEvent.event_id || '',
+        source_name: selectedEvent.event_name || 'Event',
+        full_name: fullName || '',
+        email: email || '',
+        participant_no: participant?.participant_no || '',
+        registration_id: registrationId || '',
+        status: 'checked_out',
+        linked_status: 'checked_out',
+        booked_at: participant?.booked_at || '',
+        checked_in_at: participant?.checked_in_at || '',
+        checked_out_at: result?.checked_out_at || participant?.checked_out_at || new Date().toISOString()
+      });
       if (result?.duplicate) {
         setActionFeedback(`checkout.skip: ${fullName || email || passportId || registrationId || '-'} sudah checkout sebelumnya.`);
       } else {
         setActionFeedback(`checkout.success: ${fullName || email || passportId || registrationId || '-'}`);
+      }
+      if (moveToHistory) {
+        setMemberWorkspaceTab('history');
       }
     } catch (err) {
       setActionFeedback(err.message || 'failed to check out participant');
@@ -2101,8 +2573,12 @@ export default function DashboardPage() {
     }
   }
 
-  async function checkinClassBooking(booking) {
+  async function checkinClassBooking(booking, options = {}) {
     if (!booking?.booking_id) return;
+    if ((booking?.attendance_checked_in_at || booking?.attendance_confirmed_at) && !booking?.attendance_checked_out_at) {
+      setActionFeedback(`class.checkin.skip: ${booking.booking_id} sudah check-in dan belum check-out.`);
+      return;
+    }
     try {
       setActionSaving(true);
       setActionFeedback('');
@@ -2115,10 +2591,46 @@ export default function DashboardPage() {
       });
       await loadClassBookings(booking.class_id || selectedClass?.class_id || selectedExperienceId);
       await loadDashboard();
+      upsertParticipantSearchRow({
+        key: `class:${booking.class_id || selectedClass?.class_id || selectedExperienceId}:${booking.booking_id || booking.member_id || booking.guest_name || 'booking'}`,
+        source_kind: 'class',
+        source_id: booking.class_id || selectedClass?.class_id || selectedExperienceId || '',
+        source_name: selectedClass?.class_name || booking?.class_name || 'Program',
+        member_id: booking?.member_id || selectedMember?.member_id || '',
+        full_name: selectedMember?.full_name || booking?.guest_name || '',
+        phone: selectedMember?.phone || '',
+        email: selectedMember?.email || '',
+        status: booking?.status || 'booked',
+        participant_no: '',
+        registration_id: booking?.booking_id || '',
+        passport_id: '',
+        booked_at: booking?.booked_at || '',
+        checked_in_at: result?.attendance_checked_in_at || booking?.attendance_checked_in_at || booking?.attendance_confirmed_at || new Date().toISOString(),
+        checked_out_at: ''
+      });
+      upsertMemberHistoryOverride({
+        key: `class:${booking.class_id || selectedClass?.class_id || selectedExperienceId}:${booking.booking_id || booking.member_id || booking.guest_name || 'booking'}`,
+        member_id: booking?.member_id || selectedMember?.member_id || '',
+        kind: 'class',
+        source_id: booking.class_id || selectedClass?.class_id || selectedExperienceId || '',
+        source_name: selectedClass?.class_name || booking?.class_name || 'Program',
+        full_name: selectedMember?.full_name || booking?.guest_name || '',
+        email: selectedMember?.email || '',
+        participant_no: '',
+        registration_id: booking?.booking_id || '',
+        status: 'checked_in',
+        linked_status: 'checked_in',
+        booked_at: booking?.booked_at || '',
+        checked_in_at: result?.attendance_checked_in_at || booking?.attendance_checked_in_at || booking?.attendance_confirmed_at || new Date().toISOString(),
+        checked_out_at: ''
+      });
       if (result?.duplicate) {
         setActionFeedback(`class.checkin.skip: ${booking.booking_id} sudah check-in sebelumnya.`);
       } else {
         setActionFeedback(`class.checkin.success: ${booking.booking_id}`);
+      }
+      if (options.moveToCheckout) {
+        setMemberWorkspaceTab('checkout');
       }
     } catch (err) {
       setActionFeedback(err.message || 'failed to check in class booking');
@@ -2127,7 +2639,100 @@ export default function DashboardPage() {
     }
   }
 
-  async function checkoutClassBooking(booking) {
+  async function checkinMembershipClassWithoutBooking(options = {}) {
+    if (!selectedMember || !selectedClass) {
+      setActionFeedback('Pilih member dan program dulu sebelum check-in.');
+      return;
+    }
+    if (!selectedClassIsMembershipMode) {
+      setActionFeedback('Check-in tanpa booking hanya untuk program membership.');
+      return;
+    }
+    try {
+      setActionSaving(true);
+      setActionFeedback('');
+      const access = await apiJson('/v1/activities/access-check', {
+        method: 'POST',
+        body: JSON.stringify({
+          tenant_id: tenantId,
+          class_id: selectedClass.class_id,
+          member_id: selectedMember.member_id,
+          action_type: 'checkin'
+        })
+      });
+      if (!access?.allowed) {
+        const reasonText = Array.isArray(access?.reasons) && access.reasons.length > 0
+          ? access.reasons.join(', ')
+          : 'akses member ke program membership belum aktif';
+        setActionFeedback(`membership.checkin.blocked: ${reasonText}`);
+        return;
+      }
+
+      const checkedInAt = new Date().toISOString();
+      const checkinId = `chk_${Date.now()}`;
+      await apiJson('/v1/checkins/log', {
+        method: 'POST',
+        body: JSON.stringify({
+          tenant_id: tenantId,
+          branch_id: branchId,
+          checkin_id: checkinId,
+          member_id: selectedMember.member_id,
+          channel: 'cs_membership_program',
+          checkin_at: checkedInAt,
+          custom_fields: {
+            source: 'cs_dashboard',
+            class_id: selectedClass.class_id,
+            class_name: selectedClass.class_name || selectedClass.class_id,
+            class_type: selectedClassType
+          }
+        })
+      });
+      await loadDashboard();
+      upsertParticipantSearchRow({
+        key: `class:${selectedClass.class_id}:membership_checkin:${selectedMember.member_id}:${checkinId}`,
+        source_kind: 'class',
+        source_id: selectedClass.class_id || '',
+        source_name: selectedClass.class_name || selectedClass.class_id || 'Program',
+        member_id: selectedMember.member_id || '',
+        full_name: selectedMember.full_name || '',
+        phone: selectedMember.phone || '',
+        email: selectedMember.email || '',
+        status: 'checked_in',
+        participant_no: '',
+        registration_id: checkinId,
+        passport_id: '',
+        booked_at: '',
+        checked_in_at: checkedInAt,
+        checked_out_at: ''
+      });
+      upsertMemberHistoryOverride({
+        key: `class:${selectedClass.class_id}:membership_checkin:${selectedMember.member_id}:${checkinId}`,
+        member_id: selectedMember.member_id || '',
+        kind: 'class',
+        source_id: selectedClass.class_id || '',
+        source_name: selectedClass.class_name || selectedClass.class_id || 'Program',
+        full_name: selectedMember.full_name || '',
+        email: selectedMember.email || '',
+        participant_no: '',
+        registration_id: checkinId,
+        status: 'checked_in',
+        linked_status: 'checked_in',
+        booked_at: '',
+        checked_in_at: checkedInAt,
+        checked_out_at: ''
+      });
+      setActionFeedback(`membership.checkin.success: ${selectedMember.full_name || selectedMember.member_id}`);
+      if (options.moveToCheckout) {
+        setMemberWorkspaceTab('checkout');
+      }
+    } catch (err) {
+      setActionFeedback(err.message || 'failed to check in membership program');
+    } finally {
+      setActionSaving(false);
+    }
+  }
+
+  async function checkoutClassBooking(booking, options = {}) {
     if (!booking?.booking_id) return;
     try {
       setActionSaving(true);
@@ -2141,10 +2746,46 @@ export default function DashboardPage() {
       });
       await loadClassBookings(booking.class_id || selectedClass?.class_id || selectedExperienceId);
       await loadDashboard();
+      upsertParticipantSearchRow({
+        key: `class:${booking.class_id || selectedClass?.class_id || selectedExperienceId}:${booking.booking_id || booking.member_id || booking.guest_name || 'booking'}`,
+        source_kind: 'class',
+        source_id: booking.class_id || selectedClass?.class_id || selectedExperienceId || '',
+        source_name: selectedClass?.class_name || booking?.class_name || 'Program',
+        member_id: booking?.member_id || selectedMember?.member_id || '',
+        full_name: selectedMember?.full_name || booking?.guest_name || '',
+        phone: selectedMember?.phone || '',
+        email: selectedMember?.email || '',
+        status: booking?.status || 'booked',
+        participant_no: '',
+        registration_id: booking?.booking_id || '',
+        passport_id: '',
+        booked_at: booking?.booked_at || '',
+        checked_in_at: booking?.attendance_checked_in_at || booking?.attendance_confirmed_at || '',
+        checked_out_at: result?.attendance_checked_out_at || booking?.attendance_checked_out_at || new Date().toISOString()
+      });
+      upsertMemberHistoryOverride({
+        key: `class:${booking.class_id || selectedClass?.class_id || selectedExperienceId}:${booking.booking_id || booking.member_id || booking.guest_name || 'booking'}`,
+        member_id: booking?.member_id || selectedMember?.member_id || '',
+        kind: 'class',
+        source_id: booking.class_id || selectedClass?.class_id || selectedExperienceId || '',
+        source_name: selectedClass?.class_name || booking?.class_name || 'Program',
+        full_name: selectedMember?.full_name || booking?.guest_name || '',
+        email: selectedMember?.email || '',
+        participant_no: '',
+        registration_id: booking?.booking_id || '',
+        status: 'checked_out',
+        linked_status: 'checked_out',
+        booked_at: booking?.booked_at || '',
+        checked_in_at: booking?.attendance_checked_in_at || booking?.attendance_confirmed_at || '',
+        checked_out_at: result?.attendance_checked_out_at || booking?.attendance_checked_out_at || new Date().toISOString()
+      });
       if (result?.duplicate) {
         setActionFeedback(`class.checkout.skip: ${booking.booking_id} sudah check-out sebelumnya.`);
       } else {
         setActionFeedback(`class.checkout.success: ${booking.booking_id}`);
+      }
+      if (options.moveToHistory) {
+        setMemberWorkspaceTab('history');
       }
     } catch (err) {
       setActionFeedback(err.message || 'failed to check out class booking');
@@ -2834,37 +3475,97 @@ export default function DashboardPage() {
               {memberWorkspaceTab === 'checkin' || memberWorkspaceTab === 'checkout' ? (
                 <article className="card" style={{ marginTop: '0.9rem' }}>
                   <p className="eyebrow">{memberWorkspaceTab === 'checkin' ? 'Check in' : 'Check out'}</p>
-                  {(selectedMemberEventLinks.length + selectedMemberClassLinks.length) > 0 ? (
+                  {(
+                    (selectedMemberEventLinks.length + selectedMemberPurchasedClassLinks.length) > 0
+                    || (isMultiBranchPlan && (checkinEventTargets.length + checkinClassTargets.length) > 0)
+                  ) ? (
                     <>
                       <div className="form">
                         <label>
-                          Tipe relasi
+                          {isMultiBranchPlan ? 'Order type' : 'Tipe relasi'}
                           <select
                             value={selectedExperienceType}
+                            disabled={memberWorkspaceTab === 'checkout'}
                             onChange={(e) => {
                               setSelectedExperienceType(e.target.value);
                               setSelectedExperienceId('');
                             }}
                           >
-                            <option value="event" disabled={selectedMemberEventLinks.length === 0}>Event</option>
-                            <option value="class" disabled={selectedMemberClassLinks.length === 0}>Program</option>
+                            <option
+                              value="event"
+                              disabled={
+                                isMultiBranchPlan
+                                  ? checkinEventTargets.length === 0
+                                  : selectedMemberEventLinks.length === 0
+                              }
+                            >
+                              Event
+                            </option>
+                            <option
+                              value="class"
+                              disabled={
+                                isMultiBranchPlan
+                                  ? checkinClassTargets.length === 0
+                                  : selectedMemberPurchasedClassLinks.length === 0
+                              }
+                            >
+                              Program
+                            </option>
                           </select>
                         </label>
                         <label>
-                          Pilih item
+                          {isMultiBranchPlan ? 'Target' : 'Pilih item'}
                           <select
                             value={selectedExperienceId}
-                            onChange={(e) => selectFocusedMemberExperience(selectedExperienceType, e.target.value)}
+                            disabled={memberWorkspaceTab === 'checkout'}
+                            onChange={(e) => {
+                              if (isMultiBranchPlan) {
+                                const nextTarget = currentCheckinTargets.find((item) => String(item.source_id || '') === String(e.target.value || '')) || null;
+                                if (!nextTarget) {
+                                  setSelectedExperienceId('');
+                                  return;
+                                }
+                                selectFocusedMemberExperience(selectedExperienceType, nextTarget.source_id);
+                                return;
+                              }
+                              selectFocusedMemberExperience(selectedExperienceType, e.target.value);
+                            }}
                           >
-                            <option value="">Pilih item aktif</option>
-                            {(selectedExperienceType === 'class' ? selectedMemberClassLinks : selectedMemberEventLinks).map((item) => (
-                              <option key={`${item.kind}:${item.source_id}`} value={item.source_id}>
-                                {item.source_name}
-                              </option>
-                            ))}
+                            {isMultiBranchPlan ? (
+                              <>
+                                <option value="">
+                                  {currentCheckinTargets.length > 0
+                                    ? `Pilih ${formatOrderTypeLabel(selectedExperienceType).toLowerCase()}`
+                                    : `Belum ada ${formatOrderTypeLabel(selectedExperienceType).toLowerCase()} aktif`}
+                                </option>
+                                {currentCheckinTargets.map((item) => (
+                                  <option key={item.key} value={item.source_id}>
+                                    {item.label}
+                                  </option>
+                                ))}
+                              </>
+                            ) : (
+                              <>
+                                <option value="">Pilih item aktif</option>
+                                {(selectedExperienceType === 'class' ? selectedMemberPurchasedClassLinks : selectedMemberEventLinks).map((item) => (
+                                  <option key={`${item.kind}:${item.source_id}`} value={item.source_id}>
+                                    {item.source_name}
+                                  </option>
+                                ))}
+                              </>
+                            )}
                           </select>
                         </label>
                       </div>
+                      {isMultiBranchPlan && selectedCheckinTarget ? (
+                        <div className="card" style={{ marginTop: '1rem', borderStyle: 'dashed' }}>
+                          <p className="eyebrow">Selected target</p>
+                          <p><strong>{selectedCheckinTarget.label}</strong></p>
+                          <p>{selectedCheckinTarget.helper}</p>
+                          <p>Reference: {selectedCheckinTarget.reference_type} / {selectedCheckinTarget.reference_id || '-'}</p>
+                          <p>Default price: {formatIdr(selectedCheckinTarget.unit_price || 0)}</p>
+                        </div>
+                      ) : null}
 
                       {selectedExperienceType === 'event' && selectedEvent ? (
                         <div className="card" style={{ marginTop: '1rem', borderStyle: 'dashed' }}>
@@ -2878,19 +3579,19 @@ export default function DashboardPage() {
                                   <button
                                     className="btn"
                                     type="button"
-                                    disabled={actionSaving}
-                                    onClick={() => checkinByIdentity({ member: selectedMember, participant: selectedEventParticipantForMember })}
+                                    disabled={actionSaving || (selectedEventParticipantForMember?.checked_in_at && !selectedEventParticipantForMember?.checked_out_at)}
+                                    onClick={() => checkinByIdentity({ member: selectedMember, participant: selectedEventParticipantForMember, moveToCheckout: true })}
                                   >
-                                    {selectedEventParticipantForMember.checked_in_at ? 'Refresh check-in' : 'Check-in member'}
+                                    Check-in member
                                   </button>
                                 ) : (
                                   <button
                                     className="btn"
                                     type="button"
                                     disabled={actionSaving || !selectedEventParticipantForMember.checked_in_at}
-                                    onClick={() => checkoutByIdentity({ member: selectedMember, participant: selectedEventParticipantForMember })}
+                                    onClick={() => checkoutByIdentity({ member: selectedMember, participant: selectedEventParticipantForMember, moveToHistory: true })}
                                   >
-                                    {selectedEventParticipantForMember.checked_out_at ? 'Refresh check-out' : 'Check-out member'}
+                                    Check-out member
                                   </button>
                                 )}
                               </div>
@@ -2913,25 +3614,43 @@ export default function DashboardPage() {
                                   <button
                                     className="btn"
                                     type="button"
-                                    disabled={actionSaving}
-                                    onClick={() => checkinClassBooking(selectedClassBookingForMember)}
+                                    disabled={actionSaving || ((selectedClassBookingForMember?.attendance_checked_in_at || selectedClassBookingForMember?.attendance_confirmed_at) && !selectedClassBookingForMember?.attendance_checked_out_at)}
+                                    onClick={() => checkinClassBooking(selectedClassBookingForMember, { moveToCheckout: true })}
                                   >
-                                    {selectedClassBookingForMember.attendance_checked_in_at || selectedClassBookingForMember.attendance_confirmed_at ? 'Refresh check-in' : 'Check-in member'}
+                                    Check-in member
                                   </button>
                                 ) : (
                                   <button
                                     className="btn"
                                     type="button"
                                     disabled={actionSaving || !(selectedClassBookingForMember.attendance_checked_in_at || selectedClassBookingForMember.attendance_confirmed_at)}
-                                    onClick={() => checkoutClassBooking(selectedClassBookingForMember)}
+                                    onClick={() => checkoutClassBooking(selectedClassBookingForMember, { moveToHistory: true })}
                                   >
-                                    {selectedClassBookingForMember.attendance_checked_out_at ? 'Refresh check-out' : 'Check-out member'}
+                                    Check-out member
                                   </button>
                                 )}
                               </div>
                             </>
                           ) : (
-                            <p className="muted">Member belum punya booking di program ini.</p>
+                            <>
+                              <p className="muted">
+                                {selectedClassIsMembershipMode
+                                  ? 'Program membership ini tidak butuh booking untuk check-in.'
+                                  : 'Member belum punya booking di program ini.'}
+                              </p>
+                              {selectedClassIsMembershipMode && memberWorkspaceTab === 'checkin' ? (
+                                <div className="row-actions">
+                                  <button
+                                    className="btn"
+                                    type="button"
+                                    disabled={actionSaving}
+                                    onClick={() => checkinMembershipClassWithoutBooking()}
+                                  >
+                                    Check-in member (tanpa booking)
+                                  </button>
+                                </div>
+                              ) : null}
+                            </>
                           )}
                         </div>
                       ) : null}
@@ -2946,7 +3665,9 @@ export default function DashboardPage() {
                 <div className="member-focus-history">
                   <div className="payment-history" style={{ marginTop: '0.9rem' }}>
                     <h3>History check-in / check-out</h3>
-                    {selectedMemberHistoryRows.length > 0 ? (
+                    {memberHistoryLoading ? (
+                      <p className="feedback">Memuat history check-in / check-out...</p>
+                    ) : selectedMemberHistoryRows.length > 0 ? (
                       <div className="entity-list">
                         {selectedMemberHistoryRows.map((item) => (
                           <div className="entity-row" key={`${item.kind}:${item.source_id}:${item.registration_id || item.participant_no || item.source_name}`}>
@@ -3128,10 +3849,10 @@ export default function DashboardPage() {
                         <button
                           className="btn ghost"
                           type="button"
-                          disabled={actionSaving}
+                          disabled={actionSaving || (selectedEventParticipantForMember?.checked_in_at && !selectedEventParticipantForMember?.checked_out_at)}
                           onClick={() => checkinByIdentity({ member: selectedMember, participant: selectedEventParticipantForMember })}
                         >
-                          {selectedEventParticipantForMember.checked_in_at ? 'Refresh check-in' : 'Check-in selected member'}
+                          Check-in selected member
                         </button>
                         <button
                           className="btn ghost"
@@ -3139,7 +3860,7 @@ export default function DashboardPage() {
                           disabled={actionSaving || !selectedEventParticipantForMember.checked_in_at}
                           onClick={() => checkoutByIdentity({ member: selectedMember, participant: selectedEventParticipantForMember })}
                         >
-                          {selectedEventParticipantForMember.checked_out_at ? 'Refresh check-out' : 'Check-out selected member'}
+                          Check-out selected member
                         </button>
                       </div>
                     </>
@@ -3203,7 +3924,12 @@ export default function DashboardPage() {
                         <p>checkout_fields: {participant.checkout_custom_fields && Object.keys(participant.checkout_custom_fields).length > 0 ? JSON.stringify(participant.checkout_custom_fields) : '-'}</p>
                       </div>
                       <div className="row-actions">
-                        <button className="btn ghost small" type="button" disabled={actionSaving} onClick={() => checkinByIdentity({ participant })}>
+                        <button
+                          className="btn ghost small"
+                          type="button"
+                          disabled={actionSaving || (participant?.checked_in_at && !participant?.checked_out_at)}
+                          onClick={() => checkinByIdentity({ participant })}
+                        >
                           {participant.checked_in_at ? 'Update Check-in' : 'Check-in'}
                         </button>
                         <button
@@ -3402,12 +4128,10 @@ export default function DashboardPage() {
                     <button
                       className="btn ghost"
                       type="button"
-                      disabled={actionSaving}
+                      disabled={actionSaving || ((selectedClassBookingForMember?.attendance_checked_in_at || selectedClassBookingForMember?.attendance_confirmed_at) && !selectedClassBookingForMember?.attendance_checked_out_at)}
                       onClick={() => checkinClassBooking(selectedClassBookingForMember)}
                     >
-                      {selectedClassBookingForMember.attendance_checked_in_at || selectedClassBookingForMember.attendance_confirmed_at
-                        ? 'Refresh check-in'
-                        : 'Check-in selected member'}
+                      Check-in selected member
                     </button>
                     <button
                       className="btn ghost"
@@ -3415,14 +4139,30 @@ export default function DashboardPage() {
                       disabled={actionSaving || !(selectedClassBookingForMember.attendance_checked_in_at || selectedClassBookingForMember.attendance_confirmed_at)}
                       onClick={() => checkoutClassBooking(selectedClassBookingForMember)}
                     >
-                      {selectedClassBookingForMember.attendance_checked_out_at
-                        ? 'Refresh check-out'
-                        : 'Check-out selected member'}
+                      Check-out selected member
                     </button>
                   </div>
                 </>
               ) : (
-                <p className="feedback">Member ini belum punya booking di program terpilih.</p>
+                <>
+                  <p className="feedback">
+                    {selectedClassIsMembershipMode
+                      ? 'Program membership ini tidak butuh booking untuk check-in.'
+                      : 'Member ini belum punya booking di program terpilih.'}
+                  </p>
+                  {selectedClassIsMembershipMode ? (
+                    <div className="row-actions">
+                      <button
+                        className="btn ghost"
+                        type="button"
+                        disabled={actionSaving}
+                        onClick={() => checkinMembershipClassWithoutBooking()}
+                      >
+                        Check-in selected member (tanpa booking)
+                      </button>
+                    </div>
+                  ) : null}
+                </>
               )}
             </div>
           ) : null}
@@ -3468,11 +4208,12 @@ export default function DashboardPage() {
                           disabled={
                             actionSaving ||
                             String(booking.status || '').toLowerCase() === 'canceled' ||
-                            Boolean(booking.attendance_checked_out_at)
+                            Boolean(booking.attendance_checked_out_at) ||
+                            ((booking?.attendance_checked_in_at || booking?.attendance_confirmed_at) && !booking?.attendance_checked_out_at)
                           }
                           onClick={() => checkinClassBooking(booking)}
                         >
-                          {booking.attendance_checked_in_at || booking.attendance_confirmed_at ? 'Refresh Check-in' : 'Check-in'}
+                          Check-in
                         </button>
                         <button
                           className="btn ghost small"

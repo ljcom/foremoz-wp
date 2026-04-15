@@ -1,0 +1,283 @@
+# TASK
+Buat landing page splash / under development untuk `foremoz.com`.
+
+Tujuan page ini bukan sekadar placeholder, tetapi **pre-launch promotion page** yang:
+1. Menjelaskan bahwa Foremoz sedang membangun sesuatu yang bagus.
+2. Mengundang calon user untuk ikut **early access / pre-adoption**.
+3. Memberi kesan bahwa akses awal ini **limited** dan **selected**.
+4. Mengarahkan user untuk register minat, agar nanti bisa dicoba lebih dulu secara gratis.
+5. Menyediakan opsi untuk membaca ide besar Foremoz lewat link **blog / manifesto / whitepaper ringan**.
+
+---
+
+# BRAND DIRECTION
+Foremoz adalah platform untuk coach economy:
+- coach
+- instructor
+- mentor
+- community leader
+- gym / studio / community operator
+
+Nuansa brand yang diinginkan:
+- modern
+- premium
+- clean
+- confident
+- future-oriented
+- bukan terlalu ramai
+- bukan terlalu crypto / hype / gimmicky
+- tetap terasa human dan startup-style
+
+Vibe yang diinginkan:
+- antara startup global yang rapi
+- dengan sedikit narasi movement
+- dan cocok untuk market Indonesia
+
+---
+
+# CORE MESSAGE
+Landing page harus menyampaikan ide utama seperti ini:
+
+Foremoz sedang membangun sesuatu untuk generasi baru coach dan community builder.
+
+Bukan hanya tool untuk bikin kelas, tapi sistem untuk membantu coach menjalankan:
+- classes
+- events
+- communities
+- coaching business
+
+User yang tertarik bisa daftar untuk:
+- early access
+- founding coach / early adopter program
+- kesempatan mencoba lebih awal secara gratis
+- ikut memberi feedback dan membantu membentuk produk
+
+Akses awal ini terbatas.
+
+---
+
+# COPY DIRECTION
+Gunakan pendekatan gabungan dari 2 ide ini:
+
+## Direction A
+"The Coach Economy is Just Getting Started."
+
+## Direction B
+"Build your coaching business, not just your classes."
+
+Tone copy:
+- singkat
+- kuat
+- elegan
+- tidak terlalu panjang
+- tidak terlalu teknis
+- tidak terlalu menjual
+- tidak terlalu “coming soon” kosong
+
+---
+
+# MUST HAVE SECTIONS
+
+## 1. Hero Section
+Harus ada:
+- brand Foremoz
+- headline kuat
+- subheadline singkat
+- CTA utama
+- CTA sekunder
+
+Contoh arah headline:
+- The Coach Economy is Just Getting Started.
+- Build your coaching business, not just your classes.
+
+Contoh subheadline:
+- Foremoz helps coaches run classes, events, and communities — all in one place.
+- We’re building a new operating system for coaches, communities, and events.
+
+CTA utama:
+- Become a Founding Coach
+atau
+- Join Early Access
+
+CTA sekunder:
+- Read the Idea
+atau
+- Why Foremoz
+
+Tambahkan microcopy kecil:
+- Limited early access
+- Selected coaches only
+- Free for early adopters
+
+---
+
+## 2. Short Explanation Section
+Buat section singkat yang menjelaskan bahwa:
+- hari ini banyak coach hanya punya tools yang terpencar
+- kelas, event, komunitas, dan pertumbuhan bisnis belum menyatu
+- Foremoz sedang dibangun untuk itu
+
+Jangan terlalu panjang.
+Bisa 3 poin singkat atau 1 paragraf pendek.
+
+---
+
+## 3. Early Access / Pre-Adoption Section
+Jelaskan bahwa orang yang register bisa:
+- mendapat undangan akses lebih awal
+- mencoba lebih dulu secara gratis
+- ikut memberi feedback
+- menjadi bagian awal dari perjalanan Foremoz
+
+Gunakan kata-kata yang terasa eksklusif:
+- founding coach
+- selected early adopters
+- limited spots
+
+Jangan terkesan murahan.
+Bukan “gratis untuk semua”, tetapi “invited limited early access”.
+
+---
+
+## 4. Optional Read More Section
+Tambahkan section atau link untuk membaca ide besar Foremoz.
+
+Copy contoh:
+- Read why we’re building Foremoz
+- Explore the idea
+- Read our manifesto
+
+Link ini bisa diarahkan sementara ke placeholder:
+- `/why-foremoz`
+atau
+- `/manifesto`
+
+---
+
+## 5. Registration Form / Lead Capture
+Minimal form:
+- Name
+- Email
+- Role
+
+Role options:
+- Coach
+- Instructor
+- Mentor
+- Community Builder
+- Gym / Studio Owner
+
+Tambahkan optional field:
+- WhatsApp
+
+Karena market Indonesia, desain harus mendukung kemungkinan follow-up via WhatsApp.
+
+Setelah submit, tampilkan success message yang hangat dan rapi.
+
+Contoh success message:
+“Thanks. If you’re selected for early access, we’ll reach out first.”
+
+---
+
+# UX REQUIREMENTS
+- clean single-page splash
+- responsive mobile-first
+- elegant spacing
+- CTA langsung terlihat di first screen
+- form mudah diisi
+- tidak terlalu banyak scroll
+- boleh ada subtle gradient / glow / soft dark-light premium feel
+- boleh ada animasi ringan, tapi jangan berlebihan
+- harus terasa cepat dan ringan
+
+---
+
+# DESIGN STYLE
+Preferensi style:
+- modern SaaS landing page
+- simple typography hierarchy
+- rounded cards/buttons secukupnya
+- premium spacing
+- clean sections
+- soft shadows atau subtle gradients boleh
+- no clutter
+
+Warna:
+- bebas, tapi harus terasa premium dan fresh
+- jangan terlalu ramai
+- hindari warna yang terlalu childish
+
+---
+
+# TECHNICAL OUTPUT
+Gunakan:
+- React
+- Tailwind CSS
+- single file component bila memungkinkan
+- production-ready structure
+- easy to plug into existing Vite project
+
+Buat komponen dengan:
+- semantic structure
+- clean code
+- reusable section blocks kalau perlu
+- form state sederhana
+- dummy submit handler
+- placeholder link untuk manifesto/blog
+
+Kalau perlu, buat data array untuk role options.
+
+---
+
+# CTA / COPY REFERENCES
+Gunakan wording yang searah dengan ini:
+
+## Hero headline candidates
+- The Coach Economy is Just Getting Started.
+- Build your coaching business, not just your classes.
+
+## Supporting copy candidates
+- We’re building something for the next generation of coaches.
+- Foremoz helps coaches run classes, events, and communities — all in one place.
+- We’re inviting a small group of early adopters to try it first.
+
+## Early access wording
+- Limited early access
+- Selected coaches only
+- Free for early adopters
+- Become a Founding Coach
+
+## Read more wording
+- Read the Idea
+- Why Foremoz
+- Explore the Manifesto
+
+---
+
+# IMPORTANT CONSTRAINTS
+- Jangan buat page terlalu ramai
+- Jangan pakai lorem ipsum
+- Jangan buat copy terlalu panjang
+- Jangan terlalu generic seperti “something amazing is coming” tanpa konteks
+- Harus jelas bahwa ini tentang coach / classes / events / communities
+- Harus jelas bahwa user bisa daftar minat
+- Harus jelas bahwa akses awal bersifat limited
+- Harus ada rasa premium + invitation
+- Hindari feel “under construction jadul”
+
+---
+
+# DESIRED OUTPUT
+Berikan:
+1. React component lengkap
+2. Semua copy sudah terisi
+3. Tailwind styling siap pakai
+4. Dummy form submit state
+5. Placeholder links untuk manifesto/blog
+6. Struktur yang mudah diedit nanti
+
+Tambahkan komentar singkat di kode pada bagian yang kemungkinan nanti akan diganti:
+- brand copy
+- CTA text
+- form handler
+- manifesto URL

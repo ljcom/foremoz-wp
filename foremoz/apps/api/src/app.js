@@ -1,5 +1,6 @@
 import express from 'express';
 import { createHash, randomInt, randomUUID } from 'node:crypto';
+import { resolve4, resolveMx } from 'node:dns/promises';
 import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { query, pool, withTx } from './db.js';
 import { appendDomainEvent, resolveNamespaceId } from './event-store.js';
@@ -8,6 +9,7 @@ import { config } from './config.js';
 import {
   sendEventRegistrationEmail,
   sendMemberSignupEmail,
+  sendPrelaunchEarlyAccessEmail,
   sendPasswordResetEmail,
   sendPassportWelcomeEmail,
   sendTenantActivationEmail
@@ -2611,6 +2613,104 @@ function normalizeIndustrySlug(value, fallback = 'fitness') {
   return normalizedFallback === 'active' ? 'fitness' : normalizedFallback;
 }
 
+const PRELAUNCH_ROLE_OPTIONS = new Set([
+  'coach',
+  'instructor',
+  'mentor',
+  'community builder',
+  'gym / studio owner'
+]);
+
+const DISPOSABLE_EMAIL_DOMAINS = new Set([
+  'mailinator.com',
+  'guerrillamail.com',
+  'tempmail.com',
+  '10minutemail.com',
+  'yopmail.com',
+  'trashmail.com'
+]);
+
+const EMAIL_DOMAIN_DNS_CACHE = new Map();
+
+function normalizePrelaunchRole(value) {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (!normalized) {
+    throw fail(400, 'BAD_REQUEST', 'role is required');
+  }
+  if (!PRELAUNCH_ROLE_OPTIONS.has(normalized)) {
+    throw fail(400, 'BAD_REQUEST', 'role is invalid');
+  }
+  return normalized
+    .split(' ')
+    .map((token) => (token ? token[0].toUpperCase() + token.slice(1) : token))
+    .join(' ');
+}
+
+async function isEmailDomainDeliverable(email) {
+  const normalizedEmail = String(email || '').trim().toLowerCase();
+  const domain = normalizedEmail.split('@')[1] || '';
+  if (!domain) return false;
+  if (DISPOSABLE_EMAIL_DOMAINS.has(domain)) return false;
+  if (EMAIL_DOMAIN_DNS_CACHE.has(domain)) return EMAIL_DOMAIN_DNS_CACHE.get(domain);
+
+  let isDeliverable = false;
+  try {
+    const mxRecords = await resolveMx(domain);
+    if (Array.isArray(mxRecords) && mxRecords.length > 0) {
+      isDeliverable = true;
+    }
+  } catch {
+    isDeliverable = false;
+  }
+
+  if (!isDeliverable) {
+    try {
+      const aRecords = await resolve4(domain);
+      if (Array.isArray(aRecords) && aRecords.length > 0) {
+        isDeliverable = true;
+      }
+    } catch {
+      isDeliverable = false;
+    }
+  }
+
+  EMAIL_DOMAIN_DNS_CACHE.set(domain, isDeliverable);
+  return isDeliverable;
+}
+
+let prelaunchLeadTableReadyPromise = null;
+
+async function ensurePrelaunchLeadTable() {
+  if (!prelaunchLeadTableReadyPromise) {
+    prelaunchLeadTableReadyPromise = (async () => {
+      await query(
+        `create table if not exists public.prelaunch_early_access_lead (
+           lead_id bigserial primary key,
+           full_name text not null,
+           email text not null,
+           email_normalized text not null unique,
+           role text not null,
+           whatsapp text,
+           source text not null default 'foremoz.com',
+           page_path text not null default '/',
+           user_agent text,
+           ip_address text,
+           created_at timestamptz not null default now(),
+           updated_at timestamptz not null default now()
+         )`
+      );
+      await query(
+        `create index if not exists idx_prelaunch_lead_created_at
+         on public.prelaunch_early_access_lead (created_at desc)`
+      );
+    })().catch((error) => {
+      prelaunchLeadTableReadyPromise = null;
+      throw error;
+    });
+  }
+  return prelaunchLeadTableReadyPromise;
+}
+
 async function ensureOwnerBranchTable() {
   await query(
     `create table if not exists read.rm_owner_branch (
@@ -2669,6 +2769,77 @@ app.get('/health', async (_req, res) => {
   } catch (error) {
     const message = String(error?.message || '').trim() || 'database is unavailable';
     return res.status(500).json({ status: 'FAIL', error_code: 'DB_UNAVAILABLE', message });
+  }
+});
+
+app.post('/v1/prelaunch/leads', async (req, res, next) => {
+  try {
+    const data = req.body || {};
+    await enforceTurnstile(req, data);
+    const fullName = String(required(data.name || data.full_name, 'name')).trim();
+    if (fullName.length < 2) {
+      throw fail(400, 'BAD_REQUEST', 'name must be at least 2 characters');
+    }
+    if (fullName.length > 120) {
+      throw fail(400, 'BAD_REQUEST', 'name max length is 120');
+    }
+
+    let email;
+    try {
+      email = normalizeEmail(required(data.email, 'email'));
+    } catch {
+      throw fail(400, 'BAD_REQUEST', 'email format is invalid');
+    }
+    if (!(await isEmailDomainDeliverable(email))) {
+      throw fail(400, 'BAD_REQUEST', 'email domain cannot receive mail');
+    }
+
+    const role = normalizePrelaunchRole(data.role);
+    const whatsappRaw = String(data.whatsapp || '').trim();
+    const whatsapp = whatsappRaw ? whatsappRaw.slice(0, 40) : null;
+    const source = String(data.source || req.hostname || 'foremoz.com').trim().slice(0, 120) || 'foremoz.com';
+    const pagePath = String(data.page_path || req.path || '/').trim().slice(0, 255) || '/';
+    const userAgent = String(req.headers['user-agent'] || '').trim().slice(0, 512) || null;
+    const ipAddress = String(req.headers['x-forwarded-for'] || req.ip || '').split(',')[0].trim().slice(0, 64) || null;
+
+    await ensurePrelaunchLeadTable();
+
+    const { rows } = await query(
+      `insert into public.prelaunch_early_access_lead (
+         full_name, email, email_normalized, role, whatsapp, source, page_path, user_agent, ip_address
+       ) values ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       on conflict (email_normalized) do update set
+         full_name = excluded.full_name,
+         email = excluded.email,
+         role = excluded.role,
+         whatsapp = excluded.whatsapp,
+         source = excluded.source,
+         page_path = excluded.page_path,
+         user_agent = excluded.user_agent,
+         ip_address = excluded.ip_address,
+         updated_at = now()
+       returning lead_id, created_at, updated_at, (xmax = 0) as inserted`,
+      [fullName, email, email, role, whatsapp, source, pagePath, userAgent, ipAddress]
+    );
+
+    const lead = rows[0] || {};
+    const mode = lead.inserted ? 'created' : 'updated';
+    let emailDelivery = null;
+    if (mode === 'created') {
+      emailDelivery = await sendPrelaunchEarlyAccessEmail({
+        email,
+        fullName,
+        role
+      });
+      warnEmailDelivery('prelaunch_early_access', emailDelivery);
+    }
+    return created(res, {
+      lead_id: lead.lead_id || null,
+      mode,
+      email_delivery: emailDelivery
+    });
+  } catch (error) {
+    return next(error);
   }
 });
 
@@ -6659,7 +6830,60 @@ app.get('/v1/admin/events/:eventId/participants', async (req, res, next) => {
       if (deduped.length >= limit) break;
     }
 
-    return ok(res, { rows: deduped, event_id: eventId, limit });
+    const participantEmails = [...new Set(
+      deduped
+        .map((item) => String(item?.email || '').trim().toLowerCase())
+        .filter(Boolean)
+    )];
+    const participantPassportIds = [...new Set(
+      deduped
+        .map((item) => String(item?.passport_id || '').trim())
+        .filter(Boolean)
+    )];
+    const memberIdByEmail = new Map();
+    if (participantEmails.length > 0) {
+      const { rows: memberRows } = await query(
+        `select member_id, email
+         from read.rm_member
+         where tenant_id = $1
+           and lower(email) = any($2::text[])
+         order by updated_at desc`,
+        [tenantId, participantEmails]
+      );
+      for (const memberRow of memberRows) {
+        const normalizedEmail = String(memberRow?.email || '').trim().toLowerCase();
+        if (!normalizedEmail || memberIdByEmail.has(normalizedEmail)) continue;
+        memberIdByEmail.set(normalizedEmail, String(memberRow?.member_id || '').trim() || null);
+      }
+    }
+    const memberIdByPassportId = new Map();
+    if (participantPassportIds.length > 0) {
+      const { rows: passportRows } = await query(
+        `select passport_id, member_id
+         from read.rm_passport_profile
+         where tenant_id = $1
+           and passport_id = any($2::text[])
+         order by updated_at desc`,
+        [tenantId, participantPassportIds]
+      );
+      for (const passportRow of passportRows) {
+        const passportId = String(passportRow?.passport_id || '').trim();
+        if (!passportId || memberIdByPassportId.has(passportId)) continue;
+        memberIdByPassportId.set(passportId, String(passportRow?.member_id || '').trim() || null);
+      }
+    }
+
+    return ok(res, {
+      rows: deduped.map((item) => ({
+        ...item,
+        member_id: String(item?.member_id || '').trim()
+          || memberIdByEmail.get(String(item?.email || '').trim().toLowerCase())
+          || memberIdByPassportId.get(String(item?.passport_id || '').trim())
+          || null
+      })),
+      event_id: eventId,
+      limit
+    });
   } catch (error) {
     return next(error);
   }
@@ -8779,6 +9003,99 @@ app.get('/v1/read/payments/history', async (req, res, next) => {
     sql += ` order by recorded_at desc`;
     const { rows } = await query(sql, params);
     return ok(res, { rows });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.get('/v1/read/member-history-overrides', async (req, res, next) => {
+  try {
+    const tenantId = req.query.tenant_id || config.defaultTenantId;
+    const memberId = String(req.query.member_id || '').trim();
+    if (!memberId) {
+      throw fail(400, 'BAD_REQUEST', 'member_id is required');
+    }
+    const branchId = String(req.query.branch_id || 'all').trim() || 'all';
+    const limit = Math.min(Math.max(Number(req.query.limit || 200), 1), 500);
+    const params = [tenantId, memberId];
+    let sql = `select tenant_id, branch_id, member_id, history_key, kind, source_id, source_name, full_name,
+                      email, participant_no, registration_id, status, linked_status, booked_at,
+                      checked_in_at, checked_out_at, updated_at
+               from read.rm_member_history_override
+               where tenant_id = $1 and member_id = $2`;
+    if (branchId && branchId !== 'all') {
+      params.push(branchId);
+      sql += ` and branch_id = $${params.length}`;
+    }
+    params.push(limit);
+    sql += ` order by updated_at desc limit $${params.length}`;
+    const { rows } = await query(sql, params);
+    return ok(res, { rows, limit });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.post('/v1/member-history-overrides', async (req, res, next) => {
+  try {
+    const data = req.body || {};
+    const tenantId = data.tenant_id || config.defaultTenantId;
+    const branchId = String(data.branch_id || 'all').trim() || 'all';
+    const memberId = required(data.member_id, 'member_id');
+    const historyKey = required(data.history_key || data.key, 'history_key');
+    const updatedAt = data.updated_at || new Date().toISOString();
+    await query(
+      `insert into read.rm_member_history_override (
+         tenant_id, branch_id, member_id, history_key, kind, source_id, source_name, full_name,
+         email, participant_no, registration_id, status, linked_status, booked_at,
+         checked_in_at, checked_out_at, updated_at
+       ) values (
+         $1,$2,$3,$4,$5,$6,$7,$8,
+         $9,$10,$11,$12,$13,$14,
+         $15,$16,$17
+       )
+       on conflict (tenant_id, branch_id, history_key) do update set
+         member_id = excluded.member_id,
+         kind = excluded.kind,
+         source_id = excluded.source_id,
+         source_name = excluded.source_name,
+         full_name = excluded.full_name,
+         email = excluded.email,
+         participant_no = excluded.participant_no,
+         registration_id = excluded.registration_id,
+         status = excluded.status,
+         linked_status = excluded.linked_status,
+         booked_at = excluded.booked_at,
+         checked_in_at = excluded.checked_in_at,
+         checked_out_at = excluded.checked_out_at,
+         updated_at = excluded.updated_at`,
+      [
+        tenantId,
+        branchId,
+        memberId,
+        historyKey,
+        data.kind || null,
+        data.source_id || null,
+        data.source_name || null,
+        data.full_name || null,
+        data.email || null,
+        data.participant_no || null,
+        data.registration_id || null,
+        data.status || null,
+        data.linked_status || null,
+        data.booked_at || null,
+        data.checked_in_at || null,
+        data.checked_out_at || null,
+        updatedAt
+      ]
+    );
+    return ok(res, {
+      tenant_id: tenantId,
+      branch_id: branchId,
+      member_id: memberId,
+      history_key: historyKey,
+      updated_at: updatedAt
+    });
   } catch (error) {
     return next(error);
   }

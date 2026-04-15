@@ -15,6 +15,15 @@ export default defineConfig(({ mode }) => {
     env.VITE_STAGE ||
     '4'
   ).trim() || '4';
+  const prelaunchFlag = String(
+    process.env.PRELAUNCH ||
+    process.env.prelaunch ||
+    process.env.VITE_PRELAUNCH ||
+    env.PRELAUNCH ||
+    env.prelaunch ||
+    env.VITE_PRELAUNCH ||
+    '1'
+  ).trim() || '1';
   const outputDir = `dist-stg${appStage}`;
   const buildTimestamp = new Date().toISOString();
   const buildId = buildTimestamp.replace(/\D/g, '').slice(0, 14);
@@ -27,6 +36,7 @@ export default defineConfig(({ mode }) => {
     },
     define: {
       __APP_STAGE__: JSON.stringify(appStage),
+      __APP_PRELAUNCH__: JSON.stringify(prelaunchFlag),
       __APP_VERSION__: JSON.stringify(appVersion),
       __APP_BUILD_AT__: JSON.stringify(buildTimestamp),
       __APP_BUILD_ID__: JSON.stringify(buildId)

@@ -25,11 +25,12 @@ import SalesPage from './pages/SalesPage.jsx';
 import SalesProspectNewPage from './pages/SalesProspectNewPage.jsx';
 import SalesProspectEditPage from './pages/SalesProspectEditPage.jsx';
 import PtPage from './pages/PtPage.jsx';
+import PrelaunchPage, { ReadMorePlaceholderPage } from './pages/PrelaunchPage.jsx';
 import { accountPath, getAllowedEnvironments, getSession } from './lib.js';
 import { getPassportSession } from './passport-client.js';
 import BuildFooter from './components/BuildFooter.jsx';
 import PageErrorBoundary from './components/PageErrorBoundary.jsx';
-import { getAppStage, getRootHomePath, isPassportEventsEnabled } from './stage.js';
+import { getAppStage, getRootHomePath, isPassportEventsEnabled, isPrelaunchEnabled } from './stage.js';
 
 function roleHome(session) {
   const role = session?.role || 'admin';
@@ -160,14 +161,32 @@ function LegacyMemberPortalRedirect() {
 }
 
 export default function App() {
+  const location = useLocation();
   const stage = getAppStage();
   const eventsEnabled = isPassportEventsEnabled();
+  const prelaunchEnabled = isPrelaunchEnabled();
   const rootHome = getRootHomePath();
+  const isPrelaunchDarkRoute =
+    prelaunchEnabled && ['/', '/why-foremoz', '/manifesto'].includes(String(location?.pathname || ''));
+  const shouldMirrorToStage =
+    !prelaunchEnabled &&
+    typeof window !== 'undefined' &&
+    ['foremoz.com', 'www.foremoz.com'].includes(String(window.location.hostname || '').toLowerCase());
+
+  if (shouldMirrorToStage) {
+    const target = `https://stg${stage}.foremoz.com${window.location.pathname}${window.location.search}${window.location.hash}`;
+    if (window.location.href !== target) {
+      window.location.replace(target);
+    }
+    return null;
+  }
 
   return (
     <>
       <Routes>
-        <Route path="/" element={<Navigate to={rootHome} replace />} />
+        <Route path="/" element={prelaunchEnabled ? <PrelaunchPage /> : <Navigate to={rootHome} replace />} />
+        <Route path="/why-foremoz" element={<ReadMorePlaceholderPage />} />
+        <Route path="/manifesto" element={<ReadMorePlaceholderPage />} />
         <Route path="/host" element={stage <= 1 ? <Navigate to="/fitness" replace /> : <WebLandingPage />} />
         <Route path="/newevent" element={<Navigate to="/host" replace />} />
         <Route path="/web" element={<Navigate to="/host" replace />} />
@@ -467,7 +486,7 @@ export default function App() {
 
       <Route path="*" element={<Navigate to={rootHome} replace />} />
       </Routes>
-      <BuildFooter />
+      <BuildFooter tone={isPrelaunchDarkRoute ? 'dark' : 'default'} />
     </>
   );
 }
