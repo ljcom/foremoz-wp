@@ -1411,8 +1411,14 @@ export default function DashboardPage() {
       'class_booking',
       'open_access_purchase',
       'activity_purchase',
-      'session_pack_purchase'
+      'session_pack_purchase',
+      'membership_purchase'
     ]);
+    const packageClassIdByPackageId = new Map(
+      packages
+        .map((item) => [String(item?.package_id || '').trim(), String(item?.class_id || '').trim()])
+        .filter(([packageId, classId]) => packageId && classId)
+    );
     const ids = new Set();
     memberOrderRows.forEach((order) => {
       const status = String(order?.status || '').trim().toLowerCase();
@@ -1426,11 +1432,16 @@ export default function DashboardPage() {
         const referenceType = String(item?.reference_type || '').trim().toLowerCase();
         const referenceId = String(item?.reference_id || '').trim();
         if (!referenceId || !allowedReferenceTypes.has(referenceType)) return;
+        if (referenceType === 'membership_purchase') {
+          const mappedClassId = packageClassIdByPackageId.get(referenceId);
+          if (mappedClassId) ids.add(mappedClassId);
+          return;
+        }
         ids.add(referenceId);
       });
     });
     return ids;
-  }, [memberOrderRows]);
+  }, [memberOrderRows, packages]);
   const checkinEventTargets = useMemo(
     () => eventOrderTargets,
     [eventOrderTargets]
@@ -1751,12 +1762,20 @@ export default function DashboardPage() {
     () => selectedMemberClassLinks.filter((item) => purchasedProgramSourceIds.has(String(item?.source_id || '').trim())),
     [purchasedProgramSourceIds, selectedMemberClassLinks]
   );
-  const selectedMemberHistoryRows = useMemo(() => {
+  const selectedMemberHistoryRowsAll = useMemo(() => {
     const memberId = String(selectedMember?.member_id || '').trim();
     const overrideRows = memberHistoryOverrides.filter((item) => String(item?.member_id || '').trim() === memberId);
-    return mergeMemberHistoryRows(overrideRows, memberHistoryRows)
-      .filter((row) => row.checked_in_at || row.checked_out_at);
+    return mergeMemberHistoryRows(overrideRows, memberHistoryRows);
   }, [memberHistoryOverrides, memberHistoryRows, selectedMember]);
+  const selectedMemberHistoryRows = useMemo(() => (
+    selectedMemberHistoryRowsAll.filter((row) => {
+      if (!(row?.checked_in_at || row?.checked_out_at)) return false;
+      const isMembershipDraftCheckin = String(row?.kind || '').trim() === 'class'
+        && String(row?.registration_id || '').trim().startsWith('chk_')
+        && !row?.checked_out_at;
+      return !isMembershipDraftCheckin;
+    })
+  ), [selectedMemberHistoryRowsAll]);
 
   const searchResults = useMemo(() => {
     const q = String(query || '').trim().toLowerCase();
@@ -1893,8 +1912,8 @@ export default function DashboardPage() {
     [selectedClass]
   );
   const selectedClassIsMembershipMode = useMemo(() => (
-    selectedClassType === 'open_access' && selectedClass?.has_coach === false
-  ), [selectedClass, selectedClassType]);
+    selectedClassType === 'open_access'
+  ), [selectedClassType]);
   const selectedEventParticipantForMember = useMemo(() => {
     if (!selectedMember || !selectedEvent) return null;
     const selectedEventId = String(selectedEvent?.event_id || '').trim();
@@ -1928,6 +1947,29 @@ export default function DashboardPage() {
 
     return eventParticipants.find((participant) => isSameParticipant(selectedMember, participant)) || null;
   }, [eventParticipants, selectedEvent, selectedMember, selectedMemberEventLinks]);
+  const selectedEventLatestHistoryRow = useMemo(() => {
+    if (!selectedMember || !selectedEvent) return null;
+    const selectedEventId = String(selectedEvent.event_id || '').trim();
+    const rows = selectedMemberHistoryRowsAll
+      .filter((row) => String(row?.kind || '').trim() === 'event')
+      .filter((row) => String(row?.source_id || '').trim() === selectedEventId);
+    return rows[0] || null;
+  }, [selectedEvent, selectedMember, selectedMemberHistoryRowsAll]);
+  const selectedEventCanCheckout = useMemo(() => (
+    Boolean(selectedEventLatestHistoryRow?.checked_in_at) && !selectedEventLatestHistoryRow?.checked_out_at
+  ), [selectedEventLatestHistoryRow]);
+  const selectedMembershipLatestHistoryRow = useMemo(() => {
+    if (!selectedMember || !selectedClass) return null;
+    const selectedClassId = String(selectedClass.class_id || '').trim();
+    const rows = selectedMemberHistoryRowsAll
+      .filter((row) => String(row?.kind || '').trim() === 'class')
+      .filter((row) => String(row?.source_id || '').trim() === selectedClassId)
+      .filter((row) => String(row?.registration_id || '').trim().startsWith('chk_'));
+    return rows[0] || null;
+  }, [selectedClass, selectedMember, selectedMemberHistoryRowsAll]);
+  const selectedMembershipCanCheckout = useMemo(() => (
+    Boolean(selectedMembershipLatestHistoryRow?.checked_in_at) && !selectedMembershipLatestHistoryRow?.checked_out_at
+  ), [selectedMembershipLatestHistoryRow]);
   const dailyReportRows = useMemo(() => {
     const reportDate = new Date().toLocaleDateString('id-ID', {
       weekday: 'long',
@@ -2065,13 +2107,13 @@ export default function DashboardPage() {
     }
 
     const hasSelectedEvent = selectedExperienceType === 'event'
-      && selectedMemberEventLinks.some((item) => String(item.source_id || '') === String(selectedExperienceId || ''));
+      && checkinEventTargets.some((item) => String(item.source_id || '') === String(selectedExperienceId || ''));
     const hasSelectedClass = selectedExperienceType === 'class'
-      && selectedMemberPurchasedClassLinks.some((item) => String(item.source_id || '') === String(selectedExperienceId || ''));
+      && checkinClassTargets.some((item) => String(item.source_id || '') === String(selectedExperienceId || ''));
     if (hasSelectedEvent || hasSelectedClass) return;
 
-    const firstEvent = selectedMemberEventLinks[0] || null;
-    const firstClass = selectedMemberPurchasedClassLinks[0] || null;
+    const firstEvent = checkinEventTargets[0] || null;
+    const firstClass = checkinClassTargets[0] || null;
     if (firstEvent) {
       setSelectedExperienceType('event');
       setSelectedExperienceId(firstEvent.source_id);
@@ -2287,10 +2329,11 @@ export default function DashboardPage() {
     persistMemberHistoryOverride(nextRow);
   }
 
-  async function persistMemberHistoryOverride(row) {
+  async function persistMemberHistoryOverride(row, options = {}) {
+    const silent = options?.silent !== false;
     const rowKey = String(row?.key || '').trim();
     const memberId = String(row?.member_id || '').trim();
-    if (!rowKey || !memberId) return;
+    if (!rowKey || !memberId) return false;
     try {
       await apiJson('/v1/member-history-overrides', {
         method: 'POST',
@@ -2313,8 +2356,13 @@ export default function DashboardPage() {
           checked_out_at: row?.checked_out_at || null
         })
       });
+      return true;
     } catch {
+      if (!silent) {
+        throw new Error('history override gagal disimpan');
+      }
       // Persist errors should not block UI; backend will be retried on next action.
+      return false;
     }
   }
 
@@ -2705,7 +2753,7 @@ export default function DashboardPage() {
         checked_in_at: checkedInAt,
         checked_out_at: ''
       });
-      upsertMemberHistoryOverride({
+      const membershipHistoryRow = {
         key: `class:${selectedClass.class_id}:membership_checkin:${selectedMember.member_id}:${checkinId}`,
         member_id: selectedMember.member_id || '',
         kind: 'class',
@@ -2720,13 +2768,81 @@ export default function DashboardPage() {
         booked_at: '',
         checked_in_at: checkedInAt,
         checked_out_at: ''
-      });
+      };
+      upsertMemberHistoryOverride(membershipHistoryRow);
+      await persistMemberHistoryOverride(membershipHistoryRow, { silent: false });
       setActionFeedback(`membership.checkin.success: ${selectedMember.full_name || selectedMember.member_id}`);
       if (options.moveToCheckout) {
         setMemberWorkspaceTab('checkout');
       }
     } catch (err) {
       setActionFeedback(err.message || 'failed to check in membership program');
+    } finally {
+      setActionSaving(false);
+    }
+  }
+
+  async function checkoutMembershipClassWithoutBooking(options = {}) {
+    if (!selectedMember || !selectedClass) {
+      setActionFeedback('Pilih member dan program dulu sebelum check-out.');
+      return;
+    }
+    if (!selectedClassIsMembershipMode) {
+      setActionFeedback('Check-out tanpa booking hanya untuk program membership.');
+      return;
+    }
+    if (!selectedMembershipCanCheckout) {
+      setActionFeedback('Member belum punya check-in membership yang aktif.');
+      return;
+    }
+    try {
+      setActionSaving(true);
+      setActionFeedback('');
+      const checkedOutAt = new Date().toISOString();
+      const registrationId = String(selectedMembershipLatestHistoryRow?.registration_id || `chk_${Date.now()}`).trim();
+      const checkedInAt = selectedMembershipLatestHistoryRow?.checked_in_at || '';
+      const historyKey = `class:${selectedClass.class_id}:membership_checkin:${selectedMember.member_id}:${registrationId}`;
+      upsertParticipantSearchRow({
+        key: historyKey,
+        source_kind: 'class',
+        source_id: selectedClass.class_id || '',
+        source_name: selectedClass.class_name || selectedClass.class_id || 'Program',
+        member_id: selectedMember.member_id || '',
+        full_name: selectedMember.full_name || '',
+        phone: selectedMember.phone || '',
+        email: selectedMember.email || '',
+        status: 'checked_out',
+        participant_no: '',
+        registration_id: registrationId,
+        passport_id: '',
+        booked_at: '',
+        checked_in_at: checkedInAt,
+        checked_out_at: checkedOutAt
+      });
+      const membershipHistoryRow = {
+        key: historyKey,
+        member_id: selectedMember.member_id || '',
+        kind: 'class',
+        source_id: selectedClass.class_id || '',
+        source_name: selectedClass.class_name || selectedClass.class_id || 'Program',
+        full_name: selectedMember.full_name || '',
+        email: selectedMember.email || '',
+        participant_no: '',
+        registration_id: registrationId,
+        status: 'checked_out',
+        linked_status: 'checked_out',
+        booked_at: '',
+        checked_in_at: checkedInAt,
+        checked_out_at: checkedOutAt
+      };
+      upsertMemberHistoryOverride(membershipHistoryRow);
+      await persistMemberHistoryOverride(membershipHistoryRow, { silent: false });
+      setActionFeedback(`membership.checkout.success: ${selectedMember.full_name || selectedMember.member_id}`);
+      if (options.moveToHistory) {
+        setMemberWorkspaceTab('history');
+      }
+    } catch (err) {
+      setActionFeedback(err.message || 'failed to check out membership program');
     } finally {
       setActionSaving(false);
     }
@@ -3475,10 +3591,7 @@ export default function DashboardPage() {
               {memberWorkspaceTab === 'checkin' || memberWorkspaceTab === 'checkout' ? (
                 <article className="card" style={{ marginTop: '0.9rem' }}>
                   <p className="eyebrow">{memberWorkspaceTab === 'checkin' ? 'Check in' : 'Check out'}</p>
-                  {(
-                    (selectedMemberEventLinks.length + selectedMemberPurchasedClassLinks.length) > 0
-                    || (isMultiBranchPlan && (checkinEventTargets.length + checkinClassTargets.length) > 0)
-                  ) ? (
+                  {(checkinEventTargets.length + checkinClassTargets.length) > 0 ? (
                     <>
                       <div className="form">
                         <label>
@@ -3493,21 +3606,13 @@ export default function DashboardPage() {
                           >
                             <option
                               value="event"
-                              disabled={
-                                isMultiBranchPlan
-                                  ? checkinEventTargets.length === 0
-                                  : selectedMemberEventLinks.length === 0
-                              }
+                              disabled={checkinEventTargets.length === 0}
                             >
                               Event
                             </option>
                             <option
                               value="class"
-                              disabled={
-                                isMultiBranchPlan
-                                  ? checkinClassTargets.length === 0
-                                  : selectedMemberPurchasedClassLinks.length === 0
-                              }
+                              disabled={checkinClassTargets.length === 0}
                             >
                               Program
                             </option>
@@ -3547,9 +3652,9 @@ export default function DashboardPage() {
                             ) : (
                               <>
                                 <option value="">Pilih item aktif</option>
-                                {(selectedExperienceType === 'class' ? selectedMemberPurchasedClassLinks : selectedMemberEventLinks).map((item) => (
-                                  <option key={`${item.kind}:${item.source_id}`} value={item.source_id}>
-                                    {item.source_name}
+                                {currentCheckinTargets.map((item) => (
+                                  <option key={item.key} value={item.source_id}>
+                                    {item.label}
                                   </option>
                                 ))}
                               </>
@@ -3582,7 +3687,9 @@ export default function DashboardPage() {
                                     disabled={actionSaving || (selectedEventParticipantForMember?.checked_in_at && !selectedEventParticipantForMember?.checked_out_at)}
                                     onClick={() => checkinByIdentity({ member: selectedMember, participant: selectedEventParticipantForMember, moveToCheckout: true })}
                                   >
-                                    Check-in member
+                                    {(selectedEventParticipantForMember?.checked_in_at && !selectedEventParticipantForMember?.checked_out_at)
+                                      ? 'checked-in'
+                                      : 'check-in member'}
                                   </button>
                                 ) : (
                                   <button
@@ -3591,13 +3698,53 @@ export default function DashboardPage() {
                                     disabled={actionSaving || !selectedEventParticipantForMember.checked_in_at}
                                     onClick={() => checkoutByIdentity({ member: selectedMember, participant: selectedEventParticipantForMember, moveToHistory: true })}
                                   >
-                                    Check-out member
+                                    {selectedEventParticipantForMember.checked_in_at && !selectedEventParticipantForMember.checked_out_at
+                                      ? 'checked-out member'
+                                      : 'nothing check-out'}
                                   </button>
                                 )}
                               </div>
                             </>
                           ) : (
-                            <p className="muted">Member belum terdaftar di event ini.</p>
+                            <>
+                              <p className="muted">
+                                {memberWorkspaceTab === 'checkin'
+                                  ? 'Member belum terdaftar di event ini, tapi tetap bisa check-in langsung.'
+                                  : 'Member belum terdeteksi di participant list event ini.'}
+                              </p>
+                              <div className="row-actions">
+                                {memberWorkspaceTab === 'checkin' ? (
+                                  <button
+                                    className="btn"
+                                    type="button"
+                                    disabled={actionSaving || selectedEventCanCheckout}
+                                    onClick={() => checkinByIdentity({ member: selectedMember, moveToCheckout: true })}
+                                  >
+                                    {selectedEventCanCheckout ? 'checked-in' : 'check-in member'}
+                                  </button>
+                                ) : (
+                                  <button
+                                    className="btn"
+                                    type="button"
+                                    disabled={actionSaving || !selectedEventCanCheckout}
+                                    onClick={() => checkoutByIdentity({
+                                      member: selectedMember,
+                                      participant: {
+                                        checked_in_at: selectedEventLatestHistoryRow?.checked_in_at || '',
+                                        checked_out_at: selectedEventLatestHistoryRow?.checked_out_at || '',
+                                        registration_id: selectedEventLatestHistoryRow?.registration_id || null,
+                                        participant_no: selectedEventLatestHistoryRow?.participant_no || null,
+                                        email: selectedMember?.email || '',
+                                        full_name: selectedMember?.full_name || ''
+                                      },
+                                      moveToHistory: true
+                                    })}
+                                  >
+                                    {selectedEventCanCheckout ? 'checked-out member' : 'nothing check-out'}
+                                  </button>
+                                )}
+                              </div>
+                            </>
                           )}
                         </div>
                       ) : null}
@@ -3643,10 +3790,22 @@ export default function DashboardPage() {
                                   <button
                                     className="btn"
                                     type="button"
-                                    disabled={actionSaving}
+                                    disabled={actionSaving || selectedMembershipCanCheckout}
                                     onClick={() => checkinMembershipClassWithoutBooking()}
                                   >
-                                    Check-in member (tanpa booking)
+                                    {selectedMembershipCanCheckout ? 'Checked-in' : 'Check-in member'}
+                                  </button>
+                                </div>
+                              ) : null}
+                              {selectedClassIsMembershipMode && memberWorkspaceTab === 'checkout' ? (
+                                <div className="row-actions">
+                                  <button
+                                    className="btn"
+                                    type="button"
+                                    disabled={actionSaving || !selectedMembershipCanCheckout}
+                                    onClick={() => checkoutMembershipClassWithoutBooking({ moveToHistory: true })}
+                                  >
+                                    {selectedMembershipCanCheckout ? 'checked-out member' : 'nothing check-out'}
                                   </button>
                                 </div>
                               ) : null}
@@ -4155,10 +4314,10 @@ export default function DashboardPage() {
                       <button
                         className="btn ghost"
                         type="button"
-                        disabled={actionSaving}
+                        disabled={actionSaving || selectedMembershipCanCheckout}
                         onClick={() => checkinMembershipClassWithoutBooking()}
                       >
-                        Check-in selected member (tanpa booking)
+                        {selectedMembershipCanCheckout ? 'Checked-in' : 'Check-in selected member'}
                       </button>
                     </div>
                   ) : null}
