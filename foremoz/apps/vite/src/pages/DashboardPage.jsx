@@ -1442,9 +1442,30 @@ export default function DashboardPage() {
     });
     return ids;
   }, [memberOrderRows, packages]);
+  const purchasedEventSourceIds = useMemo(() => {
+    const ids = new Set();
+    memberOrderRows.forEach((order) => {
+      const status = String(order?.status || '').trim().toLowerCase();
+      const paymentStatus = String(order?.payment_status || '').trim().toLowerCase();
+      const isPurchased = status === 'paid' || paymentStatus === 'confirmed';
+      if (!isPurchased) return;
+      const items = Array.isArray(order?.order_items) && order.order_items.length > 0
+        ? order.order_items
+        : [order];
+      items.forEach((item) => {
+        const referenceType = String(item?.reference_type || '').trim().toLowerCase();
+        const referenceId = String(item?.reference_id || '').trim();
+        const orderType = normalizeOrderType(item?.order_type || order?.order_type);
+        const isEventOrder = referenceType === 'event_registration' || orderType === 'event';
+        if (!isEventOrder || !referenceId) return;
+        ids.add(referenceId);
+      });
+    });
+    return ids;
+  }, [memberOrderRows]);
   const checkinEventTargets = useMemo(
-    () => eventOrderTargets,
-    [eventOrderTargets]
+    () => eventOrderTargets.filter((item) => purchasedEventSourceIds.has(String(item?.source_id || '').trim())),
+    [eventOrderTargets, purchasedEventSourceIds]
   );
   const checkinClassTargets = useMemo(
     () => classOrderTargets
@@ -2082,7 +2103,9 @@ export default function DashboardPage() {
         && checkinClassTargets.some((item) => String(item.source_id || '') === String(selectedExperienceId || ''));
       if (hasSelectedEvent || hasSelectedClass) return;
 
-      const firstEvent = selectedMemberEventLinks[0] || checkinEventTargets[0] || null;
+      const firstEvent = selectedMemberEventLinks.find((item) =>
+        checkinEventTargets.some((target) => String(target.source_id || '') === String(item.source_id || ''))
+      ) || checkinEventTargets[0] || null;
       const firstClass = selectedMemberPurchasedClassLinks[0] || checkinClassTargets[0] || null;
       if (selectedExperienceType === 'class' && firstClass) {
         setSelectedExperienceId(firstClass.source_id);
@@ -3700,7 +3723,7 @@ export default function DashboardPage() {
                                   >
                                     {selectedEventParticipantForMember.checked_in_at && !selectedEventParticipantForMember.checked_out_at
                                       ? 'checked-out member'
-                                      : 'nothing check-out'}
+                                      : 'Nothing check-out'}
                                   </button>
                                 )}
                               </div>
@@ -3740,7 +3763,7 @@ export default function DashboardPage() {
                                       moveToHistory: true
                                     })}
                                   >
-                                    {selectedEventCanCheckout ? 'checked-out member' : 'nothing check-out'}
+                                    {selectedEventCanCheckout ? 'checked-out member' : 'Nothing check-out'}
                                   </button>
                                 )}
                               </div>
@@ -3805,7 +3828,7 @@ export default function DashboardPage() {
                                     disabled={actionSaving || !selectedMembershipCanCheckout}
                                     onClick={() => checkoutMembershipClassWithoutBooking({ moveToHistory: true })}
                                   >
-                                    {selectedMembershipCanCheckout ? 'checked-out member' : 'nothing check-out'}
+                                    {selectedMembershipCanCheckout ? 'checked-out member' : 'Nothing check-out'}
                                   </button>
                                 </div>
                               ) : null}
