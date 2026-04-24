@@ -209,6 +209,9 @@ export default function PtPage() {
   });
   const [ptBalances, setPtBalances] = useState([]);
   const [ptActivityRows, setPtActivityRows] = useState([]);
+  const [classBookingRows, setClassBookingRows] = useState([]);
+  const [classRows, setClassRows] = useState([]);
+  const [memberDirectoryRows, setMemberDirectoryRows] = useState([]);
   const [paymentRows, setPaymentRows] = useState([]);
   const [eventRows, setEventRows] = useState([]);
   const [eventParticipants, setEventParticipants] = useState([]);
@@ -283,6 +286,14 @@ export default function PtPage() {
     });
     return [...grouped.values()].sort((a, b) => a.member_id.localeCompare(b.member_id));
   }, [ptBalances]);
+  const memberNameById = useMemo(
+    () => new Map(
+      memberDirectoryRows
+        .map((row) => [String(row?.member_id || '').trim(), String(row?.full_name || '').trim()])
+        .filter(([memberId, fullName]) => memberId && fullName)
+    ),
+    [memberDirectoryRows]
+  );
   const balanceByPackageId = useMemo(
     () => new Map(ptBalances.map((row) => [String(row.pt_package_id || ''), row])),
     [ptBalances]
@@ -307,6 +318,55 @@ export default function PtPage() {
       })
       .sort((a, b) => new Date(a.session_at || 0).getTime() - new Date(b.session_at || 0).getTime()),
     [bookedSessions, completedSessionIds]
+  );
+  const coachProgramBookedSessions = useMemo(() => {
+    const normalizedTrainerId = String(trainerId || '').trim().toLowerCase();
+    const normalizedTrainerName = String(session?.user?.fullName || '').trim().toLowerCase();
+    const classById = new Map(
+      classRows
+        .map((item) => [String(item?.class_id || '').trim(), item])
+        .filter(([classId]) => classId)
+    );
+    return classBookingRows
+      .filter((row) => String(row?.status || '').trim().toLowerCase() === 'booked')
+      .filter((row) => !row?.attendance_checked_out_at)
+      .map((row) => {
+        const classId = String(row?.class_id || '').trim();
+        const classDetail = classById.get(classId) || null;
+        const coachId = String(classDetail?.coach_id || '').trim().toLowerCase();
+        const trainerName = String(classDetail?.trainer_name || '').trim().toLowerCase();
+        const hasCoach = Boolean(classDetail?.has_coach);
+        const coachMatched =
+          (normalizedTrainerId && coachId && normalizedTrainerId === coachId)
+          || (
+            normalizedTrainerName
+            && trainerName
+            && (normalizedTrainerName === trainerName
+              || normalizedTrainerName.includes(trainerName)
+              || trainerName.includes(normalizedTrainerName))
+          );
+        if (!hasCoach || !coachMatched) return null;
+        const scheduleStartAt = row?.schedule_choice?.start_at || classDetail?.start_at || row?.booked_at || null;
+        return {
+          activity_id: `class_booking:${row?.booking_id || classId}`,
+          session_id: String(row?.booking_id || '').trim() || null,
+          session_at: scheduleStartAt,
+          activity_note: classDetail?.class_name || classDetail?.title || classId || 'Booked program',
+          custom_fields: row?.registration_answers && typeof row.registration_answers === 'object' ? row.registration_answers : {},
+          pt_package_id: null,
+          member_id: String(row?.member_id || '').trim(),
+          source_kind: 'class_booking',
+          class_id: classId,
+          schedule_label: String(row?.schedule_label || '').trim()
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => new Date(a.session_at || 0).getTime() - new Date(b.session_at || 0).getTime());
+  }, [classBookingRows, classRows, session?.user?.fullName, trainerId]);
+  const upcomingBookedSessions = useMemo(
+    () => [...pendingBookedSessions, ...coachProgramBookedSessions]
+      .sort((a, b) => new Date(a.session_at || 0).getTime() - new Date(b.session_at || 0).getTime()),
+    [pendingBookedSessions, coachProgramBookedSessions]
   );
   const recentCompletedSessions = useMemo(
     () => [...completedSessions].sort((a, b) => new Date(b.session_at || 0).getTime() - new Date(a.session_at || 0).getTime()),
@@ -424,12 +484,15 @@ export default function PtPage() {
         })
       }).catch(() => {});
       const trainerFilter = trainerId ? `&trainer_id=${encodeURIComponent(trainerId)}` : '';
-      const [profileRes, balanceRes, activityRes, paymentRes, eventRes] = await Promise.all([
+      const [profileRes, balanceRes, activityRes, paymentRes, eventRes, bookingRes, classRes, memberRes] = await Promise.all([
         apiJson(`/v1/pt/profile?tenant_id=${encodeURIComponent(tenantId)}&user_id=${encodeURIComponent(trainerId || '')}`).catch(() => ({ row: null })),
         apiJson(`/v1/read/pt-balance?tenant_id=${encodeURIComponent(tenantId)}&branch_id=${encodeURIComponent(branchId)}${trainerFilter}`).catch(() => ({ rows: [] })),
         apiJson(`/v1/read/pt-activity?tenant_id=${encodeURIComponent(tenantId)}${trainerFilter}`).catch(() => ({ rows: [] })),
         apiJson(`/v1/read/payments/history?tenant_id=${encodeURIComponent(tenantId)}`).catch(() => ({ rows: [] })),
-        apiJson(`/v1/read/events?tenant_id=${encodeURIComponent(tenantId)}&branch_id=${encodeURIComponent(branchId)}&status=all&limit=200`).catch(() => ({ rows: [] }))
+        apiJson(`/v1/read/events?tenant_id=${encodeURIComponent(tenantId)}&branch_id=${encodeURIComponent(branchId)}&status=all&limit=200`).catch(() => ({ rows: [] })),
+        apiJson(`/v1/read/bookings?tenant_id=${encodeURIComponent(tenantId)}`).catch(() => ({ rows: [] })),
+        apiJson(`/v1/read/class-availability?tenant_id=${encodeURIComponent(tenantId)}&branch_id=${encodeURIComponent(branchId)}`).catch(() => ({ rows: [] })),
+        apiJson(`/v1/read/members?tenant_id=${encodeURIComponent(tenantId)}&limit=1000`).catch(() => ({ rows: [] }))
       ]);
       const profileRow = profileRes?.row || null;
       if (profileRow) {
@@ -441,6 +504,9 @@ export default function PtPage() {
       const balances = Array.isArray(balanceRes.rows) ? balanceRes.rows : [];
       setPtBalances(balances);
       setPtActivityRows(Array.isArray(activityRes.rows) ? activityRes.rows : []);
+      setClassBookingRows(Array.isArray(bookingRes.rows) ? bookingRes.rows : []);
+      setClassRows(Array.isArray(classRes.rows) ? classRes.rows : []);
+      setMemberDirectoryRows(Array.isArray(memberRes.rows) ? memberRes.rows : []);
       setPaymentRows(Array.isArray(paymentRes.rows) ? paymentRes.rows : []);
       const nextEventRows = Array.isArray(eventRes.rows) ? eventRes.rows : [];
       setEventRows(nextEventRows);
@@ -1013,7 +1079,8 @@ export default function PtPage() {
                       <option value="">Pilih member</option>
                       {memberRows.map((item) => (
                         <option key={item.member_id} value={item.member_id}>
-                          {item.member_id} | remaining {item.remaining_sessions}
+                          {(memberNameById.get(String(item.member_id || '').trim()) || item.member_id)}
+                          {` - ${item.member_id} | remaining ${item.remaining_sessions}`}
                         </option>
                       ))}
                     </select>
@@ -1039,34 +1106,47 @@ export default function PtPage() {
                 </form>
               </section>
 
-              <section className="card">
-                <p className="eyebrow">Book list</p>
-                <h2>Upcoming booked sessions</h2>
-                <div className="entity-list">
-                  {pendingBookedSessions.slice(0, 12).map((item) => (
-                    <div className="entity-row" key={item.activity_id}>
-                      <div>
-                        <strong>{item.member_id} {item.pt_package_id ? `- ${item.pt_package_id}` : ''}</strong>
-                        <p>{formatAppDateTime(item.session_at)}</p>
-                        <p>{item.activity_note || '-'}</p>
-                        <p>{describePtCustomFields(item.custom_fields)}</p>
+              <div style={{ display: 'grid', gap: '0.8rem', alignContent: 'start', alignSelf: 'start', gridColumn: 'span 2' }}>
+                <section className="card">
+                  <p className="eyebrow">Book list</p>
+                  <h2>Upcoming booked sessions</h2>
+                  <div className="entity-list">
+                    {upcomingBookedSessions.slice(0, 12).map((item) => (
+                      <div className="entity-row" key={item.activity_id}>
+                        <div>
+                          <strong>
+                            {memberNameById.get(String(item.member_id || '').trim()) || item.member_id}
+                          </strong>
+                          {item.member_id ? <p>{item.member_id}</p> : null}
+                          {item.pt_package_id ? <p>{item.pt_package_id}</p> : null}
+                          <p>{formatAppDateTime(item.session_at)}</p>
+                          {item.schedule_label ? <p>{item.schedule_label}</p> : null}
+                          <p>{item.activity_note || '-'}</p>
+                          <p>{describePtCustomFields(item.custom_fields)}</p>
+                        </div>
+                        {item.source_kind === 'class_booking' ? (
+                          <div className="payment-meta">
+                            <span className="passport-chip">member booking</span>
+                          </div>
+                        ) : (
+                          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                            <button className="btn ghost small" type="button" onClick={() => seedBookFromActivity(item)}>Edit base</button>
+                            <button className="btn ghost small" type="button" onClick={() => seedCompleteFromActivity(item)}>Go to complete</button>
+                          </div>
+                        )}
                       </div>
-                      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                        <button className="btn ghost small" type="button" onClick={() => seedBookFromActivity(item)}>Edit base</button>
-                        <button className="btn ghost small" type="button" onClick={() => seedCompleteFromActivity(item)}>Go to complete</button>
-                      </div>
-                    </div>
-                  ))}
-                  {pendingBookedSessions.length === 0 ? (
-                    <div className="entity-row">
-                      <div>
-                        <strong>Belum ada booked session</strong>
-                        <p>Sesi yang sudah dibooking dan belum selesai akan muncul di sini.</p>
-                      </div>
-                    </div>
-                  ) : null}
-                </div>
-              </section>
+                    ))}
+                  </div>
+                </section>
+
+                {upcomingBookedSessions.length === 0 ? (
+                  <section className="card" style={{ alignSelf: 'start' }}>
+                    <p className="eyebrow">Book status</p>
+                    <h2>Belum ada booked session</h2>
+                    <p className="feedback">Sesi yang sudah dibooking dan belum selesai akan muncul di sini.</p>
+                  </section>
+                ) : null}
+              </div>
             </div>
           </div>
         ) : null}
@@ -1093,7 +1173,8 @@ export default function PtPage() {
                       <option value="">Pilih member</option>
                       {memberRows.map((item) => (
                         <option key={item.member_id} value={item.member_id}>
-                          {item.member_id} | remaining {item.remaining_sessions}
+                          {(memberNameById.get(String(item.member_id || '').trim()) || item.member_id)}
+                          {` - ${item.member_id} | remaining ${item.remaining_sessions}`}
                         </option>
                       ))}
                     </select>
@@ -1151,30 +1232,32 @@ export default function PtPage() {
                 </form>
               </section>
 
-              <section className="card">
-                <p className="eyebrow">Complete list</p>
-                <h2>Sesi yang siap diselesaikan</h2>
-                <div className="entity-list">
-                  {pendingBookedSessions.slice(0, 12).map((item) => (
-                    <div className="entity-row" key={`${item.activity_id}-complete`}>
-                      <div>
-                        <strong>{item.member_id} {item.pt_package_id ? `- ${item.pt_package_id}` : ''}</strong>
-                        <p>{formatAppDateTime(item.session_at)} | session {item.session_id || '-'}</p>
-                        <p>{item.activity_note || '-'}</p>
+              <div style={{ display: 'grid', gap: '0.8rem', alignContent: 'start', alignSelf: 'start', gridColumn: 'span 2' }}>
+                <section className="card">
+                  <p className="eyebrow">Complete list</p>
+                  <h2>Sesi yang siap diselesaikan</h2>
+                  <div className="entity-list">
+                    {pendingBookedSessions.slice(0, 12).map((item) => (
+                      <div className="entity-row" key={`${item.activity_id}-complete`}>
+                        <div>
+                          <strong>{item.member_id} {item.pt_package_id ? `- ${item.pt_package_id}` : ''}</strong>
+                          <p>{formatAppDateTime(item.session_at)} | session {item.session_id || '-'}</p>
+                          <p>{item.activity_note || '-'}</p>
+                        </div>
+                        <button className="btn ghost small" type="button" onClick={() => seedCompleteFromActivity(item)}>Use</button>
                       </div>
-                      <button className="btn ghost small" type="button" onClick={() => seedCompleteFromActivity(item)}>Use</button>
-                    </div>
-                  ))}
-                  {pendingBookedSessions.length === 0 ? (
-                    <div className="entity-row">
-                      <div>
-                        <strong>Tidak ada sesi pending</strong>
-                        <p>Booked session yang belum completed akan muncul di sini.</p>
-                      </div>
-                    </div>
-                  ) : null}
-                </div>
-              </section>
+                    ))}
+                  </div>
+                </section>
+
+                {pendingBookedSessions.length === 0 ? (
+                  <section className="card" style={{ alignSelf: 'start' }}>
+                    <p className="eyebrow">Pending status</p>
+                    <h2>Tidak ada sesi pending</h2>
+                    <p className="feedback">Booked session yang belum completed akan muncul di sini.</p>
+                  </section>
+                ) : null}
+              </div>
             </div>
 
             <section className="card">
@@ -1463,14 +1546,15 @@ export default function PtPage() {
                       }))
                     }
                   >
-                    <option value="">Pilih member</option>
-                    {memberRows.map((item) => (
-                      <option key={item.member_id} value={item.member_id}>
-                        {item.member_id} | remaining {item.remaining_sessions}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                  <option value="">Pilih member</option>
+                  {memberRows.map((item) => (
+                    <option key={item.member_id} value={item.member_id}>
+                      {(memberNameById.get(String(item.member_id || '').trim()) || item.member_id)}
+                      {` - ${item.member_id} | remaining ${item.remaining_sessions}`}
+                    </option>
+                  ))}
+                </select>
+              </label>
                 <label>
                   pt_package_id (optional)
                   <select value={activityForm.pt_package_id} onChange={(e) => setActivityForm((p) => ({ ...p, pt_package_id: e.target.value }))}>

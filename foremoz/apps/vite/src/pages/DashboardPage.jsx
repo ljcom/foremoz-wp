@@ -1339,7 +1339,7 @@ export default function DashboardPage() {
     const activityTargets = classes
       .filter((item) => {
         const classType = String(item?.class_type || 'scheduled').trim().toLowerCase();
-        return ['scheduled', 'open_access', 'activity'].includes(classType);
+        return ['scheduled', 'open_access', 'activity', 'session_pack'].includes(classType);
       })
       .map((item) => ({
         key: buildOrderTargetKey(

@@ -25,18 +25,40 @@ export default function MemberSignInPage() {
   const [turnstileToken, setTurnstileToken] = useState('');
   const [turnstileResetSignal, setTurnstileResetSignal] = useState(0);
 
-  async function resolveTenantId(accountOrTenant) {
+  async function resolveAccountContext(accountOrTenant) {
     const raw = String(accountOrTenant || '').trim();
-    if (!raw) return 'tn_001';
-    if (raw.startsWith('tn_')) return raw;
+    if (!raw) {
+      return {
+        tenantId: 'tn_001',
+        branchId: 'br_jkt_01',
+        accountSlug: 'tn_001'
+      };
+    }
+    if (raw.startsWith('tn_')) {
+      return {
+        tenantId: raw,
+        branchId: 'br_jkt_01',
+        accountSlug: raw
+      };
+    }
     try {
       const resolved = await apiJson(`/v1/public/account/resolve?account_slug=${encodeURIComponent(raw)}`);
       const tenantId = String(resolved?.row?.tenant_id || '').trim();
-      if (tenantId) return tenantId;
+      if (tenantId) {
+        return {
+          tenantId,
+          branchId: String(resolved?.row?.branch_id || '').trim() || 'br_jkt_01',
+          accountSlug: String(resolved?.row?.account_slug || '').trim() || raw
+        };
+      }
     } catch {
       // fallback to provided value for backward compatibility
     }
-    return raw;
+    return {
+      tenantId: raw,
+      branchId: 'br_jkt_01',
+      accountSlug: raw
+    };
   }
 
   async function submit(e) {
@@ -46,7 +68,8 @@ export default function MemberSignInPage() {
       setLoading(true);
       const email = requireField(form.email, 'email');
       const password = requireField(form.password, 'password');
-      const tenantId = await resolveTenantId(account || 'tn_001');
+      const accountContext = await resolveAccountContext(account || 'tn_001');
+      const tenantId = accountContext.tenantId;
       if (IS_MOCK_MODE && IS_MOCKUP_OPEN_ACCESS) {
         setSession({
           isAuthenticated: true,
@@ -60,11 +83,14 @@ export default function MemberSignInPage() {
           },
           tenant: {
             id: tenantId,
-            account_slug: account || tenantId,
+            account_slug: accountContext.accountSlug || account || tenantId,
             namespace: `foremoz:${tenantId}`,
             gym_name: 'Foremoz Mock Gym'
           },
-          branch: { id: 'br_mock_01', chain: 'branch:br_mock_01' },
+          branch: {
+            id: accountContext.branchId || 'br_mock_01',
+            chain: `branch:${accountContext.branchId || 'br_mock_01'}`
+          },
           auth: {
             tokenType: 'Bearer',
             accessToken: 'mock-token',
@@ -151,11 +177,14 @@ export default function MemberSignInPage() {
         },
         tenant: {
           id: tenantId,
-          account_slug: account || tenantId,
+          account_slug: accountContext.accountSlug || account || tenantId,
           namespace: `foremoz:${tenantId}`,
           gym_name: 'Foremoz Demo Gym'
         },
-        branch: { id: 'br_jkt_01', chain: 'branch:br_jkt_01' },
+        branch: {
+          id: accountContext.branchId || 'br_jkt_01',
+          chain: `branch:${accountContext.branchId || 'br_jkt_01'}`
+        },
         auth: {
           tokenType: result.auth?.token_type || 'Bearer',
           accessToken: result.auth?.access_token || null,

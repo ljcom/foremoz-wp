@@ -1197,9 +1197,9 @@ function inferClassEditorTemplate(item) {
   const scheduleMode = String(item?.schedule_mode || 'none').trim().toLowerCase();
   const normalizedType = String(item?.class_type || 'open_access').trim().toLowerCase();
   const hasCoach = item?.has_coach !== false;
-  if (scheduleMode !== 'none') return 'activity_class';
-  if (normalizedType === 'open_access' && !hasCoach) return 'membership';
   if (normalizedType === 'session_pack' && hasCoach) return 'personal_training';
+  if (normalizedType === 'open_access' && !hasCoach) return 'membership';
+  if (scheduleMode !== 'none') return 'activity_class';
   return 'custom';
 }
 
@@ -6964,7 +6964,7 @@ export default function AdminPage() {
                                       : isActivityClassEditor
                                         ? 'Untuk activity program, isi durasi akses, jadwal, registrasi, dan capacity program.'
                                         : isPersonalTrainingClassEditor
-                                          ? 'Untuk personal training, isi coach, masa aktif paket, dan jumlah sesi yang diberikan.'
+                                          ? 'Untuk personal training, isi coach, masa aktif paket, jumlah sesi, dan jadwal sesi.'
                                           : isOpenAccessClassForm
                                             ? 'Untuk open access, masa aktif dan kuota dihitung per enrollment user.'
                                             : 'Untuk session pack, isi expiry dan jumlah sesi yang diberikan per enrollment user.'}
@@ -7039,7 +7039,7 @@ export default function AdminPage() {
                                       ) : null}
                                     </>
                                   ) : null}
-                                  {isActivityClassEditor || isCustomClassEditor ? (
+                                  {isActivityClassEditor || isPersonalTrainingClassEditor || isCustomClassEditor ? (
                                     <div className="card" style={{ borderStyle: 'dashed', marginTop: '0.75rem' }}>
                                     <p className="eyebrow">Schedule</p>
                                     <div style={{ display: 'grid', gap: '0.35rem', marginBottom: '0.75rem' }}>

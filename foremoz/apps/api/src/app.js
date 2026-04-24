@@ -672,7 +672,7 @@ function normalizeBoolean(value, fallback = true) {
   return fallback;
 }
 
-const ACTIVITY_CLASS_TYPES = new Set(['scheduled', 'open_access', 'session_pack']);
+const ACTIVITY_CLASS_TYPES = new Set(['scheduled', 'open_access', 'session_pack', 'activity']);
 const ACTIVITY_CAPACITY_MODES = new Set(['limited', 'flexible', 'none']);
 const ACTIVITY_QUOTA_MODES = new Set(['none', 'manual', 'auto']);
 const ACTIVITY_VALIDITY_MODES = new Set(['fixed', 'rolling', 'per_enrollment']);
@@ -7795,7 +7795,8 @@ app.post('/v1/bookings/classes/create', async (req, res, next) => {
       }),
       'registration_answers'
     );
-    if (String(classRow.class_type || 'scheduled').trim().toLowerCase() !== 'scheduled') {
+    const classType = String(classRow.class_type || 'scheduled').trim().toLowerCase();
+    if (!ACTIVITY_CLASS_TYPES.has(classType)) {
       throw fail(409, 'ACTIVITY_NOT_BOOKABLE', `activity ${classId} is not bookable`);
     }
     const resolvedBranchId = String(data.branch_id || classRow.branch_id || '').trim();
@@ -7805,18 +7806,20 @@ app.post('/v1/bookings/classes/create', async (req, res, next) => {
     if (classRow.branch_id && resolvedBranchId !== String(classRow.branch_id)) {
       throw fail(409, 'CLASS_BRANCH_MISMATCH', `class ${classId} belongs to another branch`);
     }
-    const nowMs = Date.now();
-    const registrationStartMs = classRow.registration_start ? new Date(classRow.registration_start).getTime() : null;
-    const registrationEndMs = classRow.registration_end ? new Date(classRow.registration_end).getTime() : null;
-    if (Number.isFinite(registrationStartMs) && nowMs < registrationStartMs) {
-      throw fail(409, 'REGISTRATION_NOT_OPEN', `registration for class ${classId} is not open yet`);
-    }
-    if (Number.isFinite(registrationEndMs) && nowMs > registrationEndMs) {
-      throw fail(409, 'REGISTRATION_CLOSED', `registration for class ${classId} is closed`);
-    }
-    const currentAvailable = Number(classRow.available_slots);
-    if (!Number.isFinite(currentAvailable) || currentAvailable <= 0) {
-      throw fail(409, 'CLASS_FULL', `class ${classId} is full`);
+    if (classType === 'scheduled') {
+      const nowMs = Date.now();
+      const registrationStartMs = classRow.registration_start ? new Date(classRow.registration_start).getTime() : null;
+      const registrationEndMs = classRow.registration_end ? new Date(classRow.registration_end).getTime() : null;
+      if (Number.isFinite(registrationStartMs) && nowMs < registrationStartMs) {
+        throw fail(409, 'REGISTRATION_NOT_OPEN', `registration for class ${classId} is not open yet`);
+      }
+      if (Number.isFinite(registrationEndMs) && nowMs > registrationEndMs) {
+        throw fail(409, 'REGISTRATION_CLOSED', `registration for class ${classId} is closed`);
+      }
+      const currentAvailable = Number(classRow.available_slots);
+      if (!Number.isFinite(currentAvailable) || currentAvailable <= 0) {
+        throw fail(409, 'CLASS_FULL', `class ${classId} is full`);
+      }
     }
     if (memberId) {
       const activeBooking = await findActiveClassBooking({ tenantId, classId, memberId });
@@ -7829,7 +7832,8 @@ app.post('/v1/bookings/classes/create', async (req, res, next) => {
         memberId,
         actionType: 'book'
       });
-      if (access.enrollment && !access.allowed) {
+      const requiresEnrollment = classType !== 'scheduled';
+      if ((requiresEnrollment && !access.allowed) || (!requiresEnrollment && access.enrollment && !access.allowed)) {
         throw fail(409, 'ACTIVITY_ACCESS_DENIED', access.reasons.join(', '));
       }
     }

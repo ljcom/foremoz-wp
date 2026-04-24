@@ -161,9 +161,11 @@ export default function MemberPortalPage() {
   const [myEventsError, setMyEventsError] = useState('');
   const [classes, setClasses] = useState([]);
   const [payments, setPayments] = useState([]);
+  const [orders, setOrders] = useState([]);
   const [bookings, setBookings] = useState([]);
   const [subscriptions, setSubscriptions] = useState([]);
   const [ptBalances, setPtBalances] = useState([]);
+  const [packages, setPackages] = useState([]);
   const [portalLoading, setPortalLoading] = useState(false);
   const [bookingSaving, setBookingSaving] = useState(false);
   const [bookingForm, setBookingForm] = useState({
@@ -215,8 +217,58 @@ export default function MemberPortalPage() {
       .sort((a, b) => new Date(a.start_at || 0).getTime() - new Date(b.start_at || 0).getTime())[0] || null;
   }, [orderedMyEvents]);
   const availablePrograms = useMemo(
-    () => classes.filter((item) => String(item?.class_type || 'scheduled').trim().toLowerCase() === 'scheduled'),
-    [classes]
+    () => {
+      const allowedClassTypes = new Set(['scheduled', 'session_pack']);
+      const allowedReferenceTypes = new Set([
+        'class_booking',
+        'open_access_purchase',
+        'activity_purchase',
+        'session_pack_purchase',
+        'pt_package_purchase'
+      ]);
+      const membershipClassIds = new Set(
+        packages
+          .filter((item) => String(item?.package_type || '').trim().toLowerCase() === 'membership')
+          .map((item) => String(item?.class_id || '').trim())
+          .filter(Boolean)
+      );
+      const packageClassIdByPackageId = new Map(
+        packages
+          .map((item) => [String(item?.package_id || '').trim(), String(item?.class_id || '').trim()])
+          .filter(([packageId, classId]) => packageId && classId)
+      );
+      const purchasedProgramIds = new Set();
+      orders.forEach((order) => {
+        const orderStatus = String(order?.status || '').trim().toLowerCase();
+        const paymentStatus = String(order?.payment_status || '').trim().toLowerCase();
+        const isPurchased = orderStatus === 'paid' || paymentStatus === 'confirmed';
+        if (!isPurchased) return;
+        const items = Array.isArray(order?.order_items) && order.order_items.length > 0
+          ? order.order_items
+          : [order];
+        items.forEach((item) => {
+          const referenceType = String(item?.reference_type || '').trim().toLowerCase();
+          const referenceId = String(item?.reference_id || '').trim();
+          if (!referenceId || !allowedReferenceTypes.has(referenceType)) return;
+          if (referenceType === 'session_pack_purchase' || referenceType === 'pt_package_purchase') {
+            const mappedClassId = packageClassIdByPackageId.get(referenceId);
+            if (mappedClassId) purchasedProgramIds.add(mappedClassId);
+            purchasedProgramIds.add(referenceId);
+            return;
+          }
+          purchasedProgramIds.add(referenceId);
+        });
+      });
+      return classes.filter((item) => {
+        const classType = String(item?.class_type || 'scheduled').trim().toLowerCase();
+        const classId = String(item?.class_id || '').trim();
+        return allowedClassTypes.has(classType)
+          && classId
+          && purchasedProgramIds.has(classId)
+          && !membershipClassIds.has(classId);
+      });
+    },
+    [classes, orders, packages]
   );
   const selectedProgram = useMemo(
     () => availablePrograms.find((item) => String(item?.class_id || '') === String(bookingForm.class_id || '')) || null,
@@ -270,9 +322,11 @@ export default function MemberPortalPage() {
       setMyEvents([]);
       setClasses([]);
       setPayments([]);
+      setOrders([]);
       setBookings([]);
       setSubscriptions([]);
       setPtBalances([]);
+      setPackages([]);
       return;
     }
     setMyEventsLoading(true);
@@ -286,15 +340,32 @@ export default function MemberPortalPage() {
           branch_id: branchId
         })
       }).catch(() => {});
-      const [registrationRes, eventRes, paymentRes, bookingRes, subscriptionRes, ptBalanceRes, classRes] = await Promise.all([
+      const [registrationRes, eventRes, paymentRes, bookingRes, subscriptionRes, ptBalanceRes] = await Promise.all([
         apiJson(`/v1/read/event-registrations?email=${encodeURIComponent(memberEmail)}&passport_id=${encodeURIComponent(memberId)}&limit=400`),
         apiJson('/v1/read/events?status=all&limit=400'),
         apiJson(`/v1/read/payments/history?tenant_id=${encodeURIComponent(tenantId)}&member_id=${encodeURIComponent(memberId)}`).catch(() => ({ rows: [] })),
         apiJson(`/v1/read/bookings?tenant_id=${encodeURIComponent(tenantId)}&member_id=${encodeURIComponent(memberId)}`).catch(() => ({ rows: [] })),
         apiJson(`/v1/read/subscriptions/active?tenant_id=${encodeURIComponent(tenantId)}&member_id=${encodeURIComponent(memberId)}`).catch(() => ({ rows: [] })),
-        apiJson(`/v1/read/pt-balance?tenant_id=${encodeURIComponent(tenantId)}&member_id=${encodeURIComponent(memberId)}`).catch(() => ({ rows: [] })),
-        apiJson(`/v1/read/class-availability?tenant_id=${encodeURIComponent(tenantId)}&branch_id=${encodeURIComponent(branchId)}`).catch(() => ({ rows: [] }))
+        apiJson(`/v1/read/pt-balance?tenant_id=${encodeURIComponent(tenantId)}&member_id=${encodeURIComponent(memberId)}`).catch(() => ({ rows: [] }))
       ]);
+      const [classScopedRes, packageScopedRes, orderScopedRes] = await Promise.all([
+        apiJson(`/v1/read/class-availability?tenant_id=${encodeURIComponent(tenantId)}&branch_id=${encodeURIComponent(branchId)}`).catch(() => ({ rows: [] })),
+        apiJson(`/v1/admin/packages?tenant_id=${encodeURIComponent(tenantId)}&branch_id=${encodeURIComponent(branchId)}`).catch(() => ({ rows: [] })),
+        apiJson(`/v1/read/orders?tenant_id=${encodeURIComponent(tenantId)}&branch_id=${encodeURIComponent(branchId)}&member_id=${encodeURIComponent(memberId)}&limit=100`).catch(() => ({ rows: [] }))
+      ]);
+      let classRows = Array.isArray(classScopedRes?.rows) ? classScopedRes.rows : [];
+      let packageRows = Array.isArray(packageScopedRes?.rows) ? packageScopedRes.rows : [];
+      let orderRows = Array.isArray(orderScopedRes?.rows) ? orderScopedRes.rows : [];
+      if (classRows.length === 0 || packageRows.length === 0 || orderRows.length === 0) {
+        const [classGlobalRes, packageGlobalRes, orderGlobalRes] = await Promise.all([
+          apiJson(`/v1/read/class-availability?tenant_id=${encodeURIComponent(tenantId)}`).catch(() => ({ rows: [] })),
+          apiJson(`/v1/admin/packages?tenant_id=${encodeURIComponent(tenantId)}`).catch(() => ({ rows: [] })),
+          apiJson(`/v1/read/orders?tenant_id=${encodeURIComponent(tenantId)}&member_id=${encodeURIComponent(memberId)}&limit=100`).catch(() => ({ rows: [] }))
+        ]);
+        if (classRows.length === 0) classRows = Array.isArray(classGlobalRes?.rows) ? classGlobalRes.rows : [];
+        if (packageRows.length === 0) packageRows = Array.isArray(packageGlobalRes?.rows) ? packageGlobalRes.rows : [];
+        if (orderRows.length === 0) orderRows = Array.isArray(orderGlobalRes?.rows) ? orderGlobalRes.rows : [];
+      }
       const registrationRows = Array.isArray(registrationRes?.rows) ? registrationRes.rows : [];
       const registrationByEventId = new Map(
         registrationRows
@@ -311,7 +382,6 @@ export default function MemberPortalPage() {
           ...row,
           member_registration: registrationByEventId.get(String(row?.event_id || '').trim()) || null
         }));
-      const classRows = Array.isArray(classRes?.rows) ? classRes.rows : [];
       const classById = new Map(
         classRows
           .map((item) => [String(item?.class_id || '').trim(), item])
@@ -324,22 +394,39 @@ export default function MemberPortalPage() {
       setMyEvents(joinedEvents);
       setClasses(classRows);
       setPayments(Array.isArray(paymentRes?.rows) ? paymentRes.rows : []);
+      setOrders(orderRows);
       setBookings(enrichedBookings);
       setSubscriptions(Array.isArray(subscriptionRes?.rows) ? subscriptionRes.rows : []);
       setPtBalances(Array.isArray(ptBalanceRes?.rows) ? ptBalanceRes.rows : []);
+      setPackages(packageRows);
     } catch (error) {
       setMyEvents([]);
       setClasses([]);
       setPayments([]);
+      setOrders([]);
       setBookings([]);
       setSubscriptions([]);
       setPtBalances([]);
+      setPackages([]);
       setMyEventsError(error.message || 'Gagal memuat portal member.');
     } finally {
       setMyEventsLoading(false);
       setPortalLoading(false);
     }
   }
+
+  useEffect(() => {
+    if (!bookingForm.class_id) return;
+    const stillAvailable = availablePrograms.some((item) => String(item?.class_id || '') === String(bookingForm.class_id || ''));
+    if (stillAvailable) return;
+    setBookingForm((prev) => ({
+      ...prev,
+      class_id: '',
+      schedule_key: '',
+      amount: '0',
+      registration_answers: {}
+    }));
+  }, [availablePrograms, bookingForm.class_id]);
 
   useEffect(() => {
     refreshPortalData();
@@ -388,28 +475,6 @@ export default function MemberPortalPage() {
     try {
       setBookingSaving(true);
       setFeedback('');
-      const amount = Math.max(0, Number(bookingForm.amount || selectedProgram.price || 0));
-      let paymentId = null;
-      if (amount > 0) {
-        const orderRes = await apiJson('/v1/orders', {
-          method: 'POST',
-          body: JSON.stringify({
-            tenant_id: tenantId,
-            branch_id: branchId,
-            member_id: memberId,
-            order_label: `Program Booking - ${selectedProgram.class_name || selectedProgram.class_id}`,
-            order_type: 'class_booking',
-            qty: 1,
-            unit_price: amount,
-            currency: 'IDR',
-            payment_method: bookingForm.method || 'virtual_account',
-            payment_settlement: 'paid',
-            reference_type: 'class_booking',
-            reference_id: selectedProgram.class_id
-          })
-        });
-        paymentId = orderRes?.order?.payment_id || null;
-      }
 
       await apiJson('/v1/bookings/classes/create', {
         method: 'POST',
@@ -423,8 +488,7 @@ export default function MemberPortalPage() {
           guest_name: session?.user?.fullName || null,
           registration_answers: bookingForm.registration_answers,
           schedule_choice: chosenSchedule?.key || null,
-          schedule_label: chosenSchedule?.label || null,
-          payment_id: paymentId
+          schedule_label: chosenSchedule?.label || null
         })
       });
 
@@ -695,6 +759,11 @@ export default function MemberPortalPage() {
                       ))}
                     </select>
                   </label>
+                  {availablePrograms.length === 0 ? (
+                    <p className="sub">
+                      Belum ada program `scheduled` atau `session_pack` yang sudah dibeli (order `paid` / payment `confirmed`).
+                    </p>
+                  ) : null}
                   {selectedProgram ? (
                     <div className="card" style={{ borderStyle: 'dashed' }}>
                       <p className="eyebrow">Program summary</p>
@@ -862,13 +931,16 @@ export default function MemberPortalPage() {
                 <p><strong>Completed:</strong> {bookingPerformance.completed}</p>
                 <p><strong>Canceled:</strong> {bookingPerformance.canceled}</p>
                 <p><strong>Attendance rate:</strong> {bookingPerformance.attendanceRate}%</p>
+              </section>
+
+              <section className="card">
+                <p className="eyebrow">Next booked schedule</p>
                 {nextUpcomingProgramBooking ? (
-                  <div className="card" style={{ marginTop: '1rem', borderStyle: 'dashed' }}>
-                    <p className="eyebrow">Next booked schedule</p>
+                  <>
                     <p><strong>{nextUpcomingProgramBooking.class_detail?.class_name || nextUpcomingProgramBooking.class_id}</strong></p>
                     <p>{getBookingScheduleLabel(nextUpcomingProgramBooking) || getProgramScheduleSummary(nextUpcomingProgramBooking.class_detail)}</p>
                     <p>Status: {getBookingAttendanceStatus(nextUpcomingProgramBooking)}</p>
-                  </div>
+                  </>
                 ) : (
                   <p className="sub">Belum ada booking aktif.</p>
                 )}
