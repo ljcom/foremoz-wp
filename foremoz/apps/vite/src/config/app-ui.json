@@ -187,7 +187,17 @@
       { "value": "per_day", "label": "Per day" },
       { "value": "per_week", "label": "Per week" },
       { "value": "per_month", "label": "Per month" }
-    ]
+    ],
+    "eventWorkflow": {
+      "defaultStatus": "scheduled",
+      "draftStatus": "draft",
+      "publishStatus": "published",
+      "publishedStatuses": ["published", "posted"],
+      "statusLabels": {
+        "published": "PUBLISHED",
+        "posted": "PUBLISHED"
+      }
+    }
   },
   "csDashboard": {
     "orders": {

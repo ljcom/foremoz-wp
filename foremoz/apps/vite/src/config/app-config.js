@@ -39,6 +39,27 @@ export function getAdminPlanLabel(plan, fallbackLabel = '') {
   return String(labels[String(plan || '').trim()] || fallbackLabel || '');
 }
 
+export function getAdminEventWorkflowConfig() {
+  return asObject(getAdminPageConfig().eventWorkflow);
+}
+
+export function getAdminEventWorkflowValue(key, fallbackValue = '') {
+  return String(getAdminEventWorkflowConfig()[key] || fallbackValue || '');
+}
+
+export function isConfiguredAdminEventPublishedStatus(status) {
+  const workflowConfig = getAdminEventWorkflowConfig();
+  const normalized = String(status || '').trim().toLowerCase();
+  return asArray(workflowConfig.publishedStatuses).includes(normalized);
+}
+
+export function getAdminEventStatusLabel(status) {
+  const workflowConfig = getAdminEventWorkflowConfig();
+  const labels = asObject(workflowConfig.statusLabels);
+  const normalized = String(status || workflowConfig.defaultStatus || '').trim().toLowerCase();
+  return String(labels[normalized] || normalized).toUpperCase();
+}
+
 export function getWorkspaceAccessConfig() {
   return asObject(appUiConfig.workspaceAccess);
 }

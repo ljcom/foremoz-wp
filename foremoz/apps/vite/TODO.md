@@ -5,6 +5,7 @@
 - [x] Add initial JSON config for page error-boundary copy and CS order/payment options.
 - [x] Move workspace route policies, role/env access, environment labels, admin tabs, and plan aliases into JSON config.
 - [x] Move AdminPage tab definitions, plan labels, duration units, weekdays, and activity validity/usage option lists into JSON config.
+- [x] Move AdminPage event publish/draft workflow statuses and display status labels into JSON config.
 - [ ] Inventory current UI surfaces that still define labels, navigation, tabs, statuses, actions, empty states, or copy directly in components.
 - [ ] Define or extend JSON config for navigation, page layouts, table columns, forms, badge variants, workflow actions, and empty states before adding new UI.
 - [ ] Keep renderers generic: components should receive config and context instead of owning business-specific arrays or rules.

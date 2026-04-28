@@ -5,9 +5,12 @@ import { getVerticalConfig, getVerticalLabel, guessVerticalSlugByText } from '..
 import WorkspaceHeader from '../components/WorkspaceHeader.jsx';
 import { useI18n } from '../i18n.js';
 import {
+  getAdminEventStatusLabel,
+  getAdminEventWorkflowValue,
   getAdminPageOptions,
   getAdminPlanLabel,
-  getAdminTabsConfig
+  getAdminTabsConfig,
+  isConfiguredAdminEventPublishedStatus
 } from '../config/app-config.js';
 import {
   formatAppDate,
@@ -1489,12 +1492,11 @@ function estimateEventPostingPrice(durationMinutes) {
 }
 
 function isPublishedStatus(status) {
-  const normalized = String(status || '').toLowerCase();
-  return normalized === 'published' || normalized === 'posted';
+  return isConfiguredAdminEventPublishedStatus(status);
 }
 
 function displayEventStatus(status) {
-  return isPublishedStatus(status) ? 'PUBLISHED' : String(status || 'scheduled').toUpperCase();
+  return getAdminEventStatusLabel(status);
 }
 
 function toRegistrationFieldForm(item, index) {
@@ -4639,7 +4641,7 @@ export default function AdminPage() {
         body: JSON.stringify({
           tenant_id: tenantId,
           branch_id: branchId,
-          status: 'draft'
+          status: getAdminEventWorkflowValue('draftStatus', 'draft')
         })
       });
       await loadEvents();
@@ -4689,7 +4691,7 @@ export default function AdminPage() {
           max_participants: Math.max(0, Number(eventForm.max_participants || 0)),
           duration_minutes: eventPostQuote.duration_minutes,
           registration_fields: normalizeRegistrationFieldsForPayload(eventForm.registration_fields),
-          status: 'published'
+          status: getAdminEventWorkflowValue('publishStatus', 'published')
         })
       });
       await loadEvents();
