@@ -44,6 +44,51 @@
       }
     }
   },
+  "salesWorkspace": {
+    "copy": {
+      "brand": "Foremoz",
+      "eyebrow": "Sales Workspace",
+      "titleFallback": "Sales",
+      "subtitle": "Manage prospects, follow-ups, conversions, and incentive basis.",
+      "insightEyebrow": "Insight",
+      "loading": "Loading sales workspace...",
+      "quickGuideEyebrow": "Quick Guide",
+      "prospectEyebrow": "Prospect",
+      "prospectPipelineTitle": "Prospect Pipeline",
+      "stageLabel": "stage",
+      "markLost": "Mark lost ({count})",
+      "addProspect": "Add Prospect",
+      "close": "Close",
+      "createProspect": "Create prospect",
+      "saving": "Saving...",
+      "backToHost": "Back to host"
+    },
+    "navItems": [
+      { "id": "dashboard", "label": "Dashboard", "href": "#dashboard" },
+      { "id": "prospects", "label": "Prospects", "href": "#prospects", "active": true },
+      { "id": "members", "label": "Members", "href": "#members" },
+      { "id": "events", "label": "Events", "href": "#events" },
+      { "id": "orders", "label": "Orders", "href": "#orders" },
+      { "id": "payments", "label": "Payments", "href": "#payments" },
+      { "id": "incentives", "label": "Incentives", "href": "#incentives" },
+      { "id": "settings", "label": "Settings", "href": "#settings" }
+    ],
+    "quickGuide": [
+      { "text": "Capture prospect information." },
+      { "text": "Schedule and track follow-up activity." },
+      { "text": "Convert qualified prospects into members." },
+      { "text": "Create orders only after conversion." },
+      { "text": "Payment must be completed by member or CS." }
+    ],
+    "stageFilters": [
+      { "value": "all", "label": "all" },
+      { "value": "new", "label": "new" },
+      { "value": "followup", "label": "followup" },
+      { "value": "qualified", "label": "qualified" },
+      { "value": "converted", "label": "converted" },
+      { "value": "lost", "label": "lost" }
+    ]
+  },
   "workspaceAccess": {
     "defaultAccount": "tn_001",
     "defaultRole": "admin",

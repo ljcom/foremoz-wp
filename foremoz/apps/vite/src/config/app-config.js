@@ -71,6 +71,7 @@ export function validateAppUiConfig(config = appUiConfig) {
   requireConfigObject(config, 'adminPage.eventWorkflow');
   requireConfigObject(config, 'adminPage.memberUpload');
   requireConfigObject(config, 'csDashboard.orders');
+  requireConfigObject(config, 'salesWorkspace.copy');
 
   [
     'workspaceAccess.workspaceSwitcherEnvironments',
@@ -95,14 +96,18 @@ export function validateAppUiConfig(config = appUiConfig) {
     'adminPage.saasExtensionMonths',
     'csDashboard.orders.orderTypes',
     'csDashboard.orders.paymentMethods',
-    'csDashboard.orders.settlements'
+    'csDashboard.orders.settlements',
+    'salesWorkspace.stageFilters'
   ].forEach((path) => requireConfigOptionArray(config, path));
 
   [
     'adminPage.tabs',
     'adminPage.eventTemplates',
-    'adminPage.classTemplates'
+    'adminPage.classTemplates',
+    'salesWorkspace.navItems'
   ].forEach((path) => requireConfigOptionArray(config, path, 'id'));
+
+  requireConfigOptionArray(config, 'salesWorkspace.quickGuide', 'text');
 
   [
     'adminPage.productTableColumns',
@@ -135,6 +140,15 @@ export function validateAppUiConfig(config = appUiConfig) {
     'createOrderFailed',
     'orderCreatedFeedback'
   ]);
+  requireConfigCopy(config, 'salesWorkspace.copy', [
+    'brand',
+    'eyebrow',
+    'subtitle',
+    'quickGuideEyebrow',
+    'prospectPipelineTitle',
+    'addProspect',
+    'createProspect'
+  ]);
 }
 
 validateAppUiConfig();
@@ -151,6 +165,10 @@ export function getPageErrorBoundaryConfig(variant) {
 
 export function getDashboardOrderConfig() {
   return asObject(asObject(appUiConfig.csDashboard).orders);
+}
+
+export function getSalesWorkspaceConfig() {
+  return asObject(appUiConfig.salesWorkspace);
 }
 
 export function getAdminPageConfig() {

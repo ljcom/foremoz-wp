@@ -1,13 +1,24 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { getSalesWorkspaceConfig } from '../config/app-config.js';
 import { apiJson, clearSession, getAccountSlug, getAllowedEnvironments, getEnvironmentLabel, getSession } from '../lib.js';
-import WorkspaceHeader from '../components/WorkspaceHeader.jsx';
 import {
   formatAppDateTime,
   getAppDateKey,
   getAppDateTimeInputValue,
   toAppIsoFromDateTimeInput
 } from '../time.js';
+
+const SALES_WORKSPACE_CONFIG = getSalesWorkspaceConfig();
+const SALES_WORKSPACE_COPY = SALES_WORKSPACE_CONFIG.copy || {};
+const SALES_NAV_ITEMS = Array.isArray(SALES_WORKSPACE_CONFIG.navItems) ? SALES_WORKSPACE_CONFIG.navItems : [];
+const SALES_QUICK_GUIDE = Array.isArray(SALES_WORKSPACE_CONFIG.quickGuide) ? SALES_WORKSPACE_CONFIG.quickGuide : [];
+const SALES_STAGE_FILTERS = Array.isArray(SALES_WORKSPACE_CONFIG.stageFilters) ? SALES_WORKSPACE_CONFIG.stageFilters : [];
+
+function salesCopy(key, fallback = '', vars = {}) {
+  const template = String(SALES_WORKSPACE_COPY[key] || fallback || '');
+  return template.replace(/\{(\w+)\}/g, (_, varKey) => String(vars[varKey] ?? ''));
+}
 
 function Stat({ label, value, iconClass, tone, hint }) {
   return (
@@ -140,6 +151,7 @@ export default function SalesPage() {
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState('');
   const [error, setError] = useState('');
+  const [prospectDrawerOpen, setProspectDrawerOpen] = useState(false);
   const [newForm, setNewForm] = useState({
     full_name: '',
     email: '',
@@ -392,6 +404,7 @@ export default function SalesPage() {
         next_followup_at: '',
         custom_fields_text: ''
       });
+      setProspectDrawerOpen(false);
       await loadSalesWorkspace();
     } catch (err) {
       setFeedback(err.message || 'failed to create prospect');
@@ -623,85 +636,81 @@ export default function SalesPage() {
   }
 
   return (
-    <main className="dashboard">
-      <WorkspaceHeader
-        eyebrow="Sales Workspace"
-        title={session?.user?.fullName || 'Sales'}
-        subtitle="Prospect pipeline with follow-up and conversion"
-        allowedEnv={allowedEnv}
-        targetEnv={targetEnv}
-        getEnvironmentLabel={getEnvironmentLabel}
-        onSelectEnv={(env) => {
-          setTargetEnv(env);
-          goToEnv(env);
-        }}
-        onSignOut={signOut}
-      />
+    <main className="backend-shell sales-workspace-shell">
+      <aside className="backend-sidebar">
+        <div className="backend-sidebar-brand">{salesCopy('brand', 'Foremoz')}</div>
+        {SALES_NAV_ITEMS.map((item) => (
+          <a key={item.id} className={item.active ? 'active' : ''} href={item.href || `#${item.id}`}>
+            {item.label || item.id}
+          </a>
+        ))}
+      </aside>
 
-      <section style={{ marginTop: '1rem' }}>
-        <p className="eyebrow">Insight</p>
+      <section className="backend-main">
+        <header className="backend-topbar">
+          <div>
+            <p className="eyebrow">{salesCopy('eyebrow', 'Sales Workspace')}</p>
+            <h1>{session?.user?.fullName || salesCopy('titleFallback', 'Sales')}</h1>
+            <p className="muted">{salesCopy('subtitle', 'Manage prospects, follow-ups, conversions, and incentive basis.')}</p>
+          </div>
+          <div className="backend-topbar-actions">
+            {allowedEnv.map((env) => (
+              <button
+                className={`btn ghost small ${targetEnv === env ? 'active' : ''}`}
+                key={env}
+                type="button"
+                onClick={() => {
+                  setTargetEnv(env);
+                  goToEnv(env);
+                }}
+              >
+                {getEnvironmentLabel(env)}
+              </button>
+            ))}
+            <button className="btn ghost small" type="button" onClick={signOut}>Sign out</button>
+            <button className="btn small" type="button" onClick={() => setProspectDrawerOpen(true)}>{salesCopy('addProspect', 'Add Prospect')}</button>
+          </div>
+        </header>
+
+      <section className="section-stack">
+        <p className="eyebrow">{salesCopy('insightEyebrow', 'Insight')}</p>
         <section className="stats-grid">
           {insightStats.map((s) => (
             <Stat key={s.label} label={s.label} value={s.value} iconClass={s.iconClass} tone={s.tone} hint={s.hint} />
           ))}
         </section>
-        {loading ? <p className="feedback">Loading sales workspace...</p> : null}
+        {loading ? <p className="feedback">{salesCopy('loading', 'Loading sales workspace...')}</p> : null}
         {error ? <p className="error">{error}</p> : null}
         {feedback ? <p className="feedback">{feedback}</p> : null}
       </section>
 
-      <section className="card admin-main" style={{ marginTop: '1rem' }}>
-        <p className="eyebrow">Sales start here</p>
+      <section className="card admin-main">
+        <p className="eyebrow">{salesCopy('quickGuideEyebrow', 'Quick Guide')}</p>
         <div style={{ display: 'grid', gap: '0.45rem' }}>
-          <p><strong>1.</strong> Tambah prospect lalu follow-up sampai qualified.</p>
-          <p><strong>2.</strong> Convert prospect jadi member sebelum membuat order.</p>
-          <p><strong>3.</strong> Sales hanya membuat order dan mengarahkan pembayaran.</p>
-          <p><strong>4.</strong> Payment harus diselesaikan oleh member dari sisi mereka atau dibantu CS. Sales tidak boleh menerima uang langsung.</p>
+          {SALES_QUICK_GUIDE.map((item, index) => (
+            <p key={item.text}><strong>{index + 1}.</strong> {item.text}</p>
+          ))}
         </div>
       </section>
 
-      <section className="card admin-main" style={{ marginTop: '1rem' }}>
-        <h2>Add prospect</h2>
-        <form className="form" onSubmit={createProspect}>
-          <label>full_name<input value={newForm.full_name} onChange={(e) => setNewForm((p) => ({ ...p, full_name: e.target.value }))} /></label>
-          <label>email<input type="email" value={newForm.email} onChange={(e) => setNewForm((p) => ({ ...p, email: e.target.value }))} /></label>
-          <label>phone<input value={newForm.phone} onChange={(e) => setNewForm((p) => ({ ...p, phone: e.target.value }))} /></label>
-          <label>id_card<input value={newForm.id_card} onChange={(e) => setNewForm((p) => ({ ...p, id_card: e.target.value }))} /></label>
-          <label>source
-            <select value={newForm.source} onChange={(e) => setNewForm((p) => ({ ...p, source: e.target.value }))}>
-              <option value="walkin">walkin</option>
-              <option value="instagram">instagram</option>
-              <option value="referral">referral</option>
-              <option value="website">website</option>
-            </select>
-          </label>
-          <label>notes<input value={newForm.notes} onChange={(e) => setNewForm((p) => ({ ...p, notes: e.target.value }))} /></label>
-          <label>next_followup_at<input type="datetime-local" value={newForm.next_followup_at} onChange={(e) => setNewForm((p) => ({ ...p, next_followup_at: e.target.value }))} /></label>
-          <label>custom_fields (JSON)<textarea rows={3} value={newForm.custom_fields_text} onChange={(e) => setNewForm((p) => ({ ...p, custom_fields_text: e.target.value }))} placeholder='{"campaign":"ramadan","budget":"starter"}' /></label>
-          <button className="btn" type="submit" disabled={saving}>{saving ? 'Saving...' : 'Create prospect'}</button>
-        </form>
-      </section>
-
-      <section className="card admin-main" style={{ marginTop: '1rem' }}>
+      <section className="card admin-main" id="prospects">
         <div className="panel-head">
           <div>
-            <p className="eyebrow">Prospect</p>
-            <h2>Prospect list</h2>
+            <p className="eyebrow">{salesCopy('prospectEyebrow', 'Prospect')}</p>
+            <h2>{salesCopy('prospectPipelineTitle', 'Prospect Pipeline')}</h2>
           </div>
           <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-            <label>stage
+            <label>{salesCopy('stageLabel', 'stage')}
               <select value={stageFilter} onChange={(e) => setStageFilter(e.target.value)}>
-                <option value="all">all</option>
-                <option value="new">new</option>
-                <option value="followup">followup</option>
-                <option value="qualified">qualified</option>
-                <option value="converted">converted</option>
-                <option value="lost">lost</option>
+                {SALES_STAGE_FILTERS.map((item) => (
+                  <option key={item.value} value={item.value}>{item.label || item.value}</option>
+                ))}
               </select>
             </label>
             <button className="btn ghost" type="button" onClick={markSelectedLost} disabled={selected.length === 0 || saving}>
-              Mark lost ({selected.length})
+              {salesCopy('markLost', 'Mark lost ({count})', { count: selected.length })}
             </button>
+            <button className="btn" type="button" onClick={() => setProspectDrawerOpen(true)}>{salesCopy('addProspect', 'Add Prospect')}</button>
           </div>
         </div>
 
@@ -1000,7 +1009,33 @@ export default function SalesPage() {
         </div>
       </section>
 
-      <footer className="dash-foot"><Link to="/host">Back to host</Link></footer>
+      {prospectDrawerOpen ? (
+        <div className="backend-drawer-overlay" onClick={() => setProspectDrawerOpen(false)}>
+          <aside className="backend-drawer" onClick={(event) => event.stopPropagation()}>
+            <div className="panel-head">
+              <div>
+                <p className="eyebrow">{salesCopy('prospectEyebrow', 'Prospect')}</p>
+                <h2>{salesCopy('addProspect', 'Add Prospect')}</h2>
+              </div>
+              <button className="btn ghost small" type="button" onClick={() => setProspectDrawerOpen(false)}>{salesCopy('close', 'Close')}</button>
+            </div>
+            <form className="form form-grid" onSubmit={createProspect}>
+              <label>full_name<input value={newForm.full_name} onChange={(e) => setNewForm((p) => ({ ...p, full_name: e.target.value }))} /></label>
+              <label>email<input type="email" value={newForm.email} onChange={(e) => setNewForm((p) => ({ ...p, email: e.target.value }))} /></label>
+              <label>phone<input value={newForm.phone} onChange={(e) => setNewForm((p) => ({ ...p, phone: e.target.value }))} /></label>
+              <label>id_card<input value={newForm.id_card} onChange={(e) => setNewForm((p) => ({ ...p, id_card: e.target.value }))} /></label>
+              <label>source<input value={newForm.source} onChange={(e) => setNewForm((p) => ({ ...p, source: e.target.value }))} /></label>
+              <label>next_followup_at<input type="datetime-local" value={newForm.next_followup_at} onChange={(e) => setNewForm((p) => ({ ...p, next_followup_at: e.target.value }))} /></label>
+              <label className="span-2">notes<textarea rows={3} value={newForm.notes} onChange={(e) => setNewForm((p) => ({ ...p, notes: e.target.value }))} /></label>
+              <label className="span-2">custom_fields (JSON)<textarea rows={3} value={newForm.custom_fields_text} onChange={(e) => setNewForm((p) => ({ ...p, custom_fields_text: e.target.value }))} placeholder='{"interest":"personal training"}' /></label>
+              <button className="btn span-2" type="submit" disabled={saving}>{saving ? salesCopy('saving', 'Saving...') : salesCopy('createProspect', 'Create prospect')}</button>
+            </form>
+          </aside>
+        </div>
+      ) : null}
+
+      <footer className="dash-foot"><Link to="/host">{salesCopy('backToHost', 'Back to host')}</Link></footer>
+      </section>
     </main>
   );
 }

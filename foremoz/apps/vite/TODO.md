@@ -48,3 +48,4 @@
 ## Known Follow-up
 - [x] Continue migrating remaining admin/detail page copy into the existing i18n/config layer.
 - [x] Add validation for JSON config shape before rendering config-driven pages.
+- [x] Apply backend redesign direction to Sales Workspace shell, prospect pipeline, and drawer-based Add Prospect flow.
