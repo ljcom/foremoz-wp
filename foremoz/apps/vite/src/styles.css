@@ -2501,9 +2501,17 @@ code {
 }
 
 .backend-sidebar-brand {
-  margin-bottom: 1.2rem;
+  margin-bottom: 0.35rem;
   font-size: 1.1rem;
   font-weight: 800;
+  letter-spacing: 0;
+}
+
+.backend-sidebar-title {
+  margin: 0 0 1rem;
+  color: #ffffff;
+  font-size: 1.45rem;
+  line-height: 1.1;
   letter-spacing: 0;
 }
 
@@ -2820,6 +2828,11 @@ code {
 
   .backend-sidebar-brand {
     margin-bottom: 0.5rem;
+  }
+
+  .backend-sidebar-title {
+    width: 100%;
+    margin-bottom: 0.75rem;
   }
 
   .backend-sidebar-nav {

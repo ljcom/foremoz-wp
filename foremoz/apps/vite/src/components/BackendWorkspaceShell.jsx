@@ -33,6 +33,7 @@ export default function BackendWorkspaceShell({
     <main className="backend-shell">
       <aside className="backend-sidebar">
         <div className="backend-sidebar-brand">{shellCopy('brand', 'Foremoz')}</div>
+        <h1 className="backend-sidebar-title">{title}</h1>
         <nav className="backend-sidebar-nav" aria-label={shellCopy('navigationAria', 'Workspace navigation')}>
           {resolvedNavItems.map((item) => (
             <a
@@ -61,7 +62,6 @@ export default function BackendWorkspaceShell({
         <header className="backend-topbar">
           <div>
             <p className="eyebrow">{eyebrow || shellCopy('topbarEyebrow', 'Foremoz Admin')}</p>
-            <h1>{title}</h1>
             {subtitle ? <p className="muted">{subtitle}</p> : null}
           </div>
           <div className="backend-topbar-actions">

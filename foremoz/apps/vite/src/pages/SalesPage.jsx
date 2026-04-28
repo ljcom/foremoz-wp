@@ -639,6 +639,7 @@ export default function SalesPage() {
     <main className="backend-shell sales-workspace-shell">
       <aside className="backend-sidebar">
         <div className="backend-sidebar-brand">{salesCopy('brand', 'Foremoz')}</div>
+        <h1 className="backend-sidebar-title">{salesCopy('eyebrow', 'Sales Workspace')}</h1>
         <nav className="backend-sidebar-nav" aria-label="Sales workspace navigation">
           {SALES_NAV_ITEMS.map((item) => (
             <a key={item.id} className={item.active ? 'active' : ''} href={item.href || `#${item.id}`}>
@@ -658,7 +659,6 @@ export default function SalesPage() {
         <header className="backend-topbar">
           <div>
             <p className="eyebrow">{salesCopy('topbarEyebrow', 'Foremoz Admin')}</p>
-            <h1>{salesCopy('eyebrow', 'Sales Workspace')}</h1>
             <p className="muted">{salesCopy('subtitle', 'Manage prospects, follow-ups, conversions, and incentive basis.')}</p>
           </div>
           <div className="backend-topbar-actions">
