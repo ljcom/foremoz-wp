@@ -2985,54 +2985,58 @@ export default function DashboardPage() {
       onSignOut={signOut}
     >
 
-      <section className="stats-grid">
-        {stats.map((s) => (
-          <Stat
-            key={s.key}
-            label={s.label}
-            value={s.value}
-            iconClass={s.iconClass}
-            tone={s.tone}
-            hint={s.hint}
-            active={selectedInsightKey === s.key}
-            onClick={() => openInsightDetail(s.key)}
-          />
-        ))}
-      </section>
+      {workspaceTab === 'insight' ? (
+        <>
+          <section className="stats-grid">
+            {stats.map((s) => (
+              <Stat
+                key={s.key}
+                label={s.label}
+                value={s.value}
+                iconClass={s.iconClass}
+                tone={s.tone}
+                hint={s.hint}
+                active={selectedInsightKey === s.key}
+                onClick={() => openInsightDetail(s.key)}
+              />
+            ))}
+          </section>
 
-      {selectedInsightKey ? (
-        <section className="card search-panel" style={{ marginTop: '0.85rem' }}>
-          <div className="panel-head">
-            <div>
-              <p className="eyebrow">Insight detail</p>
-              <h2>{activeInsightMeta?.title || 'Detail'}</h2>
-            </div>
-            <button className="btn ghost small" type="button" onClick={() => openInsightDetail(selectedInsightKey)}>
-              {copy.insightClose}
-            </button>
-          </div>
-          {insightDetailLoading || (selectedInsightKey === 'today_checkins' && participantSearchLoading) || (selectedInsightKey === 'today_bookings' && participantSearchLoading) ? (
-            <p className="feedback">Memuat detail...</p>
-          ) : insightDetailRows.length > 0 ? (
-            <div className="entity-list" style={{ marginTop: '0.75rem' }}>
-              {insightDetailRows.map((item) => (
-                <div className="entity-row" key={item.key}>
-                  <div>
-                    <strong>{item.title}</strong>
-                    {Array.isArray(item.lines)
-                      ? item.lines.map((line, index) => (
-                        <p key={`${item.key}-line-${index}`}>{line}</p>
-                      ))
-                      : null}
-                  </div>
-                  <span className="passport-chip">{item.badge || '-'}</span>
+          {selectedInsightKey ? (
+            <section className="card search-panel" style={{ marginTop: '0.85rem' }}>
+              <div className="panel-head">
+                <div>
+                  <p className="eyebrow">Insight detail</p>
+                  <h2>{activeInsightMeta?.title || 'Detail'}</h2>
                 </div>
-              ))}
-            </div>
-          ) : (
-            <p className="muted">{activeInsightMeta?.empty || 'Belum ada data.'}</p>
-          )}
-        </section>
+                <button className="btn ghost small" type="button" onClick={() => openInsightDetail(selectedInsightKey)}>
+                  {copy.insightClose}
+                </button>
+              </div>
+              {insightDetailLoading || (selectedInsightKey === 'today_checkins' && participantSearchLoading) || (selectedInsightKey === 'today_bookings' && participantSearchLoading) ? (
+                <p className="feedback">Memuat detail...</p>
+              ) : insightDetailRows.length > 0 ? (
+                <div className="entity-list" style={{ marginTop: '0.75rem' }}>
+                  {insightDetailRows.map((item) => (
+                    <div className="entity-row" key={item.key}>
+                      <div>
+                        <strong>{item.title}</strong>
+                        {Array.isArray(item.lines)
+                          ? item.lines.map((line, index) => (
+                            <p key={`${item.key}-line-${index}`}>{line}</p>
+                          ))
+                          : null}
+                      </div>
+                      <span className="passport-chip">{item.badge || '-'}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="muted">{activeInsightMeta?.empty || 'Belum ada data.'}</p>
+              )}
+            </section>
+          ) : null}
+        </>
       ) : null}
 
       {loading ? <p className="feedback">{copy.loadingDashboard}</p> : null}

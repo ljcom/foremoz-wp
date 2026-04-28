@@ -64,12 +64,14 @@
     ],
     "navItemsByWorkspace": {
       "cs": [
+        { "id": "insight", "label": "Insight" },
         { "id": "member", "label": "Member" },
         { "id": "event", "label": "Event" },
         { "id": "class", "label": "Program" },
         { "id": "report", "label": "Daily Report" }
       ],
       "sales": [
+        { "id": "insight", "label": "Insight", "href": "#insight" },
         { "id": "prospects", "label": "Prospek", "href": "#prospects" },
         { "id": "orders", "label": "Order", "href": "#orders" },
         { "id": "report", "label": "Report", "href": "#report" }
@@ -85,6 +87,7 @@
         { "id": "transaction", "label": "Transaksi" }
       ],
       "coach": [
+        { "id": "insight", "label": "Insight" },
         { "id": "profile", "label": "Coach profile" },
         { "id": "book", "label": "Book list" },
         { "id": "complete", "label": "Complete list" },
@@ -125,7 +128,8 @@
       "backToHost": "Back to host"
     },
     "navItems": [
-      { "id": "prospects", "label": "Prospek", "href": "#prospects", "active": true },
+      { "id": "insight", "label": "Insight", "href": "#insight", "active": true },
+      { "id": "prospects", "label": "Prospek", "href": "#prospects" },
       { "id": "orders", "label": "Order", "href": "#orders" },
       { "id": "report", "label": "Report", "href": "#report" }
     ],

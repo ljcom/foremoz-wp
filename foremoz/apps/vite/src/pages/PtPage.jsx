@@ -1376,19 +1376,22 @@ export default function PtPage() {
       }}
       onSignOut={signOut}
     >
-
-      <section style={{ marginTop: '1rem' }}>
-        <p className="eyebrow">Insight</p>
-        <section className="stats-grid">
-          {insightStats.map((s) => (
-            <Stat key={s.label} label={s.label} value={s.value} iconClass={s.iconClass} tone={s.tone} hint={s.hint} />
-          ))}
+      {activeTab === 'insight' ? (
+        <section style={{ marginTop: '1rem' }}>
+          <p className="eyebrow">Insight</p>
+          <section className="stats-grid">
+            {insightStats.map((s) => (
+              <Stat key={s.label} label={s.label} value={s.value} iconClass={s.iconClass} tone={s.tone} hint={s.hint} />
+            ))}
+          </section>
         </section>
-        {loading ? <p className="feedback">Loading PT workspace...</p> : null}
-        {error ? <p className="error">{error}</p> : null}
-        {feedback ? <p className="feedback">{feedback}</p> : null}
-      </section>
+      ) : null}
 
+      {loading ? <p className="feedback">Loading PT workspace...</p> : null}
+      {error ? <p className="error">{error}</p> : null}
+      {feedback ? <p className="feedback">{feedback}</p> : null}
+
+      {activeTab !== 'insight' ? (
       <section className="card admin-main" style={{ marginTop: '1rem' }}>
         {activeTab === 'profile' ? (
           <div>
@@ -2081,6 +2084,7 @@ export default function PtPage() {
           </div>
         ) : null}
       </section>
+      ) : null}
 
       <footer className="dash-foot"><Link to="/host">Back to host</Link></footer>
     </BackendWorkspaceShell>

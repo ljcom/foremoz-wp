@@ -137,6 +137,7 @@ export default function SalesPage() {
   const branchId = session?.branch?.id || 'core';
   const userId = session?.user?.userId || null;
   const [targetEnv, setTargetEnv] = useState('sales');
+  const [salesView, setSalesView] = useState('insight');
   const [search, setSearch] = useState('');
   const [stageFilter, setStageFilter] = useState('all');
   const [selectedProspectId, setSelectedProspectId] = useState('');
@@ -672,7 +673,15 @@ export default function SalesPage() {
         </div>
         <nav className="backend-sidebar-nav" aria-label="Sales workspace navigation">
           {SALES_NAV_ITEMS.map((item) => (
-            <a key={item.id} className={item.active ? 'active' : ''} href={item.href || `#${item.id}`}>
+            <a
+              key={item.id}
+              className={salesView === item.id ? 'active' : ''}
+              href={item.href || `#${item.id}`}
+              onClick={(event) => {
+                event.preventDefault();
+                setSalesView(item.id);
+              }}
+            >
               {item.label || item.id}
             </a>
           ))}
@@ -695,27 +704,33 @@ export default function SalesPage() {
           </div>
         </header>
 
-      <section className="section-stack">
-        <p className="eyebrow">{salesCopy('insightEyebrow', 'Insight')}</p>
-        <section className="stats-grid">
-          {insightStats.map((s) => (
-            <Stat key={s.label} label={s.label} value={s.value} iconClass={s.iconClass} tone={s.tone} hint={s.hint} />
-          ))}
-        </section>
-        {loading ? <p className="feedback">{salesCopy('loading', 'Loading sales workspace...')}</p> : null}
-        {error ? <p className="error">{error}</p> : null}
-        {feedback ? <p className="feedback">{feedback}</p> : null}
-      </section>
+      {salesView === 'insight' ? (
+        <>
+          <section className="section-stack" id="insight">
+            <p className="eyebrow">{salesCopy('insightEyebrow', 'Insight')}</p>
+            <section className="stats-grid">
+              {insightStats.map((s) => (
+                <Stat key={s.label} label={s.label} value={s.value} iconClass={s.iconClass} tone={s.tone} hint={s.hint} />
+              ))}
+            </section>
+          </section>
 
-      <section className="card admin-main">
-        <p className="eyebrow">{salesCopy('quickGuideEyebrow', 'Quick Guide')}</p>
-        <div style={{ display: 'grid', gap: '0.45rem' }}>
-          {SALES_QUICK_GUIDE.map((item, index) => (
-            <p key={item.text}><strong>{index + 1}.</strong> {item.text}</p>
-          ))}
-        </div>
-      </section>
+          <section className="card admin-main">
+            <p className="eyebrow">{salesCopy('quickGuideEyebrow', 'Quick Guide')}</p>
+            <div style={{ display: 'grid', gap: '0.45rem' }}>
+              {SALES_QUICK_GUIDE.map((item, index) => (
+                <p key={item.text}><strong>{index + 1}.</strong> {item.text}</p>
+              ))}
+            </div>
+          </section>
+        </>
+      ) : null}
 
+      {loading ? <p className="feedback">{salesCopy('loading', 'Loading sales workspace...')}</p> : null}
+      {error ? <p className="error">{error}</p> : null}
+      {feedback ? <p className="feedback">{feedback}</p> : null}
+
+      {salesView === 'prospects' ? (
       <section className="card admin-main" id="prospects">
         <div className="panel-head">
           <div>
@@ -773,12 +788,28 @@ export default function SalesPage() {
                     </div>
                   </div>
                   <div className="row-actions" style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
-                    <button className="btn ghost small" type="button" onClick={() => setSelectedProspectId(item.prospect_id)}>Detail</button>
+                    <button
+                      className="btn ghost small"
+                      type="button"
+                      onClick={() => {
+                        setSelectedProspectId(item.prospect_id);
+                        setSalesView('orders');
+                      }}
+                    >
+                      Detail
+                    </button>
                     <button className="btn ghost small" type="button" onClick={() => openFollowup(item)}>Follow-up</button>
                     <button className="btn ghost small" type="button" onClick={() => updateProspectStage(item, 'qualified')} disabled={saving}>Qualified</button>
                     <button className="btn ghost small" type="button" onClick={() => updateProspectStage(item, 'lost')} disabled={saving}>Lost</button>
                     <button className="btn ghost small" type="button" onClick={() => openConvert(item)}>Convert</button>
-                    <button className="btn ghost small" type="button" onClick={() => setSelectedProspectId(item.prospect_id)}>
+                    <button
+                      className="btn ghost small"
+                      type="button"
+                      onClick={() => {
+                        setSelectedProspectId(item.prospect_id);
+                        setSalesView('orders');
+                      }}
+                    >
                       {item.converted_member_id ? 'Create order' : 'Open'}
                     </button>
                   </div>
@@ -790,8 +821,9 @@ export default function SalesPage() {
           )}
         </div>
       </section>
+      ) : null}
 
-      {selectedProspect ? (
+      {salesView === 'orders' && selectedProspect ? (
         <section className="card admin-main" id="orders" style={{ marginTop: '1rem' }}>
           <h2>Prospect detail - {selectedProspect.full_name}</h2>
           <p>ID: {selectedProspect.prospect_id}</p>
@@ -991,6 +1023,15 @@ export default function SalesPage() {
         </section>
       ) : null}
 
+      {salesView === 'orders' && !selectedProspect ? (
+        <section className="card admin-main" id="orders" style={{ marginTop: '1rem' }}>
+          <p className="eyebrow">Order</p>
+          <h2>Pilih prospect dulu</h2>
+          <p className="muted">Buka menu Prospek, pilih prospect, lalu buat order dari detailnya.</p>
+        </section>
+      ) : null}
+
+      {salesView === 'report' ? (
       <section className="card admin-main" id="report" style={{ marginTop: '1rem' }}>
         <div className="panel-head">
           <div>
@@ -1031,6 +1072,7 @@ export default function SalesPage() {
           {orderRows.length === 0 ? <p className="muted">Belum ada order sales.</p> : null}
         </div>
       </section>
+      ) : null}
 
       {prospectDrawerOpen ? (
         <div className="backend-drawer-overlay" onClick={() => setProspectDrawerOpen(false)}>
