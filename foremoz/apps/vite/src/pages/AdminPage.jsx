@@ -1689,7 +1689,7 @@ function DeleteButton({ onClick }) {
         }
       }}
     >
-      delete
+      remove
     </span>
   );
 }
@@ -5998,7 +5998,7 @@ export default function AdminPage() {
                               setEventMode('list');
                             }}
                           >
-                            Delete event
+                            Remove event
                           </button>
                         ) : null}
                       </>

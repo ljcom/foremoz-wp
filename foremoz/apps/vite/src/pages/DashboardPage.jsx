@@ -755,10 +755,10 @@ export default function DashboardPage() {
       return;
     }
     if (String(orderRow?.status || '').toLowerCase() === 'deleted') {
-      setActionFeedback(`Order ${orderId} sudah deleted.`);
+      setActionFeedback(`Order ${orderId} sudah removed.`);
       return;
     }
-    if (!window.confirm(`Hapus order pending ${orderId}? Status akan berubah menjadi deleted.`)) return;
+    if (!window.confirm(`Remove pending order ${orderId}? Status akan berubah menjadi removed.`)) return;
     try {
       setActionSaving(true);
       const response = await apiJson(`/v1/orders/${encodeURIComponent(orderId)}`, {
@@ -767,7 +767,7 @@ export default function DashboardPage() {
           tenant_id: tenantId,
           branch_id: branchId,
           actor_id: session?.user?.userId || session?.user?.user_id || 'cs_dashboard',
-          note: `Order deleted by CS from history: ${orderId}`
+          note: `Order removed by CS from history: ${orderId}`
         })
       });
       setMemberOrderRows((prev) => prev.map((item) => (
@@ -800,9 +800,9 @@ export default function DashboardPage() {
       if (response?.payment_id) {
         await loadSelectedMemberPayments(selectedMember.member_id);
       }
-      setActionFeedback(`order.deleted: ${selectedMember.full_name || selectedMember.member_id} -> ${orderId}`);
+      setActionFeedback(`order.removed: ${selectedMember.full_name || selectedMember.member_id} -> ${orderId}`);
     } catch (err) {
-      setActionFeedback(err.message || 'failed to delete order');
+      setActionFeedback(err.message || 'failed to remove order');
     } finally {
       setActionSaving(false);
     }
@@ -3885,7 +3885,7 @@ export default function DashboardPage() {
                                     Edit pending
                                   </button>
                                   <button className="btn ghost small" type="button" disabled={actionSaving} onClick={() => deletePendingOrder(item)}>
-                                    Delete pending
+                                    Remove pending
                                   </button>
                                 </>
                                 ) : null}
