@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { accountPath, apiJson, clearSession, getAccountSlug, getEnvironmentLabel, getSession, getAdminTabsByPlan, getAllowedEnvironments, getSessionPackagePlan } from '../lib.js';
 import { getVerticalConfig, getVerticalLabel, guessVerticalSlugByText } from '../industry-jargon.js';
@@ -2248,12 +2248,64 @@ export default function AdminPage() {
   );
   const dashboardTitle = isCsView ? copy.dashboardTitleSetup : copy.dashboardTitleAdmin;
   const dashboardSubtitle = isCsView ? copy.dashboardSubtitleSetup : copy.dashboardSubtitleAdmin;
-  const dashboardMenuLabel = isCsView ? copy.dashboardMenuSetup : copy.dashboardMenuAdmin;
   const enabledAdminTabIds = useMemo(() => getAdminTabsByPlan(session), [session]);
   const visibleAdminTabs = useMemo(
     () => ADMIN_TABS.filter((tab) => enabledAdminTabIds.includes(tab.id)),
     [enabledAdminTabIds]
   );
+  const selectAdminTab = useCallback((tabId) => {
+    if (
+      activeTab === 'event' &&
+      tabId !== 'event' &&
+      eventMode === 'add' &&
+      isEventFormDirty &&
+      typeof window !== 'undefined'
+    ) {
+      const proceed = window.confirm(copy.unsavedEventMenuPrompt);
+      if (!proceed) return;
+    }
+    setActiveTab(tabId);
+    if (tabId === 'class') {
+      setEditingClassId('');
+      setClassForm(createEmptyClassForm());
+      setClassTrainerDraft('');
+      setClassParticipants([]);
+      setClassEditTab('general');
+      setClassMode('list');
+    }
+    if (tabId === 'event') {
+      setEditingEventId('');
+      setEventForm(createEmptyEventForm());
+      setEventTemplateWizard('custom');
+      setEventPostQuote(null);
+      setEventParticipants([]);
+      setEventEditTab('general');
+      setEventWalkinForm(createEmptyEventWalkinForm());
+      setEventMode('list');
+    }
+    if (tabId === 'user') {
+      setUserMode('list');
+    }
+    if (tabId === 'trainer') {
+      setTrainerMode('list');
+    }
+    if (tabId === 'product') {
+      setEditingProductId('');
+      setProductForm({ product_name: '', category: 'retail', price: '', stock: '' });
+      setProductMode('list');
+    }
+    if (tabId === 'package_creation') {
+      setEditingPackageId('');
+      setPackageForm(createEmptyPackageForm());
+      setPackageMode('list');
+    }
+    if (tabId === 'sales') {
+      setSalesMode('list');
+    }
+    if (tabId === 'transaction') {
+      setTransactionMode('list');
+    }
+  }, [activeTab, copy.unsavedEventMenuPrompt, eventMode, isEventFormDirty]);
   const adminSidebarNavItems = useMemo(
     () =>
       ADMIN_SIDEBAR_NAV_ITEMS
@@ -2263,10 +2315,10 @@ export default function AdminPage() {
           href: `#${item.id}`,
           onClick: (event) => {
             event.preventDefault();
-            setActiveTab(item.id);
+            selectAdminTab(item.id);
           }
         })),
-    [enabledAdminTabIds]
+    [enabledAdminTabIds, selectAdminTab]
   );
   const lockedAdminTabs = useMemo(
     () => ADMIN_TABS.filter((tab) => !enabledAdminTabIds.includes(tab.id)),
@@ -4786,73 +4838,6 @@ export default function AdminPage() {
           </div>
         </section>
       ) : null}
-
-      <section className="card admin-tabs-card">
-        <p className="eyebrow">{dashboardMenuLabel}</p>
-        <div className="admin-tabs-wrap">
-          {visibleAdminTabs.map((tab) => (
-            <button
-              key={tab.id}
-              className={`admin-tab-btn ${activeTab === tab.id ? 'active' : ''}`}
-              onClick={() => {
-                if (
-                  activeTab === 'event' &&
-                  tab.id !== 'event' &&
-                  eventMode === 'add' &&
-                  isEventFormDirty &&
-                  typeof window !== 'undefined'
-                ) {
-                  const proceed = window.confirm(copy.unsavedEventMenuPrompt);
-                  if (!proceed) return;
-                }
-                setActiveTab(tab.id);
-                if (tab.id === 'class') {
-                  setEditingClassId('');
-                  setClassForm(createEmptyClassForm());
-                  setClassTrainerDraft('');
-                  setClassParticipants([]);
-                  setClassEditTab('general');
-                  setClassMode('list');
-                }
-                if (tab.id === 'event') {
-                  setEditingEventId('');
-                  setEventForm(createEmptyEventForm());
-                  setEventTemplateWizard('custom');
-                  setEventPostQuote(null);
-                  setEventParticipants([]);
-                  setEventEditTab('general');
-                  setEventWalkinForm(createEmptyEventWalkinForm());
-                  setEventMode('list');
-                }
-                if (tab.id === 'user') {
-                  setUserMode('list');
-                }
-                if (tab.id === 'trainer') {
-                  setTrainerMode('list');
-                }
-                if (tab.id === 'product') {
-                  setEditingProductId('');
-                  setProductForm({ product_name: '', category: 'retail', price: '', stock: '' });
-                  setProductMode('list');
-                }
-                if (tab.id === 'package_creation') {
-                  setEditingPackageId('');
-                  setPackageForm(createEmptyPackageForm());
-                  setPackageMode('list');
-                }
-                if (tab.id === 'sales') {
-                  setSalesMode('list');
-                }
-                if (tab.id === 'transaction') {
-                  setTransactionMode('list');
-                }
-              }}
-            >
-              {copy.adminTabs[tab.id] || tab.label}
-            </button>
-          ))}
-        </div>
-      </section>
 
       <section style={{ marginTop: '0.8rem' }}>
         <article className="card admin-main">
