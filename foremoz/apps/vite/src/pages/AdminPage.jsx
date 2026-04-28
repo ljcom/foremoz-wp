@@ -8152,15 +8152,15 @@ export default function AdminPage() {
 
           {activeTab === 'transaction' ? (
             <>
-              <p className="eyebrow">Transaction</p>
+              <p className="eyebrow">{getAdminPageCopy('transactionEyebrow')}</p>
               {transactionMode === 'list' ? (
                 <>
                   <div className="panel-head">
-                    <h2>Transaction list, delete</h2>
+                    <h2>{getAdminPageCopy('transactionListTitle')}</h2>
                     <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginLeft: 'auto' }}>
                       <input
                         type="text"
-                        placeholder="Cari transaction..."
+                        placeholder={getAdminPageCopy('transactionSearchPlaceholder')}
                         value={transactionQuery}
                         onChange={(e) => setTransactionQuery(e.target.value)}
                       />
@@ -8239,7 +8239,7 @@ export default function AdminPage() {
               ) : transactionMode === 'detail' ? (
                 <>
                   <div className="panel-head">
-                    <h2>Transaction detail</h2>
+                    <h2>{getAdminPageCopy('transactionDetailTitle')}</h2>
                     <div style={{ display: 'flex', gap: '0.5rem' }}>
                       {String(transactionDetail?.status || '').toLowerCase() === 'pending' ? (
                         <>
@@ -8248,14 +8248,14 @@ export default function AdminPage() {
                             type="button"
                             onClick={() => confirmTransaction(transactionDetail)}
                           >
-                            Confirm
+                            {getAdminPageCopy('transactionConfirm')}
                           </button>
                           <button
                             className="btn ghost"
                             type="button"
                             onClick={() => rejectTransaction(transactionDetail)}
                           >
-                            Reject
+                            {getAdminPageCopy('transactionReject')}
                           </button>
                         </>
                       ) : null}
@@ -8292,24 +8292,24 @@ export default function AdminPage() {
                     </div>
                   </div>
                   <div className="form">
-                    <p><strong>no_transaction:</strong> {transactionDetail?.no_transaction || '-'}</p>
-                    <p><strong>member_id:</strong> {transactionDetail?.member_id || '-'}</p>
-                    <p><strong>product:</strong> {transactionDetail?.product || '-'}</p>
-                    <p><strong>linked_operation:</strong> {transactionDetail?.operation_link || '-'}</p>
-                    <p><strong>detail:</strong> {transactionDetail?.detail_note || '-'}</p>
-                    <p><strong>qty:</strong> {transactionDetail?.qty || '-'}</p>
-                    <p><strong>price:</strong> {transactionDetail?.currency || 'IDR'} {transactionDetail?.price || '-'}</p>
-                    <p><strong>method:</strong> {transactionDetail?.method || '-'}</p>
-                    <p><strong>status:</strong> {String(transactionDetail?.status || '-').toUpperCase()}</p>
-                    <p><strong>recorded_at:</strong> {transactionDetail?.recorded_at || '-'}</p>
-                    <p><strong>reviewed_at:</strong> {transactionDetail?.reviewed_at || '-'}</p>
-                    <p><strong>review_note:</strong> {transactionDetail?.review_note || '-'}</p>
+                    <p><strong>{getAdminPageCopy('transactionNoField')}:</strong> {transactionDetail?.no_transaction || '-'}</p>
+                    <p><strong>{getAdminPageCopy('transactionMemberField')}:</strong> {transactionDetail?.member_id || '-'}</p>
+                    <p><strong>{getAdminPageCopy('transactionProductField')}:</strong> {transactionDetail?.product || '-'}</p>
+                    <p><strong>{getAdminPageCopy('transactionLinkedOperationField')}:</strong> {transactionDetail?.operation_link || '-'}</p>
+                    <p><strong>{getAdminPageCopy('transactionDetailField')}:</strong> {transactionDetail?.detail_note || '-'}</p>
+                    <p><strong>{getAdminPageCopy('transactionQtyField')}:</strong> {transactionDetail?.qty || '-'}</p>
+                    <p><strong>{getAdminPageCopy('transactionPriceField')}:</strong> {transactionDetail?.currency || 'IDR'} {transactionDetail?.price || '-'}</p>
+                    <p><strong>{getAdminPageCopy('transactionMethodField')}:</strong> {transactionDetail?.method || '-'}</p>
+                    <p><strong>{getAdminPageCopy('transactionStatusField')}:</strong> {String(transactionDetail?.status || '-').toUpperCase()}</p>
+                    <p><strong>{getAdminPageCopy('transactionRecordedAtField')}:</strong> {transactionDetail?.recorded_at || '-'}</p>
+                    <p><strong>{getAdminPageCopy('transactionReviewedAtField')}:</strong> {transactionDetail?.reviewed_at || '-'}</p>
+                    <p><strong>{getAdminPageCopy('transactionReviewNoteField')}:</strong> {transactionDetail?.review_note || '-'}</p>
                   </div>
                 </>
               ) : (
                 <>
                   <div className="panel-head">
-                    <h2>Add transaction</h2>
+                    <h2>{getAdminPageCopy('transactionAddTitle')}</h2>
                     <button
                       className="btn ghost"
                       type="button"
@@ -8322,17 +8322,17 @@ export default function AdminPage() {
                     </button>
                   </div>
                   <form className="form" onSubmit={addTransaction}>
-                    <label>no_transaction<input value={transactionForm.no_transaction} onChange={(e) => setTransactionForm((p) => ({ ...p, no_transaction: e.target.value }))} /></label>
-                    <label>member_id<input value={transactionForm.member_id} onChange={(e) => setTransactionForm((p) => ({ ...p, member_id: e.target.value }))} /></label>
-                    <label>product<input value={transactionForm.product} onChange={(e) => setTransactionForm((p) => ({ ...p, product: e.target.value }))} /></label>
-                    <label>qty<input type="number" min="1" value={transactionForm.qty} onChange={(e) => setTransactionForm((p) => ({ ...p, qty: e.target.value }))} /></label>
-                    <label>price<input type="number" min="0" value={transactionForm.price} onChange={(e) => setTransactionForm((p) => ({ ...p, price: e.target.value }))} /></label>
-                    <label>currency<select value={transactionForm.currency} onChange={(e) => setTransactionForm((p) => ({ ...p, currency: e.target.value }))}>
+                    <label>{getAdminPageCopy('transactionNoField')}<input value={transactionForm.no_transaction} onChange={(e) => setTransactionForm((p) => ({ ...p, no_transaction: e.target.value }))} /></label>
+                    <label>{getAdminPageCopy('transactionMemberField')}<input value={transactionForm.member_id} onChange={(e) => setTransactionForm((p) => ({ ...p, member_id: e.target.value }))} /></label>
+                    <label>{getAdminPageCopy('transactionProductField')}<input value={transactionForm.product} onChange={(e) => setTransactionForm((p) => ({ ...p, product: e.target.value }))} /></label>
+                    <label>{getAdminPageCopy('transactionQtyField')}<input type="number" min="1" value={transactionForm.qty} onChange={(e) => setTransactionForm((p) => ({ ...p, qty: e.target.value }))} /></label>
+                    <label>{getAdminPageCopy('transactionPriceField')}<input type="number" min="0" value={transactionForm.price} onChange={(e) => setTransactionForm((p) => ({ ...p, price: e.target.value }))} /></label>
+                    <label>{getAdminPageCopy('transactionCurrencyField')}<select value={transactionForm.currency} onChange={(e) => setTransactionForm((p) => ({ ...p, currency: e.target.value }))}>
                       {TRANSACTION_CURRENCY_OPTIONS.map((option) => (
                         <option key={option.value} value={option.value}>{option.label}</option>
                       ))}
                     </select></label>
-                    <label>method<select value={transactionForm.method} onChange={(e) => setTransactionForm((p) => ({ ...p, method: e.target.value }))}>
+                    <label>{getAdminPageCopy('transactionMethodField')}<select value={transactionForm.method} onChange={(e) => setTransactionForm((p) => ({ ...p, method: e.target.value }))}>
                       {TRANSACTION_METHOD_OPTIONS.map((option) => (
                         <option key={option.value} value={option.value}>{option.label}</option>
                       ))}
