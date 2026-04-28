@@ -1390,22 +1390,8 @@ export default function PtPage() {
       </section>
 
       <section className="card admin-main" style={{ marginTop: '1rem' }}>
-        <div className="landing-tabs" role="tablist" aria-label="PT workspace tabs">
-          {PT_TABS.map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              role="tab"
-              aria-selected={activeTab === tab.id}
-              className={`landing-tab ${activeTab === tab.id ? 'active' : ''}`}
-              onClick={() => setActiveTab(tab.id)}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
         {activeTab === 'profile' ? (
-          <div style={{ marginTop: '1rem' }}>
+          <div>
             <h2>Coach profile</h2>
             <form className="form" onSubmit={submitProfile}>
               <div style={{ display: 'grid', gap: '1rem', gridTemplateColumns: 'minmax(140px, 180px) minmax(0, 1fr)', alignItems: 'start' }}>
