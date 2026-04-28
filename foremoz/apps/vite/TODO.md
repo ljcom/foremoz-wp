@@ -40,9 +40,9 @@
 - [x] Move AdminPage event/program editor section labels and placeholders into JSON config.
 - [x] Move CS Dashboard order validation, item, payment, and save feedback into JSON config.
 - [x] Inventory current UI surfaces that still define labels, navigation, tabs, statuses, actions, empty states, or copy directly in components.
-- [ ] Define or extend JSON config for navigation, page layouts, table columns, forms, badge variants, workflow actions, and empty states before adding new UI.
-- [ ] Keep renderers generic: components should receive config and context instead of owning business-specific arrays or rules.
-- [ ] Keep visual choices on design tokens, semantic variants, CSS variables, or Tailwind presets instead of raw one-off styling inside components.
+- [x] Define or extend JSON config for navigation, page layouts, table columns, forms, badge variants, workflow actions, and empty states before adding new UI.
+- [x] Keep renderers generic: components should receive config and context instead of owning business-specific arrays or rules.
+- [x] Keep visual choices on design tokens, semantic variants, CSS variables, or Tailwind presets instead of raw one-off styling inside components.
 - [x] Run `npm run build` after frontend changes that touch application behavior or config loading.
 
 ## Known Follow-up
