@@ -8,6 +8,21 @@ function asArray(value) {
   return Array.isArray(value) ? value : [];
 }
 
+function interpolateConfigValue(value, vars = {}) {
+  if (Array.isArray(value)) {
+    return value.map((item) => interpolateConfigValue(item, vars));
+  }
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, item]) => [key, interpolateConfigValue(item, vars)])
+    );
+  }
+  if (typeof value !== 'string') {
+    return value;
+  }
+  return value.replace(/\{(\w+)\}/g, (_, varKey) => String(vars[varKey] ?? ''));
+}
+
 export function getPageErrorBoundaryConfig(variant) {
   const boundaryConfig = asObject(appUiConfig.pageErrorBoundary);
   const defaults = asObject(boundaryConfig.defaults);
@@ -33,11 +48,20 @@ export function getAdminPageOptions(key) {
 export function getAdminPageCopy(key, vars = {}) {
   const config = getAdminPageConfig();
   const template = String(asObject(config.copy)[key] || asObject(config.placeholders)[key] || '');
-  return template.replace(/\{(\w+)\}/g, (_, varKey) => String(vars[varKey] ?? ''));
+  return interpolateConfigValue(template, vars);
 }
 
 export function getAdminPageObject(key) {
   return asObject(getAdminPageConfig()[key]);
+}
+
+export function getAdminLocalizedCopy(language, vars = {}) {
+  const copyConfig = asObject(getAdminPageConfig().localizedCopy);
+  const normalizedLanguage = String(language || 'id').trim().toLowerCase();
+  return interpolateConfigValue(
+    asObject(copyConfig[normalizedLanguage] || copyConfig.id),
+    vars
+  );
 }
 
 export function getAdminFixture(key) {

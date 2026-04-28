@@ -13,6 +13,7 @@ import {
   getAdminEventTemplatesConfig,
   getAdminEventWorkflowValue,
   getAdminFixture,
+  getAdminLocalizedCopy,
   getAdminPageCopy,
   getAdminPageObject,
   getAdminPackageTypeConfig,
@@ -2239,59 +2240,7 @@ export default function AdminPage() {
   const eventCategoryPlaceholder = `${eventCategoryExamples[0]}, ${eventCategoryExamples[1]}\n${eventCategoryExamples[2]}`;
   const isCsView = role === 'cs';
   const copy = useMemo(
-    () => (language === 'en'
-      ? {
-          dashboardTitleSetup: 'Setup',
-          dashboardTitleAdmin: 'Admin',
-          dashboardSubtitleSetup: 'Tenant setup panel',
-          dashboardSubtitleAdmin: 'Tenant administration panel',
-          dashboardMenuSetup: 'Setup Menu',
-          dashboardMenuAdmin: 'Admin Menu',
-          unsavedEventTabPrompt: 'There are unsaved event changes. Switch tab anyway?',
-          unsavedEventMenuPrompt: 'There are unsaved event changes. Switch menu anyway?',
-          unsavedEventListPrompt: 'There are unsaved event changes. Return to the list anyway?',
-          eventEyebrow: 'Event',
-          eventListTitle: 'Event list, delete',
-          eventSearchPlaceholder: 'Search events...',
-          addNew: 'Add New',
-          loadingEventList: 'Loading event list...',
-          adminTabs: {
-            event: 'Event',
-            class: 'Program',
-            product: 'Product',
-            package_creation: 'Package Creation',
-            trainer: creatorLabel,
-            sales: 'Sales',
-            member: 'Member',
-            transaction: 'Transaction'
-          }
-        }
-      : {
-          dashboardTitleSetup: 'Setup',
-          dashboardTitleAdmin: 'Admin',
-          dashboardSubtitleSetup: 'Panel setup tenant',
-          dashboardSubtitleAdmin: 'Panel administrasi tenant',
-          dashboardMenuSetup: 'Menu Setup',
-          dashboardMenuAdmin: 'Menu Admin',
-          unsavedEventTabPrompt: 'Ada perubahan event yang belum disimpan. Tetap pindah tab?',
-          unsavedEventMenuPrompt: 'Ada perubahan event yang belum disimpan. Tetap pindah menu?',
-          unsavedEventListPrompt: 'Ada perubahan event yang belum disimpan. Kembali ke list?',
-          eventEyebrow: 'Event',
-          eventListTitle: 'Daftar event, hapus',
-          eventSearchPlaceholder: 'Cari event...',
-          addNew: 'Tambah Baru',
-          loadingEventList: 'Memuat daftar event...',
-          adminTabs: {
-            event: 'Event',
-            class: 'Program',
-            product: 'Produk',
-            package_creation: 'Paket',
-            trainer: creatorLabel,
-            sales: 'Sales',
-            member: 'Member',
-            transaction: 'Transaksi'
-          }
-        }),
+    () => getAdminLocalizedCopy(language, { creator: creatorLabel }),
     [creatorLabel, language]
   );
   const dashboardTitle = isCsView ? copy.dashboardTitleSetup : copy.dashboardTitleAdmin;
