@@ -30,6 +30,11 @@ export function getAdminPageOptions(key) {
   return asArray(getAdminPageConfig()[key]).filter((item) => item && typeof item === 'object' && item.value);
 }
 
+export function getAdminPageCopy(key, vars = {}) {
+  const template = String(asObject(getAdminPageConfig().placeholders)[key] || '');
+  return template.replace(/\{(\w+)\}/g, (_, varKey) => String(vars[varKey] ?? ''));
+}
+
 export function getAdminFixture(key) {
   return asArray(asObject(getAdminPageConfig().fixtures)[key]);
 }

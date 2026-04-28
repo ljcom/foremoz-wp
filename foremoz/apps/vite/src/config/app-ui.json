@@ -564,6 +564,19 @@
       { "value": "prospect_id", "label": "Prospect" },
       { "value": "stage", "label": "Stage" }
     ],
+    "ptUserTableColumns": [
+      { "value": "full_name", "label": "Nama" },
+      { "value": "email", "label": "Email" },
+      { "value": "role", "label": "Role" },
+      { "value": "list", "label": "List" },
+      { "value": "coach", "label": "Coach" }
+    ],
+    "salesUserTableColumns": [
+      { "value": "full_name", "label": "Nama" },
+      { "value": "email", "label": "Email" },
+      { "value": "list", "label": "List" },
+      { "value": "sales", "label": "Sales" }
+    ],
     "memberTableColumns": [
       { "value": "member_name", "label": "Nama Member" },
       { "value": "phone", "label": "No. HP" },
@@ -617,7 +630,14 @@
       { "value": "3", "label": "3" },
       { "value": "6", "label": "6" },
       { "value": "12", "label": "12" }
-    ]
+    ],
+    "placeholders": {
+      "lookupSelect": "Pilih",
+      "creatorSelect": "Pilih {creator}...",
+      "trainerSelect": "pilih trainer",
+      "programSelect": "pilih program",
+      "programEventSelect": "Pilih program/event..."
+    }
   },
   "csDashboard": {
     "orders": {

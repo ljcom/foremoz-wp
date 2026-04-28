@@ -13,6 +13,7 @@ import {
   getAdminEventTemplatesConfig,
   getAdminEventWorkflowValue,
   getAdminFixture,
+  getAdminPageCopy,
   getAdminPackageTypeConfig,
   getAdminPackageTypesConfig,
   getAdminPageOptions,
@@ -53,6 +54,8 @@ const PRODUCT_TABLE_COLUMNS = getAdminPageOptions('productTableColumns');
 const PACKAGE_TABLE_COLUMNS = getAdminPageOptions('packageTableColumns');
 const TRAINER_PACKAGE_TABLE_COLUMNS = getAdminPageOptions('trainerPackageTableColumns');
 const SALES_MEMBER_TABLE_COLUMNS = getAdminPageOptions('salesMemberTableColumns');
+const PT_USER_TABLE_COLUMNS = getAdminPageOptions('ptUserTableColumns');
+const SALES_USER_TABLE_COLUMNS = getAdminPageOptions('salesUserTableColumns');
 const MEMBER_TABLE_COLUMNS = getAdminPageOptions('memberTableColumns');
 const TRANSACTION_STATUS_FILTER_OPTIONS = getAdminPageOptions('transactionStatusFilters');
 const TRANSACTION_LINK_FILTER_OPTIONS = getAdminPageOptions('transactionLinkFilters');
@@ -5028,7 +5031,7 @@ export default function AdminPage() {
                                     }))
                                   }
                                 >
-                                  <option value="">Pilih</option>
+                                  <option value="">{getAdminPageCopy('lookupSelect')}</option>
                                   {options.map((opt, optIndex) => (
                                     <option key={`${fieldId}-${optIndex}`} value={String(opt)}>
                                       {String(opt)}
@@ -5221,7 +5224,7 @@ export default function AdminPage() {
                                   if (e.target.value) addEventTrainerToken(e.target.value);
                                 }}
                               >
-                                <option value="">Pilih {creatorLabelLower}...</option>
+                                <option value="">{getAdminPageCopy('creatorSelect', { creator: creatorLabelLower })}</option>
                                 {availableEventTrainerOptions.map((name) => (
                                   <option key={name} value={name}>
                                     {name}
@@ -6362,7 +6365,7 @@ export default function AdminPage() {
                                         if (e.target.value) addClassTrainerToken(e.target.value);
                                       }}
                                     >
-                                      <option value="">Pilih {creatorLabelLower}...</option>
+                                      <option value="">{getAdminPageCopy('creatorSelect', { creator: creatorLabelLower })}</option>
                                       {availableClassTrainerOptions.map((name) => (
                                         <option key={name} value={name}>
                                           {name}
@@ -7703,7 +7706,7 @@ export default function AdminPage() {
                     ) : null}
                     {getPackageTypeMeta(packageForm.package_type).requiresTrainer ? (
                       <label>pt_trainer<select value={packageForm.trainer_user_id} onChange={(e) => setPackageForm((p) => ({ ...p, trainer_user_id: e.target.value }))}>
-                        <option value="">pilih trainer</option>
+                        <option value="">{getAdminPageCopy('trainerSelect')}</option>
                         {ptLookupOptions.map((item) => (
                           <option key={item.user_id} value={item.user_id}>{item.full_name}</option>
                         ))}
@@ -7711,7 +7714,7 @@ export default function AdminPage() {
                     ) : null}
                     {getPackageTypeMeta(packageForm.package_type).requiresClass ? (
                       <label>program_lookup<select value={packageForm.class_id} onChange={(e) => setPackageForm((p) => ({ ...p, class_id: e.target.value }))}>
-                        <option value="">pilih program</option>
+                        <option value="">{getAdminPageCopy('programSelect')}</option>
                         {classLookupOptions.map((item) => (
                           <option key={item.class_id} value={item.class_id}>{item.class_name}</option>
                         ))}
@@ -7797,11 +7800,9 @@ export default function AdminPage() {
                     <table className="admin-data-table">
                       <thead>
                         <tr>
-                          <th className="admin-data-head">Nama</th>
-                          <th className="admin-data-head">Email</th>
-                          <th className="admin-data-head">Role</th>
-                          <th className="admin-data-head">List</th>
-                          <th className="admin-data-head">Coach</th>
+                          {PT_USER_TABLE_COLUMNS.map((column) => (
+                            <th className="admin-data-head" key={column.value}>{column.label}</th>
+                          ))}
                         </tr>
                       </thead>
                       <tbody>
@@ -7916,10 +7917,9 @@ export default function AdminPage() {
                     <table className="admin-data-table">
                       <thead>
                         <tr>
-                          <th className="admin-data-head">Nama</th>
-                          <th className="admin-data-head">Email</th>
-                          <th className="admin-data-head">List</th>
-                          <th className="admin-data-head">Sales</th>
+                          {SALES_USER_TABLE_COLUMNS.map((column) => (
+                            <th className="admin-data-head" key={column.value}>{column.label}</th>
+                          ))}
                         </tr>
                       </thead>
                       <tbody>
@@ -8027,7 +8027,7 @@ export default function AdminPage() {
                           if (e.target.value) addMemberRelationToken(e.target.value, 'upload');
                         }}
                       >
-                        <option value="">Pilih program/event...</option>
+                        <option value="">{getAdminPageCopy('programEventSelect')}</option>
                         {availableMemberUploadRelationOptions.map((item) => (
                           <option key={`${item.kind}:${item.id}`} value={`${item.kind}:${item.id}`}>
                             {item.label}
@@ -8178,7 +8178,7 @@ export default function AdminPage() {
                             if (e.target.value) addMemberRelationToken(e.target.value);
                           }}
                         >
-                          <option value="">Pilih program/event...</option>
+                          <option value="">{getAdminPageCopy('programEventSelect')}</option>
                           {availableMemberRelationOptions.map((item) => (
                             <option key={`${item.kind}:${item.id}`} value={`${item.kind}:${item.id}`}>
                               {item.label}
