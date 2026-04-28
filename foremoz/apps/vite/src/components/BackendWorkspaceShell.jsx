@@ -1,5 +1,5 @@
 import { getBackendShellConfig } from '../config/app-config.js';
-import LanguageSwitcher from './LanguageSwitcher.jsx';
+import BackendSidebarSettings from './BackendSidebarSettings.jsx';
 
 const SHELL_CONFIG = getBackendShellConfig();
 const SHELL_COPY = SHELL_CONFIG.copy || {};
@@ -76,6 +76,7 @@ export default function BackendWorkspaceShell({
           <p>{shellCopy('signedInAs', 'Signed in as')}</p>
           <strong>{displayName}</strong>
           <small>{role}</small>
+          <BackendSidebarSettings />
           {onSignOut ? (
             <button className="btn ghost small" type="button" onClick={onSignOut}>
               {shellCopy('signOut', 'Sign out')}
@@ -87,7 +88,6 @@ export default function BackendWorkspaceShell({
       <section className="backend-main">
         <header className="backend-topbar">
           <div className="backend-topbar-actions">
-            <LanguageSwitcher compact />
             {primaryActions ? <div className="backend-primary-actions">{primaryActions}</div> : null}
           </div>
         </header>

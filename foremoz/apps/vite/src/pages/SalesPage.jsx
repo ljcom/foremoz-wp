@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { getSalesWorkspaceConfig } from '../config/app-config.js';
 import { apiJson, clearSession, getAccountSlug, getAllowedEnvironments, getSession } from '../lib.js';
+import BackendSidebarSettings from '../components/BackendSidebarSettings.jsx';
 import {
   formatAppDateTime,
   getAppDateKey,
@@ -680,6 +681,7 @@ export default function SalesPage() {
           <p>{salesCopy('signedInAs', 'Signed in as')}</p>
           <strong>{session?.user?.fullName || salesCopy('titleFallback', 'Sales')}</strong>
           <small>{role}</small>
+          <BackendSidebarSettings />
           <button className="btn ghost small" type="button" onClick={signOut}>{salesCopy('signOut', 'Sign out')}</button>
         </div>
       </aside>
