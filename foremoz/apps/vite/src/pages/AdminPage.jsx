@@ -84,6 +84,8 @@ const ACTIVITY_VALIDITY_UNIT_OPTIONS = getAdminPageOptions('activityValidityUnit
 const ACTIVITY_LIMITED_DURATION_UNIT_OPTIONS = getAdminPageOptions('activityLimitedDurationUnitOptions');
 const ACTIVITY_VALIDITY_ANCHOR_OPTIONS = getAdminPageOptions('activityValidityAnchorOptions');
 const ACTIVITY_USAGE_PERIOD_OPTIONS = getAdminPageOptions('activityUsagePeriodOptions');
+const DURATION_MODE_OPTIONS = getAdminPageOptions('durationModeOptions');
+const USAGE_MODE_OPTIONS = getAdminPageOptions('usageModeOptions');
 const EVENT_TEMPLATE_OPTIONS = getAdminEventTemplatesConfig();
 const CLASS_TEMPLATE_OPTIONS = getAdminClassTemplatesConfig();
 const PACKAGE_TYPE_OPTIONS = getAdminPackageTypesConfig();
@@ -94,6 +96,7 @@ const TRANSACTION_STATUS_FILTER_OPTIONS = getAdminPageOptions('transactionStatus
 const TRANSACTION_LINK_FILTER_OPTIONS = getAdminPageOptions('transactionLinkFilters');
 const TRANSACTION_CURRENCY_OPTIONS = getAdminPageOptions('transactionCurrencies');
 const TRANSACTION_METHOD_OPTIONS = getAdminPageOptions('transactionMethods');
+const SAAS_EXTENSION_MONTH_OPTIONS = getAdminPageOptions('saasExtensionMonths');
 const WORKSPACE_SWITCHER_ENVIRONMENTS = getWorkspaceAccessConfigList('workspaceSwitcherEnvironments');
 
 const IDR_FORMATTER = new Intl.NumberFormat('id-ID');
@@ -6737,8 +6740,9 @@ export default function AdminPage() {
                                         }))
                                       }
                                     >
-                                      <option value="unlimited">Unlimited</option>
-                                      <option value="limited">Limited</option>
+                                      {DURATION_MODE_OPTIONS.map((option) => (
+                                        <option key={option.value} value={option.value}>{option.label}</option>
+                                      ))}
                                     </select>
                                   </label>
                                   {classForm.validity_unit !== 'none' ? (
@@ -6773,8 +6777,9 @@ export default function AdminPage() {
                                       <label>
                                         Usage Mode
                                         <select value={classForm.usage_mode} onChange={(e) => setClassForm((p) => ({ ...p, usage_mode: e.target.value }))}>
-                                          <option value="unlimited">unlimited</option>
-                                          <option value="limited">limited</option>
+                                          {USAGE_MODE_OPTIONS.map((option) => (
+                                            <option key={option.value} value={option.value}>{option.label}</option>
+                                          ))}
                                         </select>
                                       </label>
                                       {classForm.usage_mode === 'limited' ? (
@@ -8481,7 +8486,11 @@ export default function AdminPage() {
               <p className="eyebrow">SaaS</p>
               <h2>Perpanjang sewa SaaS</h2>
               <form className="form" onSubmit={extendSaas}>
-                <label>tambah_bulan<select value={saasForm.months} onChange={(e) => setSaasForm((p) => ({ ...p, months: e.target.value }))}><option value="1">1</option><option value="3">3</option><option value="6">6</option><option value="12">12</option></select></label>
+                <label>tambah_bulan<select value={saasForm.months} onChange={(e) => setSaasForm((p) => ({ ...p, months: e.target.value }))}>
+                  {SAAS_EXTENSION_MONTH_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select></label>
                 <label>note<input value={saasForm.note} onChange={(e) => setSaasForm((p) => ({ ...p, note: e.target.value }))} /></label>
                 <button className="btn" type="submit">Perpanjang sewa</button>
               </form>

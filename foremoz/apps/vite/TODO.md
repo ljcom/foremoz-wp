@@ -12,6 +12,7 @@
 - [x] Move AdminPage package type options, package form defaults, and package type field behavior into JSON config.
 - [x] Move AdminPage user role, registration field type, product category, and transaction filter/payment select options into JSON config.
 - [x] Move workspace switcher environment list into shared workspace config.
+- [x] Move AdminPage duration mode, usage mode, and SaaS extension month options into JSON config.
 - [ ] Inventory current UI surfaces that still define labels, navigation, tabs, statuses, actions, empty states, or copy directly in components.
 - [ ] Define or extend JSON config for navigation, page layouts, table columns, forms, badge variants, workflow actions, and empty states before adding new UI.
 - [ ] Keep renderers generic: components should receive config and context instead of owning business-specific arrays or rules.

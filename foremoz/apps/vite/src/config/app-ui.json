@@ -189,6 +189,14 @@
       { "value": "per_week", "label": "Per week" },
       { "value": "per_month", "label": "Per month" }
     ],
+    "durationModeOptions": [
+      { "value": "unlimited", "label": "Unlimited" },
+      { "value": "limited", "label": "Limited" }
+    ],
+    "usageModeOptions": [
+      { "value": "unlimited", "label": "unlimited" },
+      { "value": "limited", "label": "limited" }
+    ],
     "eventWorkflow": {
       "defaultStatus": "scheduled",
       "draftStatus": "draft",
@@ -472,6 +480,12 @@
       { "value": "cash", "label": "cash" },
       { "value": "credit_card", "label": "credit_card" },
       { "value": "debit_card", "label": "debit_card" }
+    ],
+    "saasExtensionMonths": [
+      { "value": "1", "label": "1" },
+      { "value": "3", "label": "3" },
+      { "value": "6", "label": "6" },
+      { "value": "12", "label": "12" }
     ]
   },
   "csDashboard": {
