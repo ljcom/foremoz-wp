@@ -23,6 +23,111 @@ function interpolateConfigValue(value, vars = {}) {
   return value.replace(/\{(\w+)\}/g, (_, varKey) => String(vars[varKey] ?? ''));
 }
 
+function requireConfigObject(config, path) {
+  const value = path.split('.').reduce((current, key) => asObject(current)[key], config);
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error(`Invalid app-ui config: ${path} must be an object`);
+  }
+  return value;
+}
+
+function requireConfigArray(config, path) {
+  const value = path.split('.').reduce((current, key) => asObject(current)[key], config);
+  if (!Array.isArray(value)) {
+    throw new Error(`Invalid app-ui config: ${path} must be an array`);
+  }
+  return value;
+}
+
+function requireConfigOptionArray(config, path, keyName = 'value') {
+  const options = requireConfigArray(config, path);
+  options.forEach((item, index) => {
+    if (!item || typeof item !== 'object' || !String(item[keyName] || '').trim()) {
+      throw new Error(`Invalid app-ui config: ${path}[${index}] must include ${keyName}`);
+    }
+  });
+}
+
+function requireConfigCopy(config, path, keys) {
+  const copy = requireConfigObject(config, path);
+  keys.forEach((key) => {
+    if (!String(copy[key] || '').trim()) {
+      throw new Error(`Invalid app-ui config: ${path}.${key} is required`);
+    }
+  });
+}
+
+export function validateAppUiConfig(config = appUiConfig) {
+  requireConfigObject(config, 'pageErrorBoundary.defaults');
+  requireConfigObject(config, 'pageErrorBoundary.variants');
+  requireConfigObject(config, 'workspaceAccess.routePolicies');
+  requireConfigObject(config, 'workspaceAccess.roleHomePaths');
+  requireConfigObject(config, 'workspaceAccess.environmentHomePaths');
+  requireConfigObject(config, 'workspaceAccess.adminTabsByPlan');
+  requireConfigObject(config, 'adminPage.copy');
+  requireConfigObject(config, 'adminPage.localizedCopy.id');
+  requireConfigObject(config, 'adminPage.localizedCopy.en');
+  requireConfigObject(config, 'adminPage.fixtures');
+  requireConfigObject(config, 'adminPage.eventWorkflow');
+  requireConfigObject(config, 'adminPage.memberUpload');
+  requireConfigObject(config, 'csDashboard.orders');
+
+  [
+    'workspaceAccess.workspaceSwitcherEnvironments',
+    'workspaceAccess.defaultEnvironments',
+    'adminPage.eventDurationUnits',
+    'adminPage.classWeekdays',
+    'adminPage.activityValidityUnitOptions',
+    'adminPage.activityLimitedDurationUnitOptions',
+    'adminPage.activityValidityAnchorOptions',
+    'adminPage.activityUsagePeriodOptions',
+    'adminPage.durationModeOptions',
+    'adminPage.usageModeOptions',
+    'adminPage.packageTypes',
+    'adminPage.userRoles',
+    'adminPage.registrationFieldTypes',
+    'adminPage.productCategories',
+    'adminPage.transactionStatusFilters',
+    'adminPage.transactionLinkFilters',
+    'adminPage.transactionCurrencies',
+    'adminPage.transactionMethods',
+    'adminPage.transactionActions',
+    'adminPage.saasExtensionMonths'
+  ].forEach((path) => requireConfigOptionArray(config, path));
+
+  [
+    'adminPage.tabs',
+    'adminPage.eventTemplates',
+    'adminPage.classTemplates'
+  ].forEach((path) => requireConfigOptionArray(config, path, 'id'));
+
+  [
+    'adminPage.productTableColumns',
+    'adminPage.packageTableColumns',
+    'adminPage.trainerPackageTableColumns',
+    'adminPage.salesMemberTableColumns',
+    'adminPage.ptUserTableColumns',
+    'adminPage.salesUserTableColumns',
+    'adminPage.memberTableColumns',
+    'adminPage.transactionTableColumns'
+  ].forEach((path) => requireConfigOptionArray(config, path));
+
+  requireConfigCopy(config, 'adminPage.copy', [
+    'addNew',
+    'backToList',
+    'saving',
+    'saveEvent',
+    'saveProgram',
+    'saveTransaction',
+    'eventNameRequired',
+    'classNameRequired',
+    'transactionListTitle',
+    'memberUploadEyebrow'
+  ]);
+}
+
+validateAppUiConfig();
+
 export function getPageErrorBoundaryConfig(variant) {
   const boundaryConfig = asObject(appUiConfig.pageErrorBoundary);
   const defaults = asObject(boundaryConfig.defaults);

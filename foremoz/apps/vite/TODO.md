@@ -37,4 +37,4 @@
 
 ## Known Follow-up
 - [ ] Continue migrating remaining admin/detail page copy into the existing i18n/config layer.
-- [ ] Add validation for JSON config shape before rendering config-driven pages.
+- [x] Add validation for JSON config shape before rendering config-driven pages.
