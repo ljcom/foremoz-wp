@@ -662,20 +662,24 @@ export default function SalesPage() {
             <p className="muted">{salesCopy('subtitle', 'Manage prospects, follow-ups, conversions, and incentive basis.')}</p>
           </div>
           <div className="backend-topbar-actions">
-            {allowedEnv.map((env) => (
-              <button
-                className={`btn ghost small ${targetEnv === env ? 'active' : ''}`}
-                key={env}
-                type="button"
-                onClick={() => {
-                  setTargetEnv(env);
-                  goToEnv(env);
-                }}
-              >
-                {getEnvironmentLabel(env)}
-              </button>
-            ))}
-            <button className="btn small" type="button" onClick={() => setProspectDrawerOpen(true)}>{salesCopy('addProspect', 'Add Prospect')}</button>
+            <div className="backend-env-switcher" aria-label="Workspace environment switcher">
+              {allowedEnv.map((env) => (
+                <button
+                  className={`btn ghost small ${targetEnv === env ? 'active' : ''}`}
+                  key={env}
+                  type="button"
+                  onClick={() => {
+                    setTargetEnv(env);
+                    goToEnv(env);
+                  }}
+                >
+                  {getEnvironmentLabel(env)}
+                </button>
+              ))}
+            </div>
+            <div className="backend-primary-actions">
+              <button className="btn small" type="button" onClick={() => setProspectDrawerOpen(true)}>{salesCopy('addProspect', 'Add Prospect')}</button>
+            </div>
           </div>
         </header>
 
