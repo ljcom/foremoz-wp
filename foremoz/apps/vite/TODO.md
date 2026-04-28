@@ -36,7 +36,7 @@
 - [ ] Define or extend JSON config for navigation, page layouts, table columns, forms, badge variants, workflow actions, and empty states before adding new UI.
 - [ ] Keep renderers generic: components should receive config and context instead of owning business-specific arrays or rules.
 - [ ] Keep visual choices on design tokens, semantic variants, CSS variables, or Tailwind presets instead of raw one-off styling inside components.
-- [ ] Run `npm run build` after frontend changes that touch application behavior or config loading.
+- [x] Run `npm run build` after frontend changes that touch application behavior or config loading.
 
 ## Known Follow-up
 - [ ] Continue migrating remaining admin/detail page copy into the existing i18n/config layer.
