@@ -5920,9 +5920,9 @@ export default function AdminPage() {
                           </div>
                           {!isEditingEventPublished ? (
                             <div className="card" style={{ borderStyle: 'dashed', marginBottom: '0.6rem' }}>
-                              <p className="eyebrow">Guide</p>
-                              <p className="feedback">Event masih draft. Participant biasanya muncul setelah event dipublikasikan dan member melakukan registrasi.</p>
-                              <p className="feedback">Langkah cepat: Save event {'->'} Publikasikan Event {'->'} bagikan link event {'->'} refresh tab Participants.</p>
+                              <p className="eyebrow">{getAdminPageCopy('guideEyebrow')}</p>
+                              <p className="feedback">{getAdminPageCopy('eventDraftParticipantGuide')}</p>
+                              <p className="feedback">{getAdminPageCopy('eventParticipantQuickGuide')}</p>
                             </div>
                           ) : null}
                           <div className="form" style={{ marginBottom: '0.6rem' }}>
@@ -5947,7 +5947,7 @@ export default function AdminPage() {
                           </div>
                           {eventParticipantsLoading ? <p className="feedback">{getAdminPageCopy('loadingParticipants')}</p> : null}
                           {!eventParticipantsLoading && eventParticipants.length === 0 ? (
-                            <p className="feedback">Belum ada participant yang join event ini.</p>
+                            <p className="feedback">{getAdminPageCopy('eventParticipantsEmpty')}</p>
                           ) : null}
                           {!eventParticipantsLoading && eventParticipants.length > 0 ? (
                             <div className="entity-list">
@@ -5974,7 +5974,7 @@ export default function AdminPage() {
                           ) : null}
                         </div>
                       ) : (
-                        <p className="feedback">Simpan event dulu untuk melihat participants.</p>
+                        <p className="feedback">{getAdminPageCopy('eventParticipantsRequiresSave')}</p>
                       )
                     ) : null}
                     {eventEditTab === 'general' ? (
@@ -7524,8 +7524,8 @@ export default function AdminPage() {
                           {!classParticipantsLoading && classParticipants.length === 0 ? (
                             <p className="feedback">
                               {resolvedClassType === 'scheduled'
-                                ? 'Belum ada participant yang booking program ini.'
-                                : 'Belum ada enrollment untuk activity ini.'}
+                                ? getAdminPageCopy('classScheduledParticipantsEmpty')
+                                : getAdminPageCopy('classActivityParticipantsEmpty')}
                             </p>
                           ) : null}
                           {!classParticipantsLoading && classParticipants.length > 0 ? (
@@ -7550,7 +7550,7 @@ export default function AdminPage() {
                           ) : null}
                         </div>
                       ) : (
-                        <p className="feedback">Simpan program dulu untuk melihat participants.</p>
+                        <p className="feedback">{getAdminPageCopy('classParticipantsRequiresSave')}</p>
                       )
                     ) : null}
                     <button className="btn" type="submit" disabled={classSaving}>{classSaving ? getAdminPageCopy('saving') : getAdminPageCopy('saveProgram')}</button>

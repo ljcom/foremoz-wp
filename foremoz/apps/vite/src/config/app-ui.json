@@ -152,7 +152,15 @@
       "loadingUserList": "Loading user list...",
       "loadingMemberPurchasedList": "Loading member purchased list...",
       "loadingPayments": "Loading payments...",
-      "loadingParticipants": "Loading participants..."
+      "loadingParticipants": "Loading participants...",
+      "guideEyebrow": "Guide",
+      "eventDraftParticipantGuide": "Event masih draft. Participant biasanya muncul setelah event dipublikasikan dan member melakukan registrasi.",
+      "eventParticipantQuickGuide": "Langkah cepat: Save event -> Publikasikan Event -> bagikan link event -> refresh tab Participants.",
+      "eventParticipantsEmpty": "Belum ada participant yang join event ini.",
+      "classScheduledParticipantsEmpty": "Belum ada participant yang booking program ini.",
+      "classActivityParticipantsEmpty": "Belum ada enrollment untuk activity ini.",
+      "eventParticipantsRequiresSave": "Simpan event dulu untuk melihat participants.",
+      "classParticipantsRequiresSave": "Simpan program dulu untuk melihat participants."
     },
     "fixtures": {
       "classes": [
