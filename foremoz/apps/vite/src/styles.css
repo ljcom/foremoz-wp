@@ -2524,39 +2524,33 @@ code {
   margin-bottom: 1rem;
 }
 
-.backend-title-env-switcher {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 0.3rem;
-  max-width: 128px;
-}
-
-.backend-title-env-btn {
-  min-height: 28px;
-  padding: 0.28rem 0.45rem;
+.backend-title-env-lookup {
+  width: 96px;
+  min-height: 32px;
+  padding: 0.25rem 0.45rem;
   border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.06);
   color: #cfe0d9;
   font: inherit;
-  font-size: 0.72rem;
+  font-size: 0.76rem;
   font-weight: 800;
   line-height: 1;
   text-transform: lowercase;
   cursor: pointer;
 }
 
-.backend-title-env-btn:hover,
-.backend-title-env-btn.active {
+.backend-title-env-lookup:hover,
+.backend-title-env-lookup:focus-visible {
+  outline: none;
   border-color: rgba(223, 247, 237, 0.54);
   background: rgba(223, 247, 237, 0.16);
   color: #ffffff;
 }
 
-.backend-title-env-btn:disabled {
-  cursor: not-allowed;
-  opacity: 0.38;
+.backend-title-env-lookup option {
+  background: #10231d;
+  color: #ffffff;
 }
 
 .backend-sidebar-nav {

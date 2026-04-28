@@ -36,20 +36,23 @@ export default function BackendWorkspaceShell({
         <div className="backend-sidebar-brand">{shellCopy('brand', 'Foremoz')}</div>
         <div className="backend-sidebar-title-row">
           <h1 className="backend-sidebar-title">{title}</h1>
-          <div className="backend-title-env-switcher" aria-label={shellCopy('environmentAria', 'Workspace environment switcher')}>
+          <select
+            aria-label={shellCopy('environmentAria', 'Workspace environment switcher')}
+            className="backend-title-env-lookup"
+            value={targetEnv === 'host' ? 'host' : targetEnv}
+            onChange={(event) => {
+              if (event.target.value === 'host') {
+                window.location.href = '/host/owner';
+                return;
+              }
+              onSelectEnv?.(event.target.value);
+            }}
+          >
             {WORKSPACE_ENV_SWITCHER.map((env) => (
-              <button
-                className={`backend-title-env-btn ${targetEnv === env ? 'active' : ''}`}
-                disabled={!allowedEnv.includes(env)}
-                key={env}
-                type="button"
-                onClick={() => onSelectEnv?.(env)}
-              >
-                {env}
-              </button>
+              <option disabled={!allowedEnv.includes(env)} key={env} value={env}>{env}</option>
             ))}
-            <a className={`backend-title-env-btn ${targetEnv === 'host' ? 'active' : ''}`} href="/host/owner">host</a>
-          </div>
+            <option value="host">host</option>
+          </select>
         </div>
         <nav className="backend-sidebar-nav" aria-label={shellCopy('navigationAria', 'Workspace navigation')}>
           {resolvedNavItems.map((item) => (

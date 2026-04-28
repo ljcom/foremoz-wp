@@ -642,23 +642,24 @@ export default function SalesPage() {
         <div className="backend-sidebar-brand">{salesCopy('brand', 'Foremoz')}</div>
         <div className="backend-sidebar-title-row">
           <h1 className="backend-sidebar-title">{salesCopy('eyebrow', 'Sales Workspace')}</h1>
-          <div className="backend-title-env-switcher" aria-label="Workspace environment switcher">
+          <select
+            aria-label="Workspace environment switcher"
+            className="backend-title-env-lookup"
+            value={targetEnv}
+            onChange={(event) => {
+              if (event.target.value === 'host') {
+                navigate('/host/owner');
+                return;
+              }
+              setTargetEnv(event.target.value);
+              goToEnv(event.target.value);
+            }}
+          >
             {WORKSPACE_ENV_SWITCHER.map((env) => (
-              <button
-                className={`backend-title-env-btn ${targetEnv === env ? 'active' : ''}`}
-                disabled={!allowedEnv.includes(env)}
-                key={env}
-                type="button"
-                onClick={() => {
-                  setTargetEnv(env);
-                  goToEnv(env);
-                }}
-              >
-                {env}
-              </button>
+              <option disabled={!allowedEnv.includes(env)} key={env} value={env}>{env}</option>
             ))}
-            <Link className="backend-title-env-btn" to="/host/owner">host</Link>
-          </div>
+            <option value="host">host</option>
+          </select>
         </div>
         <nav className="backend-sidebar-nav" aria-label="Sales workspace navigation">
           {SALES_NAV_ITEMS.map((item) => (
