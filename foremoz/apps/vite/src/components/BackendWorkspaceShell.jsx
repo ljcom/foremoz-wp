@@ -48,7 +48,7 @@ export default function BackendWorkspaceShell({
                 {env}
               </button>
             ))}
-            <a className="backend-title-env-btn" href="/host/owner">host</a>
+            <a className={`backend-title-env-btn ${targetEnv === 'host' ? 'active' : ''}`} href="/host/owner">host</a>
           </div>
         </div>
         <nav className="backend-sidebar-nav" aria-label={shellCopy('navigationAria', 'Workspace navigation')}>

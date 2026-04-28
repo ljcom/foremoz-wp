@@ -3,7 +3,10 @@ import { Link, useNavigate } from 'react-router-dom';
 import {
   apiJson,
   clearSession,
+  getAccountSlug,
+  getAllowedEnvironments,
   getOwnerSetup,
+  getEnvironmentLabel,
   getSession,
   IS_MOCK_MODE,
   IS_MOCKUP_OPEN_ACCESS,
@@ -11,6 +14,8 @@ import {
   setSession
 } from '../lib.js';
 import { getVerticalConfig, listVerticalConfigs, normalizeVerticalSlug } from '../industry-jargon.js';
+import BackendWorkspaceShell from '../components/BackendWorkspaceShell.jsx';
+import { getBackendShellNavItems } from '../config/app-config.js';
 
 const PLANS = [
   {
@@ -56,6 +61,7 @@ const PLANS = [
 ];
 
 const PLAN_SEQUENCE = ['free', 'starter', 'growth', 'multi_branch', 'enterprise'];
+const HOST_SIDEBAR_NAV_ITEMS = getBackendShellNavItems('host');
 
 const PLAN_PRICE = {
   free: 0,
@@ -250,6 +256,8 @@ export default function WebOwnerPage() {
   const existingSetupRaw = getOwnerSetup();
   const existingSetup = existingSetupRaw?.tenant_id === session?.tenant?.id ? existingSetupRaw : null;
   const tenantSeed = useMemo(() => session?.tenant?.id || existingSetup?.tenant_id || 'tn_001', [session, existingSetup]);
+  const accountSlug = getAccountSlug(session);
+  const role = String(session?.role || 'owner').toLowerCase();
 
   const [feedback, setFeedback] = useState('');
   const [loading, setLoading] = useState(false);
@@ -344,6 +352,25 @@ export default function WebOwnerPage() {
   const addUserRoleLabel = useMemo(
     () => formatAddUserRoleLabel(userForm.role || newUserRolePreset, setupForm.industry_slug),
     [userForm.role, newUserRolePreset, setupForm.industry_slug]
+  );
+  const allowedEnv = useMemo(() => getAllowedEnvironments(session, role), [session, role]);
+  const hostSidebarNavItems = useMemo(
+    () =>
+      HOST_SIDEBAR_NAV_ITEMS.map((item) => ({
+        ...item,
+        href: `#${item.id}`,
+        onClick: (event) => {
+          event.preventDefault();
+          setMenu(item.id);
+          if (item.id === 'branch') {
+            setBranchMode('list');
+          }
+          if (item.id === 'users') {
+            setUserMode('list');
+          }
+        }
+      })),
+    []
   );
 
   const isSetupReady = Boolean(
@@ -1354,6 +1381,25 @@ export default function WebOwnerPage() {
     navigate('/host', { replace: true });
   }
 
+  function goToEnv(env) {
+    if (!allowedEnv.includes(env)) return;
+    if (env === 'admin') {
+      navigate(`/a/${accountSlug}/admin/dashboard`);
+      return;
+    }
+    if (env === 'cs') {
+      navigate(`/a/${accountSlug}/cs/dashboard`);
+      return;
+    }
+    if (env === 'pt') {
+      navigate(`/a/${accountSlug}/pt/dashboard`);
+      return;
+    }
+    if (env === 'sales') {
+      navigate(`/a/${accountSlug}/sales/dashboard`);
+    }
+  }
+
   async function deleteAccountPermanently(e) {
     e.preventDefault();
     try {
@@ -1378,29 +1424,29 @@ export default function WebOwnerPage() {
   }
 
   return (
-    <main className="dashboard">
-      <header className="dash-head card">
-        <div>
-          <p className="eyebrow">Panel Owner</p>
-          <h1>{isSetupReady ? 'Panel kontrol owner' : 'Setup owner'}</h1>
-          <p>
-            {isSetupReady
-              ? 'Kelola tenant per topik: profil, paket, cabang, dan user.'
-              : 'Lengkapi nama bisnis/organisasi dan slug akun sebelum masuk panel kontrol.'}
-          </p>
-        </div>
-        <div className="meta">
-          {isSetupReady ? (
-            <button
-              className="btn ghost"
-              onClick={() => openDashboardInNewTab(setupForm.account_slug)}
-            >
-              Buka dashboard
-            </button>
-          ) : null}
-          <button className="btn ghost" onClick={signOut}>Keluar</button>
-        </div>
-      </header>
+    <BackendWorkspaceShell
+      activeNavId={menu}
+      allowedEnv={allowedEnv}
+      eyebrow="Panel Owner"
+      getEnvironmentLabel={getEnvironmentLabel}
+      navItems={hostSidebarNavItems}
+      onSelectEnv={goToEnv}
+      onSignOut={signOut}
+      primaryActions={isSetupReady ? (
+        <button
+          className="btn ghost small"
+          onClick={() => openDashboardInNewTab(setupForm.account_slug)}
+          type="button"
+        >
+          Buka dashboard
+        </button>
+      ) : null}
+      role={role}
+      session={session}
+      targetEnv="host"
+      title={isSetupReady ? 'Panel kontrol owner' : 'Setup owner'}
+      userName={session?.user?.fullName || session?.user?.email || 'Owner'}
+    >
 
       {!isSetupReady ? (
         <section className="card wide wizard" style={{ marginTop: '1rem' }}>
@@ -1641,39 +1687,8 @@ export default function WebOwnerPage() {
           )}
         </section>
       ) : (
-        <section className="workspace" style={{ marginTop: '1rem' }}>
-          <aside className="sidebar card">
-            <p className="eyebrow">Menu owner</p>
-            <button className={`side-item ${menu === 'profile' ? 'active' : ''}`} onClick={() => setMenu('profile')}>
-              Profil bisnis
-            </button>
-            <button
-              className={`side-item ${menu === 'branch' ? 'active' : ''}`}
-              onClick={() => {
-                setMenu('branch');
-                setBranchMode('list');
-              }}
-            >
-              Cabang
-            </button>
-            <button className={`side-item ${menu === 'package' ? 'active' : ''}`} onClick={() => setMenu('package')}>
-              Paket dan SaaS
-            </button>
-            <button
-              className={`side-item ${menu === 'users' ? 'active' : ''}`}
-              onClick={() => {
-                setMenu('users');
-                setUserMode('list');
-              }}
-            >
-              Akses user
-            </button>
-            <button className={`side-item ${menu === 'danger' ? 'active' : ''}`} onClick={() => setMenu('danger')}>
-              Zona bahaya
-            </button>
-          </aside>
-
-          <article className="card admin-panel" style={{ flex: 1 }}>
+        <section style={{ marginTop: '1rem' }}>
+          <article className="card admin-panel">
             {menu === 'profile' ? (
               <>
                 <p className="eyebrow">Profil bisnis</p>
@@ -2419,6 +2434,6 @@ export default function WebOwnerPage() {
       <footer className="dash-foot">
         <Link to="/host">Kembali ke halaman host</Link>
       </footer>
-    </main>
+    </BackendWorkspaceShell>
   );
 }

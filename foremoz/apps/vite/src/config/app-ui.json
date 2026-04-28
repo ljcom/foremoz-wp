@@ -92,6 +92,13 @@
         { "id": "member", "label": "Member" },
         { "id": "history", "label": "History sessions" },
         { "id": "incentive", "label": "Report incentive" }
+      ],
+      "host": [
+        { "id": "profile", "label": "Profil bisnis" },
+        { "id": "branch", "label": "Cabang" },
+        { "id": "package", "label": "Paket dan SaaS" },
+        { "id": "users", "label": "Akses user" },
+        { "id": "danger", "label": "Zona bahaya" }
       ]
     }
   },

@@ -123,6 +123,7 @@ export function validateAppUiConfig(config = appUiConfig) {
     'backendShell.navItemsByWorkspace.sales',
     'backendShell.navItemsByWorkspace.admin',
     'backendShell.navItemsByWorkspace.coach',
+    'backendShell.navItemsByWorkspace.host',
     'salesWorkspace.navItems'
   ].forEach((path) => requireConfigOptionArray(config, path, 'id'));
 
