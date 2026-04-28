@@ -642,24 +642,32 @@ export default function SalesPage() {
         <div className="backend-sidebar-brand">{salesCopy('brand', 'Foremoz')}</div>
         <div className="backend-sidebar-title-row">
           <h1 className="backend-sidebar-title">{salesCopy('eyebrow', 'Sales Workspace')}</h1>
-          <select
+          <div
             aria-label="Workspace environment switcher"
-            className="backend-title-env-lookup"
-            value={targetEnv}
-            onChange={(event) => {
-              if (event.target.value === 'host') {
-                navigate('/host/owner');
-                return;
-              }
-              setTargetEnv(event.target.value);
-              goToEnv(event.target.value);
-            }}
+            className="backend-title-env-menu"
           >
-            {WORKSPACE_ENV_SWITCHER.map((env) => (
-              <option disabled={!allowedEnv.includes(env)} key={env} value={env}>{env}</option>
-            ))}
-            <option value="host">host</option>
-          </select>
+            <button className="backend-title-env-trigger" type="button" aria-haspopup="menu">
+              &gt;
+            </button>
+            <div className="backend-title-env-popover" role="menu">
+              {WORKSPACE_ENV_SWITCHER.map((env) => (
+                <button
+                  className={`backend-title-env-option ${targetEnv === env ? 'active' : ''}`}
+                  disabled={!allowedEnv.includes(env)}
+                  key={env}
+                  type="button"
+                  onClick={() => {
+                    setTargetEnv(env);
+                    goToEnv(env);
+                  }}
+                  role="menuitem"
+                >
+                  {env}
+                </button>
+              ))}
+              <Link className="backend-title-env-option" to="/host/owner" role="menuitem">host</Link>
+            </div>
+          </div>
         </div>
         <nav className="backend-sidebar-nav" aria-label="Sales workspace navigation">
           {SALES_NAV_ITEMS.map((item) => (

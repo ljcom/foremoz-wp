@@ -36,23 +36,29 @@ export default function BackendWorkspaceShell({
         <div className="backend-sidebar-brand">{shellCopy('brand', 'Foremoz')}</div>
         <div className="backend-sidebar-title-row">
           <h1 className="backend-sidebar-title">{title}</h1>
-          <select
+          <div
             aria-label={shellCopy('environmentAria', 'Workspace environment switcher')}
-            className="backend-title-env-lookup"
-            value={targetEnv === 'host' ? 'host' : targetEnv}
-            onChange={(event) => {
-              if (event.target.value === 'host') {
-                window.location.href = '/host/owner';
-                return;
-              }
-              onSelectEnv?.(event.target.value);
-            }}
+            className="backend-title-env-menu"
           >
-            {WORKSPACE_ENV_SWITCHER.map((env) => (
-              <option disabled={!allowedEnv.includes(env)} key={env} value={env}>{env}</option>
-            ))}
-            <option value="host">host</option>
-          </select>
+            <button className="backend-title-env-trigger" type="button" aria-haspopup="menu">
+              &gt;
+            </button>
+            <div className="backend-title-env-popover" role="menu">
+              {WORKSPACE_ENV_SWITCHER.map((env) => (
+                <button
+                  className={`backend-title-env-option ${targetEnv === env ? 'active' : ''}`}
+                  disabled={!allowedEnv.includes(env)}
+                  key={env}
+                  type="button"
+                  onClick={() => onSelectEnv?.(env)}
+                  role="menuitem"
+                >
+                  {env}
+                </button>
+              ))}
+              <a className={`backend-title-env-option ${targetEnv === 'host' ? 'active' : ''}`} href="/host/owner" role="menuitem">host</a>
+            </div>
+          </div>
         </div>
         <nav className="backend-sidebar-nav" aria-label={shellCopy('navigationAria', 'Workspace navigation')}>
           {resolvedNavItems.map((item) => (

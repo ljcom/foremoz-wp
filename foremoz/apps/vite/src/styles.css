@@ -2524,33 +2524,80 @@ code {
   margin-bottom: 1rem;
 }
 
-.backend-title-env-lookup {
-  width: 96px;
+.backend-title-env-menu {
+  position: relative;
+}
+
+.backend-title-env-trigger {
+  width: 32px;
   min-height: 32px;
-  padding: 0.25rem 0.45rem;
+  padding: 0;
   border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.06);
   color: #cfe0d9;
   font: inherit;
-  font-size: 0.76rem;
+  font-size: 1rem;
   font-weight: 800;
   line-height: 1;
-  text-transform: lowercase;
   cursor: pointer;
 }
 
-.backend-title-env-lookup:hover,
-.backend-title-env-lookup:focus-visible {
+.backend-title-env-trigger:hover,
+.backend-title-env-trigger:focus-visible {
   outline: none;
   border-color: rgba(223, 247, 237, 0.54);
   background: rgba(223, 247, 237, 0.16);
   color: #ffffff;
 }
 
-.backend-title-env-lookup option {
+.backend-title-env-popover {
+  position: absolute;
+  top: calc(100% + 0.35rem);
+  right: 0;
+  z-index: 20;
+  min-width: 132px;
+  padding: 0.35rem;
+  border: 1px solid rgba(223, 247, 237, 0.18);
+  border-radius: 10px;
   background: #10231d;
+  box-shadow: 0 18px 36px rgba(5, 14, 11, 0.32);
+  display: none;
+}
+
+.backend-title-env-menu:hover .backend-title-env-popover,
+.backend-title-env-menu:focus-within .backend-title-env-popover {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.backend-title-env-option {
+  width: 100%;
+  min-height: 32px;
+  padding: 0.45rem 0.55rem;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #cfe0d9;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-align: left;
+  text-transform: lowercase;
+  cursor: pointer;
+}
+
+.backend-title-env-option:hover,
+.backend-title-env-option:focus-visible,
+.backend-title-env-option.active {
+  outline: none;
+  background: rgba(223, 247, 237, 0.16);
   color: #ffffff;
+}
+
+.backend-title-env-option:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
 }
 
 .backend-sidebar-nav {
