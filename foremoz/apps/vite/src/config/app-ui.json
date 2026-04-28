@@ -44,6 +44,25 @@
       }
     }
   },
+  "backendShell": {
+    "copy": {
+      "brand": "Foremoz",
+      "topbarEyebrow": "Foremoz Admin",
+      "signedInAs": "Signed in as",
+      "signOut": "Sign out",
+      "environmentAria": "Workspace environment switcher",
+      "navigationAria": "Workspace navigation"
+    },
+    "navItems": [
+      { "id": "dashboard", "label": "Dashboard", "href": "#dashboard" },
+      { "id": "members", "label": "Members", "href": "#members" },
+      { "id": "prospects", "label": "Prospects", "href": "#prospects" },
+      { "id": "events", "label": "Events", "href": "#events" },
+      { "id": "payments", "label": "Payments", "href": "#payments" },
+      { "id": "incentives", "label": "Incentives", "href": "#incentives" },
+      { "id": "settings", "label": "Settings", "href": "#settings" }
+    ]
+  },
   "salesWorkspace": {
     "copy": {
       "brand": "Foremoz",

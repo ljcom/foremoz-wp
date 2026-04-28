@@ -69,6 +69,7 @@ function requireConfigCopy(config, path, keys) {
 export function validateAppUiConfig(config = appUiConfig) {
   requireConfigObject(config, 'pageErrorBoundary.defaults');
   requireConfigObject(config, 'pageErrorBoundary.variants');
+  requireConfigObject(config, 'backendShell.copy');
   requireConfigObject(config, 'workspaceAccess.routePolicies');
   requireConfigObject(config, 'workspaceAccess.roleHomePaths');
   requireConfigObject(config, 'workspaceAccess.environmentHomePaths');
@@ -116,6 +117,7 @@ export function validateAppUiConfig(config = appUiConfig) {
     'adminPage.tabs',
     'adminPage.eventTemplates',
     'adminPage.classTemplates',
+    'backendShell.navItems',
     'salesWorkspace.navItems'
   ].forEach((path) => requireConfigOptionArray(config, path, 'id'));
 
@@ -152,6 +154,14 @@ export function validateAppUiConfig(config = appUiConfig) {
     'createOrderFailed',
     'orderCreatedFeedback'
   ]);
+  requireConfigCopy(config, 'backendShell.copy', [
+    'brand',
+    'topbarEyebrow',
+    'signedInAs',
+    'signOut',
+    'environmentAria',
+    'navigationAria'
+  ]);
   requireConfigCopy(config, 'salesWorkspace.copy', [
     'brand',
     'eyebrow',
@@ -180,6 +190,10 @@ export function getPageErrorBoundaryConfig(variant) {
 
 export function getDashboardOrderConfig() {
   return asObject(asObject(appUiConfig.csDashboard).orders);
+}
+
+export function getBackendShellConfig() {
+  return asObject(appUiConfig.backendShell);
 }
 
 export function getSalesWorkspaceConfig() {

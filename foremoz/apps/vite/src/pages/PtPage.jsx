@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { apiJson, clearSession, getAccountSlug, getAllowedEnvironments, getEnvironmentLabel, getSession, setSession } from '../lib.js';
-import WorkspaceHeader from '../components/WorkspaceHeader.jsx';
+import BackendWorkspaceShell from '../components/BackendWorkspaceShell.jsx';
 import {
   formatAppDateTime,
   getAppDateKey,
@@ -1351,20 +1351,23 @@ export default function PtPage() {
   }, [selectedAwardEventId, tenantId, branchId]);
 
   return (
-    <main className="dashboard">
-      <WorkspaceHeader
-        eyebrow="PT Workspace"
-        title={profileForm.full_name || session?.user?.fullName || 'PT'}
-        subtitle="Session booking, completion, and member activity tracking"
-        allowedEnv={allowedEnv}
-        targetEnv={targetEnv}
-        getEnvironmentLabel={getEnvironmentLabel}
-        onSelectEnv={(env) => {
-          setTargetEnv(env);
-          goToEnv(env);
-        }}
-        onSignOut={signOut}
-      />
+    <BackendWorkspaceShell
+      activeNavId="members"
+      eyebrow="Foremoz Admin"
+      title="PT Workspace"
+      subtitle="Session booking, completion, and member activity tracking"
+      session={session}
+      role={role}
+      userName={profileForm.full_name || session?.user?.fullName || 'PT'}
+      allowedEnv={allowedEnv}
+      targetEnv={targetEnv}
+      getEnvironmentLabel={getEnvironmentLabel}
+      onSelectEnv={(env) => {
+        setTargetEnv(env);
+        goToEnv(env);
+      }}
+      onSignOut={signOut}
+    >
 
       <section style={{ marginTop: '1rem' }}>
         <p className="eyebrow">Insight</p>
@@ -2086,6 +2089,6 @@ export default function PtPage() {
       </section>
 
       <footer className="dash-foot"><Link to="/host">Back to host</Link></footer>
-    </main>
+    </BackendWorkspaceShell>
   );
 }

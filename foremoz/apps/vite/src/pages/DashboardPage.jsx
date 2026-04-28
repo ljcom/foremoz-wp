@@ -10,7 +10,7 @@ import {
   getSessionPackagePlan
 } from '../lib.js';
 import { getVerticalLabel, guessVerticalSlugByText } from '../industry-jargon.js';
-import WorkspaceHeader from '../components/WorkspaceHeader.jsx';
+import BackendWorkspaceShell from '../components/BackendWorkspaceShell.jsx';
 import { useI18n } from '../i18n.js';
 import { formatAppDateTime as formatDateTime } from '../time.js';
 import {
@@ -2946,24 +2946,27 @@ export default function DashboardPage() {
   }
 
   return (
-    <main className="dashboard">
-      <WorkspaceHeader
-        eyebrow={copy.eyebrow}
-        title={session?.tenant?.gym_name || `Foremoz ${inferredVerticalLabel} Tenant`}
-        subtitle={copy.welcome.replace('{name}', fullName)}
-        allowedEnv={allowedEnv}
-        targetEnv={targetEnv}
-        getEnvironmentLabel={(env) => {
+    <BackendWorkspaceShell
+      activeNavId="dashboard"
+      eyebrow="Foremoz Admin"
+      title={copy.eyebrow}
+      subtitle={copy.welcome.replace('{name}', fullName)}
+      session={session}
+      role={role}
+      userName={fullName}
+      allowedEnv={allowedEnv}
+      targetEnv={targetEnv}
+      getEnvironmentLabel={(env) => {
           if (env === 'admin') return copy.envAdmin;
           if (env === 'cs') return copy.envCs;
           return env;
-        }}
-        onSelectEnv={(env) => {
-          setTargetEnv(env);
-          goToEnv(env);
-        }}
-        onSignOut={signOut}
-      />
+      }}
+      onSelectEnv={(env) => {
+        setTargetEnv(env);
+        goToEnv(env);
+      }}
+      onSignOut={signOut}
+    >
 
       <section className="stats-grid">
         {stats.map((s) => (
@@ -4459,6 +4462,6 @@ export default function DashboardPage() {
       <footer className="dash-foot">
         <Link to="/">Kembali ke Home</Link>
       </footer>
-    </main>
+    </BackendWorkspaceShell>
   );
 }

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { accountPath, apiJson, clearSession, getAccountSlug, getEnvironmentLabel, getSession, getAdminTabsByPlan, getAllowedEnvironments, getSessionPackagePlan } from '../lib.js';
 import { getVerticalConfig, getVerticalLabel, guessVerticalSlugByText } from '../industry-jargon.js';
-import WorkspaceHeader from '../components/WorkspaceHeader.jsx';
+import BackendWorkspaceShell from '../components/BackendWorkspaceShell.jsx';
 import { useI18n } from '../i18n.js';
 import {
   getAdminClassTemplateConfig,
@@ -4724,26 +4724,28 @@ export default function AdminPage() {
   }
 
   return (
-    <main className="dashboard">
-      <WorkspaceHeader
-        eyebrow={dashboardTitle}
-        title={session?.tenant?.gym_name || `Foremoz ${inferredVerticalLabel} Tenant`}
-        subtitle={dashboardSubtitle}
-        allowedEnv={allowedEnv}
-        targetEnv={targetEnv}
-        getEnvironmentLabel={getEnvironmentLabel}
-        extraActions={role === 'owner' ? (
-          <Link className="btn ghost small" to="/host/owner">
-            Jump to host setting
-          </Link>
-        ) : null}
-        onSelectEnv={(env) => {
-          setTargetEnv(env);
-          goToEnv(env);
-        }}
-        onSignOut={signOut}
-      />
-
+    <BackendWorkspaceShell
+      activeNavId="settings"
+      eyebrow="Foremoz Admin"
+      title={dashboardTitle}
+      subtitle={dashboardSubtitle}
+      session={session}
+      role={role}
+      userName={session?.user?.fullName || session?.tenant?.gym_name || `Foremoz ${inferredVerticalLabel} Tenant`}
+      allowedEnv={allowedEnv}
+      targetEnv={targetEnv}
+      getEnvironmentLabel={getEnvironmentLabel}
+      primaryActions={role === 'owner' ? (
+        <Link className="btn ghost small" to="/host/owner">
+          Jump to host setting
+        </Link>
+      ) : null}
+      onSelectEnv={(env) => {
+        setTargetEnv(env);
+        goToEnv(env);
+      }}
+      onSignOut={signOut}
+    >
       {lockedAdminTabs.length > 0 || lockedWorkspaces.length > 0 ? (
         <section className="card" style={{ marginTop: '1rem', borderStyle: 'dashed' }}>
           <p className="eyebrow">{getAdminPageCopy('packageGatingEyebrow')}</p>
@@ -8412,6 +8414,6 @@ export default function AdminPage() {
       <footer className="dash-foot">
         <Link to={accountPath(session, '/cs/dashboard')}>{getAdminPageCopy('footerBackToSearchMember')}</Link>
       </footer>
-    </main>
+    </BackendWorkspaceShell>
   );
 }
