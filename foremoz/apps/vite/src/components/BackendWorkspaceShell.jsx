@@ -77,10 +77,6 @@ export default function BackendWorkspaceShell({
 
       <section className="backend-main">
         <header className="backend-topbar">
-          <div>
-            <p className="eyebrow">{eyebrow || shellCopy('topbarEyebrow', 'Foremoz Admin')}</p>
-            {subtitle ? <p className="muted">{subtitle}</p> : null}
-          </div>
           <div className="backend-topbar-actions">
             <LanguageSwitcher compact />
             {primaryActions ? <div className="backend-primary-actions">{primaryActions}</div> : null}
