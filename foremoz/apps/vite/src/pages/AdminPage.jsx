@@ -10,6 +10,7 @@ import {
   getAdminPageOptions,
   getAdminPlanLabel,
   getAdminTabsConfig,
+  getMappedWorkspacePath,
   isConfiguredAdminEventPublishedStatus
 } from '../config/app-config.js';
 import {
@@ -2488,19 +2489,7 @@ export default function AdminPage() {
 
   function goToEnv(env) {
     if (!allowedEnv.includes(env)) return;
-    if (env === 'admin') {
-      navigate(`/a/${accountSlug}/admin/dashboard`);
-      return;
-    }
-    if (env === 'sales') {
-      navigate(`/a/${accountSlug}/sales/dashboard`);
-      return;
-    }
-    if (env === 'pt') {
-      navigate(`/a/${accountSlug}/pt/dashboard`);
-      return;
-    }
-    navigate(`/a/${accountSlug}/cs/dashboard`);
+    navigate(`/a/${accountSlug}${getMappedWorkspacePath('environmentHomePaths', env)}`);
   }
 
   function signOut() {
