@@ -4,6 +4,7 @@ import LanguageSwitcher from './LanguageSwitcher.jsx';
 const SHELL_CONFIG = getBackendShellConfig();
 const SHELL_COPY = SHELL_CONFIG.copy || {};
 const SHELL_NAV_ITEMS = Array.isArray(SHELL_CONFIG.navItems) ? SHELL_CONFIG.navItems : [];
+const WORKSPACE_ENV_SWITCHER = ['admin', 'cs', 'pt', 'sales'];
 
 function shellCopy(key, fallback = '') {
   return String(SHELL_COPY[key] || fallback || '');
@@ -33,7 +34,23 @@ export default function BackendWorkspaceShell({
     <main className="backend-shell">
       <aside className="backend-sidebar">
         <div className="backend-sidebar-brand">{shellCopy('brand', 'Foremoz')}</div>
-        <h1 className="backend-sidebar-title">{title}</h1>
+        <div className="backend-sidebar-title-row">
+          <h1 className="backend-sidebar-title">{title}</h1>
+          <div className="backend-title-env-switcher" aria-label={shellCopy('environmentAria', 'Workspace environment switcher')}>
+            {WORKSPACE_ENV_SWITCHER.map((env) => (
+              <button
+                className={`backend-title-env-btn ${targetEnv === env ? 'active' : ''}`}
+                disabled={!allowedEnv.includes(env)}
+                key={env}
+                type="button"
+                onClick={() => onSelectEnv?.(env)}
+              >
+                {env}
+              </button>
+            ))}
+            <a className="backend-title-env-btn" href="/host/owner">host</a>
+          </div>
+        </div>
         <nav className="backend-sidebar-nav" aria-label={shellCopy('navigationAria', 'Workspace navigation')}>
           {resolvedNavItems.map((item) => (
             <a
@@ -65,20 +82,6 @@ export default function BackendWorkspaceShell({
             {subtitle ? <p className="muted">{subtitle}</p> : null}
           </div>
           <div className="backend-topbar-actions">
-            {allowedEnv.length > 0 ? (
-              <div className="backend-env-switcher" aria-label={shellCopy('environmentAria', 'Workspace environment switcher')}>
-                {allowedEnv.map((env) => (
-                  <button
-                    className={`btn ghost small ${targetEnv === env ? 'active' : ''}`}
-                    key={env}
-                    type="button"
-                    onClick={() => onSelectEnv?.(env)}
-                  >
-                    {getEnvironmentLabel?.(env) || env}
-                  </button>
-                ))}
-              </div>
-            ) : null}
             <LanguageSwitcher compact />
             {primaryActions ? <div className="backend-primary-actions">{primaryActions}</div> : null}
           </div>

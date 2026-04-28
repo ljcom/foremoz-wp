@@ -2508,11 +2508,55 @@ code {
 }
 
 .backend-sidebar-title {
-  margin: 0 0 1rem;
+  margin: 0;
   color: #ffffff;
   font-size: 1.45rem;
   line-height: 1.1;
   letter-spacing: 0;
+}
+
+.backend-sidebar-title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin-bottom: 1rem;
+}
+
+.backend-title-env-switcher {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.3rem;
+  max-width: 128px;
+}
+
+.backend-title-env-btn {
+  min-height: 28px;
+  padding: 0.28rem 0.45rem;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #cfe0d9;
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1;
+  text-transform: lowercase;
+  cursor: pointer;
+}
+
+.backend-title-env-btn:hover,
+.backend-title-env-btn.active {
+  border-color: rgba(223, 247, 237, 0.54);
+  background: rgba(223, 247, 237, 0.16);
+  color: #ffffff;
+}
+
+.backend-title-env-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.38;
 }
 
 .backend-sidebar-nav {
@@ -2832,7 +2876,6 @@ code {
 
   .backend-sidebar-title {
     width: 100%;
-    margin-bottom: 0.75rem;
   }
 
   .backend-sidebar-nav {

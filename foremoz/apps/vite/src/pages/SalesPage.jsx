@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { getSalesWorkspaceConfig } from '../config/app-config.js';
-import { apiJson, clearSession, getAccountSlug, getAllowedEnvironments, getEnvironmentLabel, getSession } from '../lib.js';
+import { apiJson, clearSession, getAccountSlug, getAllowedEnvironments, getSession } from '../lib.js';
 import {
   formatAppDateTime,
   getAppDateKey,
@@ -14,6 +14,7 @@ const SALES_WORKSPACE_COPY = SALES_WORKSPACE_CONFIG.copy || {};
 const SALES_NAV_ITEMS = Array.isArray(SALES_WORKSPACE_CONFIG.navItems) ? SALES_WORKSPACE_CONFIG.navItems : [];
 const SALES_QUICK_GUIDE = Array.isArray(SALES_WORKSPACE_CONFIG.quickGuide) ? SALES_WORKSPACE_CONFIG.quickGuide : [];
 const SALES_STAGE_FILTERS = Array.isArray(SALES_WORKSPACE_CONFIG.stageFilters) ? SALES_WORKSPACE_CONFIG.stageFilters : [];
+const WORKSPACE_ENV_SWITCHER = ['admin', 'cs', 'pt', 'sales'];
 
 function salesCopy(key, fallback = '', vars = {}) {
   const template = String(SALES_WORKSPACE_COPY[key] || fallback || '');
@@ -639,7 +640,26 @@ export default function SalesPage() {
     <main className="backend-shell sales-workspace-shell">
       <aside className="backend-sidebar">
         <div className="backend-sidebar-brand">{salesCopy('brand', 'Foremoz')}</div>
-        <h1 className="backend-sidebar-title">{salesCopy('eyebrow', 'Sales Workspace')}</h1>
+        <div className="backend-sidebar-title-row">
+          <h1 className="backend-sidebar-title">{salesCopy('eyebrow', 'Sales Workspace')}</h1>
+          <div className="backend-title-env-switcher" aria-label="Workspace environment switcher">
+            {WORKSPACE_ENV_SWITCHER.map((env) => (
+              <button
+                className={`backend-title-env-btn ${targetEnv === env ? 'active' : ''}`}
+                disabled={!allowedEnv.includes(env)}
+                key={env}
+                type="button"
+                onClick={() => {
+                  setTargetEnv(env);
+                  goToEnv(env);
+                }}
+              >
+                {env}
+              </button>
+            ))}
+            <Link className="backend-title-env-btn" to="/host/owner">host</Link>
+          </div>
+        </div>
         <nav className="backend-sidebar-nav" aria-label="Sales workspace navigation">
           {SALES_NAV_ITEMS.map((item) => (
             <a key={item.id} className={item.active ? 'active' : ''} href={item.href || `#${item.id}`}>
@@ -662,21 +682,6 @@ export default function SalesPage() {
             <p className="muted">{salesCopy('subtitle', 'Manage prospects, follow-ups, conversions, and incentive basis.')}</p>
           </div>
           <div className="backend-topbar-actions">
-            <div className="backend-env-switcher" aria-label="Workspace environment switcher">
-              {allowedEnv.map((env) => (
-                <button
-                  className={`btn ghost small ${targetEnv === env ? 'active' : ''}`}
-                  key={env}
-                  type="button"
-                  onClick={() => {
-                    setTargetEnv(env);
-                    goToEnv(env);
-                  }}
-                >
-                  {getEnvironmentLabel(env)}
-                </button>
-              ))}
-            </div>
             <div className="backend-primary-actions">
               <button className="btn small" type="button" onClick={() => setProspectDrawerOpen(true)}>{salesCopy('addProspect', 'Add Prospect')}</button>
             </div>
