@@ -1,10 +1,10 @@
 # AGENTS.md
 
-Panduan untuk agen yang bekerja di repository Nitinoto.
+Panduan untuk agen yang bekerja di repository Foremoz.
 
 ## Prinsip Utama
 
-Nitinoto adalah sistem yang digerakkan oleh konfigurasi.
+Foremoz adalah sistem yang digerakkan oleh konfigurasi.
 
 Jangan pernah hardcode:
 
