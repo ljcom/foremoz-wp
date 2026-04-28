@@ -12,6 +12,7 @@ import {
   getAdminEventTemplateConfig,
   getAdminEventTemplatesConfig,
   getAdminEventWorkflowValue,
+  getAdminFixture,
   getAdminPackageTypeConfig,
   getAdminPackageTypesConfig,
   getAdminPageOptions,
@@ -31,52 +32,8 @@ import {
 } from '../time.js';
 
 const ADMIN_TABS = getAdminTabsConfig();
-
-const DEFAULT_CLASSES = [
-  {
-    class_id: 'class_001',
-    class_type: 'scheduled',
-    class_name: 'HIIT Morning',
-    title: 'HIIT Morning',
-    description: '',
-    has_coach: true,
-    coach_id: '',
-    trainer_name: 'Raka',
-    category: '',
-    category_id: '',
-    capacity: '20',
-    capacity_mode: 'limited',
-    quota_mode: 'manual',
-    validity_mode: 'fixed',
-    price: '150000',
-    start_date: '2026-03-03',
-    end_date: '2026-03-31',
-    schedule_mode: 'weekly',
-    weekly_schedule: { weekdays: ['mon', 'wed', 'fri'], start_time: '07:00', end_time: '08:00' },
-    manual_schedule: [],
-    usage_mode: 'unlimited',
-    usage_limit: '',
-    usage_period: 'entire_validity',
-    validity_unit: 'none',
-    validity_value: '',
-    validity_anchor: 'activation',
-    max_meetings: '0',
-    coach_shares: []
-  }
-];
-const DEFAULT_EVENTS = [
-  {
-    event_id: 'evt_001',
-    event_name: 'One-time Bootcamp',
-    trainer_name: 'Coach Rafi',
-    location: 'Main Hall',
-    image_url: 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?auto=format&fit=crop&w=1200&q=80',
-    start_at: '2026-03-10 07:00',
-    price: '0',
-    duration_minutes: '60',
-    status: 'scheduled'
-  }
-];
+const DEFAULT_CLASSES = getAdminFixture('classes');
+const DEFAULT_EVENTS = getAdminFixture('events');
 
 const EVENT_DURATION_UNITS = getAdminPageOptions('eventDurationUnits');
 const CLASS_WEEKDAYS = getAdminPageOptions('classWeekdays');
@@ -934,35 +891,12 @@ function createEmptyEventWalkinForm(eventId = '') {
     error: ''
   };
 }
-const DEFAULT_TRAINERS = [
-  { trainer_id: 'tr_001', trainer_name: 'Raka', phone: '081234555500', specialization: 'HIIT' }
-];
-const DEFAULT_PRODUCTS = [
-  { product_id: 'prd_001', product_name: 'Whey Protein 1kg', category: 'retail', price: '450000', stock: '12' }
-];
-const DEFAULT_PACKAGES = [
-  { package_id: 'pkg_001', package_name: 'Membership 1 Month', package_type: 'membership', max_months: '', session_count: '', trainer_user_id: '', trainer_name: '', class_id: '', class_name: '', price: '350000' }
-];
-const DEFAULT_SALES = [
-  { sales_id: 'sales_001', sales_name: 'Nina', channel: 'instagram', target_amount: '20000000' }
-];
-const DEFAULT_MEMBERS = [
-  { member_id: 'member_001', member_name: 'Doni', phone: '081200001111', email: 'doni@foremoz.com' }
-];
-const DEFAULT_TRANSACTIONS = [
-  {
-    transaction_id: 'trx_001',
-    no_transaction: 'TRX-001',
-    member_id: 'owner_self_service',
-    product: 'Monthly Membership',
-    qty: '1',
-    price: '350000',
-    currency: 'IDR',
-    method: 'virtual_account',
-    status: 'pending',
-    recorded_at: ''
-  }
-];
+const DEFAULT_TRAINERS = getAdminFixture('trainers');
+const DEFAULT_PRODUCTS = getAdminFixture('products');
+const DEFAULT_PACKAGES = getAdminFixture('packages');
+const DEFAULT_SALES = getAdminFixture('sales');
+const DEFAULT_MEMBERS = getAdminFixture('members');
+const DEFAULT_TRANSACTIONS = getAdminFixture('transactions');
 
 function createEmptyMemberForm() {
   return {

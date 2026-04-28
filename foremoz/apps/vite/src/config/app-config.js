@@ -30,6 +30,10 @@ export function getAdminPageOptions(key) {
   return asArray(getAdminPageConfig()[key]).filter((item) => item && typeof item === 'object' && item.value);
 }
 
+export function getAdminFixture(key) {
+  return asArray(asObject(getAdminPageConfig().fixtures)[key]);
+}
+
 export function getAdminTabsConfig() {
   return asArray(getAdminPageConfig().tabs).filter((item) => item && typeof item === 'object' && item.id);
 }
