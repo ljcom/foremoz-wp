@@ -81,6 +81,7 @@ Sebelum membuat perubahan, periksa:
 - Seed/demo data harus mudah diganti dan tidak menjadi aturan permanen.
 - Jika status, role, permission, menu, atau workflow disimpan di database, pastikan ada definisi config yang jelas untuk bootstrap/migrasi.
 - Jangan membuat migration yang mengunci UI atau workflow tanpa jalur konfigurasi.
+- Submodule foremoz/apps/eventdb jangan diubah, pakai sebagai pattern untuk project.
 
 ## Testing dan Verifikasi
 
