@@ -690,8 +690,10 @@ export default function SalesPage() {
           <p>{salesCopy('signedInAs', 'Signed in as')}</p>
           <strong>{session?.user?.fullName || salesCopy('titleFallback', 'Sales')}</strong>
           <small>{role}</small>
-          <BackendSidebarSettings />
-          <button className="btn ghost small" type="button" onClick={signOut}>{salesCopy('signOut', 'Sign out')}</button>
+          <div className="backend-sidebar-user-actions">
+            <BackendSidebarSettings />
+            <button className="btn ghost small" type="button" onClick={signOut}>{salesCopy('signOut', 'Sign out')}</button>
+          </div>
         </div>
       </aside>
 

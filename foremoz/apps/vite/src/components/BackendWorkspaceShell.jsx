@@ -76,12 +76,14 @@ export default function BackendWorkspaceShell({
           <p>{shellCopy('signedInAs', 'Signed in as')}</p>
           <strong>{displayName}</strong>
           <small>{role}</small>
-          <BackendSidebarSettings />
-          {onSignOut ? (
-            <button className="btn ghost small" type="button" onClick={onSignOut}>
-              {shellCopy('signOut', 'Sign out')}
-            </button>
-          ) : null}
+          <div className="backend-sidebar-user-actions">
+            <BackendSidebarSettings />
+            {onSignOut ? (
+              <button className="btn ghost small" type="button" onClick={onSignOut}>
+                {shellCopy('signOut', 'Sign out')}
+              </button>
+            ) : null}
+          </div>
         </div>
       </aside>
 
