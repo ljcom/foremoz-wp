@@ -2532,7 +2532,7 @@ export default function AdminPage() {
     e.preventDefault();
     if (!userForm.full_name || !userForm.email) return;
     setUsers((prev) => [{ ...userForm, user_id: `usr_${Date.now()}` }, ...prev]);
-    setFeedback(`user.created: ${userForm.full_name}`);
+    setFeedback(getAdminPageCopy('userCreatedFeedback', { name: userForm.full_name }));
     setUserForm({ full_name: '', email: '', role: 'staff' });
     setUserMode('list');
   }
@@ -3330,7 +3330,7 @@ export default function AdminPage() {
           branch_id: branchId
         })
       });
-      setFeedback(`program.deleted: ${classId}`);
+      setFeedback(getAdminPageCopy('programDeletedFeedback', { id: classId }));
       await loadClasses();
     } catch (error) {
       setFeedback(error.message);
@@ -3343,7 +3343,7 @@ export default function AdminPage() {
     e.preventDefault();
     if (!trainerForm.trainer_name) return;
     setTrainers((prev) => [{ ...trainerForm, trainer_id: `tr_${Date.now()}` }, ...prev]);
-    setFeedback(`trainer.created: ${trainerForm.trainer_name}`);
+    setFeedback(getAdminPageCopy('trainerCreatedFeedback', { name: trainerForm.trainer_name }));
     setTrainerForm({ trainer_name: '', phone: '', specialization: '' });
     setTrainerMode('list');
   }
@@ -3368,7 +3368,11 @@ export default function AdminPage() {
           stock: Number(productForm.stock || 0)
         })
       });
-      setFeedback(editingProductId ? `product.updated: ${productForm.product_name}` : `product.created: ${productForm.product_name}`);
+      setFeedback(
+        getAdminPageCopy(editingProductId ? 'productUpdatedFeedback' : 'productCreatedFeedback', {
+          name: productForm.product_name
+        })
+      );
       setProductForm({ product_name: '', category: 'retail', price: '', stock: '' });
       setEditingProductId('');
       setProductMode('list');
@@ -3407,7 +3411,7 @@ export default function AdminPage() {
           branch_id: branchId
         })
       });
-      setFeedback(`product.deleted: ${productId}`);
+      setFeedback(getAdminPageCopy('productDeletedFeedback', { id: productId }));
       await loadProducts();
     } catch (error) {
       setFeedback(error.message);
@@ -3471,7 +3475,11 @@ export default function AdminPage() {
           price: Number(packageForm.price || 0)
         })
       });
-      setFeedback(editingPackageId ? `package.updated: ${packageForm.package_name}` : `package.created: ${packageForm.package_name}`);
+      setFeedback(
+        getAdminPageCopy(editingPackageId ? 'packageUpdatedFeedback' : 'packageCreatedFeedback', {
+          name: packageForm.package_name
+        })
+      );
       setPackageForm(createEmptyPackageForm());
       setEditingPackageId('');
       setPackageMode('list');
@@ -3513,7 +3521,7 @@ export default function AdminPage() {
           branch_id: branchId
         })
       });
-      setFeedback(`package.deleted: ${packageId}`);
+      setFeedback(getAdminPageCopy('packageDeletedFeedback', { id: packageId }));
       await loadPackages();
     } catch (error) {
       setFeedback(error.message);
@@ -3633,7 +3641,7 @@ export default function AdminPage() {
     e.preventDefault();
     if (!salesForm.sales_name || !salesForm.target_amount) return;
     setSales((prev) => [{ ...salesForm, sales_id: `sales_${Date.now()}` }, ...prev]);
-    setFeedback(`sales.target.set: ${salesForm.sales_name}`);
+    setFeedback(getAdminPageCopy('salesTargetSetFeedback', { name: salesForm.sales_name }));
     setSalesForm({ sales_name: '', channel: 'walkin', target_amount: '' });
     setSalesMode('list');
   }

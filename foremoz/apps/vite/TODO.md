@@ -31,6 +31,7 @@
 - [x] Move AdminPage event validation, publish/export, and save feedback into JSON config.
 - [x] Move AdminPage class/program schedule validation feedback into JSON config.
 - [x] Move AdminPage AI Assist and upload feedback into JSON config.
+- [x] Move AdminPage user/product/package/trainer/sales CRUD feedback into JSON config.
 - [x] Move CS Dashboard order validation, item, payment, and save feedback into JSON config.
 - [x] Inventory current UI surfaces that still define labels, navigation, tabs, statuses, actions, empty states, or copy directly in components.
 - [ ] Define or extend JSON config for navigation, page layouts, table columns, forms, badge variants, workflow actions, and empty states before adding new UI.

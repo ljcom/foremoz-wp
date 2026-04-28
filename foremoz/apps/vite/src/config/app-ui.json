@@ -292,7 +292,17 @@
       "uploadEventAttachmentSuccess": "event.info.attachment.uploaded: Attachment info event berhasil diunggah.",
       "uploadEventAttachmentFailed": "Gagal upload attachment info event.",
       "uploadClassAttachmentSuccess": "program.info.attachment.uploaded: Attachment info program berhasil diunggah.",
-      "uploadClassAttachmentFailed": "Gagal upload attachment info program."
+      "uploadClassAttachmentFailed": "Gagal upload attachment info program.",
+      "userCreatedFeedback": "user.created: {name}",
+      "programDeletedFeedback": "program.deleted: {id}",
+      "trainerCreatedFeedback": "trainer.created: {name}",
+      "productUpdatedFeedback": "product.updated: {name}",
+      "productCreatedFeedback": "product.created: {name}",
+      "productDeletedFeedback": "product.deleted: {id}",
+      "packageUpdatedFeedback": "package.updated: {name}",
+      "packageCreatedFeedback": "package.created: {name}",
+      "packageDeletedFeedback": "package.deleted: {id}",
+      "salesTargetSetFeedback": "sales.target.set: {name}"
     },
     "memberUpload": {
       "csvHeader": "email,member_name,phone",
