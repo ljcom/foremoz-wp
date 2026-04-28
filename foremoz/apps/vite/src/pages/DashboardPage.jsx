@@ -3038,45 +3038,6 @@ export default function DashboardPage() {
       {loading ? <p className="feedback">{copy.loadingDashboard}</p> : null}
       {error ? <p className="error">{error}</p> : null}
 
-      <section className="card search-panel">
-        <div className="panel-head workspace-panel-head">
-          <div>
-            <p className="eyebrow">{copy.workspaceEyebrow}</p>
-            <h2>{copy.choosePanel}</h2>
-          </div>
-        </div>
-        <div className="landing-tabs" role="tablist" aria-label={copy.workspacePanelAria}>
-          <button type="button" className={`landing-tab ${workspaceTab === 'member' ? 'active' : ''}`} onClick={() => setWorkspaceTab('member')}>
-            {copy.tabMember}
-          </button>
-          <button
-            type="button"
-            className={`landing-tab ${workspaceTab === 'event' ? 'active' : ''}`}
-            onClick={() => {
-              setWorkspaceTab('event');
-              setSelectedExperienceType('event');
-            }}
-          >
-            {copy.tabEvent}
-          </button>
-          {showClassWorkspace ? (
-            <button
-              type="button"
-              className={`landing-tab ${workspaceTab === 'class' ? 'active' : ''}`}
-              onClick={() => {
-                setWorkspaceTab('class');
-                setSelectedExperienceType('class');
-              }}
-            >
-              {copy.tabClass}
-            </button>
-          ) : null}
-          <button type="button" className={`landing-tab ${workspaceTab === 'report' ? 'active' : ''}`} onClick={() => setWorkspaceTab('report')}>
-            {copy.tabReport}
-          </button>
-        </div>
-      </section>
-
       {workspaceTab === 'member' ? (
         <section className="card search-panel">
           <div className="panel-head">
