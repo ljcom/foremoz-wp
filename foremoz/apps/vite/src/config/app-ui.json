@@ -129,6 +129,66 @@
       }
     }
   },
+  "adminPage": {
+    "tabs": [
+      { "id": "event", "label": "Event" },
+      { "id": "class", "label": "Program" },
+      { "id": "product", "label": "Product" },
+      { "id": "package_creation", "label": "Package creation" },
+      { "id": "trainer", "label": "Coach" },
+      { "id": "sales", "label": "Sales" },
+      { "id": "member", "label": "Member" },
+      { "id": "transaction", "label": "Transaction" }
+    ],
+    "planDisplayLabels": {
+      "free": "Free",
+      "starter": "Starter",
+      "growth": "Growth",
+      "multi_branch": "Multi-branch",
+      "enterprise": "Enterprise"
+    },
+    "eventDurationUnits": [
+      { "value": "minutes", "label": "Minutes", "minutes": 1 },
+      { "value": "hours", "label": "Hours", "minutes": 60 },
+      { "value": "days", "label": "Days", "minutes": 1440 },
+      { "value": "weeks", "label": "Weeks", "minutes": 10080 },
+      { "value": "months", "label": "Months (30 days)", "minutes": 43200 },
+      { "value": "years", "label": "Years (365 days)", "minutes": 525600 }
+    ],
+    "classWeekdays": [
+      { "value": "sun", "label": "Sun" },
+      { "value": "mon", "label": "Mon" },
+      { "value": "tue", "label": "Tue" },
+      { "value": "wed", "label": "Wed" },
+      { "value": "thu", "label": "Thu" },
+      { "value": "fri", "label": "Fri" },
+      { "value": "sat", "label": "Sat" }
+    ],
+    "activityValidityUnitOptions": [
+      { "value": "none", "label": "No expiry" },
+      { "value": "day", "label": "Day" },
+      { "value": "week", "label": "Week" },
+      { "value": "month", "label": "Month" },
+      { "value": "year", "label": "Year" }
+    ],
+    "activityLimitedDurationUnitOptions": [
+      { "value": "day", "label": "Daily" },
+      { "value": "week", "label": "Weekly" },
+      { "value": "month", "label": "Monthly" },
+      { "value": "year", "label": "Annual" }
+    ],
+    "activityValidityAnchorOptions": [
+      { "value": "activation", "label": "First date" },
+      { "value": "purchase", "label": "Purchase" },
+      { "value": "fixed_start", "label": "Fixed date" }
+    ],
+    "activityUsagePeriodOptions": [
+      { "value": "entire_validity", "label": "Entire validity" },
+      { "value": "per_day", "label": "Per day" },
+      { "value": "per_week", "label": "Per week" },
+      { "value": "per_month", "label": "Per month" }
+    ]
+  },
   "csDashboard": {
     "orders": {
       "defaultOrderType": "membership",

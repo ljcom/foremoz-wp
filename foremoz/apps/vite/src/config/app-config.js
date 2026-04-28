@@ -22,6 +22,23 @@ export function getDashboardOrderConfig() {
   return asObject(asObject(appUiConfig.csDashboard).orders);
 }
 
+export function getAdminPageConfig() {
+  return asObject(appUiConfig.adminPage);
+}
+
+export function getAdminPageOptions(key) {
+  return asArray(getAdminPageConfig()[key]).filter((item) => item && typeof item === 'object' && item.value);
+}
+
+export function getAdminTabsConfig() {
+  return asArray(getAdminPageConfig().tabs).filter((item) => item && typeof item === 'object' && item.id);
+}
+
+export function getAdminPlanLabel(plan, fallbackLabel = '') {
+  const labels = asObject(getAdminPageConfig().planDisplayLabels);
+  return String(labels[String(plan || '').trim()] || fallbackLabel || '');
+}
+
 export function getWorkspaceAccessConfig() {
   return asObject(appUiConfig.workspaceAccess);
 }

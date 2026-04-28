@@ -5,6 +5,11 @@ import { getVerticalConfig, getVerticalLabel, guessVerticalSlugByText } from '..
 import WorkspaceHeader from '../components/WorkspaceHeader.jsx';
 import { useI18n } from '../i18n.js';
 import {
+  getAdminPageOptions,
+  getAdminPlanLabel,
+  getAdminTabsConfig
+} from '../config/app-config.js';
+import {
   formatAppDate,
   formatAppDateTime,
   getAppDateInputValue,
@@ -13,26 +18,7 @@ import {
   toAppIsoFromDateTimeInput
 } from '../time.js';
 
-const ADMIN_TABS = [
-  // { id: 'user', label: 'User' },
-  { id: 'event', label: 'Event' },
-  { id: 'class', label: 'Program' },
-  { id: 'product', label: 'Product' },
-  { id: 'package_creation', label: 'Package creation' },
-  { id: 'trainer', label: 'Coach' },
-  { id: 'sales', label: 'Sales' },
-  { id: 'member', label: 'Member' },
-  { id: 'transaction', label: 'Transaction' },
-  // { id: 'saas', label: 'SaaS' }
-];
-
-const PLAN_DISPLAY_LABELS = {
-  free: 'Free',
-  starter: 'Starter',
-  growth: 'Growth',
-  multi_branch: 'Multi-branch',
-  enterprise: 'Enterprise'
-};
+const ADMIN_TABS = getAdminTabsConfig();
 
 const DEFAULT_CLASSES = [
   {
@@ -80,52 +66,12 @@ const DEFAULT_EVENTS = [
   }
 ];
 
-const EVENT_DURATION_UNITS = [
-  { value: 'minutes', label: 'Minutes', minutes: 1 },
-  { value: 'hours', label: 'Hours', minutes: 60 },
-  { value: 'days', label: 'Days', minutes: 60 * 24 },
-  { value: 'weeks', label: 'Weeks', minutes: 60 * 24 * 7 },
-  { value: 'months', label: 'Months (30 days)', minutes: 60 * 24 * 30 },
-  { value: 'years', label: 'Years (365 days)', minutes: 60 * 24 * 365 }
-];
-
-const CLASS_WEEKDAYS = [
-  { value: 'sun', label: 'Sun' },
-  { value: 'mon', label: 'Mon' },
-  { value: 'tue', label: 'Tue' },
-  { value: 'wed', label: 'Wed' },
-  { value: 'thu', label: 'Thu' },
-  { value: 'fri', label: 'Fri' },
-  { value: 'sat', label: 'Sat' }
-];
-
-const ACTIVITY_VALIDITY_UNIT_OPTIONS = [
-  { value: 'none', label: 'No expiry' },
-  { value: 'day', label: 'Day' },
-  { value: 'week', label: 'Week' },
-  { value: 'month', label: 'Month' },
-  { value: 'year', label: 'Year' }
-];
-
-const ACTIVITY_LIMITED_DURATION_UNIT_OPTIONS = [
-  { value: 'day', label: 'Daily' },
-  { value: 'week', label: 'Weekly' },
-  { value: 'month', label: 'Monthly' },
-  { value: 'year', label: 'Annual' }
-];
-
-const ACTIVITY_VALIDITY_ANCHOR_OPTIONS = [
-  { value: 'activation', label: 'First date' },
-  { value: 'purchase', label: 'Purchase' },
-  { value: 'fixed_start', label: 'Fixed date' }
-];
-
-const ACTIVITY_USAGE_PERIOD_OPTIONS = [
-  { value: 'entire_validity', label: 'Entire validity' },
-  { value: 'per_day', label: 'Per day' },
-  { value: 'per_week', label: 'Per week' },
-  { value: 'per_month', label: 'Per month' }
-];
+const EVENT_DURATION_UNITS = getAdminPageOptions('eventDurationUnits');
+const CLASS_WEEKDAYS = getAdminPageOptions('classWeekdays');
+const ACTIVITY_VALIDITY_UNIT_OPTIONS = getAdminPageOptions('activityValidityUnitOptions');
+const ACTIVITY_LIMITED_DURATION_UNIT_OPTIONS = getAdminPageOptions('activityLimitedDurationUnitOptions');
+const ACTIVITY_VALIDITY_ANCHOR_OPTIONS = getAdminPageOptions('activityValidityAnchorOptions');
+const ACTIVITY_USAGE_PERIOD_OPTIONS = getAdminPageOptions('activityUsagePeriodOptions');
 
 const IDR_FORMATTER = new Intl.NumberFormat('id-ID');
 
@@ -2522,7 +2468,7 @@ export default function AdminPage() {
     const allWorkspaceIds = ['cs', 'pt', 'sales'];
     return allWorkspaceIds.filter((env) => !allowedEnv.includes(env));
   }, [allowedEnv]);
-  const packagePlanLabel = PLAN_DISPLAY_LABELS[packagePlan] || sentenceCase(String(packagePlan || 'starter').replace(/_/g, ' '));
+  const packagePlanLabel = getAdminPlanLabel(packagePlan, sentenceCase(String(packagePlan || 'starter').replace(/_/g, ' ')));
 
   useEffect(() => {
     if (allowedEnv.length === 0) return;
