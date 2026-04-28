@@ -4904,15 +4904,15 @@ export default function AdminPage() {
               ) : eventMode === 'wizard' ? (
                 <>
                   <div className="panel-head">
-                    <h2>Add event</h2>
+                    <h2>{getAdminPageCopy('eventAddTitle')}</h2>
                     <button className="btn ghost" type="button" onClick={() => setEventMode('list')}>
                       {getAdminPageCopy('backToList')}
                     </button>
                   </div>
                   <div className="class-wizard-shell">
                     <div className="class-wizard-intro card">
-                      <p className="eyebrow">Pilih mode</p>
-                      <h3>Mulai dari jenis event yang paling dekat</h3>
+                      <p className="eyebrow">{getAdminPageCopy('eventWizardEyebrow')}</p>
+                      <h3>{getAdminPageCopy('eventWizardTitle')}</h3>
                       <p className="feedback">Template ini akan memberi titik awal yang lebih fokus. `Custom` tetap membuka form lengkap event seperti sekarang.</p>
                     </div>
                     <div className="class-wizard-grid">
@@ -4946,7 +4946,7 @@ export default function AdminPage() {
               ) : eventMode === 'walkin' && selectedWalkinEvent ? (
                 <>
                   <div className="panel-head">
-                    <h2>Walk-in Registration</h2>
+                    <h2>{getAdminPageCopy('eventWalkinRegistrationTitle')}</h2>
                     <button
                       className="btn ghost"
                       type="button"
@@ -4982,7 +4982,7 @@ export default function AdminPage() {
                     </label>
                     {Array.isArray(selectedWalkinEvent.registration_fields) && selectedWalkinEvent.registration_fields.length > 0 ? (
                       <>
-                        <p className="eyebrow">Informasi untuk penyelenggara</p>
+                        <p className="eyebrow">{getAdminPageCopy('eventOrganizerInfoEyebrow')}</p>
                         {selectedWalkinEvent.registration_fields.map((field, index) => {
                           const fieldId = String(field?.field_id || `field_${index}`);
                           const type = String(field?.type || 'free_type');
@@ -5072,7 +5072,11 @@ export default function AdminPage() {
               ) : (
                 <>
                   <div className="panel-head">
-                    <h2>{editingEventId ? `Edit event ${eventForm.event_name || ''}`.trim() : `Add ${getEventEditorTemplateLabel(eventEditorTemplate)}`}</h2>
+                    <h2>
+                      {editingEventId
+                        ? getAdminPageCopy('eventEditTitle', { name: eventForm.event_name || '' }).trim()
+                        : getAdminPageCopy('eventAddTemplateTitle', { template: getEventEditorTemplateLabel(eventEditorTemplate) })}
+                    </h2>
                     <button
                       className="btn ghost"
                       type="button"
@@ -5093,7 +5097,7 @@ export default function AdminPage() {
                   </div>
                   {!editingEventId ? (
                     <div className="card" style={{ borderStyle: 'dashed', marginBottom: '0.75rem' }}>
-                      <p className="eyebrow">Mode</p>
+                      <p className="eyebrow">{getAdminPageCopy('modeEyebrow')}</p>
                       <p className="feedback">
                         Form ini sedang memakai mode <strong>{getEventEditorTemplateLabel(eventEditorTemplate)}</strong>.
                         {isCustomEventEditor
@@ -6003,12 +6007,12 @@ export default function AdminPage() {
                   </form>
                   {editingEventId && eventPostQuote && !isEditingEventPublished ? (
                     <div className="card" style={{ marginTop: '0.8rem', borderStyle: 'dashed' }}>
-                      <p className="eyebrow">Preview Publikasi</p>
-                      <p>Mulai: {formatClassDatetime(eventPostQuote.start_at)}</p>
-                      <p>Durasi: {formatDurationLabelFromMinutes(eventPostQuote.duration_minutes)}</p>
-                      <p>Biaya publikasi: <strong>{formatIdr(eventPostQuote.price)}</strong></p>
+                      <p className="eyebrow">{getAdminPageCopy('eventPublicationPreviewEyebrow')}</p>
+                      <p>{getAdminPageCopy('eventPublicationStartLabel')}: {formatClassDatetime(eventPostQuote.start_at)}</p>
+                      <p>{getAdminPageCopy('eventPublicationDurationLabel')}: {formatDurationLabelFromMinutes(eventPostQuote.duration_minutes)}</p>
+                      <p>{getAdminPageCopy('eventPublicationFeeLabel')}: <strong>{formatIdr(eventPostQuote.price)}</strong></p>
                       <button className="btn" type="button" disabled={eventSaving} onClick={proceedPostEventPayment}>
-                        Publikasikan Sekarang
+                        {getAdminPageCopy('eventPublishNowButton')}
                       </button>
                     </div>
                   ) : null}
@@ -6204,7 +6208,11 @@ export default function AdminPage() {
               ) : (
                 <>
                   <div className="panel-head">
-                    <h2>{editingClassId ? 'Edit program' : `Add ${getClassEditorTemplateLabel(classEditorTemplate)}`}</h2>
+                    <h2>
+                      {editingClassId
+                        ? getAdminPageCopy('programEditTitle')
+                        : getAdminPageCopy('programAddTemplateTitle', { template: getClassEditorTemplateLabel(classEditorTemplate) })}
+                    </h2>
                     <button
                       className="btn ghost"
                       type="button"
@@ -6221,7 +6229,7 @@ export default function AdminPage() {
                   </div>
                   {!editingClassId ? (
                     <div className="card" style={{ borderStyle: 'dashed', marginBottom: '0.75rem' }}>
-                      <p className="eyebrow">Mode</p>
+                      <p className="eyebrow">{getAdminPageCopy('modeEyebrow')}</p>
                       <p className="feedback">
                         Form ini sedang memakai mode <strong>{getClassEditorTemplateLabel(classEditorTemplate)}</strong>.
                         {classEditorTemplate === 'custom'
