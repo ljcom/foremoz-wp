@@ -3788,15 +3788,24 @@ export default function AdminPage() {
         });
         successCount += 1;
       } catch (error) {
-        errors.push(`baris ${row.row_number}: ${error.message}`);
+        errors.push(getAdminPageCopy('memberUploadRowError', { row: row.row_number, message: error.message }));
       }
     }
 
     await loadMembers();
     if (errors.length > 0) {
-      setFeedback(`member.${sourceLabel}: ${successCount}/${rows.length} berhasil. ${errors[0]}`);
+      setFeedback(getAdminPageCopy('memberUploadPartialFeedback', {
+        source: sourceLabel,
+        success: successCount,
+        total: rows.length,
+        error: errors[0]
+      }));
     } else {
-      setFeedback(`member.${sourceLabel}: ${successCount}/${rows.length} berhasil.`);
+      setFeedback(getAdminPageCopy('memberUploadSuccessFeedback', {
+        source: sourceLabel,
+        success: successCount,
+        total: rows.length
+      }));
     }
   }
 
