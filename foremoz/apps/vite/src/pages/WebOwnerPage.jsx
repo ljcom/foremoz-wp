@@ -1444,7 +1444,7 @@ export default function WebOwnerPage() {
       role={role}
       session={session}
       targetEnv="host"
-      title={isSetupReady ? 'Panel kontrol owner' : 'Setup owner'}
+      title={isSetupReady ? 'Host' : 'Setup'}
       userName={session?.user?.fullName || session?.user?.email || 'Owner'}
     >
 

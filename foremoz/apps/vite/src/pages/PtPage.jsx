@@ -1362,7 +1362,7 @@ export default function PtPage() {
       activeNavId={activeTab}
       navItems={coachSidebarNavItems}
       eyebrow="Foremoz Admin"
-      title="PT Workspace"
+      title="Coach"
       subtitle="Session booking, completion, and member activity tracking"
       session={session}
       role={role}
