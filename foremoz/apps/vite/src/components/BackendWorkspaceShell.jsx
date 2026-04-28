@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { getBackendShellConfig } from '../config/app-config.js';
 import BackendSidebarSettings from './BackendSidebarSettings.jsx';
 
@@ -27,11 +28,29 @@ export default function BackendWorkspaceShell({
   navItems,
   primaryActions = null
 }) {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const displayName = userName || session?.user?.fullName || session?.user?.email || role || '-';
   const resolvedNavItems = Array.isArray(navItems) && navItems.length > 0 ? navItems : SHELL_NAV_ITEMS;
 
   return (
-    <main className="backend-shell">
+    <main className={`backend-shell ${mobileMenuOpen ? 'backend-mobile-menu-open' : ''}`}>
+      <button
+        className="backend-mobile-menu-btn"
+        type="button"
+        aria-label="Open menu"
+        aria-expanded={mobileMenuOpen}
+        onClick={() => setMobileMenuOpen(true)}
+      >
+        <i className="fa-solid fa-bars" aria-hidden="true" />
+      </button>
+      {mobileMenuOpen ? (
+        <button
+          className="backend-mobile-sidebar-backdrop"
+          type="button"
+          aria-label="Close menu"
+          onClick={() => setMobileMenuOpen(false)}
+        />
+      ) : null}
       <aside className="backend-sidebar">
         <div className="backend-sidebar-brand">{shellCopy('brand', 'Foremoz')}</div>
         <div className="backend-sidebar-title-row">
@@ -50,7 +69,10 @@ export default function BackendWorkspaceShell({
                   disabled={!allowedEnv.includes(env)}
                   key={env}
                   type="button"
-                  onClick={() => onSelectEnv?.(env)}
+                  onClick={() => {
+                    onSelectEnv?.(env);
+                    setMobileMenuOpen(false);
+                  }}
                   role="menuitem"
                 >
                   {env}
@@ -66,7 +88,10 @@ export default function BackendWorkspaceShell({
               key={item.id}
               className={item.id === activeNavId ? 'active' : ''}
               href={item.href || `#${item.id}`}
-              onClick={item.onClick}
+              onClick={(event) => {
+                item.onClick?.(event);
+                setMobileMenuOpen(false);
+              }}
             >
               {item.label || item.id}
             </a>

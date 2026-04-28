@@ -2500,6 +2500,11 @@ code {
   gap: 0.35rem;
 }
 
+.backend-mobile-menu-btn,
+.backend-mobile-sidebar-backdrop {
+  display: none;
+}
+
 .backend-sidebar-brand {
   margin-bottom: 0.35rem;
   font-size: 1.1rem;
@@ -2976,9 +2981,56 @@ code {
     grid-template-columns: 1fr;
   }
 
+  .backend-mobile-menu-btn {
+    position: fixed;
+    top: 0.8rem;
+    left: 0.8rem;
+    z-index: 60;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 42px;
+    min-height: 42px;
+    padding: 0;
+    border: 1px solid rgba(16, 35, 29, 0.12);
+    border-radius: 8px;
+    background: #ffffff;
+    color: #10231d;
+    box-shadow: 0 12px 28px rgba(15, 31, 26, 0.14);
+    cursor: pointer;
+  }
+
+  .backend-mobile-menu-open .backend-mobile-menu-btn {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .backend-mobile-sidebar-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 48;
+    display: block;
+    border: 0;
+    background: rgba(8, 18, 15, 0.48);
+    cursor: pointer;
+  }
+
   .backend-sidebar {
-    position: relative;
-    height: auto;
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 55;
+    width: min(82vw, 280px);
+    height: 100dvh;
+    overflow-y: auto;
+    transform: translateX(-104%);
+    transition: transform 0.2s ease;
+    box-shadow: 24px 0 44px rgba(5, 14, 11, 0.26);
+  }
+
+  .backend-mobile-menu-open .backend-sidebar {
+    transform: translateX(0);
   }
 
   .backend-sidebar-brand {
@@ -2990,16 +3042,16 @@ code {
   }
 
   .backend-sidebar-nav {
-    flex-direction: row;
-    flex-wrap: wrap;
+    flex-direction: column;
+    flex-wrap: nowrap;
   }
 
   .backend-sidebar-user {
-    margin-top: 0.75rem;
+    margin-top: auto;
   }
 
   .backend-main {
-    padding: 1rem;
+    padding: 4.4rem 1rem 1rem;
   }
 
   .backend-shell .stats-grid {

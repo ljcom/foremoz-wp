@@ -138,6 +138,7 @@ export default function SalesPage() {
   const userId = session?.user?.userId || null;
   const [targetEnv, setTargetEnv] = useState('sales');
   const [salesView, setSalesView] = useState('insight');
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [stageFilter, setStageFilter] = useState('all');
   const [selectedProspectId, setSelectedProspectId] = useState('');
@@ -639,7 +640,24 @@ export default function SalesPage() {
   }
 
   return (
-    <main className="backend-shell sales-workspace-shell">
+    <main className={`backend-shell sales-workspace-shell ${mobileMenuOpen ? 'backend-mobile-menu-open' : ''}`}>
+      <button
+        className="backend-mobile-menu-btn"
+        type="button"
+        aria-label="Open menu"
+        aria-expanded={mobileMenuOpen}
+        onClick={() => setMobileMenuOpen(true)}
+      >
+        <i className="fa-solid fa-bars" aria-hidden="true" />
+      </button>
+      {mobileMenuOpen ? (
+        <button
+          className="backend-mobile-sidebar-backdrop"
+          type="button"
+          aria-label="Close menu"
+          onClick={() => setMobileMenuOpen(false)}
+        />
+      ) : null}
       <aside className="backend-sidebar">
         <div className="backend-sidebar-brand">{salesCopy('brand', 'Foremoz')}</div>
         <div className="backend-sidebar-title-row">
@@ -661,6 +679,7 @@ export default function SalesPage() {
                   onClick={() => {
                     setTargetEnv(env);
                     goToEnv(env);
+                    setMobileMenuOpen(false);
                   }}
                   role="menuitem"
                 >
@@ -680,6 +699,7 @@ export default function SalesPage() {
               onClick={(event) => {
                 event.preventDefault();
                 setSalesView(item.id);
+                setMobileMenuOpen(false);
               }}
             >
               {item.label || item.id}
