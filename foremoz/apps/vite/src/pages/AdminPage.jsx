@@ -4684,7 +4684,7 @@ export default function AdminPage() {
 
   function extendSaas(e) {
     e.preventDefault();
-    setFeedback(`saas.extended: +${saasForm.months} month(s)`);
+    setFeedback(getAdminPageCopy('saasExtendedFeedback', { months: saasForm.months }));
     setSaasForm({ months: '1', note: '' });
   }
 
@@ -8346,16 +8346,16 @@ export default function AdminPage() {
 
           {activeTab === 'saas' ? (
             <>
-              <p className="eyebrow">SaaS</p>
-              <h2>Perpanjang sewa SaaS</h2>
+              <p className="eyebrow">{getAdminPageCopy('saasEyebrow')}</p>
+              <h2>{getAdminPageCopy('saasExtensionTitle')}</h2>
               <form className="form" onSubmit={extendSaas}>
-                <label>tambah_bulan<select value={saasForm.months} onChange={(e) => setSaasForm((p) => ({ ...p, months: e.target.value }))}>
+                <label>{getAdminPageCopy('saasExtensionMonthsField')}<select value={saasForm.months} onChange={(e) => setSaasForm((p) => ({ ...p, months: e.target.value }))}>
                   {SAAS_EXTENSION_MONTH_OPTIONS.map((option) => (
                     <option key={option.value} value={option.value}>{option.label}</option>
                   ))}
                 </select></label>
-                <label>note<input value={saasForm.note} onChange={(e) => setSaasForm((p) => ({ ...p, note: e.target.value }))} /></label>
-                <button className="btn" type="submit">Perpanjang sewa</button>
+                <label>{getAdminPageCopy('saasExtensionNoteField')}<input value={saasForm.note} onChange={(e) => setSaasForm((p) => ({ ...p, note: e.target.value }))} /></label>
+                <button className="btn" type="submit">{getAdminPageCopy('saasExtensionSubmit')}</button>
               </form>
             </>
           ) : null}
@@ -8365,7 +8365,7 @@ export default function AdminPage() {
       </section>
 
       <footer className="dash-foot">
-        <Link to={accountPath(session, '/cs/dashboard')}>Back to search member</Link>
+        <Link to={accountPath(session, '/cs/dashboard')}>{getAdminPageCopy('footerBackToSearchMember')}</Link>
       </footer>
     </main>
   );

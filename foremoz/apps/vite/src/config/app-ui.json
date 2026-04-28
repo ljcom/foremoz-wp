@@ -214,7 +214,14 @@
       "transactionRecordedAtField": "recorded_at",
       "transactionReviewedAtField": "reviewed_at",
       "transactionReviewNoteField": "review_note",
-      "transactionCurrencyField": "currency"
+      "transactionCurrencyField": "currency",
+      "saasEyebrow": "SaaS",
+      "saasExtensionTitle": "Perpanjang sewa SaaS",
+      "saasExtensionMonthsField": "tambah_bulan",
+      "saasExtensionNoteField": "note",
+      "saasExtensionSubmit": "Perpanjang sewa",
+      "saasExtendedFeedback": "saas.extended: +{months} month(s)",
+      "footerBackToSearchMember": "Back to search member"
     },
     "memberUpload": {
       "csvHeader": "email,member_name,phone",
