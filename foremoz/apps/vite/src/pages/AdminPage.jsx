@@ -6019,11 +6019,11 @@ export default function AdminPage() {
 
           {activeTab === 'user' ? (
             <>
-              <p className="eyebrow">User</p>
+              <p className="eyebrow">{getAdminPageCopy('userEyebrow')}</p>
               {userMode === 'list' ? (
                 <>
                   <div className="panel-head">
-                    <h2>User list, delete</h2>
+                    <h2>{getAdminPageCopy('userListTitle')}</h2>
                     <button
                       className="btn"
                       type="button"
@@ -6055,7 +6055,7 @@ export default function AdminPage() {
               {userMode === 'add' ? (
                 <>
                   <div className="panel-head">
-                    <h2>Add user</h2>
+                    <h2>{getAdminPageCopy('userAddTitle')}</h2>
                     <button
                       className="btn ghost"
                       type="button"
@@ -6083,15 +6083,15 @@ export default function AdminPage() {
 
           {activeTab === 'class' ? (
             <>
-              <p className="eyebrow">Program</p>
+              <p className="eyebrow">{getAdminPageCopy('programEyebrow')}</p>
               {classMode === 'list' ? (
                 <>
                   <div className="panel-head">
-                    <h2>Program list, delete</h2>
+                    <h2>{getAdminPageCopy('programListTitle')}</h2>
                     <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginLeft: 'auto' }}>
                       <input
                         type="text"
-                        placeholder="Cari program..."
+                        placeholder={getAdminPageCopy('programSearchPlaceholder')}
                         value={classQuery}
                         onChange={(e) => setClassQuery(e.target.value)}
                       />
@@ -6151,9 +6151,9 @@ export default function AdminPage() {
                       <article className="event-admin-card">
                         <div className="event-admin-body">
                           <div className="event-admin-title-row">
-                            <h3>Belum ada program</h3>
+                            <h3>{getAdminPageCopy('programEmptyTitle')}</h3>
                           </div>
-                          <p>Program yang sudah dibuat akan tampil sebagai card di sini.</p>
+                          <p>{getAdminPageCopy('programEmptyDescription')}</p>
                         </div>
                       </article>
                     ) : null}
@@ -6162,15 +6162,15 @@ export default function AdminPage() {
               ) : classMode === 'wizard' ? (
                 <>
                   <div className="panel-head">
-                    <h2>Add program</h2>
+                    <h2>{getAdminPageCopy('programAddTitle')}</h2>
                     <button className="btn ghost" type="button" onClick={() => setClassMode('list')}>
                       {getAdminPageCopy('backToList')}
                     </button>
                   </div>
                   <div className="class-wizard-shell">
                     <div className="class-wizard-intro card">
-                      <p className="eyebrow">Pilih mode</p>
-                      <h3>Mulai dari template yang paling dekat</h3>
+                      <p className="eyebrow">{getAdminPageCopy('programWizardEyebrow')}</p>
+                      <h3>{getAdminPageCopy('programWizardTitle')}</h3>
                       <p className="feedback">Setiap mode akan membuka form yang lebih fokus. `Custom` tetap membuka form lengkap seperti sekarang.</p>
                     </div>
                     <div className="class-wizard-grid">
@@ -7551,15 +7551,15 @@ export default function AdminPage() {
 
           {activeTab === 'product' ? (
             <>
-              <p className="eyebrow">Product</p>
+              <p className="eyebrow">{getAdminPageCopy('productEyebrow')}</p>
               {productMode === 'list' ? (
                 <>
                   <div className="panel-head">
-                    <h2>Product list, delete</h2>
+                    <h2>{getAdminPageCopy('productListTitle')}</h2>
                     <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginLeft: 'auto' }}>
                       <input
                         type="text"
-                        placeholder="Cari product..."
+                        placeholder={getAdminPageCopy('productSearchPlaceholder')}
                         value={productQuery}
                         onChange={(e) => setProductQuery(e.target.value)}
                       />
@@ -7600,7 +7600,7 @@ export default function AdminPage() {
               ) : (
                 <>
                   <div className="panel-head">
-                    <h2>{editingProductId ? 'Edit product' : 'Add product'}</h2>
+                    <h2>{editingProductId ? getAdminPageCopy('productEditTitle') : getAdminPageCopy('productAddTitle')}</h2>
                     <button className="btn ghost" type="button" onClick={() => setProductMode('list')}>
                       {getAdminPageCopy('backToList')}
                     </button>
@@ -7623,15 +7623,15 @@ export default function AdminPage() {
 
           {activeTab === 'package_creation' ? (
             <>
-              <p className="eyebrow">Package creation</p>
+              <p className="eyebrow">{getAdminPageCopy('packageEyebrow')}</p>
               {packageMode === 'list' ? (
                 <>
                   <div className="panel-head">
-                    <h2>Package list, delete</h2>
+                    <h2>{getAdminPageCopy('packageListTitle')}</h2>
                     <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginLeft: 'auto' }}>
                       <input
                         type="text"
-                        placeholder="Cari package..."
+                        placeholder={getAdminPageCopy('packageSearchPlaceholder')}
                         value={packageQuery}
                         onChange={(e) => setPackageQuery(e.target.value)}
                       />
@@ -7675,7 +7675,7 @@ export default function AdminPage() {
               ) : (
                 <>
                   <div className="panel-head">
-                    <h2>{editingPackageId ? 'Edit package' : 'Add package'}</h2>
+                    <h2>{editingPackageId ? getAdminPageCopy('packageEditTitle') : getAdminPageCopy('packageAddTitle')}</h2>
                     <button className="btn ghost" type="button" onClick={() => setPackageMode('list')}>
                       {getAdminPageCopy('backToList')}
                     </button>
@@ -7722,20 +7722,20 @@ export default function AdminPage() {
 
           {activeTab === 'trainer' ? (
             <>
-              <p className="eyebrow">Coach</p>
+              <p className="eyebrow">{getAdminPageCopy('coachEyebrow')}</p>
               {selectedTrainerUser ? (
                 <>
                   <div className="panel-head">
-                    <h2>Member PT Package - {selectedTrainerUser.full_name}</h2>
+                    <h2>{getAdminPageCopy('coachMemberPackageTitle', { name: selectedTrainerUser.full_name })}</h2>
                     <button className="btn ghost" type="button" onClick={closeTrainerPackageList}>
-                      Back to coach list
+                      {getAdminPageCopy('coachBackToList')}
                     </button>
                   </div>
                   <div className="panel-head">
                     <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginLeft: 'auto' }}>
                       <input
                         type="text"
-                        placeholder="Cari member/package..."
+                        placeholder={getAdminPageCopy('coachMemberPackageSearchPlaceholder')}
                         value={trainerPackageQuery}
                         onChange={(e) => setTrainerPackageQuery(e.target.value)}
                       />
@@ -7764,7 +7764,7 @@ export default function AdminPage() {
                         ))}
                         {filteredTrainerPackageRows.length === 0 ? (
                           <tr>
-                            <td colSpan={6} className="admin-data-cell">Belum ada member yang membeli paket trainer ini.</td>
+                            <td colSpan={6} className="admin-data-cell">{getAdminPageCopy('coachMemberPackageEmpty')}</td>
                           </tr>
                         ) : null}
                       </tbody>
@@ -7774,11 +7774,11 @@ export default function AdminPage() {
               ) : (
                 <>
                   <div className="panel-head">
-                    <h2>Coach List</h2>
+                    <h2>{getAdminPageCopy('coachListTitle')}</h2>
                     <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginLeft: 'auto' }}>
                       <input
                         type="text"
-                        placeholder="Cari coach..."
+                        placeholder={getAdminPageCopy('coachSearchPlaceholder')}
                         value={ptUserQuery}
                         onChange={(e) => setPtUserQuery(e.target.value)}
                       />
@@ -7825,7 +7825,7 @@ export default function AdminPage() {
                         ))}
                         {filteredPtUsers.length === 0 ? (
                           <tr>
-                            <td colSpan={5} className="admin-data-cell">Belum ada user role `pt` atau `owner` yang aktif.</td>
+                            <td colSpan={5} className="admin-data-cell">{getAdminPageCopy('coachUserEmpty')}</td>
                           </tr>
                         ) : null}
                       </tbody>
@@ -7839,20 +7839,20 @@ export default function AdminPage() {
 
           {activeTab === 'sales' ? (
             <>
-              <p className="eyebrow">Sales</p>
+              <p className="eyebrow">{getAdminPageCopy('salesEyebrow')}</p>
               {selectedSalesUser ? (
                 <>
                   <div className="panel-head">
-                    <h2>Member Purchased - {selectedSalesUser.full_name}</h2>
+                    <h2>{getAdminPageCopy('salesMemberPurchasedTitle', { name: selectedSalesUser.full_name })}</h2>
                     <button className="btn ghost" type="button" onClick={closeSalesMemberList}>
-                      Back to sales list
+                      {getAdminPageCopy('salesBackToList')}
                     </button>
                   </div>
                   <div className="panel-head">
                     <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginLeft: 'auto' }}>
                       <input
                         type="text"
-                        placeholder="Cari member/subscription..."
+                        placeholder={getAdminPageCopy('salesMemberSearchPlaceholder')}
                         value={salesMemberQuery}
                         onChange={(e) => setSalesMemberQuery(e.target.value)}
                       />
@@ -7881,7 +7881,7 @@ export default function AdminPage() {
                         ))}
                         {filteredSalesMemberRows.length === 0 ? (
                           <tr>
-                            <td colSpan={6} className="admin-data-cell">Belum ada member membeli paket dari sales ini.</td>
+                            <td colSpan={6} className="admin-data-cell">{getAdminPageCopy('salesMemberEmpty')}</td>
                           </tr>
                         ) : null}
                       </tbody>
@@ -7891,11 +7891,11 @@ export default function AdminPage() {
               ) : (
                 <>
                   <div className="panel-head">
-                    <h2>Sales List</h2>
+                    <h2>{getAdminPageCopy('salesListTitle')}</h2>
                     <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginLeft: 'auto' }}>
                       <input
                         type="text"
-                        placeholder="Cari user sales..."
+                        placeholder={getAdminPageCopy('salesUserSearchPlaceholder')}
                         value={salesUserQuery}
                         onChange={(e) => setSalesUserQuery(e.target.value)}
                       />
@@ -7941,7 +7941,7 @@ export default function AdminPage() {
                         ))}
                         {filteredSalesUsers.length === 0 ? (
                           <tr>
-                            <td colSpan={4} className="admin-data-cell">Belum ada user role sales.</td>
+                            <td colSpan={4} className="admin-data-cell">{getAdminPageCopy('salesUserEmpty')}</td>
                           </tr>
                         ) : null}
                       </tbody>
@@ -7954,15 +7954,15 @@ export default function AdminPage() {
 
           {activeTab === 'member' ? (
             <>
-              <p className="eyebrow">Member</p>
+              <p className="eyebrow">{getAdminPageCopy('memberEyebrow')}</p>
               {memberMode === 'list' ? (
                 <>
                   <div className="panel-head">
-                    <h2>Member list, delete</h2>
+                    <h2>{getAdminPageCopy('memberListTitle')}</h2>
                     <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginLeft: 'auto' }}>
                       <input
                         type="text"
-                        placeholder="Cari member..."
+                        placeholder={getAdminPageCopy('memberSearchPlaceholder')}
                         value={memberQuery}
                         onChange={(e) => setMemberQuery(e.target.value)}
                       />
