@@ -331,7 +331,13 @@
       "paymentConfirmedFeedback": "payment.confirmed: {transaction}",
       "paymentRejectedFeedback": "payment.rejected: {transaction}",
       "paymentRejectPrompt": "Alasan reject untuk {transaction}:",
-      "paymentRejectDefaultReason": "invalid proof / duplicate payment"
+      "paymentRejectDefaultReason": "invalid proof / duplicate payment",
+      "coachShareRangeRequired": "{label} share untuk \"{name}\" harus di antara 0 dan 100",
+      "coachShareTotalMax": "Total {label} share tidak boleh lebih dari 100%",
+      "customFieldsObjectRequired": "{label} custom_fields must be a JSON object",
+      "customFieldsInvalidJson": "{label} custom_fields is invalid JSON object",
+      "registrationFieldLabelRequired": "Label registration field #{index} wajib diisi",
+      "registrationFieldLookupOptionsRequired": "Lookup options untuk field \"{label}\" wajib diisi"
     },
     "memberUpload": {
       "csvHeader": "email,member_name,phone",

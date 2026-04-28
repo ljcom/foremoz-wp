@@ -865,7 +865,7 @@ function normalizeCoachSharesForPayload(value, label = 'coach') {
     if (!percentRaw) continue;
     const sharePercent = Number(percentRaw);
     if (!Number.isFinite(sharePercent) || sharePercent <= 0 || sharePercent > 100) {
-      throw new Error(`${label} share untuk "${row.coach_name}" harus di antara 0 dan 100`);
+      throw new Error(getAdminPageCopy('coachShareRangeRequired', { label, name: row.coach_name }));
     }
     total += sharePercent;
     normalized.push({
@@ -874,7 +874,7 @@ function normalizeCoachSharesForPayload(value, label = 'coach') {
     });
   }
   if (total > 100.000001) {
-    throw new Error(`Total ${label} share tidak boleh lebih dari 100%`);
+    throw new Error(getAdminPageCopy('coachShareTotalMax', { label }));
   }
   return normalized;
 }
@@ -1260,11 +1260,11 @@ function parseCustomFieldsInput(raw, label) {
   try {
     const parsed = JSON.parse(source);
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-      throw new Error(`${label} custom_fields must be a JSON object`);
+      throw new Error(getAdminPageCopy('customFieldsObjectRequired', { label }));
     }
     return parsed;
   } catch {
-    throw new Error(`${label} custom_fields is invalid JSON object`);
+    throw new Error(getAdminPageCopy('customFieldsInvalidJson', { label }));
   }
 }
 
@@ -1369,7 +1369,7 @@ function normalizeRegistrationFieldsForPayload(fields) {
     const item = normalized[i];
     const label = String(item?.label || '').trim();
     if (!label) {
-      throw new Error(`Label registration field #${i + 1} wajib diisi`);
+      throw new Error(getAdminPageCopy('registrationFieldLabelRequired', { index: i + 1 }));
     }
     const typeRaw = String(item?.type || 'free_type').toLowerCase();
     const type = typeRaw === 'date' || typeRaw === 'lookup' ? typeRaw : 'free_type';
@@ -1385,7 +1385,7 @@ function normalizeRegistrationFieldsForPayload(fields) {
         .map((v) => v.trim())
         .filter(Boolean);
       if (options.length === 0) {
-        throw new Error(`Lookup options untuk field "${label}" wajib diisi`);
+        throw new Error(getAdminPageCopy('registrationFieldLookupOptionsRequired', { label }));
       }
       payload.options = options;
     } else {
