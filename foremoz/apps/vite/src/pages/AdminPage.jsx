@@ -51,6 +51,9 @@ const REGISTRATION_FIELD_TYPE_OPTIONS = getAdminPageOptions('registrationFieldTy
 const PRODUCT_CATEGORY_OPTIONS = getAdminPageOptions('productCategories');
 const PRODUCT_TABLE_COLUMNS = getAdminPageOptions('productTableColumns');
 const PACKAGE_TABLE_COLUMNS = getAdminPageOptions('packageTableColumns');
+const TRAINER_PACKAGE_TABLE_COLUMNS = getAdminPageOptions('trainerPackageTableColumns');
+const SALES_MEMBER_TABLE_COLUMNS = getAdminPageOptions('salesMemberTableColumns');
+const MEMBER_TABLE_COLUMNS = getAdminPageOptions('memberTableColumns');
 const TRANSACTION_STATUS_FILTER_OPTIONS = getAdminPageOptions('transactionStatusFilters');
 const TRANSACTION_LINK_FILTER_OPTIONS = getAdminPageOptions('transactionLinkFilters');
 const TRANSACTION_CURRENCY_OPTIONS = getAdminPageOptions('transactionCurrencies');
@@ -7751,12 +7754,9 @@ export default function AdminPage() {
                     <table className="admin-data-table">
                       <thead>
                         <tr>
-                          <th className="admin-data-head">Member</th>
-                          <th className="admin-data-head">Member ID</th>
-                          <th className="admin-data-head">PT Package</th>
-                          <th className="admin-data-head">Total</th>
-                          <th className="admin-data-head">Remaining</th>
-                          <th className="admin-data-head">Updated</th>
+                          {TRAINER_PACKAGE_TABLE_COLUMNS.map((column) => (
+                            <th className="admin-data-head" key={column.value}>{column.label}</th>
+                          ))}
                         </tr>
                       </thead>
                       <tbody>
@@ -7873,12 +7873,9 @@ export default function AdminPage() {
                     <table className="admin-data-table">
                       <thead>
                         <tr>
-                          <th className="admin-data-head">Member</th>
-                          <th className="admin-data-head">Member ID</th>
-                          <th className="admin-data-head">Subscription</th>
-                          <th className="admin-data-head">Plan</th>
-                          <th className="admin-data-head">Prospect</th>
-                          <th className="admin-data-head">Stage</th>
+                          {SALES_MEMBER_TABLE_COLUMNS.map((column) => (
+                            <th className="admin-data-head" key={column.value}>{column.label}</th>
+                          ))}
                         </tr>
                       </thead>
                       <tbody>
@@ -8119,10 +8116,9 @@ export default function AdminPage() {
                     <table className="admin-data-table">
                       <thead>
                         <tr>
-                          <th className="admin-data-head">Nama Member</th>
-                          <th className="admin-data-head">No. HP</th>
-                          <th className="admin-data-head">Email Aktif</th>
-                          <th className="admin-data-head">Aksi</th>
+                          {MEMBER_TABLE_COLUMNS.map((column) => (
+                            <th className="admin-data-head" key={column.value}>{column.label}</th>
+                          ))}
                         </tr>
                       </thead>
                       <tbody>

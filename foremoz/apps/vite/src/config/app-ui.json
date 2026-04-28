@@ -548,6 +548,28 @@
       { "value": "price", "label": "Price" },
       { "value": "actions", "label": "Aksi" }
     ],
+    "trainerPackageTableColumns": [
+      { "value": "member_name", "label": "Member" },
+      { "value": "member_id", "label": "Member ID" },
+      { "value": "pt_package_id", "label": "PT Package" },
+      { "value": "total_sessions", "label": "Total" },
+      { "value": "remaining_sessions", "label": "Remaining" },
+      { "value": "updated_at", "label": "Updated" }
+    ],
+    "salesMemberTableColumns": [
+      { "value": "member_name", "label": "Member" },
+      { "value": "member_id", "label": "Member ID" },
+      { "value": "subscription_id", "label": "Subscription" },
+      { "value": "plan_id", "label": "Plan" },
+      { "value": "prospect_id", "label": "Prospect" },
+      { "value": "stage", "label": "Stage" }
+    ],
+    "memberTableColumns": [
+      { "value": "member_name", "label": "Nama Member" },
+      { "value": "phone", "label": "No. HP" },
+      { "value": "email", "label": "Email Aktif" },
+      { "value": "actions", "label": "Aksi" }
+    ],
     "transactionStatusFilters": [
       { "value": "all", "label": "all status" },
       { "value": "pending", "label": "pending" },
