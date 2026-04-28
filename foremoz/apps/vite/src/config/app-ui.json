@@ -131,6 +131,28 @@
     }
   },
   "adminPage": {
+    "copy": {
+      "addNew": "Add New",
+      "backToList": "Back to list",
+      "backToWizard": "Back to wizard",
+      "saveEvent": "Save event",
+      "saveProgram": "Save program",
+      "saveProduct": "Save product",
+      "savePackage": "Save package",
+      "saveUser": "Save user",
+      "saveMember": "Save member",
+      "saving": "Saving...",
+      "refresh": "Refresh",
+      "refreshing": "Refreshing...",
+      "loadingProgramList": "Loading program list...",
+      "loadingProductList": "Loading product list...",
+      "loadingPackageList": "Loading package list...",
+      "loadingMemberPackageList": "Loading member package list...",
+      "loadingUserList": "Loading user list...",
+      "loadingMemberPurchasedList": "Loading member purchased list...",
+      "loadingPayments": "Loading payments...",
+      "loadingParticipants": "Loading participants..."
+    },
     "fixtures": {
       "classes": [
         {

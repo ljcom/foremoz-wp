@@ -4917,7 +4917,7 @@ export default function AdminPage() {
                   <div className="panel-head">
                     <h2>Add event</h2>
                     <button className="btn ghost" type="button" onClick={() => setEventMode('list')}>
-                      Back to list
+                      {getAdminPageCopy('backToList')}
                     </button>
                   </div>
                   <div className="class-wizard-shell">
@@ -4966,7 +4966,7 @@ export default function AdminPage() {
                         setEventMode('list');
                       }}
                     >
-                      Back to list
+                      {getAdminPageCopy('backToList')}
                     </button>
                   </div>
                   <form className="card" style={{ borderStyle: 'dashed', marginBottom: '0.8rem' }} onSubmit={submitEventWalkinForm}>
@@ -5099,7 +5099,7 @@ export default function AdminPage() {
                         startAddEvent();
                       }}
                     >
-                      {editingEventId ? 'Back to list' : 'Back to wizard'}
+                      {editingEventId ? getAdminPageCopy('backToList') : getAdminPageCopy('backToWizard')}
                     </button>
                   </div>
                   {!editingEventId ? (
@@ -5914,7 +5914,7 @@ export default function AdminPage() {
                                 onClick={() => loadEventParticipants(editingEventId)}
                                 disabled={eventParticipantsLoading}
                               >
-                                {eventParticipantsLoading ? 'Refreshing...' : 'Refresh'}
+                                {eventParticipantsLoading ? getAdminPageCopy('refreshing') : getAdminPageCopy('refresh')}
                               </button>
                             </div>
                           </div>
@@ -5945,7 +5945,7 @@ export default function AdminPage() {
                               />
                             </label>
                           </div>
-                          {eventParticipantsLoading ? <p className="feedback">Loading participants...</p> : null}
+                          {eventParticipantsLoading ? <p className="feedback">{getAdminPageCopy('loadingParticipants')}</p> : null}
                           {!eventParticipantsLoading && eventParticipants.length === 0 ? (
                             <p className="feedback">Belum ada participant yang join event ini.</p>
                           ) : null}
@@ -5979,7 +5979,7 @@ export default function AdminPage() {
                     ) : null}
                     {eventEditTab === 'general' ? (
                       <>
-                        <button className="btn" type="submit" disabled={eventSaving}>{eventSaving ? 'Saving...' : 'Save event'}</button>
+                        <button className="btn" type="submit" disabled={eventSaving}>{eventSaving ? getAdminPageCopy('saving') : getAdminPageCopy('saveEvent')}</button>
                         {editingEventId && !isEditingEventPublished ? (
                           <button className="btn ghost" type="button" disabled={eventSaving} onClick={preparePostEventQuote}>
                             Publikasikan Event
@@ -6043,7 +6043,7 @@ export default function AdminPage() {
                         setUserMode('add');
                       }}
                     >
-                      Add New
+                      {getAdminPageCopy('addNew')}
                     </button>
                   </div>
                   <div className="entity-list">
@@ -6074,7 +6074,7 @@ export default function AdminPage() {
                         setUserMode('list');
                       }}
                     >
-                      Back to list
+                      {getAdminPageCopy('backToList')}
                     </button>
                   </div>
                   <form className="form" onSubmit={addUser}>
@@ -6085,7 +6085,7 @@ export default function AdminPage() {
                         <option key={option.value} value={option.value}>{option.label}</option>
                       ))}
                     </select></label>
-                    <button className="btn" type="submit">Save user</button>
+                    <button className="btn" type="submit">{getAdminPageCopy('saveUser')}</button>
                   </form>
                 </>
               ) : null}
@@ -6107,11 +6107,11 @@ export default function AdminPage() {
                         onChange={(e) => setClassQuery(e.target.value)}
                       />
                       <button className="btn" type="button" onClick={startAddClass}>
-                        Add New
+                        {getAdminPageCopy('addNew')}
                       </button>
                     </div>
                   </div>
-                  {classLoading ? <p className="feedback">Loading program list...</p> : null}
+                  {classLoading ? <p className="feedback">{getAdminPageCopy('loadingProgramList')}</p> : null}
                   <div className="event-card-grid">
                     {filteredClasses.map((item) => {
                       const customFields = splitClassCustomFields(item.custom_fields, item.category || '');
@@ -6175,7 +6175,7 @@ export default function AdminPage() {
                   <div className="panel-head">
                     <h2>Add program</h2>
                     <button className="btn ghost" type="button" onClick={() => setClassMode('list')}>
-                      Back to list
+                      {getAdminPageCopy('backToList')}
                     </button>
                   </div>
                   <div className="class-wizard-shell">
@@ -6227,7 +6227,7 @@ export default function AdminPage() {
                         startAddClass();
                       }}
                     >
-                      {editingClassId ? 'Back to list' : 'Back to wizard'}
+                      {editingClassId ? getAdminPageCopy('backToList') : getAdminPageCopy('backToWizard')}
                     </button>
                   </div>
                   {!editingClassId ? (
@@ -7517,10 +7517,10 @@ export default function AdminPage() {
                               onClick={() => loadClassParticipants(editingClassId, resolvedClassType)}
                               disabled={classParticipantsLoading}
                             >
-                              {classParticipantsLoading ? 'Refreshing...' : 'Refresh'}
+                              {classParticipantsLoading ? getAdminPageCopy('refreshing') : getAdminPageCopy('refresh')}
                             </button>
                           </div>
-                          {classParticipantsLoading ? <p className="feedback">Loading participants...</p> : null}
+                          {classParticipantsLoading ? <p className="feedback">{getAdminPageCopy('loadingParticipants')}</p> : null}
                           {!classParticipantsLoading && classParticipants.length === 0 ? (
                             <p className="feedback">
                               {resolvedClassType === 'scheduled'
@@ -7553,7 +7553,7 @@ export default function AdminPage() {
                         <p className="feedback">Simpan program dulu untuk melihat participants.</p>
                       )
                     ) : null}
-                    <button className="btn" type="submit" disabled={classSaving}>{classSaving ? 'Saving...' : 'Save program'}</button>
+                    <button className="btn" type="submit" disabled={classSaving}>{classSaving ? getAdminPageCopy('saving') : getAdminPageCopy('saveProgram')}</button>
                   </form>
                 </>
               )}
@@ -7575,11 +7575,11 @@ export default function AdminPage() {
                         onChange={(e) => setProductQuery(e.target.value)}
                       />
                       <button className="btn" type="button" onClick={startAddProduct}>
-                        Add New
+                        {getAdminPageCopy('addNew')}
                       </button>
                     </div>
                   </div>
-                  {productLoading ? <p className="feedback">Loading product list...</p> : null}
+                  {productLoading ? <p className="feedback">{getAdminPageCopy('loadingProductList')}</p> : null}
                   <div className="entity-list">
                     <table className="admin-data-table">
                       <thead>
@@ -7613,7 +7613,7 @@ export default function AdminPage() {
                   <div className="panel-head">
                     <h2>{editingProductId ? 'Edit product' : 'Add product'}</h2>
                     <button className="btn ghost" type="button" onClick={() => setProductMode('list')}>
-                      Back to list
+                      {getAdminPageCopy('backToList')}
                     </button>
                   </div>
                   <form className="form" onSubmit={addProduct}>
@@ -7625,7 +7625,7 @@ export default function AdminPage() {
                     </select></label>
                     <label>price<input type="number" min="0" value={productForm.price} onChange={(e) => setProductForm((p) => ({ ...p, price: e.target.value }))} /></label>
                     <label>stock<input type="number" min="0" value={productForm.stock} onChange={(e) => setProductForm((p) => ({ ...p, stock: e.target.value }))} /></label>
-                    <button className="btn" type="submit" disabled={productSaving}>{productSaving ? 'Saving...' : 'Save product'}</button>
+                    <button className="btn" type="submit" disabled={productSaving}>{productSaving ? getAdminPageCopy('saving') : getAdminPageCopy('saveProduct')}</button>
                   </form>
                 </>
               )}
@@ -7647,11 +7647,11 @@ export default function AdminPage() {
                         onChange={(e) => setPackageQuery(e.target.value)}
                       />
                       <button className="btn" type="button" onClick={startAddPackage}>
-                        Add New
+                        {getAdminPageCopy('addNew')}
                       </button>
                     </div>
                   </div>
-                  {packageLoading ? <p className="feedback">Loading package list...</p> : null}
+                  {packageLoading ? <p className="feedback">{getAdminPageCopy('loadingPackageList')}</p> : null}
                   <div className="entity-list">
                     <table className="admin-data-table">
                       <thead>
@@ -7688,7 +7688,7 @@ export default function AdminPage() {
                   <div className="panel-head">
                     <h2>{editingPackageId ? 'Edit package' : 'Add package'}</h2>
                     <button className="btn ghost" type="button" onClick={() => setPackageMode('list')}>
-                      Back to list
+                      {getAdminPageCopy('backToList')}
                     </button>
                   </div>
                   <form className="form" onSubmit={addPackageCreation}>
@@ -7724,7 +7724,7 @@ export default function AdminPage() {
                       <label>duration_months<input type="number" min="1" value={packageForm.max_months} onChange={(e) => setPackageForm((p) => ({ ...p, max_months: e.target.value }))} /></label>
                     ) : null}
                     <label>price<input type="number" min="0" value={packageForm.price} onChange={(e) => setPackageForm((p) => ({ ...p, price: e.target.value }))} /></label>
-                    <button className="btn" type="submit" disabled={packageSaving}>{packageSaving ? 'Saving...' : 'Save package'}</button>
+                    <button className="btn" type="submit" disabled={packageSaving}>{packageSaving ? getAdminPageCopy('saving') : getAdminPageCopy('savePackage')}</button>
                   </form>
                 </>
               )}
@@ -7752,7 +7752,7 @@ export default function AdminPage() {
                       />
                     </div>
                   </div>
-                  {trainerPackageLoading ? <p className="feedback">Loading member package list...</p> : null}
+                  {trainerPackageLoading ? <p className="feedback">{getAdminPageCopy('loadingMemberPackageList')}</p> : null}
                   <div className="entity-list">
                     <table className="admin-data-table">
                       <thead>
@@ -7795,7 +7795,7 @@ export default function AdminPage() {
                       />
                     </div>
                   </div>
-                  {userLoading ? <p className="feedback">Loading user list...</p> : null}
+                  {userLoading ? <p className="feedback">{getAdminPageCopy('loadingUserList')}</p> : null}
                   <div className="entity-list">
                     <table className="admin-data-table">
                       <thead>
@@ -7869,7 +7869,7 @@ export default function AdminPage() {
                       />
                     </div>
                   </div>
-                  {salesMemberLoading ? <p className="feedback">Loading member purchased list...</p> : null}
+                  {salesMemberLoading ? <p className="feedback">{getAdminPageCopy('loadingMemberPurchasedList')}</p> : null}
                   <div className="entity-list">
                     <table className="admin-data-table">
                       <thead>
@@ -7912,7 +7912,7 @@ export default function AdminPage() {
                       />
                     </div>
                   </div>
-                  {userLoading ? <p className="feedback">Loading user list...</p> : null}
+                  {userLoading ? <p className="feedback">{getAdminPageCopy('loadingUserList')}</p> : null}
                   <div className="entity-list">
                     <table className="admin-data-table">
                       <thead>
@@ -7986,7 +7986,7 @@ export default function AdminPage() {
                           setMemberMode('add');
                         }}
                       >
-                        Add New
+                        {getAdminPageCopy('addNew')}
                       </button>
                       <input
                         ref={memberUploadInputRef}
@@ -8144,7 +8144,7 @@ export default function AdminPage() {
                   <div className="panel-head">
                     <h2>Add member</h2>
                     <button className="btn ghost" type="button" onClick={() => setMemberMode('list')}>
-                      Back to list
+                      {getAdminPageCopy('backToList')}
                     </button>
                   </div>
                   <form className="form" onSubmit={addMember}>
@@ -8188,7 +8188,7 @@ export default function AdminPage() {
                       </label>
                     </div>
                     <button className="btn" type="submit" disabled={memberSaving}>
-                      {memberSaving ? 'Saving...' : 'Save member'}
+                      {memberSaving ? getAdminPageCopy('saving') : getAdminPageCopy('saveMember')}
                     </button>
                   </form>
                 </>
@@ -8221,11 +8221,11 @@ export default function AdminPage() {
                         ))}
                       </select>
                       <button className="btn" type="button" onClick={() => setTransactionMode('add')}>
-                        Add New
+                        {getAdminPageCopy('addNew')}
                       </button>
                     </div>
                   </div>
-                  {transactionLoading ? <p className="feedback">Loading payments...</p> : null}
+                  {transactionLoading ? <p className="feedback">{getAdminPageCopy('loadingPayments')}</p> : null}
                   <div className="entity-list">
                     <table className="admin-data-table">
                       <thead>
@@ -8313,7 +8313,7 @@ export default function AdminPage() {
                           setTransactionMode('list');
                         }}
                       >
-                        Back to list
+                        {getAdminPageCopy('backToList')}
                       </button>
                       <button
                         className="btn"
@@ -8333,7 +8333,7 @@ export default function AdminPage() {
                           setTransactionMode('add');
                         }}
                       >
-                        Add New
+                        {getAdminPageCopy('addNew')}
                       </button>
                     </div>
                   </div>
@@ -8364,7 +8364,7 @@ export default function AdminPage() {
                         setTransactionMode('list');
                       }}
                     >
-                      Back to list
+                      {getAdminPageCopy('backToList')}
                     </button>
                   </div>
                   <form className="form" onSubmit={addTransaction}>

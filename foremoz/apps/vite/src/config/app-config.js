@@ -31,7 +31,8 @@ export function getAdminPageOptions(key) {
 }
 
 export function getAdminPageCopy(key, vars = {}) {
-  const template = String(asObject(getAdminPageConfig().placeholders)[key] || '');
+  const config = getAdminPageConfig();
+  const template = String(asObject(config.copy)[key] || asObject(config.placeholders)[key] || '');
   return template.replace(/\{(\w+)\}/g, (_, varKey) => String(vars[varKey] ?? ''));
 }
 

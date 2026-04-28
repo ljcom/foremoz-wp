@@ -19,6 +19,7 @@
 - [x] Move AdminPage member, trainer package, and sales member table headers into JSON config.
 - [x] Move AdminPage PT/Sales user table headers and reusable select placeholders into JSON config.
 - [x] Move AdminPage title suggestion word pools and fallback labels into JSON config.
+- [x] Move common AdminPage add/back/save/loading/refresh labels into JSON config.
 - [ ] Inventory current UI surfaces that still define labels, navigation, tabs, statuses, actions, empty states, or copy directly in components.
 - [ ] Define or extend JSON config for navigation, page layouts, table columns, forms, badge variants, workflow actions, and empty states before adding new UI.
 - [ ] Keep renderers generic: components should receive config and context instead of owning business-specific arrays or rules.
