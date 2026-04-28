@@ -48,6 +48,15 @@ function requireConfigOptionArray(config, path, keyName = 'value') {
   });
 }
 
+function requireConfigStringArray(config, path) {
+  const options = requireConfigArray(config, path);
+  options.forEach((item, index) => {
+    if (!String(item || '').trim()) {
+      throw new Error(`Invalid app-ui config: ${path}[${index}] must be a non-empty string`);
+    }
+  });
+}
+
 function requireConfigCopy(config, path, keys) {
   const copy = requireConfigObject(config, path);
   keys.forEach((key) => {
@@ -75,7 +84,10 @@ export function validateAppUiConfig(config = appUiConfig) {
 
   [
     'workspaceAccess.workspaceSwitcherEnvironments',
-    'workspaceAccess.defaultEnvironments',
+    'workspaceAccess.defaultEnvironments'
+  ].forEach((path) => requireConfigStringArray(config, path));
+
+  [
     'adminPage.eventDurationUnits',
     'adminPage.classWeekdays',
     'adminPage.activityValidityUnitOptions',
