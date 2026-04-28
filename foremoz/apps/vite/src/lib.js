@@ -1,3 +1,10 @@
+import {
+  getWorkspaceAccessConfig,
+  getWorkspaceConfigList,
+  getWorkspaceConfigMapValue,
+  normalizeWorkspaceConfigValue
+} from './config/app-config.js';
+
 function normalizeBaseUrl(value, fallback) {
   const raw = String(value || '').trim();
   if (!raw) return fallback;
@@ -44,10 +51,7 @@ export function setOwnerSetup(payload) {
 }
 
 export function normalizePackagePlan(value) {
-  const plan = String(value || '').trim().toLowerCase();
-  if (plan === 'basic') return 'starter';
-  if (plan === 'pro') return 'growth';
-  return plan;
+  return normalizeWorkspaceConfigValue('packagePlanAliases', value);
 }
 
 export function getSessionPackagePlan(session) {
@@ -57,7 +61,7 @@ export function getSessionPackagePlan(session) {
     ? setup.package_plan
     : '';
   const plan = normalizePackagePlan(session?.tenant?.package_plan || session?.tenant?.packagePlan || setupPlan);
-  return plan || 'starter';
+  return plan || getWorkspaceAccessConfig().defaultPlan || 'starter';
 }
 
 export function isFreeSinglePlan(session) {
@@ -65,44 +69,23 @@ export function isFreeSinglePlan(session) {
 }
 
 export function getAllowedEnvironments(session, roleInput) {
-  const role = String(roleInput || session?.role || 'admin').toLowerCase();
+  const accessConfig = getWorkspaceAccessConfig();
+  const role = String(roleInput || session?.role || accessConfig.defaultRole || 'admin').toLowerCase();
   const plan = getSessionPackagePlan(session);
-
-  const planAllowed = (() => {
-    if (plan === 'free') return ['admin', 'cs'];
-    if (plan === 'starter') return ['admin', 'cs'];
-    if (plan === 'growth' || plan === 'multi_branch' || plan === 'enterprise') {
-      return ['admin', 'cs', 'pt', 'sales'];
-    }
-    return ['admin', 'cs', 'pt', 'sales'];
-  })();
-
-  const roleAllowed = (() => {
-    if (role === 'owner' || role === 'admin') return ['admin', 'cs', 'pt', 'sales'];
-    if (role === 'cs') return ['cs'];
-    if (role === 'pt') return ['pt'];
-    if (role === 'sales') return ['sales'];
-    return [];
-  })();
+  const planAllowed = getWorkspaceConfigList('planEnvironments', plan, 'defaultEnvironments');
+  const roleAllowed = getWorkspaceConfigList('roleEnvironments', role);
 
   return roleAllowed.filter((env) => planAllowed.includes(env));
 }
 
 export function getEnvironmentLabel(env) {
   const value = String(env || '').trim().toLowerCase();
-  if (value === 'admin') return 'settings';
-  if (value === 'cs') return 'customer service';
-  return value;
+  return getWorkspaceConfigMapValue('environmentLabels', value, value);
 }
 
 export function getAdminTabsByPlan(session) {
   const plan = getSessionPackagePlan(session);
-  if (plan === 'free') return ['event', 'member'];
-  if (plan === 'starter') return ['event', 'class', 'product', 'member', 'transaction'];
-  if (plan === 'growth' || plan === 'multi_branch' || plan === 'enterprise') {
-    return ['event', 'class', 'product', 'package_creation', 'trainer', 'sales', 'member', 'transaction'];
-  }
-  return ['event', 'class', 'product', 'package_creation', 'trainer', 'sales', 'member', 'transaction'];
+  return getWorkspaceConfigList('adminTabsByPlan', plan);
 }
 
 export function requireField(value, name) {
@@ -113,7 +96,7 @@ export function requireField(value, name) {
 }
 
 export function getAccountSlug(session) {
-  return session?.tenant?.account_slug || session?.tenant?.id || 'foremoz-gym';
+  return session?.tenant?.account_slug || session?.tenant?.id || getWorkspaceAccessConfig().defaultAccount || 'tn_001';
 }
 
 export function accountPath(session, suffix) {

@@ -22,6 +22,49 @@ export function getDashboardOrderConfig() {
   return asObject(asObject(appUiConfig.csDashboard).orders);
 }
 
+export function getWorkspaceAccessConfig() {
+  return asObject(appUiConfig.workspaceAccess);
+}
+
+export function getRoutePolicy(policyKey) {
+  return asObject(asObject(getWorkspaceAccessConfig().routePolicies)[policyKey]);
+}
+
+export function getWorkspaceAccessList(policyKey, key) {
+  return asArray(getRoutePolicy(policyKey)[key]);
+}
+
+export function getWorkspaceAccessValue(policyKey, key) {
+  return String(getRoutePolicy(policyKey)[key] || '');
+}
+
+export function getWorkspaceConfigList(key, value, fallbackKey = 'default') {
+  const accessConfig = getWorkspaceAccessConfig();
+  const collection = asObject(accessConfig[key]);
+  const normalized = String(value || fallbackKey || '').trim().toLowerCase();
+  return asArray(collection[normalized] || collection[fallbackKey] || accessConfig[fallbackKey] || []);
+}
+
+export function getWorkspaceConfigMapValue(key, value, fallbackValue = '') {
+  const collection = asObject(getWorkspaceAccessConfig()[key]);
+  const normalized = String(value || '').trim().toLowerCase();
+  return String(collection[normalized] || fallbackValue || normalized);
+}
+
+export function normalizeWorkspaceConfigValue(mapKey, value, fallbackValue = '') {
+  const accessConfig = getWorkspaceAccessConfig();
+  const map = asObject(accessConfig[mapKey]);
+  const normalized = String(value || '').trim().toLowerCase();
+  return String(map[normalized] || normalized || fallbackValue || '');
+}
+
+export function getMappedWorkspacePath(mapKey, value) {
+  const accessConfig = getWorkspaceAccessConfig();
+  const map = asObject(accessConfig[mapKey]);
+  const normalized = String(value || accessConfig.defaultRole || '').trim();
+  return String(map[normalized] || map.default || '');
+}
+
 export function getConfiguredOptions(config, key) {
   return asArray(asObject(config)[key]).filter((item) => item && typeof item === 'object' && item.value);
 }

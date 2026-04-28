@@ -44,6 +44,91 @@
       }
     }
   },
+  "workspaceAccess": {
+    "defaultAccount": "tn_001",
+    "defaultRole": "admin",
+    "defaultPlan": "starter",
+    "packagePlanAliases": {
+      "basic": "starter",
+      "pro": "growth"
+    },
+    "signinPath": "/signin",
+    "memberSigninPath": "/a/tn_001/member/signin",
+    "adminOnboardingRole": "admin",
+    "adminOnboardingPath": "/host/owner",
+    "roleHomePaths": {
+      "default": "/admin/dashboard",
+      "sales": "/sales/dashboard",
+      "pt": "/pt/dashboard",
+      "cs": "/cs/dashboard",
+      "member": "/member/portal"
+    },
+    "environmentHomePaths": {
+      "default": "/admin/dashboard",
+      "admin": "/admin/dashboard",
+      "sales": "/sales/dashboard",
+      "pt": "/pt/dashboard",
+      "cs": "/cs/dashboard"
+    },
+    "environmentLabels": {
+      "admin": "settings",
+      "cs": "customer service"
+    },
+    "defaultEnvironments": ["admin", "cs", "pt", "sales"],
+    "planEnvironments": {
+      "free": ["admin", "cs"],
+      "starter": ["admin", "cs"],
+      "growth": ["admin", "cs", "pt", "sales"],
+      "multi_branch": ["admin", "cs", "pt", "sales"],
+      "enterprise": ["admin", "cs", "pt", "sales"]
+    },
+    "roleEnvironments": {
+      "owner": ["admin", "cs", "pt", "sales"],
+      "admin": ["admin", "cs", "pt", "sales"],
+      "cs": ["cs"],
+      "pt": ["pt"],
+      "sales": ["sales"]
+    },
+    "adminTabsByPlan": {
+      "free": ["event", "member"],
+      "starter": ["event", "class", "product", "member", "transaction"],
+      "growth": ["event", "class", "product", "package_creation", "trainer", "sales", "member", "transaction"],
+      "multi_branch": ["event", "class", "product", "package_creation", "trainer", "sales", "member", "transaction"],
+      "enterprise": ["event", "class", "product", "package_creation", "trainer", "sales", "member", "transaction"],
+      "default": ["event", "class", "product", "package_creation", "trainer", "sales", "member", "transaction"]
+    },
+    "routePolicies": {
+      "csDashboard": {
+        "roles": ["admin", "owner", "cs"],
+        "env": "cs"
+      },
+      "adminDashboard": {
+        "roles": ["admin", "owner"]
+      },
+      "memberDetail": {
+        "roles": ["admin", "owner", "cs", "pt"]
+      },
+      "salesDashboard": {
+        "roles": ["sales", "admin", "owner"],
+        "env": "sales"
+      },
+      "salesProspectNew": {
+        "roles": ["sales", "admin", "owner"],
+        "env": "sales"
+      },
+      "salesProspectEdit": {
+        "roles": ["sales", "admin", "owner"],
+        "env": "sales"
+      },
+      "ptDashboard": {
+        "roles": ["pt", "admin", "owner"],
+        "env": "pt"
+      },
+      "memberPortal": {
+        "roles": ["member"]
+      }
+    }
+  },
   "csDashboard": {
     "orders": {
       "defaultOrderType": "membership",

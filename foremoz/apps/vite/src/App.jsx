@@ -30,16 +30,29 @@ import { accountPath, getAllowedEnvironments, getSession } from './lib.js';
 import { getPassportSession } from './passport-client.js';
 import BuildFooter from './components/BuildFooter.jsx';
 import PageErrorBoundary from './components/PageErrorBoundary.jsx';
-import { getPageErrorBoundaryConfig } from './config/app-config.js';
+import {
+  getMappedWorkspacePath,
+  getPageErrorBoundaryConfig,
+  getRoutePolicy,
+  getWorkspaceAccessConfig,
+  getWorkspaceAccessList,
+  getWorkspaceAccessValue
+} from './config/app-config.js';
 import { getAppStage, getRootHomePath, isPassportEventsEnabled, isPrelaunchEnabled } from './stage.js';
 
+const WORKSPACE_ACCESS_CONFIG = getWorkspaceAccessConfig();
+
+function getSessionRole(session) {
+  return session?.role || WORKSPACE_ACCESS_CONFIG.defaultRole || 'admin';
+}
+
+function getSessionAccount(session) {
+  return session?.tenant?.account_slug || session?.tenant?.id || WORKSPACE_ACCESS_CONFIG.defaultAccount || 'tn_001';
+}
+
 function roleHome(session) {
-  const role = session?.role || 'admin';
-  if (role === 'sales') return accountPath(session, '/sales/dashboard');
-  if (role === 'pt') return accountPath(session, '/pt/dashboard');
-  if (role === 'cs') return accountPath(session, '/cs/dashboard');
-  if (role === 'member') return accountPath(session, '/member/portal');
-  return accountPath(session, '/admin/dashboard');
+  const rolePath = getMappedWorkspacePath('roleHomePaths', getSessionRole(session));
+  return accountPath(session, rolePath);
 }
 
 function ProtectedRoute({ children }) {
@@ -47,7 +60,7 @@ function ProtectedRoute({ children }) {
   const session = getSession();
 
   if (!session?.isAuthenticated) {
-    return <Navigate to="/signin" replace state={{ from: location.pathname }} />;
+    return <Navigate to={WORKSPACE_ACCESS_CONFIG.signinPath || '/signin'} replace state={{ from: location.pathname }} />;
   }
 
   return children;
@@ -56,35 +69,35 @@ function ProtectedRoute({ children }) {
 function MemberProtectedRoute({ children }) {
   const session = getSession();
   if (!session?.isAuthenticated) {
-    return <Navigate to="/a/tn_001/member/signin" replace />;
+    return <Navigate to={WORKSPACE_ACCESS_CONFIG.memberSigninPath || '/a/tn_001/member/signin'} replace />;
   }
   return children;
 }
 
-function RoleRoute({ roles, children }) {
+function RoleRoute({ policy, roles, children }) {
   const session = getSession();
-  if (!roles.includes(session?.role || 'admin')) {
+  const allowedRoles = roles || getWorkspaceAccessList(policy, 'roles');
+  if (!allowedRoles.includes(getSessionRole(session))) {
     return <Navigate to={roleHome(session)} replace />;
   }
   return children;
 }
 
 function envHomePath(session) {
-  const account = session?.tenant?.account_slug || session?.tenant?.id || 'tn_001';
-  const allowed = getAllowedEnvironments(session, session?.role || 'admin');
+  const account = getSessionAccount(session);
+  const allowed = getAllowedEnvironments(session, getSessionRole(session));
   if (allowed.length === 0) return '';
-  const env = allowed[0] || 'admin';
-  if (env === 'sales') return `/a/${account}/sales/dashboard`;
-  if (env === 'pt') return `/a/${account}/pt/dashboard`;
-  if (env === 'cs') return `/a/${account}/cs/dashboard`;
-  return `/a/${account}/admin/dashboard`;
+  const env = allowed[0] || WORKSPACE_ACCESS_CONFIG.defaultRole || 'admin';
+  const envPath = getMappedWorkspacePath('environmentHomePaths', env);
+  return `/a/${account}${envPath}`;
 }
 
-function EnvRoute({ env, children }) {
+function EnvRoute({ policy, env, children }) {
   const session = getSession();
-  const account = session?.tenant?.account_slug || session?.tenant?.id || 'tn_001';
-  const allowed = getAllowedEnvironments(session, session?.role || 'admin');
-  if (!allowed.includes(env)) {
+  const account = getSessionAccount(session);
+  const requestedEnv = env || getWorkspaceAccessValue(policy, 'env');
+  const allowed = getAllowedEnvironments(session, getSessionRole(session));
+  if (!allowed.includes(requestedEnv)) {
     const home = envHomePath(session);
     return <Navigate to={home || `/a/${account}/signin`} replace />;
   }
@@ -93,15 +106,15 @@ function EnvRoute({ env, children }) {
 
 function RequireAdminOnboarding({ children }) {
   const session = getSession();
-  const role = session?.role || 'admin';
-  if (role === 'admin' && !session?.isOnboarded) {
-    return <Navigate to="/host/owner" replace />;
+  const role = getSessionRole(session);
+  if (role === WORKSPACE_ACCESS_CONFIG.adminOnboardingRole && !session?.isOnboarded) {
+    return <Navigate to={WORKSPACE_ACCESS_CONFIG.adminOnboardingPath || '/host/owner'} replace />;
   }
   return children;
 }
 
 function OnboardingOnly() {
-  return <Navigate to="/host/owner" replace />;
+  return <Navigate to={WORKSPACE_ACCESS_CONFIG.adminOnboardingPath || '/host/owner'} replace />;
 }
 
 function LegacyAdminRedirect() {
@@ -157,8 +170,17 @@ function PassportRequireOnboarding({ children }) {
 
 function LegacyMemberPortalRedirect() {
   const session = getSession();
-  const account = session?.tenant?.account_slug || session?.tenant?.id || 'tn_001';
+  const account = getSessionAccount(session);
   return <Navigate to={`/a/${account}/member/portal`} replace />;
+}
+
+function WorkspacePolicy({ policy, children }) {
+  const routePolicy = getRoutePolicy(policy);
+  return (
+    <RoleRoute roles={routePolicy.roles}>
+      {routePolicy.env ? <EnvRoute env={routePolicy.env}>{children}</EnvRoute> : children}
+    </RoleRoute>
+  );
 }
 
 export default function App() {
@@ -332,13 +354,11 @@ export default function App() {
         path="/a/:account/cs/dashboard"
         element={
           <ProtectedRoute>
-            <RoleRoute roles={['admin', 'owner', 'cs']}>
-              <EnvRoute env="cs">
-                <RequireAdminOnboarding>
-                  <DashboardPage />
-                </RequireAdminOnboarding>
-              </EnvRoute>
-            </RoleRoute>
+            <WorkspacePolicy policy="csDashboard">
+              <RequireAdminOnboarding>
+                <DashboardPage />
+              </RequireAdminOnboarding>
+            </WorkspacePolicy>
           </ProtectedRoute>
         }
       />
@@ -350,11 +370,11 @@ export default function App() {
         path="/a/:account/admin/dashboard"
         element={
           <ProtectedRoute>
-            <RoleRoute roles={['admin', 'owner']}>
+            <WorkspacePolicy policy="adminDashboard">
               <RequireAdminOnboarding>
                 <AdminPage />
               </RequireAdminOnboarding>
-            </RoleRoute>
+            </WorkspacePolicy>
           </ProtectedRoute>
         }
       />
@@ -367,11 +387,11 @@ export default function App() {
         path="/a/:account/members/:memberId"
         element={
           <ProtectedRoute>
-            <RoleRoute roles={['admin', 'owner', 'cs', 'pt']}>
+            <WorkspacePolicy policy="memberDetail">
               <RequireAdminOnboarding>
                 <MemberPage />
               </RequireAdminOnboarding>
-            </RoleRoute>
+            </WorkspacePolicy>
           </ProtectedRoute>
         }
       />
@@ -379,11 +399,9 @@ export default function App() {
         path="/a/:account/sales/dashboard"
         element={
           <ProtectedRoute>
-            <RoleRoute roles={['sales', 'admin', 'owner']}>
-              <EnvRoute env="sales">
-                <SalesPage />
-              </EnvRoute>
-            </RoleRoute>
+            <WorkspacePolicy policy="salesDashboard">
+              <SalesPage />
+            </WorkspacePolicy>
           </ProtectedRoute>
         }
       />
@@ -391,11 +409,9 @@ export default function App() {
         path="/a/:account/sales/prospects/new"
         element={
           <ProtectedRoute>
-            <RoleRoute roles={['sales', 'admin', 'owner']}>
-              <EnvRoute env="sales">
-                <SalesProspectNewPage />
-              </EnvRoute>
-            </RoleRoute>
+            <WorkspacePolicy policy="salesProspectNew">
+              <SalesProspectNewPage />
+            </WorkspacePolicy>
           </ProtectedRoute>
         }
       />
@@ -403,11 +419,9 @@ export default function App() {
         path="/a/:account/sales/prospects/:prospectId/edit"
         element={
           <ProtectedRoute>
-            <RoleRoute roles={['sales', 'admin', 'owner']}>
-              <EnvRoute env="sales">
-                <SalesProspectEditPage />
-              </EnvRoute>
-            </RoleRoute>
+            <WorkspacePolicy policy="salesProspectEdit">
+              <SalesProspectEditPage />
+            </WorkspacePolicy>
           </ProtectedRoute>
         }
       />
@@ -417,11 +431,9 @@ export default function App() {
         path="/a/:account/pt/dashboard"
         element={
           <ProtectedRoute>
-            <RoleRoute roles={['pt', 'admin', 'owner']}>
-              <EnvRoute env="pt">
-                <PtPage />
-              </EnvRoute>
-            </RoleRoute>
+            <WorkspacePolicy policy="ptDashboard">
+              <PtPage />
+            </WorkspacePolicy>
           </ProtectedRoute>
         }
       />
@@ -430,9 +442,9 @@ export default function App() {
         path="/a/:account/member"
         element={
           <MemberProtectedRoute>
-            <RoleRoute roles={['member']}>
+            <WorkspacePolicy policy="memberPortal">
               <MemberPortalPage />
-            </RoleRoute>
+            </WorkspacePolicy>
           </MemberProtectedRoute>
         }
       />
@@ -440,9 +452,9 @@ export default function App() {
         path="/a/:account/member/portal"
         element={
           <MemberProtectedRoute>
-            <RoleRoute roles={['member']}>
+            <WorkspacePolicy policy="memberPortal">
               <MemberPortalPage />
-            </RoleRoute>
+            </WorkspacePolicy>
           </MemberProtectedRoute>
         }
       />
