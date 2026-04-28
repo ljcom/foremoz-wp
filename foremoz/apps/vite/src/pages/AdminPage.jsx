@@ -2253,6 +2253,10 @@ export default function AdminPage() {
     () => ADMIN_TABS.filter((tab) => enabledAdminTabIds.includes(tab.id)),
     [enabledAdminTabIds]
   );
+  const isEventFormDirty = useMemo(
+    () => serializeEventForm(eventForm) !== eventFormBaseline,
+    [eventForm, eventFormBaseline]
+  );
   const selectAdminTab = useCallback((tabId) => {
     if (
       activeTab === 'event' &&
@@ -2563,10 +2567,6 @@ export default function AdminPage() {
       operationLink.includes(q)
     );
   });
-  const isEventFormDirty = useMemo(
-    () => serializeEventForm(eventForm) !== eventFormBaseline,
-    [eventForm, eventFormBaseline]
-  );
   const filteredEventCheckinParticipants = useMemo(() => {
     const q = normalizeToken(eventCheckinSearch);
     if (!q) return eventParticipants;
