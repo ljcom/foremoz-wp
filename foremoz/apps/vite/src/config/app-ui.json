@@ -1,5 +1,33 @@
 {
   "version": "1.0.0",
+  "stageLayout": {
+    "defaultBuildStage": 4,
+    "defaultLayoutStage": 4,
+    "defaultPrelaunch": true,
+    "layoutStageByBuildStage": {
+      "1": 4,
+      "2": 4,
+      "3": 4,
+      "4": 4
+    },
+    "rootHomePathByLayoutStage": {
+      "1": "/fitness",
+      "2": "/host",
+      "3": "/events",
+      "4": "/events",
+      "default": "/events"
+    },
+    "publicHomePathByFeature": {
+      "passportEvents": "/events",
+      "default": "/fitness"
+    },
+    "featureMinimumLayoutStage": {
+      "allVerticals": 2,
+      "passportEvents": 3,
+      "language": 4,
+      "hostLanding": 2
+    }
+  },
   "pageErrorBoundary": {
     "defaults": {
       "shellClassName": "dashboard",

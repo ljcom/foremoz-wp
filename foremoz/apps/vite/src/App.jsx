@@ -38,7 +38,7 @@ import {
   getWorkspaceAccessList,
   getWorkspaceAccessValue
 } from './config/app-config.js';
-import { getAppStage, getRootHomePath, isPassportEventsEnabled, isPrelaunchEnabled } from './stage.js';
+import { getAppStage, getRootHomePath, isHostLandingEnabled, isPassportEventsEnabled, isPrelaunchEnabled } from './stage.js';
 
 const WORKSPACE_ACCESS_CONFIG = getWorkspaceAccessConfig();
 
@@ -210,7 +210,7 @@ export default function App() {
         <Route path="/" element={prelaunchEnabled ? <PrelaunchPage /> : <Navigate to={rootHome} replace />} />
         <Route path="/why-foremoz" element={<ReadMorePlaceholderPage />} />
         <Route path="/manifesto" element={<ReadMorePlaceholderPage />} />
-        <Route path="/host" element={stage <= 1 ? <Navigate to="/fitness" replace /> : <WebLandingPage />} />
+        <Route path="/host" element={isHostLandingEnabled() ? <WebLandingPage /> : <Navigate to="/fitness" replace />} />
         <Route path="/newevent" element={<Navigate to="/host" replace />} />
         <Route path="/web" element={<Navigate to="/host" replace />} />
         <Route path="/events" element={eventsEnabled ? <PassportLandingPage /> : <Navigate to={rootHome} replace />} />

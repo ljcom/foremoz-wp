@@ -67,6 +67,11 @@ function requireConfigCopy(config, path, keys) {
 }
 
 export function validateAppUiConfig(config = appUiConfig) {
+  requireConfigObject(config, 'stageLayout');
+  requireConfigObject(config, 'stageLayout.layoutStageByBuildStage');
+  requireConfigObject(config, 'stageLayout.rootHomePathByLayoutStage');
+  requireConfigObject(config, 'stageLayout.publicHomePathByFeature');
+  requireConfigObject(config, 'stageLayout.featureMinimumLayoutStage');
   requireConfigObject(config, 'pageErrorBoundary.defaults');
   requireConfigObject(config, 'pageErrorBoundary.variants');
   requireConfigObject(config, 'backendShell.copy');
@@ -183,6 +188,14 @@ export function validateAppUiConfig(config = appUiConfig) {
 }
 
 validateAppUiConfig();
+
+export function getStageLayoutConfig() {
+  return asObject(appUiConfig.stageLayout);
+}
+
+export function getStageLayoutMap(key) {
+  return asObject(getStageLayoutConfig()[key]);
+}
 
 export function getPageErrorBoundaryConfig(variant) {
   const boundaryConfig = asObject(appUiConfig.pageErrorBoundary);

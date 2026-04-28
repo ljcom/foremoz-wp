@@ -49,3 +49,4 @@
 - [x] Continue migrating remaining admin/detail page copy into the existing i18n/config layer.
 - [x] Add validation for JSON config shape before rendering config-driven pages.
 - [x] Apply backend redesign direction to Sales Workspace shell, prospect pipeline, and drawer-based Add Prospect flow.
+- [x] Apply stg4 public layout policy to stg1, stg2, and stg3 through JSON-driven stage layout config.

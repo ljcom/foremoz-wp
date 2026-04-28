@@ -1,5 +1,15 @@
-const DEFAULT_STAGE = 4;
-const DEFAULT_PRELAUNCH = true;
+import { getStageLayoutConfig, getStageLayoutMap } from './config/app-config.js';
+
+const STAGE_LAYOUT_CONFIG = getStageLayoutConfig();
+
+function normalizeStage(value, fallbackStage = STAGE_LAYOUT_CONFIG.defaultBuildStage || 4) {
+  const parsed = Number.parseInt(String(value || '').trim(), 10);
+  const fallback = Number.parseInt(String(fallbackStage || 4), 10);
+  if (!Number.isFinite(parsed)) return Number.isFinite(fallback) ? fallback : 4;
+  if (parsed < 1) return 1;
+  if (parsed > 4) return 4;
+  return parsed;
+}
 
 function resolveStageRaw() {
   if (typeof __APP_STAGE__ !== 'undefined') return __APP_STAGE__;
@@ -7,34 +17,50 @@ function resolveStageRaw() {
 }
 
 export function getAppStage() {
-  const parsed = Number.parseInt(String(resolveStageRaw() || '').trim(), 10);
-  if (!Number.isFinite(parsed)) return DEFAULT_STAGE;
-  if (parsed < 1) return 1;
-  if (parsed > 4) return 4;
-  return parsed;
+  return normalizeStage(resolveStageRaw(), STAGE_LAYOUT_CONFIG.defaultBuildStage);
+}
+
+export function getAppLayoutStage() {
+  const buildStage = getAppStage();
+  const layoutStageByBuildStage = getStageLayoutMap('layoutStageByBuildStage');
+  return normalizeStage(
+    layoutStageByBuildStage[String(buildStage)],
+    STAGE_LAYOUT_CONFIG.defaultLayoutStage || buildStage
+  );
+}
+
+export function isStageFeatureEnabled(featureKey) {
+  const minimumLayoutStage = getStageLayoutMap('featureMinimumLayoutStage')[featureKey];
+  return getAppLayoutStage() >= normalizeStage(minimumLayoutStage, 4);
 }
 
 export function isAllVerticalsEnabled() {
-  return getAppStage() >= 2;
+  return isStageFeatureEnabled('allVerticals');
 }
 
 export function isPassportEventsEnabled() {
-  return getAppStage() >= 3;
+  return isStageFeatureEnabled('passportEvents');
 }
 
 export function isLanguageEnabled() {
-  return getAppStage() >= 4;
+  return isStageFeatureEnabled('language');
+}
+
+export function isHostLandingEnabled() {
+  return isStageFeatureEnabled('hostLanding');
 }
 
 export function getRootHomePath() {
-  const stage = getAppStage();
-  if (stage <= 1) return '/fitness';
-  if (stage === 2) return '/host';
-  return '/events';
+  const rootHomePathByLayoutStage = getStageLayoutMap('rootHomePathByLayoutStage');
+  const layoutStage = getAppLayoutStage();
+  return String(rootHomePathByLayoutStage[String(layoutStage)] || rootHomePathByLayoutStage.default || '/events');
 }
 
 export function getPublicHomePath() {
-  return isPassportEventsEnabled() ? '/events' : '/fitness';
+  const publicHomePathByFeature = getStageLayoutMap('publicHomePathByFeature');
+  return isPassportEventsEnabled()
+    ? String(publicHomePathByFeature.passportEvents || publicHomePathByFeature.default || getRootHomePath())
+    : String(publicHomePathByFeature.default || getRootHomePath());
 }
 
 function resolvePrelaunchRaw() {
@@ -44,6 +70,6 @@ function resolvePrelaunchRaw() {
 
 export function isPrelaunchEnabled() {
   const raw = String(resolvePrelaunchRaw() || '').trim().toLowerCase();
-  if (!raw) return DEFAULT_PRELAUNCH;
+  if (!raw) return Boolean(STAGE_LAYOUT_CONFIG.defaultPrelaunch);
   return raw === '1' || raw === 'true' || raw === 'yes' || raw === 'on';
 }
