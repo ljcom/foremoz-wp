@@ -160,7 +160,36 @@
       "classScheduledParticipantsEmpty": "Belum ada participant yang booking program ini.",
       "classActivityParticipantsEmpty": "Belum ada enrollment untuk activity ini.",
       "eventParticipantsRequiresSave": "Simpan event dulu untuk melihat participants.",
-      "classParticipantsRequiresSave": "Simpan program dulu untuk melihat participants."
+      "classParticipantsRequiresSave": "Simpan program dulu untuk melihat participants.",
+      "close": "Close",
+      "memberUploadEyebrow": "Upload Member",
+      "memberUploadTitle": "Pilih metode upload",
+      "memberUploadDownloadMode": "Download template",
+      "memberUploadPasteMode": "Copy paste",
+      "memberUploadFileMode": "Upload file",
+      "memberUploadTemplateGuide": "Unduh template CSV lalu isi sesuai format standar upload member.",
+      "memberUploadTemplateColumns": "Kolom wajib: `email`. Kolom lain: `member_name`, `phone`.",
+      "memberUploadDownloadTemplate": "Download template CSV",
+      "memberUploadPasteLabel": "Paste CSV",
+      "memberUploadFormat": "Format: `email,member_name,phone`",
+      "memberUploadUploading": "Uploading...",
+      "memberUploadPasteSubmit": "Upload dari paste",
+      "memberUploadFileGuide": "Pilih file CSV untuk upload massal member.",
+      "memberUploadFileSelect": "Pilih file CSV",
+      "memberUploadTemplateDownloaded": "Template CSV berhasil diunduh.",
+      "memberUploadRequiresRelation": "Pilih minimal satu class/event untuk upload member.",
+      "memberUploadNoValidRows": "Data upload tidak memiliki baris member yang valid.",
+      "memberUploadCsvOnly": "Upload member saat ini mendukung file CSV."
+    },
+    "memberUpload": {
+      "csvHeader": "email,member_name,phone",
+      "pastePlaceholder": "email,member_name,phone\nmember1@example.com,Member Satu,081234567890",
+      "templateFilename": "member-upload-template.csv",
+      "templateRows": [
+        ["email", "member_name", "phone"],
+        ["member1@example.com", "Member Satu", "081234567890"],
+        ["member2@example.com", "Member Dua", "081234567891"]
+      ]
     },
     "localizedCopy": {
       "en": {

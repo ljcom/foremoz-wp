@@ -68,6 +68,7 @@ const TRANSACTION_ACTIONS = getAdminPageOptions('transactionActions');
 const SAAS_EXTENSION_MONTH_OPTIONS = getAdminPageOptions('saasExtensionMonths');
 const WORKSPACE_SWITCHER_ENVIRONMENTS = getWorkspaceAccessConfigList('workspaceSwitcherEnvironments');
 const TITLE_SUGGESTION_CONFIG = getAdminPageObject('titleSuggestion');
+const MEMBER_UPLOAD_CONFIG = getAdminPageObject('memberUpload');
 
 const IDR_FORMATTER = new Intl.NumberFormat('id-ID');
 
@@ -1868,7 +1869,7 @@ export default function AdminPage() {
   const [memberUploadDraft, setMemberUploadDraft] = useState('');
   const [memberUploadModalOpen, setMemberUploadModalOpen] = useState(false);
   const [memberUploadMode, setMemberUploadMode] = useState('template');
-  const [memberUploadText, setMemberUploadText] = useState('email,member_name,phone\n');
+  const [memberUploadText, setMemberUploadText] = useState(`${String(MEMBER_UPLOAD_CONFIG.csvHeader || '').trim()}\n`);
   const memberUploadInputRef = useRef(null);
 
   useEffect(() => {
@@ -3728,7 +3729,7 @@ export default function AdminPage() {
 
   function openMemberUploadModal() {
     setMemberUploadMode('template');
-    setMemberUploadText('email,member_name,phone\n');
+    setMemberUploadText(`${String(MEMBER_UPLOAD_CONFIG.csvHeader || '').trim()}\n`);
     setMemberUploadModalOpen(true);
   }
 
@@ -3737,27 +3738,28 @@ export default function AdminPage() {
   }
 
   function downloadMemberUploadTemplate() {
-    const csvText = 'email,member_name,phone\nmember1@example.com,Member Satu,081234567890\nmember2@example.com,Member Dua,081234567891\n';
+    const templateRows = Array.isArray(MEMBER_UPLOAD_CONFIG.templateRows) ? MEMBER_UPLOAD_CONFIG.templateRows : [];
+    const csvText = `${templateRows.map((row) => (Array.isArray(row) ? row : []).map(csvEscape).join(',')).join('\n')}\n`;
     const blob = new Blob([csvText], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = 'member-upload-template.csv';
+    link.download = String(MEMBER_UPLOAD_CONFIG.templateFilename || 'member-upload-template.csv');
     document.body.appendChild(link);
     link.click();
     link.remove();
     URL.revokeObjectURL(url);
-    setFeedback('Template CSV berhasil diunduh.');
+    setFeedback(getAdminPageCopy('memberUploadTemplateDownloaded'));
   }
 
   async function processMemberUploadText(text, sourceLabel = 'upload') {
     if (memberUploadRelations.length === 0) {
-      throw new Error('Pilih minimal satu class/event untuk upload member.');
+      throw new Error(getAdminPageCopy('memberUploadRequiresRelation'));
     }
 
     const rows = parseMemberCsv(text).filter((item) => normalizeEmailValue(item.email));
     if (rows.length === 0) {
-      throw new Error('Data upload tidak memiliki baris member yang valid.');
+      throw new Error(getAdminPageCopy('memberUploadNoValidRows'));
     }
 
     let successCount = 0;
@@ -3788,7 +3790,7 @@ export default function AdminPage() {
     event.target.value = '';
     if (!file) return;
     if (!String(file.name || '').toLowerCase().endsWith('.csv')) {
-      setFeedback('Upload member saat ini mendukung file CSV.');
+      setFeedback(getAdminPageCopy('memberUploadCsvOnly'));
       return;
     }
 
@@ -7985,7 +7987,7 @@ export default function AdminPage() {
                       </select>
                     </label>
                     <p className="sub" style={{ marginTop: '0.5rem' }}>
-                      Format CSV: `email,member_name,phone`
+                      {getAdminPageCopy('memberUploadFormat')}
                     </p>
                   </div>
                   {memberUploadModalOpen ? (
@@ -7993,11 +7995,11 @@ export default function AdminPage() {
                       <div className="modal-card" onClick={(event) => event.stopPropagation()}>
                         <div className="panel-head">
                           <div>
-                            <p className="eyebrow">Upload Member</p>
-                            <h3 style={{ margin: 0 }}>Pilih metode upload</h3>
+                            <p className="eyebrow">{getAdminPageCopy('memberUploadEyebrow')}</p>
+                            <h3 style={{ margin: 0 }}>{getAdminPageCopy('memberUploadTitle')}</h3>
                           </div>
                           <button className="btn ghost small" type="button" onClick={closeMemberUploadModal}>
-                            Close
+                            {getAdminPageCopy('close')}
                           </button>
                         </div>
                         <div className="row-actions" style={{ marginBottom: '0.75rem', flexWrap: 'wrap' }}>
@@ -8006,55 +8008,55 @@ export default function AdminPage() {
                             type="button"
                             onClick={() => setMemberUploadMode('template')}
                           >
-                            Download template
+                            {getAdminPageCopy('memberUploadDownloadMode')}
                           </button>
                           <button
                             className={`btn ghost small ${memberUploadMode === 'paste' ? 'active' : ''}`}
                             type="button"
                             onClick={() => setMemberUploadMode('paste')}
                           >
-                            Copy paste
+                            {getAdminPageCopy('memberUploadPasteMode')}
                           </button>
                           <button
                             className={`btn ghost small ${memberUploadMode === 'file' ? 'active' : ''}`}
                             type="button"
                             onClick={() => setMemberUploadMode('file')}
                           >
-                            Upload file
+                            {getAdminPageCopy('memberUploadFileMode')}
                           </button>
                         </div>
                         {memberUploadMode === 'template' ? (
                           <div className="card" style={{ borderStyle: 'dashed' }}>
-                            <p className="feedback">Unduh template CSV lalu isi sesuai format standar upload member.</p>
-                            <p className="sub">Kolom wajib: `email`. Kolom lain: `member_name`, `phone`.</p>
+                            <p className="feedback">{getAdminPageCopy('memberUploadTemplateGuide')}</p>
+                            <p className="sub">{getAdminPageCopy('memberUploadTemplateColumns')}</p>
                             <button className="btn" type="button" onClick={downloadMemberUploadTemplate}>
-                              Download template CSV
+                              {getAdminPageCopy('memberUploadDownloadTemplate')}
                             </button>
                           </div>
                         ) : null}
                         {memberUploadMode === 'paste' ? (
                           <form className="form" onSubmit={submitMemberUploadText}>
                             <label>
-                              Paste CSV
+                              {getAdminPageCopy('memberUploadPasteLabel')}
                               <textarea
                                 rows={10}
                                 value={memberUploadText}
                                 onChange={(event) => setMemberUploadText(event.target.value)}
-                                placeholder={'email,member_name,phone\nmember1@example.com,Member Satu,081234567890'}
+                                placeholder={String(MEMBER_UPLOAD_CONFIG.pastePlaceholder || '')}
                               />
                             </label>
-                            <p className="sub">Format: `email,member_name,phone`</p>
+                            <p className="sub">{getAdminPageCopy('memberUploadFormat')}</p>
                             <button className="btn" type="submit" disabled={memberSaving}>
-                              {memberSaving ? 'Uploading...' : 'Upload dari paste'}
+                              {memberSaving ? getAdminPageCopy('memberUploadUploading') : getAdminPageCopy('memberUploadPasteSubmit')}
                             </button>
                           </form>
                         ) : null}
                         {memberUploadMode === 'file' ? (
                           <div className="card" style={{ borderStyle: 'dashed' }}>
-                            <p className="feedback">Pilih file CSV untuk upload massal member.</p>
-                            <p className="sub">Format: `email,member_name,phone`</p>
+                            <p className="feedback">{getAdminPageCopy('memberUploadFileGuide')}</p>
+                            <p className="sub">{getAdminPageCopy('memberUploadFormat')}</p>
                             <button className="btn" type="button" onClick={() => memberUploadInputRef.current?.click()} disabled={memberSaving}>
-                              {memberSaving ? 'Uploading...' : 'Pilih file CSV'}
+                              {memberSaving ? getAdminPageCopy('memberUploadUploading') : getAdminPageCopy('memberUploadFileSelect')}
                             </button>
                           </div>
                         ) : null}
