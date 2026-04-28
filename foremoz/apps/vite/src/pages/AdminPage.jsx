@@ -4104,7 +4104,7 @@ export default function AdminPage() {
           branch_id: branchId
         })
       });
-      setFeedback(`event.deleted: ${eventId}`);
+      setFeedback(getAdminPageCopy('eventDeletedFeedback', { id: eventId }));
       await loadEvents();
     } catch (error) {
       setFeedback(error.message);
@@ -4123,7 +4123,7 @@ export default function AdminPage() {
     try {
       if (navigator?.clipboard?.writeText) {
         await navigator.clipboard.writeText(shareText);
-        setFeedback(`event.shared: link copied for ${eventName}`);
+        setFeedback(getAdminPageCopy('eventSharedCopiedFeedback', { name: eventName }));
         return;
       }
       throw new Error('clipboard not available');
@@ -4131,7 +4131,7 @@ export default function AdminPage() {
       if (typeof window !== 'undefined') {
         window.open(shareUrl, '_blank', 'noopener,noreferrer');
       }
-      setFeedback(`event.shared: opened ${shareUrl}`);
+      setFeedback(getAdminPageCopy('eventSharedOpenedFeedback', { url: shareUrl }));
     }
   }
 
@@ -4139,7 +4139,7 @@ export default function AdminPage() {
     setActiveTab('event');
     viewEvent(item);
     setEventEditTab('participants');
-    setFeedback(`event.participants: ${item?.event_name || item?.event_id || '-'}`);
+    setFeedback(getAdminPageCopy('eventParticipantsOpenedFeedback', { name: item?.event_name || item?.event_id || '-' }));
   }
 
   function openEventWalkinForm(item) {
@@ -4199,7 +4199,7 @@ export default function AdminPage() {
           registration_answers: answersByLabel
         })
       });
-      setFeedback(`walkin.registered: ${fullName || email}`);
+      setFeedback(getAdminPageCopy('walkinRegisteredFeedback', { name: fullName || email }));
       setEventWalkinForm(createEmptyEventWalkinForm());
       setEventMode('list');
       await loadEvents();
@@ -4255,11 +4255,11 @@ export default function AdminPage() {
   function scanCheckinByBarcode() {
     const matches = findParticipantsByScanCode(eventCheckinBarcode);
     if (matches.length === 0) {
-      setFeedback('Barcode/tiket tidak ditemukan di daftar participant.');
+      setFeedback(getAdminPageCopy('participantBarcodeNotFound'));
       return;
     }
     if (matches.length > 1) {
-      setFeedback('Barcode cocok ke lebih dari satu participant. Check-in dibatalkan, gunakan kode yang lebih spesifik.');
+      setFeedback(getAdminPageCopy('participantBarcodeAmbiguous'));
       return;
     }
     const participant = matches[0];
@@ -4285,10 +4285,11 @@ export default function AdminPage() {
         })
       });
       setEventCheckinMap((prev) => ({ ...prev, [key]: true }));
+      const participantName = participant?.full_name || participant?.email || participant?.passport_id || '-';
       if (result?.duplicate) {
-        setFeedback(`checkin.skip: ${participant?.full_name || participant?.email || participant?.passport_id || '-'} sudah check-in sebelumnya.`);
+        setFeedback(getAdminPageCopy('participantCheckinSkipped', { name: participantName }));
       } else {
-        setFeedback(`checkin.success: ${participant?.full_name || participant?.email || participant?.passport_id || '-'}`);
+        setFeedback(getAdminPageCopy('participantCheckinSuccess', { name: participantName }));
       }
       setEventCheckinBarcode('');
       await loadEventParticipants(editingEventId);
@@ -4306,7 +4307,7 @@ export default function AdminPage() {
   async function checkoutParticipant(row) {
     if (!editingEventId) return;
     if (isFreePlan) {
-      setFeedback('Upgrade to starter untuk menikmati fasilitas ini.');
+      setFeedback(getAdminPageCopy('eventUpgradeRequired'));
       return;
     }
     const key = row?.key;
@@ -4314,14 +4315,14 @@ export default function AdminPage() {
     if (!key) return;
     const awardEnabled = isAwardEnabled(eventForm.award_enabled, true);
     if (!awardEnabled) {
-      setFeedback('Award tidak aktif untuk event ini.');
+      setFeedback(getAdminPageCopy('eventAwardInactive'));
       return;
     }
     const topN = normalizeAwardTopN(eventForm.award_top_n, 1);
     const rankRaw = String(eventCheckoutRankMap[key] || '').trim();
     const rank = rankRaw ? normalizeAwardTopN(rankRaw, 1) : null;
     if (rank !== null && rank > topN) {
-      setFeedback(`Rank maksimal untuk event ini adalah ${topN}.`);
+      setFeedback(getAdminPageCopy('eventRankMax', { rank: topN }));
       return;
     }
     try {
@@ -4342,11 +4343,17 @@ export default function AdminPage() {
       });
       const scorePoints = Number(result?.score_points || 0);
       setEventCheckoutMap((prev) => ({ ...prev, [key]: true }));
+      const participantName = participant.full_name || participant.email || participant.passport_id || '-';
       if (result?.duplicate) {
-        setFeedback(`checkout.skip: ${participant.full_name || participant.email || participant.passport_id || '-'} sudah checkout sebelumnya.`);
+        setFeedback(getAdminPageCopy('participantCheckoutSkipped', { name: participantName }));
       } else {
         setFeedback(
-          `checkout.success: ${participant.full_name || participant.email || participant.passport_id || '-'}${rank ? ` (rank ${rank}, score ${scorePoints})` : ''}`
+          getAdminPageCopy('participantCheckoutSuccess', {
+            name: participantName,
+            suffix: rank
+              ? getAdminPageCopy('participantCheckoutRankSuffix', { rank, score: scorePoints })
+              : ''
+          })
         );
       }
       await loadEventParticipants(editingEventId);
@@ -4363,7 +4370,7 @@ export default function AdminPage() {
 
   function exportEventParticipantsCsv() {
     if (!editingEventId) {
-      setFeedback('Pilih event dulu sebelum export participants.');
+      setFeedback(getAdminPageCopy('eventRequiredForParticipantExport'));
       return;
     }
     const rows = [
@@ -4444,7 +4451,7 @@ export default function AdminPage() {
       });
       await loadEvents();
       setEventPostQuote(null);
-      setFeedback(`event.draft: ${eventForm.event_name || editingEvent?.event_name || editingEventId}. Event diturunkan ke draft.`);
+      setFeedback(getAdminPageCopy('eventDraftedFeedback', { name: eventForm.event_name || editingEvent?.event_name || editingEventId }));
     } catch (error) {
       setFeedback(error.message);
     } finally {
@@ -4512,9 +4519,9 @@ export default function AdminPage() {
         setPendingPostedEventId(editingEventId);
         setTransactionMode('add');
         setActiveTab('transaction');
-        setFeedback(`event.published: ${eventForm.event_name}. Foremoz Events ditampilkan, lanjut pembayaran.`);
+        setFeedback(getAdminPageCopy('eventPublishedWithPaymentFeedback', { name: eventForm.event_name }));
       } else {
-        setFeedback(`event.published: ${eventForm.event_name}. Foremoz Events ditampilkan. harga ${formatIdr(eventPostQuote.price)}.`);
+        setFeedback(getAdminPageCopy('eventPublishedFeedback', { name: eventForm.event_name, price: formatIdr(eventPostQuote.price) }));
       }
     } catch (error) {
       setFeedback(error.message);
@@ -4531,7 +4538,7 @@ export default function AdminPage() {
       const price = Number(transactionForm.price || 0);
       const amount = Math.max(0, qty) * Math.max(0, price);
       if (!Number.isFinite(amount) || amount <= 0) {
-        setFeedback('Nominal transaksi harus lebih dari 0.');
+        setFeedback(getAdminPageCopy('transactionAmountPositiveRequired'));
         return;
       }
       await apiJson('/v1/payments/record', {
@@ -4562,10 +4569,10 @@ export default function AdminPage() {
           const postedUrl = `${window.location.origin}/a/${encodeURIComponent(accountSlug)}/e/${encodeURIComponent(pendingPostedEventId)}`;
           window.open(postedUrl, '_blank', 'noopener,noreferrer');
         }
-        setFeedback(`payment.recorded: ${transactionForm.no_transaction}. event sudah tampil di Foremoz Events.`);
+        setFeedback(getAdminPageCopy('paymentRecordedEventFeedback', { transaction: transactionForm.no_transaction }));
         setPendingPostedEventId('');
       } else {
-        setFeedback(`transaction.created: ${transactionForm.no_transaction}`);
+        setFeedback(getAdminPageCopy('transactionCreatedFeedback', { transaction: transactionForm.no_transaction }));
       }
       await loadTransactions();
       setTransactionForm({
@@ -4598,7 +4605,7 @@ export default function AdminPage() {
       if (transactionMode === 'detail' && transactionDetail?.no_transaction === item.no_transaction) {
         await refreshTransactionDetail(item.no_transaction);
       }
-      setFeedback(`payment.confirmed: ${item.no_transaction}`);
+      setFeedback(getAdminPageCopy('paymentConfirmedFeedback', { transaction: item.no_transaction }));
     } catch (error) {
       setFeedback(error.message);
     }
@@ -4608,7 +4615,10 @@ export default function AdminPage() {
     try {
       const reason =
         typeof window !== 'undefined'
-          ? window.prompt(`Alasan reject untuk ${item.no_transaction}:`, 'invalid proof / duplicate payment') || ''
+          ? window.prompt(
+              getAdminPageCopy('paymentRejectPrompt', { transaction: item.no_transaction }),
+              getAdminPageCopy('paymentRejectDefaultReason')
+            ) || ''
           : '';
       await apiJson(`/v1/payments/${encodeURIComponent(item.no_transaction)}/reject`, {
         method: 'POST',
@@ -4622,7 +4632,7 @@ export default function AdminPage() {
       if (transactionMode === 'detail' && transactionDetail?.no_transaction === item.no_transaction) {
         await refreshTransactionDetail(item.no_transaction);
       }
-      setFeedback(`payment.rejected: ${item.no_transaction}`);
+      setFeedback(getAdminPageCopy('paymentRejectedFeedback', { transaction: item.no_transaction }));
     } catch (error) {
       setFeedback(error.message);
     }
