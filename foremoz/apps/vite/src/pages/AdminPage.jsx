@@ -49,6 +49,8 @@ const PACKAGE_TYPE_OPTIONS = getAdminPackageTypesConfig();
 const USER_ROLE_OPTIONS = getAdminPageOptions('userRoles');
 const REGISTRATION_FIELD_TYPE_OPTIONS = getAdminPageOptions('registrationFieldTypes');
 const PRODUCT_CATEGORY_OPTIONS = getAdminPageOptions('productCategories');
+const PRODUCT_TABLE_COLUMNS = getAdminPageOptions('productTableColumns');
+const PACKAGE_TABLE_COLUMNS = getAdminPageOptions('packageTableColumns');
 const TRANSACTION_STATUS_FILTER_OPTIONS = getAdminPageOptions('transactionStatusFilters');
 const TRANSACTION_LINK_FILTER_OPTIONS = getAdminPageOptions('transactionLinkFilters');
 const TRANSACTION_CURRENCY_OPTIONS = getAdminPageOptions('transactionCurrencies');
@@ -7576,11 +7578,9 @@ export default function AdminPage() {
                     <table className="admin-data-table">
                       <thead>
                         <tr>
-                          <th className="admin-data-head">Product</th>
-                          <th className="admin-data-head">Category</th>
-                          <th className="admin-data-head">Price</th>
-                          <th className="admin-data-head">Stock</th>
-                          <th className="admin-data-head">Aksi</th>
+                          {PRODUCT_TABLE_COLUMNS.map((column) => (
+                            <th className="admin-data-head" key={column.value}>{column.label}</th>
+                          ))}
                         </tr>
                       </thead>
                       <tbody>
@@ -7650,14 +7650,9 @@ export default function AdminPage() {
                     <table className="admin-data-table">
                       <thead>
                         <tr>
-                          <th className="admin-data-head">Package</th>
-                          <th className="admin-data-head">Type</th>
-                          <th className="admin-data-head">PT Trainer</th>
-                          <th className="admin-data-head">Class</th>
-                          <th className="admin-data-head">Max Months</th>
-                          <th className="admin-data-head">Session</th>
-                          <th className="admin-data-head">Price</th>
-                          <th className="admin-data-head">Aksi</th>
+                          {PACKAGE_TABLE_COLUMNS.map((column) => (
+                            <th className="admin-data-head" key={column.value}>{column.label}</th>
+                          ))}
                         </tr>
                       </thead>
                       <tbody>

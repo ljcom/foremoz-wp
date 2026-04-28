@@ -531,6 +531,23 @@
       { "value": "service", "label": "service" },
       { "value": "bundle", "label": "bundle" }
     ],
+    "productTableColumns": [
+      { "value": "product_name", "label": "Product" },
+      { "value": "category", "label": "Category" },
+      { "value": "price", "label": "Price" },
+      { "value": "stock", "label": "Stock" },
+      { "value": "actions", "label": "Aksi" }
+    ],
+    "packageTableColumns": [
+      { "value": "package_name", "label": "Package" },
+      { "value": "package_type", "label": "Type" },
+      { "value": "trainer_name", "label": "PT Trainer" },
+      { "value": "class_name", "label": "Class" },
+      { "value": "max_months", "label": "Max Months" },
+      { "value": "session_count", "label": "Session" },
+      { "value": "price", "label": "Price" },
+      { "value": "actions", "label": "Aksi" }
+    ],
     "transactionStatusFilters": [
       { "value": "all", "label": "all status" },
       { "value": "pending", "label": "pending" },
