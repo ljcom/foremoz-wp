@@ -392,6 +392,41 @@
         "accents": ["Full form", "Advanced"],
         "formDefaults": {}
       }
+    ],
+    "defaultPackageForm": {
+      "package_name": "",
+      "package_type": "membership",
+      "max_months": "1",
+      "session_count": "1",
+      "trainer_user_id": "",
+      "class_id": "",
+      "price": ""
+    },
+    "packageTypes": [
+      {
+        "value": "membership",
+        "label": "membership",
+        "requiresDuration": true,
+        "requiresSessionCount": false,
+        "requiresTrainer": false,
+        "requiresClass": false
+      },
+      {
+        "value": "pt",
+        "label": "pt",
+        "requiresDuration": true,
+        "requiresSessionCount": true,
+        "requiresTrainer": true,
+        "requiresClass": false
+      },
+      {
+        "value": "class",
+        "label": "program",
+        "requiresDuration": true,
+        "requiresSessionCount": true,
+        "requiresTrainer": false,
+        "requiresClass": true
+      }
     ]
   },
   "csDashboard": {

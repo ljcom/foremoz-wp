@@ -54,6 +54,20 @@ export function getAdminClassTemplateConfig(templateId) {
   return templates.find((item) => item.id === normalized) || templates.find((item) => item.id === 'custom') || null;
 }
 
+export function getAdminDefaultPackageForm() {
+  return { ...asObject(getAdminPageConfig().defaultPackageForm) };
+}
+
+export function getAdminPackageTypesConfig() {
+  return getAdminPageOptions('packageTypes');
+}
+
+export function getAdminPackageTypeConfig(packageType) {
+  const normalized = String(packageType || getAdminDefaultPackageForm().package_type || '').trim().toLowerCase();
+  const packageTypes = getAdminPackageTypesConfig();
+  return packageTypes.find((item) => item.value === normalized) || packageTypes[0] || {};
+}
+
 export function getAdminPlanLabel(plan, fallbackLabel = '') {
   const labels = asObject(getAdminPageConfig().planDisplayLabels);
   return String(labels[String(plan || '').trim()] || fallbackLabel || '');

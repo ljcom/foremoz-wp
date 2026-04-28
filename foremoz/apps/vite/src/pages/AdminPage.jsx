@@ -7,10 +7,13 @@ import { useI18n } from '../i18n.js';
 import {
   getAdminClassTemplateConfig,
   getAdminClassTemplatesConfig,
+  getAdminDefaultPackageForm,
   getAdminEventStatusLabel,
   getAdminEventTemplateConfig,
   getAdminEventTemplatesConfig,
   getAdminEventWorkflowValue,
+  getAdminPackageTypeConfig,
+  getAdminPackageTypesConfig,
   getAdminPageOptions,
   getAdminPlanLabel,
   getAdminTabsConfig,
@@ -82,11 +85,20 @@ const ACTIVITY_VALIDITY_ANCHOR_OPTIONS = getAdminPageOptions('activityValidityAn
 const ACTIVITY_USAGE_PERIOD_OPTIONS = getAdminPageOptions('activityUsagePeriodOptions');
 const EVENT_TEMPLATE_OPTIONS = getAdminEventTemplatesConfig();
 const CLASS_TEMPLATE_OPTIONS = getAdminClassTemplatesConfig();
+const PACKAGE_TYPE_OPTIONS = getAdminPackageTypesConfig();
 
 const IDR_FORMATTER = new Intl.NumberFormat('id-ID');
 
 function createEmptyClassManualSession() {
   return { start_at: '', end_at: '' };
+}
+
+function createEmptyPackageForm() {
+  return getAdminDefaultPackageForm();
+}
+
+function getPackageTypeMeta(packageType) {
+  return getAdminPackageTypeConfig(packageType);
 }
 
 function toDurationMinutes(durationValue, durationUnit) {
@@ -1853,7 +1865,7 @@ export default function AdminPage() {
   const [memberRelationDraft, setMemberRelationDraft] = useState('');
   const [trainerForm, setTrainerForm] = useState({ trainer_name: '', phone: '', specialization: '' });
   const [productForm, setProductForm] = useState({ product_name: '', category: 'retail', price: '', stock: '' });
-  const [packageForm, setPackageForm] = useState({ package_name: '', package_type: 'membership', max_months: '1', session_count: '1', trainer_user_id: '', class_id: '', price: '' });
+  const [packageForm, setPackageForm] = useState(createEmptyPackageForm);
   const [salesForm, setSalesForm] = useState({ sales_name: '', channel: 'walkin', target_amount: '' });
   const [memberForm, setMemberForm] = useState(() => createEmptyMemberForm());
   const [transactionForm, setTransactionForm] = useState({
@@ -3492,10 +3504,11 @@ export default function AdminPage() {
   async function addPackageCreation(e) {
     e.preventDefault();
     if (!packageForm.package_name || !packageForm.price) return;
-    if ((packageForm.package_type === 'pt' || packageForm.package_type === 'class') && (!packageForm.max_months || !packageForm.session_count)) return;
-    if (packageForm.package_type === 'membership' && !packageForm.max_months) return;
-    if (packageForm.package_type === 'pt' && !packageForm.trainer_user_id) return;
-    if (packageForm.package_type === 'class' && !packageForm.class_id) return;
+    const packageTypeMeta = getPackageTypeMeta(packageForm.package_type);
+    if (packageTypeMeta.requiresDuration && !packageForm.max_months) return;
+    if (packageTypeMeta.requiresSessionCount && !packageForm.session_count) return;
+    if (packageTypeMeta.requiresTrainer && !packageForm.trainer_user_id) return;
+    if (packageTypeMeta.requiresClass && !packageForm.class_id) return;
     const selectedPtTrainer = users.find((u) => u.user_id === packageForm.trainer_user_id);
     const selectedClass = classes.find((c) => c.class_id === packageForm.class_id);
     try {
@@ -3511,18 +3524,18 @@ export default function AdminPage() {
           branch_id: branchId,
           package_name: packageForm.package_name,
           package_type: packageForm.package_type,
-          ...((packageForm.package_type === 'pt' || packageForm.package_type === 'class')
+          ...(packageTypeMeta.requiresSessionCount
             ? {
               max_months: Number(packageForm.max_months || 1),
               duration_months: Number(packageForm.max_months || 1),
               session_count: Number(packageForm.session_count || 1)
             }
-            : packageForm.package_type === 'membership'
+            : packageTypeMeta.requiresDuration
               ? {
                 duration_months: Number(packageForm.max_months || 1)
               }
               : {}),
-          ...(packageForm.package_type === 'pt'
+          ...(packageTypeMeta.requiresTrainer
             ? {
               trainer_user_id: packageForm.trainer_user_id,
               trainer_name: selectedPtTrainer?.full_name || ''
@@ -3531,7 +3544,7 @@ export default function AdminPage() {
               trainer_user_id: null,
               trainer_name: null
             }),
-          ...(packageForm.package_type === 'class'
+          ...(packageTypeMeta.requiresClass
             ? {
               class_id: packageForm.class_id,
               class_name: selectedClass?.class_name || ''
@@ -3544,7 +3557,7 @@ export default function AdminPage() {
         })
       });
       setFeedback(editingPackageId ? `package.updated: ${packageForm.package_name}` : `package.created: ${packageForm.package_name}`);
-      setPackageForm({ package_name: '', package_type: 'membership', max_months: '1', session_count: '1', trainer_user_id: '', class_id: '', price: '' });
+      setPackageForm(createEmptyPackageForm());
       setEditingPackageId('');
       setPackageMode('list');
       await loadPackages();
@@ -3570,7 +3583,7 @@ export default function AdminPage() {
   }
 
   function startAddPackage() {
-    setPackageForm({ package_name: '', package_type: 'membership', max_months: '1', session_count: '1', trainer_user_id: '', class_id: '', price: '' });
+    setPackageForm(createEmptyPackageForm());
     setEditingPackageId('');
     setPackageMode('add');
   }
@@ -4855,7 +4868,7 @@ export default function AdminPage() {
                 }
                 if (tab.id === 'package_creation') {
                   setEditingPackageId('');
-                  setPackageForm({ package_name: '', package_type: 'membership', max_months: '1', session_count: '1', trainer_user_id: '', class_id: '', price: '' });
+                  setPackageForm(createEmptyPackageForm());
                   setPackageMode('list');
                 }
                 if (tab.id === 'sales') {
@@ -7716,14 +7729,18 @@ export default function AdminPage() {
                   </div>
                   <form className="form" onSubmit={addPackageCreation}>
                     <label>package_name<input value={packageForm.package_name} onChange={(e) => setPackageForm((p) => ({ ...p, package_name: e.target.value }))} /></label>
-                    <label>package_type<select value={packageForm.package_type} onChange={(e) => setPackageForm((p) => ({ ...p, package_type: e.target.value }))}><option value="membership">membership</option><option value="pt">pt</option><option value="class">program</option></select></label>
-                    {packageForm.package_type === 'pt' || packageForm.package_type === 'class' ? (
+                    <label>package_type<select value={packageForm.package_type} onChange={(e) => setPackageForm((p) => ({ ...p, package_type: e.target.value }))}>
+                      {PACKAGE_TYPE_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>{option.label}</option>
+                      ))}
+                    </select></label>
+                    {getPackageTypeMeta(packageForm.package_type).requiresSessionCount ? (
                       <>
                         <label>max_months<input type="number" min="1" value={packageForm.max_months} onChange={(e) => setPackageForm((p) => ({ ...p, max_months: e.target.value }))} /></label>
                         <label>max_sessions<input type="number" min="1" value={packageForm.session_count} onChange={(e) => setPackageForm((p) => ({ ...p, session_count: e.target.value }))} /></label>
                       </>
                     ) : null}
-                    {packageForm.package_type === 'pt' ? (
+                    {getPackageTypeMeta(packageForm.package_type).requiresTrainer ? (
                       <label>pt_trainer<select value={packageForm.trainer_user_id} onChange={(e) => setPackageForm((p) => ({ ...p, trainer_user_id: e.target.value }))}>
                         <option value="">pilih trainer</option>
                         {ptLookupOptions.map((item) => (
@@ -7731,7 +7748,7 @@ export default function AdminPage() {
                         ))}
                       </select></label>
                     ) : null}
-                    {packageForm.package_type === 'class' ? (
+                    {getPackageTypeMeta(packageForm.package_type).requiresClass ? (
                       <label>program_lookup<select value={packageForm.class_id} onChange={(e) => setPackageForm((p) => ({ ...p, class_id: e.target.value }))}>
                         <option value="">pilih program</option>
                         {classLookupOptions.map((item) => (
@@ -7739,7 +7756,7 @@ export default function AdminPage() {
                         ))}
                       </select></label>
                     ) : null}
-                    {packageForm.package_type === 'membership' ? (
+                    {getPackageTypeMeta(packageForm.package_type).requiresDuration && !getPackageTypeMeta(packageForm.package_type).requiresSessionCount ? (
                       <label>duration_months<input type="number" min="1" value={packageForm.max_months} onChange={(e) => setPackageForm((p) => ({ ...p, max_months: e.target.value }))} /></label>
                     ) : null}
                     <label>price<input type="number" min="0" value={packageForm.price} onChange={(e) => setPackageForm((p) => ({ ...p, price: e.target.value }))} /></label>
