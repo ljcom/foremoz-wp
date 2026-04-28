@@ -88,11 +88,13 @@ export default function BackendWorkspaceShell({
       </aside>
 
       <section className="backend-main">
-        <header className="backend-topbar">
-          <div className="backend-topbar-actions">
-            {primaryActions ? <div className="backend-primary-actions">{primaryActions}</div> : null}
-          </div>
-        </header>
+        {primaryActions ? (
+          <header className="backend-topbar">
+            <div className="backend-topbar-actions">
+              <div className="backend-primary-actions">{primaryActions}</div>
+            </div>
+          </header>
+        ) : null}
 
         {children}
       </section>
