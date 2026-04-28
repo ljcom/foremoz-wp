@@ -2964,7 +2964,7 @@ export default function AdminPage() {
   function aiGenerateDraftFromBrief() {
     const brief = String(eventForm.brief_event || '').trim();
     if (!brief) {
-      setFeedback('Isi brief dulu di textbox AI Assist.');
+      setFeedback(getAdminPageCopy('aiBriefRequired'));
       return;
     }
     const draft = generateDraftFromBrief(brief, eventForm.start_at);
@@ -2980,26 +2980,26 @@ export default function AdminPage() {
       duration_unit: mappedDuration.duration_unit,
       price: String(draft.suggestedPrice || prev.price || '0')
     }));
-    setFeedback(`ai.assist: Draft event dibuat. Harga rekomendasi ${formatIdr(draft.suggestedPrice || 0)}.`);
+    setFeedback(getAdminPageCopy('aiDraftCreated', { price: formatIdr(draft.suggestedPrice || 0) }));
   }
 
   function aiRewriteTitle() {
     const current = String(eventForm.event_name || '').trim();
     const source = current || (typeof window !== 'undefined'
-      ? String(window.prompt('Event Name masih kosong. Masukkan brief/judul awal:', '') || '').trim()
+      ? String(window.prompt(getAdminPageCopy('aiEventNamePrompt'), '') || '').trim()
       : '');
     if (!source) {
-      setFeedback('Isi Event Name dulu atau masukkan brief saat diminta.');
+      setFeedback(getAdminPageCopy('aiEventNameRequired'));
       return;
     }
     const categories = suggestCategoriesFromText(`${eventForm.categories_text} ${source}`);
     const next = buildCatchyTitle(source, categories, eventForm.location);
     if (!next) {
-      setFeedback('ai.assist: Gagal rewrite title.');
+      setFeedback(getAdminPageCopy('aiRewriteTitleFailed'));
       return;
     }
     setEventForm((prev) => ({ ...prev, event_name: next }));
-    setFeedback(`ai.assist: Judul event diperbarui -> ${next}`);
+    setFeedback(getAdminPageCopy('aiTitleUpdated', { title: next }));
   }
 
   function aiGenerateDescription() {
@@ -3012,18 +3012,18 @@ export default function AdminPage() {
       'Siapkan outfit nyaman, datang lebih awal untuk registrasi, lalu nikmati sesi utama sampai penutup.'
     ].join(' ');
     setEventForm((prev) => ({ ...prev, description }));
-    setFeedback('ai.assist: Description dibuat.');
+    setFeedback(getAdminPageCopy('aiEventDescriptionCreated'));
   }
 
   function aiShortenDescription() {
     const current = String(eventForm.description || '').trim();
     if (!current) {
-      setFeedback('Isi Description dulu.');
+      setFeedback(getAdminPageCopy('aiEventDescriptionRequired'));
       return;
     }
     const shortened = current.split('.').map((part) => part.trim()).filter(Boolean).slice(0, 2).join('. ');
     setEventForm((prev) => ({ ...prev, description: `${shortened}.` }));
-    setFeedback('ai.assist: Description dipersingkat.');
+    setFeedback(getAdminPageCopy('aiEventDescriptionShortened'));
   }
 
   function aiGenerateClassDescription() {
@@ -3041,18 +3041,18 @@ export default function AdminPage() {
         : 'Datang lebih awal agar proses check-in dan persiapan berjalan lancar.'
     ].join(' ');
     setClassForm((prev) => ({ ...prev, description }));
-    setFeedback('ai.assist: Description program dibuat.');
+    setFeedback(getAdminPageCopy('aiClassDescriptionCreated'));
   }
 
   function aiShortenClassDescription() {
     const current = String(classForm.description || '').trim();
     if (!current) {
-      setFeedback('Isi Description program dulu.');
+      setFeedback(getAdminPageCopy('aiClassDescriptionRequired'));
       return;
     }
     const shortened = current.split('.').map((part) => part.trim()).filter(Boolean).slice(0, 2).join('. ');
     setClassForm((prev) => ({ ...prev, description: `${shortened}.` }));
-    setFeedback('ai.assist: Description program dipersingkat.');
+    setFeedback(getAdminPageCopy('aiClassDescriptionShortened'));
   }
 
   function aiGenerateRundown() {
@@ -3064,7 +3064,7 @@ export default function AdminPage() {
     ].join(' ');
     const scheduleText = buildScheduleTemplate(eventForm.start_at, title, context);
     setEventForm((prev) => ({ ...prev, schedule_items_text: scheduleText }));
-    setFeedback('ai.assist: Rundown dibuat.');
+    setFeedback(getAdminPageCopy('aiRundownCreated'));
   }
 
   function aiImproveRundown() {
@@ -3085,14 +3085,14 @@ export default function AdminPage() {
       })
       .join('\n');
     setEventForm((prev) => ({ ...prev, schedule_items_text: improved }));
-    setFeedback('ai.assist: Rundown dirapikan.');
+    setFeedback(getAdminPageCopy('aiRundownImproved'));
   }
 
   function aiSuggestCategory() {
     const source = [eventForm.event_name, eventForm.description, eventForm.categories_text].join(' ');
     const categories = suggestCategoriesFromText(source);
     setEventForm((prev) => ({ ...prev, categories_text: categories.join(', ') }));
-    setFeedback(`ai.assist: Category suggestion -> ${categories.join(', ')}`);
+    setFeedback(getAdminPageCopy('aiCategorySuggested', { categories: categories.join(', ') }));
   }
 
   function aiSuggestFields() {
@@ -3100,7 +3100,7 @@ export default function AdminPage() {
       [eventForm.event_name, eventForm.description, eventForm.categories_text].join(' ')
     );
     setEventForm((prev) => ({ ...prev, registration_fields: fields }));
-    setFeedback('ai.assist: Custom fields disarankan otomatis.');
+    setFeedback(getAdminPageCopy('aiCustomFieldsSuggested'));
   }
 
   async function aiFillGalleryFromPexels() {
@@ -3108,7 +3108,7 @@ export default function AdminPage() {
       setEventAiWorking(true);
       const keywordCandidates = buildEventImageKeywords();
       if (keywordCandidates.length === 0) {
-        throw new Error('Isi Event Name atau Brief dulu agar gallery bisa digenerate.');
+        throw new Error(getAdminPageCopy('aiEventGallerySeedRequired'));
       }
       let keyword = keywordCandidates[0];
       let photos = [];
@@ -3127,7 +3127,7 @@ export default function AdminPage() {
         if (lastError) {
           throw lastError;
         }
-        setFeedback('ai.assist: Pexels tidak menemukan gambar dari keyword yang dicoba.');
+        setFeedback(getAdminPageCopy('aiEventGalleryNotFound'));
         return;
       }
       const urls = shuffleList(photos)
@@ -3139,9 +3139,9 @@ export default function AdminPage() {
         image_url: urls[0] || prev.image_url,
         gallery_images_text: urls.join('\n')
       }));
-      setFeedback(`ai.assist: Gallery diisi ${urls.length} gambar dari Pexels (${keyword}).`);
+      setFeedback(getAdminPageCopy('aiEventGalleryFilled', { count: urls.length, keyword }));
     } catch (error) {
-      setFeedback(error.message || 'ai.assist: Gagal mengambil gambar dari Pexels.');
+      setFeedback(error.message || getAdminPageCopy('aiEventGalleryFailed'));
     } finally {
       setEventAiWorking(false);
     }
@@ -3152,15 +3152,15 @@ export default function AdminPage() {
       const selected = file || null;
       if (!selected) return;
       if (!String(selected.type || '').startsWith('image/')) {
-        throw new Error('File harus berupa gambar.');
+        throw new Error(getAdminPageCopy('uploadImageTypeRequired'));
       }
       const maxBytes = 5 * 1024 * 1024;
       if (Number(selected.size || 0) > maxBytes) {
-        throw new Error('Ukuran gambar maksimal 5MB.');
+        throw new Error(getAdminPageCopy('uploadImageMaxSize'));
       }
       const dataUrl = await readFileAsDataUrl(selected);
       if (!dataUrl) {
-        throw new Error('Gagal memproses gambar.');
+        throw new Error(getAdminPageCopy('uploadImageProcessFailed'));
       }
       const uploadRes = await apiJson('/v1/admin/uploads/image', {
         method: 'POST',
@@ -3173,12 +3173,12 @@ export default function AdminPage() {
       });
       const imageUrl = String(uploadRes?.url || '').trim();
       if (!imageUrl) {
-        throw new Error('Upload berhasil tapi URL gambar tidak tersedia.');
+        throw new Error(getAdminPageCopy('uploadImageUrlMissing'));
       }
       setEventForm((prev) => ({ ...prev, image_url: imageUrl }));
-      setFeedback('event.image.uploaded: Cover image berhasil diunggah ke S3.');
+      setFeedback(getAdminPageCopy('uploadEventImageSuccess'));
     } catch (error) {
-      setFeedback(error.message || 'Gagal upload cover image.');
+      setFeedback(error.message || getAdminPageCopy('uploadEventImageFailed'));
     }
   }
 
@@ -3187,11 +3187,11 @@ export default function AdminPage() {
     if (!selected) return '';
     const maxBytes = 10 * 1024 * 1024;
     if (Number(selected.size || 0) > maxBytes) {
-      throw new Error('Ukuran attachment maksimal 10MB.');
+      throw new Error(getAdminPageCopy('uploadAttachmentMaxSize'));
     }
     const dataUrl = await readFileAsDataUrl(selected);
     if (!dataUrl) {
-      throw new Error('Gagal memproses attachment.');
+      throw new Error(getAdminPageCopy('uploadAttachmentProcessFailed'));
     }
     const uploadRes = await apiJson('/v1/admin/uploads/file', {
       method: 'POST',
@@ -3209,7 +3209,7 @@ export default function AdminPage() {
     try {
       const attachmentUrl = await uploadAttachmentAsset(file, 'event-info');
       if (!attachmentUrl) {
-        throw new Error('Upload berhasil tapi URL attachment tidak tersedia.');
+        throw new Error(getAdminPageCopy('uploadAttachmentUrlMissing'));
       }
       setEventForm((prev) => {
         const key = phase === 'post' ? 'post_event_attachments_text' : 'pre_event_attachments_text';
@@ -3218,9 +3218,9 @@ export default function AdminPage() {
           [key]: [...new Set([...normalizeAttachmentUrlsText(prev[key]), attachmentUrl].filter(Boolean))].join('\n')
         };
       });
-      setFeedback('event.info.attachment.uploaded: Attachment info event berhasil diunggah.');
+      setFeedback(getAdminPageCopy('uploadEventAttachmentSuccess'));
     } catch (error) {
-      setFeedback(error.message || 'Gagal upload attachment info event.');
+      setFeedback(error.message || getAdminPageCopy('uploadEventAttachmentFailed'));
     }
   }
 
@@ -3229,7 +3229,7 @@ export default function AdminPage() {
       setClassAiWorking(true);
       const keywordCandidates = buildClassImageKeywords();
       if (keywordCandidates.length === 0) {
-        throw new Error('Isi Program Name atau Description dulu agar gallery bisa digenerate.');
+        throw new Error(getAdminPageCopy('aiClassGallerySeedRequired'));
       }
       let keyword = keywordCandidates[0];
       let photos = [];
@@ -3246,7 +3246,7 @@ export default function AdminPage() {
       }
       if (photos.length === 0) {
         if (lastError) throw lastError;
-        setFeedback('ai.assist: Pexels tidak menemukan gambar untuk program ini.');
+        setFeedback(getAdminPageCopy('aiClassGalleryNotFound'));
         return;
       }
       const urls = shuffleList(photos)
@@ -3258,9 +3258,9 @@ export default function AdminPage() {
         image_url: urls[0] || prev.image_url,
         gallery_images_text: urls.join('\n')
       }));
-      setFeedback(`ai.assist: Gallery program diisi ${urls.length} gambar dari Pexels (${keyword}).`);
+      setFeedback(getAdminPageCopy('aiClassGalleryFilled', { count: urls.length, keyword }));
     } catch (error) {
-      setFeedback(error.message || 'ai.assist: Gagal mengambil gambar program dari Pexels.');
+      setFeedback(error.message || getAdminPageCopy('aiClassGalleryFailed'));
     } finally {
       setClassAiWorking(false);
     }
@@ -3271,15 +3271,15 @@ export default function AdminPage() {
       const selected = file || null;
       if (!selected) return;
       if (!String(selected.type || '').startsWith('image/')) {
-        throw new Error('File harus berupa gambar.');
+        throw new Error(getAdminPageCopy('uploadImageTypeRequired'));
       }
       const maxBytes = 5 * 1024 * 1024;
       if (Number(selected.size || 0) > maxBytes) {
-        throw new Error('Ukuran gambar maksimal 5MB.');
+        throw new Error(getAdminPageCopy('uploadImageMaxSize'));
       }
       const dataUrl = await readFileAsDataUrl(selected);
       if (!dataUrl) {
-        throw new Error('Gagal memproses gambar.');
+        throw new Error(getAdminPageCopy('uploadImageProcessFailed'));
       }
       const uploadRes = await apiJson('/v1/admin/uploads/image', {
         method: 'POST',
@@ -3292,12 +3292,12 @@ export default function AdminPage() {
       });
       const imageUrl = String(uploadRes?.url || '').trim();
       if (!imageUrl) {
-        throw new Error('Upload berhasil tapi URL gambar tidak tersedia.');
+        throw new Error(getAdminPageCopy('uploadImageUrlMissing'));
       }
       setClassForm((prev) => ({ ...prev, image_url: imageUrl }));
-      setFeedback('program.image.uploaded: Cover image berhasil diunggah ke S3.');
+      setFeedback(getAdminPageCopy('uploadClassImageSuccess'));
     } catch (error) {
-      setFeedback(error.message || 'Gagal upload cover image program.');
+      setFeedback(error.message || getAdminPageCopy('uploadClassImageFailed'));
     }
   }
 
@@ -3305,7 +3305,7 @@ export default function AdminPage() {
     try {
       const attachmentUrl = await uploadAttachmentAsset(file, 'class-info');
       if (!attachmentUrl) {
-        throw new Error('Upload berhasil tapi URL attachment tidak tersedia.');
+        throw new Error(getAdminPageCopy('uploadAttachmentUrlMissing'));
       }
       setClassForm((prev) => {
         const key = phase === 'post' ? 'post_event_attachments_text' : 'pre_event_attachments_text';
@@ -3314,9 +3314,9 @@ export default function AdminPage() {
           [key]: [...new Set([...normalizeAttachmentUrlsText(prev[key]), attachmentUrl].filter(Boolean))].join('\n')
         };
       });
-      setFeedback('program.info.attachment.uploaded: Attachment info program berhasil diunggah.');
+      setFeedback(getAdminPageCopy('uploadClassAttachmentSuccess'));
     } catch (error) {
-      setFeedback(error.message || 'Gagal upload attachment info program.');
+      setFeedback(error.message || getAdminPageCopy('uploadClassAttachmentFailed'));
     }
   }
 
@@ -7105,7 +7105,7 @@ export default function AdminPage() {
                                     [classForm.class_name, classForm.description, classForm.categories_text].join(' ')
                                   );
                                   setClassForm((prev) => ({ ...prev, categories_text: categories[0] || prev.categories_text }));
-                                  setFeedback(`ai.assist: Category suggestion -> ${categories[0] || '-'}`);
+                                  setFeedback(getAdminPageCopy('aiCategorySuggested', { categories: categories[0] || '-' }));
                                 }}
                               >
                                 AI Suggest Category
