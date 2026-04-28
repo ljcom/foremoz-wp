@@ -8,6 +8,7 @@
 - [x] Move AdminPage event publish/draft workflow statuses and display status labels into JSON config.
 - [x] Move AdminPage environment navigation path mapping to shared workspace config.
 - [x] Move AdminPage event template wizard cards and form defaults into JSON config.
+- [x] Move AdminPage class/program template wizard cards and form defaults into JSON config.
 - [ ] Inventory current UI surfaces that still define labels, navigation, tabs, statuses, actions, empty states, or copy directly in components.
 - [ ] Define or extend JSON config for navigation, page layouts, table columns, forms, badge variants, workflow actions, and empty states before adding new UI.
 - [ ] Keep renderers generic: components should receive config and context instead of owning business-specific arrays or rules.

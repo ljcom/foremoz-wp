@@ -44,6 +44,16 @@ export function getAdminEventTemplateConfig(templateId) {
   return templates.find((item) => item.id === normalized) || templates.find((item) => item.id === 'custom') || null;
 }
 
+export function getAdminClassTemplatesConfig() {
+  return asArray(getAdminPageConfig().classTemplates).filter((item) => item && typeof item === 'object' && item.id);
+}
+
+export function getAdminClassTemplateConfig(templateId) {
+  const normalized = String(templateId || 'custom').trim().toLowerCase();
+  const templates = getAdminClassTemplatesConfig();
+  return templates.find((item) => item.id === normalized) || templates.find((item) => item.id === 'custom') || null;
+}
+
 export function getAdminPlanLabel(plan, fallbackLabel = '') {
   const labels = asObject(getAdminPageConfig().planDisplayLabels);
   return String(labels[String(plan || '').trim()] || fallbackLabel || '');

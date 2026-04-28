@@ -5,6 +5,8 @@ import { getVerticalConfig, getVerticalLabel, guessVerticalSlugByText } from '..
 import WorkspaceHeader from '../components/WorkspaceHeader.jsx';
 import { useI18n } from '../i18n.js';
 import {
+  getAdminClassTemplateConfig,
+  getAdminClassTemplatesConfig,
   getAdminEventStatusLabel,
   getAdminEventTemplateConfig,
   getAdminEventTemplatesConfig,
@@ -79,6 +81,7 @@ const ACTIVITY_LIMITED_DURATION_UNIT_OPTIONS = getAdminPageOptions('activityLimi
 const ACTIVITY_VALIDITY_ANCHOR_OPTIONS = getAdminPageOptions('activityValidityAnchorOptions');
 const ACTIVITY_USAGE_PERIOD_OPTIONS = getAdminPageOptions('activityUsagePeriodOptions');
 const EVENT_TEMPLATE_OPTIONS = getAdminEventTemplatesConfig();
+const CLASS_TEMPLATE_OPTIONS = getAdminClassTemplatesConfig();
 
 const IDR_FORMATTER = new Intl.NumberFormat('id-ID');
 
@@ -1099,97 +1102,14 @@ function inferClassEditorTemplate(item) {
 }
 
 function getClassEditorTemplateLabel(template) {
-  const normalized = String(template || 'custom').trim().toLowerCase();
-  if (normalized === 'membership') return 'Membership';
-  if (normalized === 'activity_class') return 'Activity program';
-  if (normalized === 'personal_training') return 'Personal training';
-  return 'Custom';
+  return getAdminClassTemplateConfig(template)?.title || '';
 }
 
 function createClassFormFromTemplate(template) {
-  if (template === 'membership') {
-    return {
-      ...createEmptyClassForm(),
-      class_type: 'open_access',
-      class_name: 'Membership',
-      description: 'Membership / gym access tanpa coach dan tanpa schedule wajib.',
-      has_coach: false,
-      coach_id: '',
-      trainer_name: '',
-      coach_shares: [],
-      categories_text: 'Gym Access',
-      tags_text: 'membership, open access',
-      schedule_mode: 'none',
-      price: '0',
-      validity_mode: 'per_enrollment',
-      validity_unit: 'month',
-      validity_value: '1',
-      validity_anchor: 'activation',
-      usage_mode: 'unlimited',
-      usage_limit: '',
-      usage_period: 'entire_validity',
-      capacity_mode: 'none',
-      quota_mode: 'none',
-      min_quota: '',
-      max_quota: '',
-      registration_period_mode: 'always_open'
-    };
-  }
-  if (template === 'personal_training') {
-    return {
-      ...createEmptyClassForm(),
-      class_type: 'session_pack',
-      class_name: 'Personal Training',
-      description: 'Paket personal training dengan coach dan saldo sesi.',
-      has_coach: true,
-      categories_text: 'Personal Training',
-      tags_text: 'pt, private coaching',
-      schedule_mode: 'none',
-      price: '0',
-      validity_mode: 'per_enrollment',
-      validity_unit: 'month',
-      validity_value: '1',
-      validity_anchor: 'activation',
-      usage_mode: 'limited',
-      usage_limit: '8',
-      usage_period: 'entire_validity',
-      capacity_mode: 'none',
-      quota_mode: 'none',
-      min_quota: '',
-      max_quota: '',
-      registration_period_mode: 'always_open'
-    };
-  }
-  if (template === 'activity_class') {
-    return {
-      ...createEmptyClassForm(),
-      class_type: 'open_access',
-      class_name: 'Activity Program',
-      description: 'Program dengan coach, jadwal, dan aturan booking.',
-      has_coach: true,
-      categories_text: 'Activity Program',
-      tags_text: 'class, scheduled',
-      schedule_mode: 'weekly',
-      weekly_days: [],
-      weekly_start_time: '',
-      weekly_end_time: '',
-      price: '0',
-      validity_mode: 'per_enrollment',
-      validity_unit: 'month',
-      validity_value: '1',
-      validity_anchor: 'activation',
-      usage_mode: 'limited',
-      usage_limit: '4',
-      usage_period: 'per_month',
-      capacity_mode: 'limited',
-      quota_mode: 'manual',
-      min_quota: '',
-      max_quota: '20',
-      capacity: '20',
-      registration_period_mode: 'always_open'
-    };
-  }
-  return createEmptyClassForm();
+  return {
+    ...createEmptyClassForm(),
+    ...(getAdminClassTemplateConfig(template)?.formDefaults || {})
+  };
 }
 
 function normalizeClassRegistrationMode(value) {
@@ -6287,40 +6207,7 @@ export default function AdminPage() {
                       <p className="feedback">Setiap mode akan membuka form yang lebih fokus. `Custom` tetap membuka form lengkap seperti sekarang.</p>
                     </div>
                     <div className="class-wizard-grid">
-                      {[
-                        {
-                          id: 'membership',
-                          title: 'Membership',
-                          description: 'Untuk gym access atau membership periode tanpa schedule wajib.',
-                          tag: 'Access',
-                          visualClass: 'membership',
-                          accents: ['30 Hari', 'Bulanan']
-                        },
-                        {
-                          id: 'activity_class',
-                          title: 'Activity program',
-                          description: 'Untuk program dengan coach, jadwal, booking, dan capacity.',
-                          tag: 'Schedule',
-                          visualClass: 'activity',
-                          accents: ['Mon', 'Thu']
-                        },
-                        {
-                          id: 'personal_training',
-                          title: 'Personal training',
-                          description: 'Untuk paket sesi atau credit dengan coach.',
-                          tag: 'Coach',
-                          visualClass: 'pt',
-                          accents: ['4 Sesi', '8 Sesi']
-                        },
-                        {
-                          id: 'custom',
-                          title: 'Custom',
-                          description: 'Buka form lengkap dan atur semuanya manual.',
-                          tag: 'Manual',
-                          visualClass: 'custom',
-                          accents: ['Full form', 'Advanced']
-                        }
-                      ].map((option) => (
+                      {CLASS_TEMPLATE_OPTIONS.map((option) => (
                         <button
                           key={option.id}
                           className={`class-wizard-card class-wizard-card-${option.visualClass}`}
