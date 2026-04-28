@@ -5264,7 +5264,7 @@ export default function AdminPage() {
                                         max="100"
                                         step="0.01"
                                         value={currentRow.share_percent || ''}
-                                        placeholder="contoh: 25"
+                                        placeholder={getAdminPageCopy('sharePlaceholder')}
                                         onChange={(e) =>
                                           setEventForm((prev) => ({
                                             ...prev,
@@ -5418,12 +5418,12 @@ export default function AdminPage() {
                         </div>
                         <aside className="editor-guide">
                           <div className="card" style={{ borderStyle: 'dashed' }}>
-                            <p className="eyebrow">AI Assist</p>
+                            <p className="eyebrow">{getAdminPageCopy('aiAssistEyebrow')}</p>
                             <label>
                               Brief Event
                               <textarea
                                 rows={4}
-                                placeholder="Contoh: Saya mau mengadakan pameran lukisan di Artpreneur Jakarta tgl 1 April 2026, 8 pagi - 20 sore, topiknya budaya Indonesia."
+                                placeholder={getAdminPageCopy('eventBriefPlaceholder')}
                                 value={eventForm.brief_event}
                                 onChange={(e) => setEventForm((p) => ({ ...p, brief_event: e.target.value }))}
                               />
@@ -5450,7 +5450,7 @@ export default function AdminPage() {
                       <div className="editor-with-guide">
                         <div className="editor-main">
                           <div className="card" style={{ borderStyle: 'dashed' }}>
-                            <p className="eyebrow">Event category</p>
+                            <p className="eyebrow">{getAdminPageCopy('eventCategoryEyebrow')}</p>
                             <div className="row-actions" style={{ marginBottom: '0.5rem' }}>
                               <button
                                 className="btn ghost small"
@@ -5570,7 +5570,7 @@ export default function AdminPage() {
                         </div>
                         <aside className="editor-guide">
                           <div className="card" style={{ borderStyle: 'dashed' }}>
-                            <p className="eyebrow">Panduan cepat</p>
+                            <p className="eyebrow">{getAdminPageCopy('quickGuideEyebrow')}</p>
                             <p className="feedback">
                               <strong>Category:</strong> isi dengan label yang dipakai untuk grouping event, misalnya `fun run`, `seminar`, `workshop`, atau `competition`.
                             </p>
@@ -5588,7 +5588,7 @@ export default function AdminPage() {
                       <div className="editor-with-guide">
                         <div className="editor-main">
                           <div className="card" style={{ borderStyle: 'dashed' }}>
-                            <p className="eyebrow">Registration fields</p>
+                            <p className="eyebrow">{getAdminPageCopy('registrationFieldsEyebrow')}</p>
                             <p className="feedback">Informasi yang dikumpulkan saat member register event.</p>
                             <div className="row-actions" style={{ marginBottom: '0.5rem' }}>
                               <button
@@ -5727,7 +5727,7 @@ export default function AdminPage() {
                         </div>
                         <aside className="editor-guide">
                           <div className="card" style={{ borderStyle: 'dashed' }}>
-                            <p className="eyebrow">Panduan cepat</p>
+                            <p className="eyebrow">{getAdminPageCopy('quickGuideEyebrow')}</p>
                             <p className="feedback">
                               <strong>Gunakan seperlunya:</strong> tambah field hanya jika benar-benar dibutuhkan saat registrasi. Terlalu banyak field biasanya menurunkan conversion.
                             </p>
@@ -5745,13 +5745,13 @@ export default function AdminPage() {
                       <div className="editor-with-guide">
                         <div className="editor-main">
                           <div className="card" style={{ borderStyle: 'dashed' }}>
-                            <p className="eyebrow">Before event</p>
+                            <p className="eyebrow">{getAdminPageCopy('eventBeforeInfoEyebrow')}</p>
                             <p className="feedback">Informasi yang muncul di dashboard member setelah mereka berhasil join, sebelum acara dimulai.</p>
                             <label>
                               Free text
                               <textarea
                                 rows={5}
-                                placeholder="Contoh: registrasi ulang mulai jam 07:00, bawa KTP, gunakan sepatu lari, parkir di gate B."
+                                placeholder={getAdminPageCopy('eventBeforeInfoPlaceholder')}
                                 value={eventForm.pre_event_info_text}
                                 onChange={(e) => setEventForm((prev) => ({ ...prev, pre_event_info_text: e.target.value }))}
                               />
@@ -5808,13 +5808,13 @@ export default function AdminPage() {
                             </div>
                           </div>
                           <div className="card" style={{ borderStyle: 'dashed' }}>
-                            <p className="eyebrow">After event</p>
+                            <p className="eyebrow">{getAdminPageCopy('eventAfterInfoEyebrow')}</p>
                             <p className="feedback">Informasi follow-up setelah acara selesai, misalnya link sertifikat, dokumentasi, atau langkah lanjutan.</p>
                             <label>
                               Free text
                               <textarea
                                 rows={5}
-                                placeholder="Contoh: materi slide, link dokumentasi, form feedback, atau instruksi redeem benefit."
+                                placeholder={getAdminPageCopy('eventAfterInfoPlaceholder')}
                                 value={eventForm.post_event_info_text}
                                 onChange={(e) => setEventForm((prev) => ({ ...prev, post_event_info_text: e.target.value }))}
                               />
@@ -5873,7 +5873,7 @@ export default function AdminPage() {
                         </div>
                         <aside className="editor-guide">
                           <div className="card" style={{ borderStyle: 'dashed' }}>
-                            <p className="eyebrow">Panduan cepat</p>
+                            <p className="eyebrow">{getAdminPageCopy('quickGuideEyebrow')}</p>
                             <p className="feedback">
                               <strong>Before event:</strong> isi hal yang harus diketahui member sebelum datang, seperti rundown, dress code, meeting point, atau barang yang wajib dibawa.
                             </p>
@@ -6292,7 +6292,7 @@ export default function AdminPage() {
                               <textarea
                                 rows={4}
                                 value={classForm.description}
-                                placeholder="Jelaskan activity ini secara singkat"
+                                placeholder={getAdminPageCopy('classDescriptionPlaceholder')}
                                 onChange={(e) => setClassForm((p) => ({ ...p, description: e.target.value }))}
                               />
                             </label>
@@ -6335,7 +6335,7 @@ export default function AdminPage() {
                                 <p className="eyebrow">{creatorLabel} Name (token input)</p>
                                 <label>
                                   Primary coach_id
-                                  <input value={classForm.coach_id} onChange={(e) => setClassForm((p) => ({ ...p, coach_id: e.target.value }))} placeholder="Optional internal coach/user id" />
+                                  <input value={classForm.coach_id} onChange={(e) => setClassForm((p) => ({ ...p, coach_id: e.target.value }))} placeholder={getAdminPageCopy('classCoachIdPlaceholder')} />
                                 </label>
                                 <div className="row-actions" style={{ marginBottom: '0.5rem' }}>
                                   {selectedClassTrainerTokens.length === 0 ? <span className="feedback">Belum ada {creatorLabelLower} dipilih.</span> : null}
@@ -6410,7 +6410,7 @@ export default function AdminPage() {
                                               max="100"
                                               step="0.01"
                                               value={currentRow.share_percent || ''}
-                                              placeholder="contoh: 25"
+                                              placeholder={getAdminPageCopy('sharePlaceholder')}
                                               onChange={(e) =>
                                                 setClassForm((prev) => ({
                                                   ...prev,
@@ -6484,7 +6484,9 @@ export default function AdminPage() {
                               />
                             </label>
                             <div className="card" style={{ borderStyle: 'dashed' }}>
-                              <p className="eyebrow">{isScheduledClassForm ? 'Schedule' : 'Access rules'}</p>
+                              <p className="eyebrow">
+                                {isScheduledClassForm ? getAdminPageCopy('classScheduleEyebrow') : getAdminPageCopy('classAccessRulesEyebrow')}
+                              </p>
                               {isScheduledClassForm ? (
                                 <>
                                   <div style={{ display: 'grid', gap: '0.35rem', marginBottom: '0.75rem' }}>
@@ -6746,7 +6748,7 @@ export default function AdminPage() {
                                   ) : null}
                                   {isActivityClassEditor || isPersonalTrainingClassEditor || isCustomClassEditor ? (
                                     <div className="card" style={{ borderStyle: 'dashed', marginTop: '0.75rem' }}>
-                                    <p className="eyebrow">Schedule</p>
+                                    <p className="eyebrow">{getAdminPageCopy('classScheduleEyebrow')}</p>
                                     <div style={{ display: 'grid', gap: '0.35rem', marginBottom: '0.75rem' }}>
                                       <label style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', margin: 0 }}>
                                         <input
@@ -6892,7 +6894,7 @@ export default function AdminPage() {
                                     </div>
                                   ) : null}
                                   <div className="card" style={{ borderStyle: 'dashed', marginTop: '0.75rem' }}>
-                                    <p className="eyebrow">Registration</p>
+                                    <p className="eyebrow">{getAdminPageCopy('classRegistrationEyebrow')}</p>
                                     <div style={{ display: 'grid', gap: '0.35rem', marginBottom: '0.75rem' }}>
                                       <label style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', margin: 0 }}>
                                         <input
@@ -6951,7 +6953,7 @@ export default function AdminPage() {
                                   </div>
                                   {isActivityClassEditor || isCustomClassEditor ? (
                                     <div className="card" style={{ borderStyle: 'dashed', marginTop: '0.75rem' }}>
-                                    <p className="eyebrow">Capacity</p>
+                                    <p className="eyebrow">{getAdminPageCopy('classCapacityEyebrow')}</p>
                                     <div style={{ display: 'grid', gap: '0.35rem', marginBottom: '0.75rem' }}>
                                       <label style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', margin: 0 }}>
                                         <input
@@ -7001,7 +7003,7 @@ export default function AdminPage() {
                                   ) : null}
                                   {classAccessSummary.length > 0 ? (
                                     <div className="card" style={{ borderStyle: 'dashed', marginTop: '0.25rem' }}>
-                                      <p className="eyebrow">Ringkasan konfigurasi</p>
+                                      <p className="eyebrow">{getAdminPageCopy('classConfigSummaryEyebrow')}</p>
                                       {classAccessSummary.map((line) => (
                                         <p key={line} className="feedback">{line}</p>
                                       ))}
@@ -7013,7 +7015,7 @@ export default function AdminPage() {
                           </div>
                           <aside className="class-general-guide">
                             <div className="card" style={{ borderStyle: 'dashed' }}>
-                              <p className="eyebrow">Panduan cepat</p>
+                              <p className="eyebrow">{getAdminPageCopy('quickGuideEyebrow')}</p>
                               <p className="feedback"><strong>Ringkasan:</strong> {classFieldGuide.summary}</p>
                               <p className="feedback"><strong>Duration:</strong> {classFieldGuide.duration}</p>
                               <p className="feedback"><strong>Activation / Start:</strong> {classFieldGuide.activation}</p>
@@ -7028,7 +7030,7 @@ export default function AdminPage() {
                             <label>Periode Mulai<input type="date" value={classForm.start_date} onChange={(e) => setClassForm((p) => ({ ...p, start_date: e.target.value }))} /></label>
                             <label>Periode Akhir<input type="date" value={classForm.end_date} onChange={(e) => setClassForm((p) => ({ ...p, end_date: e.target.value }))} /></label>
                             <div className="card" style={{ borderStyle: 'dashed' }}>
-                              <p className="eyebrow">Registration period</p>
+                              <p className="eyebrow">{getAdminPageCopy('classRegistrationPeriodEyebrow')}</p>
                               <div style={{ display: 'grid', gap: '0.35rem', marginBottom: '0.75rem' }}>
                                 <label style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', margin: 0 }}>
                                   <input
@@ -7067,7 +7069,7 @@ export default function AdminPage() {
                             </div>
                             <label>Jumlah Pertemuan Max<input type="number" min="0" value={classForm.max_meetings} onChange={(e) => setClassForm((p) => ({ ...p, max_meetings: e.target.value }))} /></label>
                             <div className="card" style={{ borderStyle: 'dashed' }}>
-                              <p className="eyebrow">Quota / Capacity</p>
+                              <p className="eyebrow">{getAdminPageCopy('classQuotaCapacityEyebrow')}</p>
                               <div style={{ display: 'grid', gap: '0.35rem', marginBottom: '0.75rem' }}>
                                 <label style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', margin: 0 }}>
                                   <input
@@ -7130,7 +7132,7 @@ export default function AdminPage() {
                       <div className="editor-with-guide">
                         <div className="editor-main">
                           <div className="card" style={{ borderStyle: 'dashed' }}>
-                            <p className="eyebrow">Program category</p>
+                            <p className="eyebrow">{getAdminPageCopy('classCategoryEyebrow')}</p>
                             <div className="row-actions" style={{ marginBottom: '0.5rem' }}>
                               <button
                                 className="btn ghost small"
@@ -7170,7 +7172,7 @@ export default function AdminPage() {
                         </div>
                         <aside className="editor-guide">
                           <div className="card" style={{ borderStyle: 'dashed' }}>
-                            <p className="eyebrow">Panduan cepat</p>
+                            <p className="eyebrow">{getAdminPageCopy('quickGuideEyebrow')}</p>
                             <p className="feedback">
                               <strong>Category:</strong> pakai satu kategori utama untuk grouping, filter, dan reporting program.
                             </p>
@@ -7188,7 +7190,7 @@ export default function AdminPage() {
                       <div className="editor-with-guide">
                         <div className="editor-main">
                           <div className="card" style={{ borderStyle: 'dashed' }}>
-                            <p className="eyebrow">Registration fields</p>
+                            <p className="eyebrow">{getAdminPageCopy('registrationFieldsEyebrow')}</p>
                             <p className="feedback">Informasi yang dikumpulkan saat member booking atau mendaftar program.</p>
                             <div className="row-actions" style={{ marginBottom: '0.5rem' }}>
                               <button
@@ -7331,7 +7333,7 @@ export default function AdminPage() {
                             )}
                           </div>
                           <div className="card" style={{ borderStyle: 'dashed' }}>
-                            <p className="eyebrow">Metadata JSON</p>
+                            <p className="eyebrow">{getAdminPageCopy('classMetadataEyebrow')}</p>
                             <p className="feedback">Metadata tambahan untuk operasional program dalam format JSON object.</p>
                             <textarea
                               rows={8}
@@ -7343,7 +7345,7 @@ export default function AdminPage() {
                         </div>
                         <aside className="editor-guide">
                           <div className="card" style={{ borderStyle: 'dashed' }}>
-                            <p className="eyebrow">Panduan cepat</p>
+                            <p className="eyebrow">{getAdminPageCopy('quickGuideEyebrow')}</p>
                             <p className="feedback">
                               <strong>Gunakan seperlunya:</strong> tambah field hanya jika benar-benar dibutuhkan saat booking program. Terlalu banyak field biasanya menurunkan conversion.
                             </p>
@@ -7361,13 +7363,13 @@ export default function AdminPage() {
                       <div className="editor-with-guide">
                         <div className="editor-main">
                           <div className="card" style={{ borderStyle: 'dashed' }}>
-                            <p className="eyebrow">Before program</p>
+                            <p className="eyebrow">{getAdminPageCopy('classBeforeInfoEyebrow')}</p>
                             <p className="feedback">Informasi yang muncul setelah member booking atau membeli program, sebelum sesi berjalan.</p>
                             <label>
                               Free text
                               <textarea
                                 rows={5}
-                                placeholder="Contoh: datang 15 menit lebih awal, bawa handuk, check-in di front desk, gunakan pakaian training."
+                                placeholder={getAdminPageCopy('classBeforeInfoPlaceholder')}
                                 value={classForm.pre_event_info_text}
                                 onChange={(e) => setClassForm((prev) => ({ ...prev, pre_event_info_text: e.target.value }))}
                               />
@@ -7424,13 +7426,13 @@ export default function AdminPage() {
                             </div>
                           </div>
                           <div className="card" style={{ borderStyle: 'dashed' }}>
-                            <p className="eyebrow">After program</p>
+                            <p className="eyebrow">{getAdminPageCopy('classAfterInfoEyebrow')}</p>
                             <p className="feedback">Informasi follow-up setelah sesi selesai, misalnya materi latihan, evaluasi, atau langkah berikutnya.</p>
                             <label>
                               Free text
                               <textarea
                                 rows={5}
-                                placeholder="Contoh: form evaluasi, video replay, homework, atau instruksi booking sesi berikutnya."
+                                placeholder={getAdminPageCopy('classAfterInfoPlaceholder')}
                                 value={classForm.post_event_info_text}
                                 onChange={(e) => setClassForm((prev) => ({ ...prev, post_event_info_text: e.target.value }))}
                               />
@@ -7489,7 +7491,7 @@ export default function AdminPage() {
                         </div>
                         <aside className="editor-guide">
                           <div className="card" style={{ borderStyle: 'dashed' }}>
-                            <p className="eyebrow">Panduan cepat</p>
+                            <p className="eyebrow">{getAdminPageCopy('quickGuideEyebrow')}</p>
                             <p className="feedback">
                               <strong>Before program:</strong> isi briefing sebelum sesi, termasuk pakaian, alat, lokasi, atau persiapan khusus.
                             </p>

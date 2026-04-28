@@ -37,6 +37,7 @@
 - [x] Move AdminPage coach share, custom fields, and registration field validation into JSON config.
 - [x] Move AdminPage list headings, search placeholders, and empty states for user/program/product/package/coach/sales/member into JSON config.
 - [x] Move AdminPage event wizard, walk-in, publication preview, and program editor titles into JSON config.
+- [x] Move AdminPage event/program editor section labels and placeholders into JSON config.
 - [x] Move CS Dashboard order validation, item, payment, and save feedback into JSON config.
 - [x] Inventory current UI surfaces that still define labels, navigation, tabs, statuses, actions, empty states, or copy directly in components.
 - [ ] Define or extend JSON config for navigation, page layouts, table columns, forms, badge variants, workflow actions, and empty states before adding new UI.
