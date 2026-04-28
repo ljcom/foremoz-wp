@@ -197,7 +197,94 @@
         "published": "PUBLISHED",
         "posted": "PUBLISHED"
       }
-    }
+    },
+    "eventTemplates": [
+      {
+        "id": "race_competition",
+        "title": "Race / competition",
+        "description": "Untuk lomba, race, atau event dengan ranking dan award.",
+        "tag": "Award",
+        "visualClass": "activity",
+        "accents": ["Top 3", "Leaderboard"],
+        "formDefaults": {
+          "event_name": "Race / Competition",
+          "has_coach": false,
+          "categories_text": "competition, race",
+          "award_enabled": true,
+          "award_scopes": ["overall", "category"],
+          "award_top_n": "3",
+          "max_participants": "300",
+          "duration_value": "4",
+          "duration_unit": "hours"
+        }
+      },
+      {
+        "id": "workshop_seminar",
+        "title": "Workshop / seminar",
+        "description": "Untuk sesi edukasi, talk, seminar, atau workshop terjadwal.",
+        "tag": "Learning",
+        "visualClass": "membership",
+        "accents": ["Talk", "Workshop"],
+        "formDefaults": {
+          "event_name": "Workshop / Seminar",
+          "categories_text": "workshop, seminar",
+          "award_enabled": false,
+          "award_scopes": ["overall"],
+          "award_top_n": "1",
+          "max_participants": "100",
+          "duration_value": "3",
+          "duration_unit": "hours"
+        }
+      },
+      {
+        "id": "community_gathering",
+        "title": "Community gathering",
+        "description": "Untuk meetup, networking, atau aktivitas komunitas yang santai.",
+        "tag": "Community",
+        "visualClass": "custom",
+        "accents": ["Meetup", "Social"],
+        "formDefaults": {
+          "event_name": "Community Gathering",
+          "has_coach": false,
+          "categories_text": "community, gathering",
+          "award_enabled": false,
+          "award_scopes": ["overall"],
+          "award_top_n": "1",
+          "max_participants": "0",
+          "duration_value": "2",
+          "duration_unit": "hours",
+          "trainer_name": "",
+          "coach_shares": []
+        }
+      },
+      {
+        "id": "class_training",
+        "title": "Program / training",
+        "description": "Untuk program, coaching, atau sesi training dengan instruktur.",
+        "tag": "Coach",
+        "visualClass": "pt",
+        "accents": ["Coach", "Session"],
+        "formDefaults": {
+          "event_name": "Program / Training",
+          "categories_text": "program, training",
+          "award_enabled": false,
+          "award_scopes": ["overall"],
+          "award_top_n": "1",
+          "max_participants": "40",
+          "duration_value": "90",
+          "duration_unit": "minutes"
+        }
+      },
+      {
+        "id": "custom",
+        "title": "Custom",
+        "description": "Buka form event lengkap dan atur semuanya manual.",
+        "tag": "Manual",
+        "visualClass": "custom",
+        "accents": ["Full form", "Advanced"],
+        "formDefaults": {}
+      }
+    ]
   },
   "csDashboard": {
     "orders": {

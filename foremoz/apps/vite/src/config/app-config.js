@@ -34,6 +34,16 @@ export function getAdminTabsConfig() {
   return asArray(getAdminPageConfig().tabs).filter((item) => item && typeof item === 'object' && item.id);
 }
 
+export function getAdminEventTemplatesConfig() {
+  return asArray(getAdminPageConfig().eventTemplates).filter((item) => item && typeof item === 'object' && item.id);
+}
+
+export function getAdminEventTemplateConfig(templateId) {
+  const normalized = String(templateId || 'custom').trim().toLowerCase();
+  const templates = getAdminEventTemplatesConfig();
+  return templates.find((item) => item.id === normalized) || templates.find((item) => item.id === 'custom') || null;
+}
+
 export function getAdminPlanLabel(plan, fallbackLabel = '') {
   const labels = asObject(getAdminPageConfig().planDisplayLabels);
   return String(labels[String(plan || '').trim()] || fallbackLabel || '');

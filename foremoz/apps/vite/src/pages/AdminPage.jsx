@@ -6,6 +6,8 @@ import WorkspaceHeader from '../components/WorkspaceHeader.jsx';
 import { useI18n } from '../i18n.js';
 import {
   getAdminEventStatusLabel,
+  getAdminEventTemplateConfig,
+  getAdminEventTemplatesConfig,
   getAdminEventWorkflowValue,
   getAdminPageOptions,
   getAdminPlanLabel,
@@ -76,6 +78,7 @@ const ACTIVITY_VALIDITY_UNIT_OPTIONS = getAdminPageOptions('activityValidityUnit
 const ACTIVITY_LIMITED_DURATION_UNIT_OPTIONS = getAdminPageOptions('activityLimitedDurationUnitOptions');
 const ACTIVITY_VALIDITY_ANCHOR_OPTIONS = getAdminPageOptions('activityValidityAnchorOptions');
 const ACTIVITY_USAGE_PERIOD_OPTIONS = getAdminPageOptions('activityUsagePeriodOptions');
+const EVENT_TEMPLATE_OPTIONS = getAdminEventTemplatesConfig();
 
 const IDR_FORMATTER = new Intl.NumberFormat('id-ID');
 
@@ -662,72 +665,14 @@ function inferEventEditorTemplate(item) {
 }
 
 function getEventEditorTemplateLabel(template) {
-  const normalized = String(template || 'custom').trim().toLowerCase();
-  if (normalized === 'race_competition') return 'Race / competition';
-  if (normalized === 'workshop_seminar') return 'Workshop / seminar';
-  if (normalized === 'community_gathering') return 'Community gathering';
-  if (normalized === 'class_training') return 'Program / training';
-  return 'Custom';
+  return getAdminEventTemplateConfig(template)?.title || '';
 }
 
 function createEventFormFromTemplate(template) {
-  if (template === 'race_competition') {
-    return {
-      ...createEmptyEventForm(),
-      event_name: 'Race / Competition',
-      has_coach: false,
-      categories_text: 'competition, race',
-      award_enabled: true,
-      award_scopes: ['overall', 'category'],
-      award_top_n: '3',
-      max_participants: '300',
-      duration_value: '4',
-      duration_unit: 'hours'
-    };
-  }
-  if (template === 'workshop_seminar') {
-    return {
-      ...createEmptyEventForm(),
-      event_name: 'Workshop / Seminar',
-      categories_text: 'workshop, seminar',
-      award_enabled: false,
-      award_scopes: ['overall'],
-      award_top_n: '1',
-      max_participants: '100',
-      duration_value: '3',
-      duration_unit: 'hours'
-    };
-  }
-  if (template === 'community_gathering') {
-    return {
-      ...createEmptyEventForm(),
-      event_name: 'Community Gathering',
-      has_coach: false,
-      categories_text: 'community, gathering',
-      award_enabled: false,
-      award_scopes: ['overall'],
-      award_top_n: '1',
-      max_participants: '0',
-      duration_value: '2',
-      duration_unit: 'hours',
-      trainer_name: '',
-      coach_shares: []
-    };
-  }
-  if (template === 'class_training') {
-    return {
-      ...createEmptyEventForm(),
-      event_name: 'Program / Training',
-      categories_text: 'program, training',
-      award_enabled: false,
-      award_scopes: ['overall'],
-      award_top_n: '1',
-      max_participants: '40',
-      duration_value: '90',
-      duration_unit: 'minutes'
-    };
-  }
-  return createEmptyEventForm();
+  return {
+    ...createEmptyEventForm(),
+    ...(getAdminEventTemplateConfig(template)?.formDefaults || {})
+  };
 }
 
 function splitClassCustomFields(value, primaryCategory = '') {
@@ -5088,48 +5033,7 @@ export default function AdminPage() {
                       <p className="feedback">Template ini akan memberi titik awal yang lebih fokus. `Custom` tetap membuka form lengkap event seperti sekarang.</p>
                     </div>
                     <div className="class-wizard-grid">
-                      {[
-                        {
-                          id: 'race_competition',
-                          title: 'Race / competition',
-                          description: 'Untuk lomba, race, atau event dengan ranking dan award.',
-                          tag: 'Award',
-                          visualClass: 'activity',
-                          accents: ['Top 3', 'Leaderboard']
-                        },
-                        {
-                          id: 'workshop_seminar',
-                          title: 'Workshop / seminar',
-                          description: 'Untuk sesi edukasi, talk, seminar, atau workshop terjadwal.',
-                          tag: 'Learning',
-                          visualClass: 'membership',
-                          accents: ['Talk', 'Workshop']
-                        },
-                        {
-                          id: 'community_gathering',
-                          title: 'Community gathering',
-                          description: 'Untuk meetup, networking, atau aktivitas komunitas yang santai.',
-                          tag: 'Community',
-                          visualClass: 'custom',
-                          accents: ['Meetup', 'Social']
-                        },
-                        {
-                          id: 'class_training',
-                          title: 'Program / training',
-                          description: 'Untuk program, coaching, atau sesi training dengan instruktur.',
-                          tag: 'Coach',
-                          visualClass: 'pt',
-                          accents: ['Coach', 'Session']
-                        },
-                        {
-                          id: 'custom',
-                          title: 'Custom',
-                          description: 'Buka form event lengkap dan atur semuanya manual.',
-                          tag: 'Manual',
-                          visualClass: 'custom',
-                          accents: ['Full form', 'Advanced']
-                        }
-                      ].map((option) => (
+                      {EVENT_TEMPLATE_OPTIONS.map((option) => (
                         <button
                           key={option.id}
                           className={`class-wizard-card class-wizard-card-${option.visualClass}`}
