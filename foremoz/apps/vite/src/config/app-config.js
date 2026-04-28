@@ -70,6 +70,7 @@ export function validateAppUiConfig(config = appUiConfig) {
   requireConfigObject(config, 'pageErrorBoundary.defaults');
   requireConfigObject(config, 'pageErrorBoundary.variants');
   requireConfigObject(config, 'backendShell.copy');
+  requireConfigObject(config, 'backendShell.navItemsByWorkspace');
   requireConfigObject(config, 'workspaceAccess.routePolicies');
   requireConfigObject(config, 'workspaceAccess.roleHomePaths');
   requireConfigObject(config, 'workspaceAccess.environmentHomePaths');
@@ -118,6 +119,10 @@ export function validateAppUiConfig(config = appUiConfig) {
     'adminPage.eventTemplates',
     'adminPage.classTemplates',
     'backendShell.navItems',
+    'backendShell.navItemsByWorkspace.cs',
+    'backendShell.navItemsByWorkspace.sales',
+    'backendShell.navItemsByWorkspace.admin',
+    'backendShell.navItemsByWorkspace.coach',
     'salesWorkspace.navItems'
   ].forEach((path) => requireConfigOptionArray(config, path, 'id'));
 
@@ -194,6 +199,13 @@ export function getDashboardOrderConfig() {
 
 export function getBackendShellConfig() {
   return asObject(appUiConfig.backendShell);
+}
+
+export function getBackendShellNavItems(workspaceKey) {
+  const shellConfig = getBackendShellConfig();
+  const navItemsByWorkspace = asObject(shellConfig.navItemsByWorkspace);
+  return asArray(navItemsByWorkspace[workspaceKey] || shellConfig.navItems)
+    .filter((item) => item && typeof item === 'object' && item.id);
 }
 
 export function getSalesWorkspaceConfig() {

@@ -23,17 +23,24 @@ export default function BackendWorkspaceShell({
   getEnvironmentLabel,
   onSelectEnv,
   onSignOut,
+  navItems,
   primaryActions = null
 }) {
   const displayName = userName || session?.user?.fullName || session?.user?.email || role || '-';
+  const resolvedNavItems = Array.isArray(navItems) && navItems.length > 0 ? navItems : SHELL_NAV_ITEMS;
 
   return (
     <main className="backend-shell">
       <aside className="backend-sidebar">
         <div className="backend-sidebar-brand">{shellCopy('brand', 'Foremoz')}</div>
         <nav className="backend-sidebar-nav" aria-label={shellCopy('navigationAria', 'Workspace navigation')}>
-          {SHELL_NAV_ITEMS.map((item) => (
-            <a key={item.id} className={item.id === activeNavId ? 'active' : ''} href={item.href || `#${item.id}`}>
+          {resolvedNavItems.map((item) => (
+            <a
+              key={item.id}
+              className={item.id === activeNavId ? 'active' : ''}
+              href={item.href || `#${item.id}`}
+              onClick={item.onClick}
+            >
               {item.label || item.id}
             </a>
           ))}

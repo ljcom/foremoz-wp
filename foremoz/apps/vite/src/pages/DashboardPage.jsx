@@ -17,10 +17,12 @@ import {
   getConfigCopy,
   getConfiguredOption,
   getConfiguredOptions,
+  getBackendShellNavItems,
   getDashboardOrderConfig,
   normalizeConfiguredOptionValue
 } from '../config/app-config.js';
 
+const CS_SIDEBAR_NAV_ITEMS = getBackendShellNavItems('cs');
 const DASHBOARD_ORDER_CONFIG = getDashboardOrderConfig();
 const ORDER_TYPE_OPTIONS = getConfiguredOptions(DASHBOARD_ORDER_CONFIG, 'orderTypes');
 const ORDER_FORM_TYPE_OPTIONS = ORDER_TYPE_OPTIONS.filter((option) => option.visibleInOrderForm !== false);
@@ -475,6 +477,20 @@ export default function DashboardPage() {
   const allowedEnv = useMemo(() => {
     return getAllowedEnvironments(session, role);
   }, [session, role]);
+  const csSidebarNavItems = useMemo(
+    () =>
+      CS_SIDEBAR_NAV_ITEMS
+        .filter((item) => item.id !== 'class' || showClassWorkspace)
+        .map((item) => ({
+          ...item,
+          href: `#${item.id}`,
+          onClick: (event) => {
+            event.preventDefault();
+            setWorkspaceTab(item.id);
+          }
+        })),
+    [showClassWorkspace]
+  );
   const showClassWorkspace = packagePlan !== 'free';
 
   useEffect(() => {
@@ -2947,7 +2963,8 @@ export default function DashboardPage() {
 
   return (
     <BackendWorkspaceShell
-      activeNavId="dashboard"
+      activeNavId={workspaceTab}
+      navItems={csSidebarNavItems}
       eyebrow="Foremoz Admin"
       title={copy.eyebrow}
       subtitle={copy.welcome.replace('{name}', fullName)}

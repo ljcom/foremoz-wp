@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { apiJson, clearSession, getAccountSlug, getAllowedEnvironments, getEnvironmentLabel, getSession, setSession } from '../lib.js';
 import BackendWorkspaceShell from '../components/BackendWorkspaceShell.jsx';
+import { getBackendShellNavItems } from '../config/app-config.js';
 import {
   formatAppDateTime,
   getAppDateKey,
@@ -9,6 +10,8 @@ import {
   getAppNowDateTimeInput,
   toAppIsoFromDateTimeInput
 } from '../time.js';
+
+const COACH_SIDEBAR_NAV_ITEMS = getBackendShellNavItems('coach');
 
 function Stat({ label, value, iconClass, tone, hint }) {
   return (
@@ -258,15 +261,7 @@ function getNormalizedOrderItems(order) {
 }
 
 export default function PtPage() {
-  const PT_TABS = [
-    { id: 'profile', label: 'Coach profile' },
-    { id: 'book', label: 'Book list' },
-    { id: 'complete', label: 'Complete list' },
-    { id: 'award', label: 'Event award' },
-    { id: 'member', label: 'Member' },
-    { id: 'history', label: 'History sessions' },
-    { id: 'incentive', label: 'Report incentive' }
-  ];
+  const PT_TABS = COACH_SIDEBAR_NAV_ITEMS;
   const navigate = useNavigate();
   const session = getSession();
   const accountSlug = getAccountSlug(session);
@@ -308,6 +303,18 @@ export default function PtPage() {
   const allowedEnv = useMemo(() => {
     return getAllowedEnvironments(session, role);
   }, [session, role]);
+  const coachSidebarNavItems = useMemo(
+    () =>
+      COACH_SIDEBAR_NAV_ITEMS.map((item) => ({
+        ...item,
+        href: `#${item.id}`,
+        onClick: (event) => {
+          event.preventDefault();
+          setActiveTab(item.id);
+        }
+      })),
+    []
+  );
 
   useEffect(() => {
     if (allowedEnv.length === 0) return;
@@ -1352,7 +1359,8 @@ export default function PtPage() {
 
   return (
     <BackendWorkspaceShell
-      activeNavId="members"
+      activeNavId={activeTab}
+      navItems={coachSidebarNavItems}
       eyebrow="Foremoz Admin"
       title="PT Workspace"
       subtitle="Session booking, completion, and member activity tracking"

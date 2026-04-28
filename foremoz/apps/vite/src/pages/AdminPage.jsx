@@ -21,6 +21,7 @@ import {
   getAdminPageOptions,
   getAdminPlanLabel,
   getAdminTabsConfig,
+  getBackendShellNavItems,
   getMappedWorkspacePath,
   getWorkspaceAccessConfigList,
   isConfiguredAdminEventPublishedStatus
@@ -35,6 +36,7 @@ import {
 } from '../time.js';
 
 const ADMIN_TABS = getAdminTabsConfig();
+const ADMIN_SIDEBAR_NAV_ITEMS = getBackendShellNavItems('admin');
 const DEFAULT_CLASSES = getAdminFixture('classes');
 const DEFAULT_EVENTS = getAdminFixture('events');
 
@@ -2250,6 +2252,20 @@ export default function AdminPage() {
   const enabledAdminTabIds = useMemo(() => getAdminTabsByPlan(session), [session]);
   const visibleAdminTabs = useMemo(
     () => ADMIN_TABS.filter((tab) => enabledAdminTabIds.includes(tab.id)),
+    [enabledAdminTabIds]
+  );
+  const adminSidebarNavItems = useMemo(
+    () =>
+      ADMIN_SIDEBAR_NAV_ITEMS
+        .filter((item) => enabledAdminTabIds.includes(item.id))
+        .map((item) => ({
+          ...item,
+          href: `#${item.id}`,
+          onClick: (event) => {
+            event.preventDefault();
+            setActiveTab(item.id);
+          }
+        })),
     [enabledAdminTabIds]
   );
   const lockedAdminTabs = useMemo(
@@ -4725,7 +4741,8 @@ export default function AdminPage() {
 
   return (
     <BackendWorkspaceShell
-      activeNavId="settings"
+      activeNavId={activeTab}
+      navItems={adminSidebarNavItems}
       eyebrow="Foremoz Admin"
       title={dashboardTitle}
       subtitle={dashboardSubtitle}

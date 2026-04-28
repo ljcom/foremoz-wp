@@ -780,7 +780,7 @@ export default function SalesPage() {
       </section>
 
       {selectedProspect ? (
-        <section className="card admin-main" style={{ marginTop: '1rem' }}>
+        <section className="card admin-main" id="orders" style={{ marginTop: '1rem' }}>
           <h2>Prospect detail - {selectedProspect.full_name}</h2>
           <p>ID: {selectedProspect.prospect_id}</p>
           <p>Stage: {selectedProspect.stage || '-'} | member_id: {selectedProspect.converted_member_id || '-'}</p>
@@ -979,7 +979,7 @@ export default function SalesPage() {
         </section>
       ) : null}
 
-      <section className="card admin-main" style={{ marginTop: '1rem' }}>
+      <section className="card admin-main" id="report" style={{ marginTop: '1rem' }}>
         <div className="panel-head">
           <div>
             <p className="eyebrow">Report incentive</p>

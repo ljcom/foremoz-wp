@@ -61,7 +61,39 @@
       { "id": "payments", "label": "Payments", "href": "#payments" },
       { "id": "incentives", "label": "Incentives", "href": "#incentives" },
       { "id": "settings", "label": "Settings", "href": "#settings" }
-    ]
+    ],
+    "navItemsByWorkspace": {
+      "cs": [
+        { "id": "member", "label": "Member" },
+        { "id": "event", "label": "Event" },
+        { "id": "class", "label": "Program" },
+        { "id": "report", "label": "Daily Report" }
+      ],
+      "sales": [
+        { "id": "prospects", "label": "Prospek", "href": "#prospects" },
+        { "id": "orders", "label": "Order", "href": "#orders" },
+        { "id": "report", "label": "Report", "href": "#report" }
+      ],
+      "admin": [
+        { "id": "event", "label": "Event" },
+        { "id": "class", "label": "Program" },
+        { "id": "product", "label": "Produk" },
+        { "id": "package_creation", "label": "Paket" },
+        { "id": "trainer", "label": "Coach" },
+        { "id": "sales", "label": "Sales" },
+        { "id": "member", "label": "Member" },
+        { "id": "transaction", "label": "Transaksi" }
+      ],
+      "coach": [
+        { "id": "profile", "label": "Coach profile" },
+        { "id": "book", "label": "Book list" },
+        { "id": "complete", "label": "Complete list" },
+        { "id": "award", "label": "Event award" },
+        { "id": "member", "label": "Member" },
+        { "id": "history", "label": "History sessions" },
+        { "id": "incentive", "label": "Report incentive" }
+      ]
+    }
   },
   "salesWorkspace": {
     "copy": {
@@ -86,14 +118,9 @@
       "backToHost": "Back to host"
     },
     "navItems": [
-      { "id": "dashboard", "label": "Dashboard", "href": "#dashboard" },
-      { "id": "prospects", "label": "Prospects", "href": "#prospects", "active": true },
-      { "id": "members", "label": "Members", "href": "#members" },
-      { "id": "events", "label": "Events", "href": "#events" },
-      { "id": "orders", "label": "Orders", "href": "#orders" },
-      { "id": "payments", "label": "Payments", "href": "#payments" },
-      { "id": "incentives", "label": "Incentives", "href": "#incentives" },
-      { "id": "settings", "label": "Settings", "href": "#settings" }
+      { "id": "prospects", "label": "Prospek", "href": "#prospects", "active": true },
+      { "id": "orders", "label": "Order", "href": "#orders" },
+      { "id": "report", "label": "Report", "href": "#report" }
     ],
     "quickGuide": [
       { "text": "Capture prospect information." },
