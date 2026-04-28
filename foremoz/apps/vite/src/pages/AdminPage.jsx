@@ -3830,27 +3830,27 @@ export default function AdminPage() {
     e.preventDefault();
     if (!String(eventForm.event_name || '').trim()) {
       setEventEditTab('general');
-      setFeedback('event_name wajib diisi');
+      setFeedback(getAdminPageCopy('eventNameRequired'));
       return;
     }
     if (!String(eventForm.start_at || '').trim()) {
       setEventEditTab('general');
-      setFeedback('start_at wajib diisi');
+      setFeedback(getAdminPageCopy('eventStartRequired'));
       return;
     }
     if (!String(eventForm.duration_value || '').trim()) {
       setEventEditTab('general');
-      setFeedback('duration_value wajib diisi');
+      setFeedback(getAdminPageCopy('eventDurationRequired'));
       return;
     }
     const startAtIso = toApiDatetime(eventForm.start_at);
     if (!startAtIso) {
-      setFeedback('start_at tidak valid');
+      setFeedback(getAdminPageCopy('eventStartInvalid'));
       return;
     }
     const durationMinutes = toDurationMinutes(eventForm.duration_value, eventForm.duration_unit);
     if (!Number.isFinite(durationMinutes) || durationMinutes <= 0) {
-      setFeedback('Duration harus lebih dari 0');
+      setFeedback(getAdminPageCopy('eventDurationPositiveRequired'));
       return;
     }
     try {
@@ -3897,7 +3897,11 @@ export default function AdminPage() {
           status: editingEventId ? (editingEvent?.status || 'scheduled') : 'scheduled'
         })
       });
-      setFeedback(editingEventId ? `event.updated: ${eventForm.event_name}` : `event.created: ${eventForm.event_name}`);
+      setFeedback(
+        getAdminPageCopy(editingEventId ? 'eventUpdatedFeedback' : 'eventCreatedFeedback', {
+          name: eventForm.event_name
+        })
+      );
       const emptyForm = createEmptyEventForm();
       setEventForm(emptyForm);
       setEventFormBaseline(serializeEventForm(emptyForm));
@@ -4388,26 +4392,26 @@ export default function AdminPage() {
     });
     const fileId = `${editingEventId}-${new Date().toISOString().slice(0, 10)}`.replace(/[^a-zA-Z0-9_-]/g, '');
     downloadCsvFile(`event-participants-${fileId}.csv`, rows);
-    setFeedback(`participants.exported: ${rows.length - 1} rows`);
+    setFeedback(getAdminPageCopy('eventParticipantsExportedFeedback', { count: rows.length - 1 }));
   }
 
   function preparePostEventQuote() {
     if (!editingEventId) {
-      setFeedback('Simpan event dulu sebelum dipublikasikan.');
+      setFeedback(getAdminPageCopy('eventSaveBeforePublish'));
       return;
     }
     if (isEditingEventPublished) {
-      setFeedback('Event sudah dipublikasikan.');
+      setFeedback(getAdminPageCopy('eventAlreadyPublished'));
       return;
     }
     const startAtIso = toApiDatetime(eventForm.start_at);
     const durationMinutes = toDurationMinutes(eventForm.duration_value, eventForm.duration_unit);
     if (!startAtIso) {
-      setFeedback('start_at tidak valid');
+      setFeedback(getAdminPageCopy('eventStartInvalid'));
       return;
     }
     if (!Number.isFinite(durationMinutes) || durationMinutes <= 0) {
-      setFeedback('Duration harus lebih dari 0');
+      setFeedback(getAdminPageCopy('eventDurationPositiveRequired'));
       return;
     }
     const price = estimateEventPostingPrice(durationMinutes);

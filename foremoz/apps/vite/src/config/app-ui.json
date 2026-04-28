@@ -238,7 +238,17 @@
       "classMaxCapRequired": "max cap wajib diisi",
       "classMinCapTooHigh": "min cap tidak boleh lebih besar dari max cap",
       "classUpdatedFeedback": "program.updated: {name}",
-      "classCreatedFeedback": "program.created: {name}"
+      "classCreatedFeedback": "program.created: {name}",
+      "eventNameRequired": "event_name wajib diisi",
+      "eventStartRequired": "start_at wajib diisi",
+      "eventDurationRequired": "duration_value wajib diisi",
+      "eventStartInvalid": "start_at tidak valid",
+      "eventDurationPositiveRequired": "Duration harus lebih dari 0",
+      "eventUpdatedFeedback": "event.updated: {name}",
+      "eventCreatedFeedback": "event.created: {name}",
+      "eventSaveBeforePublish": "Simpan event dulu sebelum dipublikasikan.",
+      "eventAlreadyPublished": "Event sudah dipublikasikan.",
+      "eventParticipantsExportedFeedback": "participants.exported: {count} rows"
     },
     "memberUpload": {
       "csvHeader": "email,member_name,phone",
