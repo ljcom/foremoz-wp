@@ -3673,11 +3673,11 @@ export default function AdminPage() {
   async function saveMemberWithRelations(payload) {
     const normalizedEmail = normalizeEmailValue(payload.email);
     if (!normalizedEmail) {
-      throw new Error('email wajib diisi');
+      throw new Error(getAdminPageCopy('memberEmailRequired'));
     }
     const relations = normalizeMemberRelationTokens(payload.relations);
     if (relations.length === 0) {
-      throw new Error('Pilih minimal satu class/event.');
+      throw new Error(getAdminPageCopy('memberRelationRequired'));
     }
 
     return apiJson('/v1/admin/members/upsert-with-relations', {
@@ -3699,7 +3699,10 @@ export default function AdminPage() {
       setMemberSaving(true);
       const result = await saveMemberWithRelations(memberForm);
       setFeedback(
-        `member.saved: ${result.member?.email || normalizeEmailValue(memberForm.email)} (${result.relation_results?.length || 0} relasi)`
+        getAdminPageCopy('memberSavedFeedback', {
+          email: result.member?.email || normalizeEmailValue(memberForm.email),
+          count: result.relation_results?.length || 0
+        })
       );
       setMemberForm(createEmptyMemberForm());
       setMemberRelationDraft('');
@@ -7947,14 +7950,14 @@ export default function AdminPage() {
                         style={{ display: 'none' }}
                       />
                       <button className="btn ghost" type="button" onClick={openMemberUploadModal} disabled={memberSaving}>
-                        Upload
+                        {getAdminPageCopy('memberUploadButton')}
                       </button>
                     </div>
                   </div>
                   <div className="card" style={{ borderStyle: 'dashed', marginBottom: '1rem' }}>
-                    <p className="eyebrow">Upload member relation scope</p>
+                    <p className="eyebrow">{getAdminPageCopy('memberUploadRelationEyebrow')}</p>
                     <div className="row-actions" style={{ marginBottom: '0.5rem' }}>
-                      {memberUploadRelations.length === 0 ? <span className="feedback">Upload akan memakai relasi program/event yang dipilih di sini.</span> : null}
+                      {memberUploadRelations.length === 0 ? <span className="feedback">{getAdminPageCopy('memberUploadRelationGuide')}</span> : null}
                       {memberUploadRelations.map((item) => (
                         <span key={`${item.kind}:${item.id}`} className="passport-chip">
                           {item.label}
@@ -7964,13 +7967,13 @@ export default function AdminPage() {
                             style={{ marginLeft: '0.35rem' }}
                             onClick={() => removeMemberRelationToken(item, 'upload')}
                           >
-                            x
+                            {getAdminPageCopy('removeTokenLabel')}
                           </button>
                         </span>
                       ))}
                     </div>
                     <label>
-                      Tambah program/event untuk upload
+                      {getAdminPageCopy('memberUploadRelationAddLabel')}
                       <select
                         value={memberUploadDraft}
                         onChange={(e) => {
@@ -8093,19 +8096,19 @@ export default function AdminPage() {
               ) : (
                 <>
                   <div className="panel-head">
-                    <h2>Add member</h2>
+                    <h2>{getAdminPageCopy('memberAddTitle')}</h2>
                     <button className="btn ghost" type="button" onClick={() => setMemberMode('list')}>
                       {getAdminPageCopy('backToList')}
                     </button>
                   </div>
                   <form className="form" onSubmit={addMember}>
-                    <label>member_name<input value={memberForm.member_name} onChange={(e) => setMemberForm((p) => ({ ...p, member_name: e.target.value }))} /></label>
-                    <label>phone<input value={memberForm.phone} onChange={(e) => setMemberForm((p) => ({ ...p, phone: e.target.value }))} /></label>
-                    <label>email (key)<input type="email" value={memberForm.email} onChange={(e) => setMemberForm((p) => ({ ...p, email: e.target.value }))} required /></label>
+                    <label>{getAdminPageCopy('memberNameField')}<input value={memberForm.member_name} onChange={(e) => setMemberForm((p) => ({ ...p, member_name: e.target.value }))} /></label>
+                    <label>{getAdminPageCopy('memberPhoneField')}<input value={memberForm.phone} onChange={(e) => setMemberForm((p) => ({ ...p, phone: e.target.value }))} /></label>
+                    <label>{getAdminPageCopy('memberEmailKeyField')}<input type="email" value={memberForm.email} onChange={(e) => setMemberForm((p) => ({ ...p, email: e.target.value }))} required /></label>
                     <div className="card" style={{ borderStyle: 'dashed' }}>
-                      <p className="eyebrow">program/event (token input)</p>
+                      <p className="eyebrow">{getAdminPageCopy('memberRelationEyebrow')}</p>
                       <div className="row-actions" style={{ marginBottom: '0.5rem' }}>
-                        {memberForm.relations.length === 0 ? <span className="feedback">Pilih minimal satu program atau event.</span> : null}
+                        {memberForm.relations.length === 0 ? <span className="feedback">{getAdminPageCopy('memberRelationEmpty')}</span> : null}
                         {memberForm.relations.map((item) => (
                           <span key={`${item.kind}:${item.id}`} className="passport-chip">
                             {item.label}
@@ -8115,13 +8118,13 @@ export default function AdminPage() {
                               style={{ marginLeft: '0.35rem' }}
                               onClick={() => removeMemberRelationToken(item)}
                             >
-                              x
+                              {getAdminPageCopy('removeTokenLabel')}
                             </button>
                           </span>
                         ))}
                       </div>
                       <label>
-                        Tambah relasi
+                        {getAdminPageCopy('memberRelationAddLabel')}
                         <select
                           value={memberRelationDraft}
                           onChange={(e) => {

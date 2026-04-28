@@ -179,7 +179,22 @@
       "memberUploadTemplateDownloaded": "Template CSV berhasil diunduh.",
       "memberUploadRequiresRelation": "Pilih minimal satu class/event untuk upload member.",
       "memberUploadNoValidRows": "Data upload tidak memiliki baris member yang valid.",
-      "memberUploadCsvOnly": "Upload member saat ini mendukung file CSV."
+      "memberUploadCsvOnly": "Upload member saat ini mendukung file CSV.",
+      "memberUploadButton": "Upload",
+      "memberUploadRelationEyebrow": "Upload member relation scope",
+      "memberUploadRelationGuide": "Upload akan memakai relasi program/event yang dipilih di sini.",
+      "memberUploadRelationAddLabel": "Tambah program/event untuk upload",
+      "memberAddTitle": "Add member",
+      "memberNameField": "member_name",
+      "memberPhoneField": "phone",
+      "memberEmailKeyField": "email (key)",
+      "memberRelationEyebrow": "program/event (token input)",
+      "memberRelationEmpty": "Pilih minimal satu program atau event.",
+      "memberRelationAddLabel": "Tambah relasi",
+      "memberEmailRequired": "email wajib diisi",
+      "memberRelationRequired": "Pilih minimal satu class/event.",
+      "memberSavedFeedback": "member.saved: {email} ({count} relasi)",
+      "removeTokenLabel": "x"
     },
     "memberUpload": {
       "csvHeader": "email,member_name,phone",
