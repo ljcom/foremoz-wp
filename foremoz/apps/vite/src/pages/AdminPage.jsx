@@ -8383,7 +8383,7 @@ export default function AdminPage() {
                         <option key={option.value} value={option.value}>{option.label}</option>
                       ))}
                     </select></label>
-                    <button className="btn" type="submit">Save transaction</button>
+                    <button className="btn" type="submit">{getAdminPageCopy('saveTransaction')}</button>
                   </form>
                 </>
               )}
