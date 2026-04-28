@@ -1,0 +1,177 @@
+{
+  "version": "1.0.0",
+  "pageErrorBoundary": {
+    "defaults": {
+      "shellClassName": "dashboard",
+      "withBackdrop": false,
+      "eyebrow": "Error Boundary",
+      "title": "Halaman gagal dirender",
+      "description": "Terjadi error tidak terduga saat menyiapkan halaman ini.",
+      "homeHref": "/",
+      "homeLabel": "Kembali",
+      "reloadLabel": "Reload page"
+    },
+    "variants": {
+      "passportPublic": {
+        "shellClassName": "landing passport-fancy-public",
+        "withBackdrop": true,
+        "title": "Passport public tidak bisa dibuka",
+        "description": "Coba reload halaman ini atau kembali ke daftar event.",
+        "homeHref": "/events",
+        "homeLabel": "Back to events"
+      },
+      "eventCheckout": {
+        "shellClassName": "dashboard",
+        "title": "Checkout event bermasalah",
+        "description": "Halaman checkout gagal dirender. Reload atau kembali ke daftar event.",
+        "homeHref": "/events",
+        "homeLabel": "Back to events"
+      },
+      "accountEventCheckout": {
+        "shellClassName": "dashboard",
+        "title": "Checkout event bermasalah",
+        "description": "Halaman checkout gagal dirender. Reload atau kembali ke daftar event.",
+        "homeHref": "/host",
+        "homeLabel": "Back to home"
+      },
+      "passportDashboard": {
+        "shellClassName": "dashboard passport-fancy-dashboard",
+        "withBackdrop": true,
+        "title": "Passport dashboard bermasalah",
+        "description": "Dashboard passport gagal dirender. Reload halaman atau kembali ke landing.",
+        "homeHref": "/passport",
+        "homeLabel": "Back to passport"
+      }
+    }
+  },
+  "csDashboard": {
+    "orders": {
+      "defaultOrderType": "membership",
+      "defaultPaymentMethod": "cash",
+      "copy": {
+        "orderTypeLabel": "Order type",
+        "targetLabel": "Target",
+        "targetSelectPrefix": "Pilih",
+        "targetEmptyPrefix": "Belum ada",
+        "targetEmptySuffix": "aktif",
+        "selectedTargetEyebrow": "Selected target",
+        "referenceLabel": "Reference",
+        "defaultPriceLabel": "Default price",
+        "orderLabelLabel": "Order label",
+        "orderLabelPlaceholder": "Opsional: Bundle April / Paket promo / Checkout member",
+        "qtyLabel": "Qty",
+        "unitPriceLabel": "Unit price",
+        "notesLabel": "Notes",
+        "notesPlaceholder": "Catatan internal order untuk CS",
+        "addItemButton": "Tambah item ke order",
+        "continuePaymentButton": "Lanjut ke payment",
+        "cancelEditButton": "Batal edit",
+        "useCurrentContextButton": "Use current context",
+        "orderItemsEyebrow": "Item dalam order",
+        "qtyPrefix": "Qty",
+        "temporaryTotalLabel": "Total sementara",
+        "emptyOrderItems": "Belum ada item yang ditambahkan. Anda bisa langsung lanjut ke payment untuk 1 item aktif, atau tambah beberapa item dulu.",
+        "paymentMethodEyebrow": "Payment method",
+        "paymentMethodPreview": "Payment ini mockup CS. Anda bisa tandai pending atau paid sebelum order dibuat.",
+        "paymentResultLabel": "Payment result",
+        "orderSummaryEyebrow": "Order summary",
+        "summaryMemberLabel": "Member",
+        "summaryTypeLabel": "Type",
+        "summaryTargetLabel": "Target",
+        "summaryReferenceLabel": "Reference",
+        "summaryQtyLabel": "Qty",
+        "summaryPaymentMethodLabel": "Payment method",
+        "summaryPaymentStatusLabel": "Status payment",
+        "confirmHelp": "Order baru akan dibuat saat tombol konfirmasi payment ditekan.",
+        "backToFormButton": "Kembali ke form"
+      },
+      "orderTypes": [
+        {
+          "value": "membership",
+          "label": "Membership",
+          "selectLabel": "membership",
+          "targetLabel": "membership",
+          "targetCollection": "membership",
+          "visibleInOrderForm": true
+        },
+        {
+          "value": "event",
+          "label": "Event",
+          "selectLabel": "event",
+          "targetLabel": "event",
+          "targetCollection": "event",
+          "visibleInOrderForm": true
+        },
+        {
+          "value": "class",
+          "label": "Program",
+          "selectLabel": "program",
+          "targetLabel": "program",
+          "targetCollection": "class",
+          "visibleInOrderForm": true
+        },
+        {
+          "value": "pt",
+          "label": "PT",
+          "selectLabel": "pt",
+          "targetLabel": "pt",
+          "targetCollection": "pt",
+          "visibleInOrderForm": true
+        },
+        {
+          "value": "product",
+          "label": "Product",
+          "selectLabel": "product",
+          "targetLabel": "product",
+          "targetCollection": "product",
+          "visibleInOrderForm": true
+        },
+        {
+          "value": "bundle",
+          "label": "Bundle",
+          "selectLabel": "bundle",
+          "targetLabel": "bundle",
+          "targetCollection": "bundle",
+          "visibleInOrderForm": false
+        }
+      ],
+      "paymentMethods": [
+        {
+          "value": "cash",
+          "label": "Cash",
+          "note": "Pembayaran tunai dicatat manual oleh tim CS."
+        },
+        {
+          "value": "qris",
+          "label": "QRIS",
+          "note": "Mockup scan QR untuk pembayaran instan."
+        },
+        {
+          "value": "virtual_account",
+          "label": "Virtual account",
+          "note": "Nomor VA virtual untuk transfer otomatis."
+        },
+        {
+          "value": "bank_transfer",
+          "label": "Bank transfer",
+          "note": "Transfer bank dengan verifikasi manual."
+        },
+        {
+          "value": "ewallet",
+          "label": "E-wallet",
+          "note": "Pembayaran wallet digital sebagai simulasi checkout."
+        }
+      ],
+      "settlements": [
+        {
+          "value": "pending",
+          "label": "pending"
+        },
+        {
+          "value": "paid",
+          "label": "paid"
+        }
+      ]
+    }
+  }
+}

@@ -30,6 +30,7 @@ import { accountPath, getAllowedEnvironments, getSession } from './lib.js';
 import { getPassportSession } from './passport-client.js';
 import BuildFooter from './components/BuildFooter.jsx';
 import PageErrorBoundary from './components/PageErrorBoundary.jsx';
+import { getPageErrorBoundaryConfig } from './config/app-config.js';
 import { getAppStage, getRootHomePath, isPassportEventsEnabled, isPrelaunchEnabled } from './stage.js';
 
 function roleHome(session) {
@@ -197,12 +198,7 @@ export default function App() {
           element={
             eventsEnabled ? (
               <PageErrorBoundary
-                shellClassName="landing passport-fancy-public"
-                withBackdrop
-                title="Passport public tidak bisa dibuka"
-                description="Coba reload halaman ini atau kembali ke daftar event."
-                homeHref="/events"
-                homeLabel="Back to events"
+                {...getPageErrorBoundaryConfig('passportPublic')}
               >
                 <PassportPublicPage />
               </PageErrorBoundary>
@@ -220,11 +216,7 @@ export default function App() {
           element={
             eventsEnabled ? (
               <PageErrorBoundary
-                shellClassName="dashboard"
-                title="Checkout event bermasalah"
-                description="Halaman checkout gagal dirender. Reload atau kembali ke daftar event."
-                homeHref="/events"
-                homeLabel="Back to events"
+                {...getPageErrorBoundaryConfig('eventCheckout')}
               >
                 <EventCheckoutPage />
               </PageErrorBoundary>
@@ -236,11 +228,7 @@ export default function App() {
           element={
             eventsEnabled ? (
               <PageErrorBoundary
-                shellClassName="dashboard"
-                title="Checkout event bermasalah"
-                description="Halaman checkout gagal dirender. Reload atau kembali ke daftar event."
-                homeHref="/events"
-                homeLabel="Back to events"
+                {...getPageErrorBoundaryConfig('eventCheckout')}
               >
                 <EventCheckoutPage />
               </PageErrorBoundary>
@@ -252,11 +240,7 @@ export default function App() {
           element={
             eventsEnabled ? (
               <PageErrorBoundary
-                shellClassName="dashboard"
-                title="Checkout event bermasalah"
-                description="Halaman checkout gagal dirender. Reload atau kembali ke daftar event."
-                homeHref="/events"
-                homeLabel="Back to events"
+                {...getPageErrorBoundaryConfig('eventCheckout')}
               >
                 <EventCheckoutPage />
               </PageErrorBoundary>
@@ -267,11 +251,7 @@ export default function App() {
         path="/a/:account/e/:eventId"
         element={
           <PageErrorBoundary
-            shellClassName="dashboard"
-            title="Checkout event bermasalah"
-            description="Halaman checkout gagal dirender. Reload atau kembali ke daftar event."
-            homeHref="/host"
-            homeLabel="Back to home"
+            {...getPageErrorBoundaryConfig('accountEventCheckout')}
           >
             <EventCheckoutPage />
           </PageErrorBoundary>
@@ -300,12 +280,7 @@ export default function App() {
           <PassportProtectedRoute>
               <PassportRequireOnboarding>
                 <PageErrorBoundary
-                  shellClassName="dashboard passport-fancy-dashboard"
-                  withBackdrop
-                  title="Passport dashboard bermasalah"
-                  description="Dashboard passport gagal dirender. Reload halaman atau kembali ke landing."
-                  homeHref="/passport"
-                  homeLabel="Back to passport"
+                  {...getPageErrorBoundaryConfig('passportDashboard')}
                 >
                   <PassportDashboardPage />
                 </PageErrorBoundary>
@@ -319,12 +294,7 @@ export default function App() {
           <PassportProtectedRoute>
               <PassportRequireOnboarding>
                 <PageErrorBoundary
-                  shellClassName="dashboard passport-fancy-dashboard"
-                  withBackdrop
-                  title="Passport dashboard bermasalah"
-                  description="Dashboard passport gagal dirender. Reload halaman atau kembali ke landing."
-                  homeHref="/passport"
-                  homeLabel="Back to passport"
+                  {...getPageErrorBoundaryConfig('passportDashboard')}
                 >
                   <PassportDashboardPage />
                 </PageErrorBoundary>

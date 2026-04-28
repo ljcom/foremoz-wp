@@ -1,5 +1,6 @@
 import React from 'react';
 import PageStateCard from './PageStateCard.jsx';
+import { getPageErrorBoundaryConfig } from '../config/app-config.js';
 
 export default class PageErrorBoundary extends React.Component {
   constructor(props) {
@@ -16,14 +17,17 @@ export default class PageErrorBoundary extends React.Component {
   }
 
   render() {
+    const defaultCopy = getPageErrorBoundaryConfig('defaults');
     const {
       children,
-      shellClassName = 'dashboard',
-      withBackdrop = false,
-      title = 'Halaman gagal dirender',
-      description = 'Terjadi error tidak terduga saat menyiapkan halaman ini.',
-      homeHref = '/',
-      homeLabel = 'Kembali'
+      shellClassName = defaultCopy.shellClassName,
+      withBackdrop = defaultCopy.withBackdrop,
+      title = defaultCopy.title,
+      description = defaultCopy.description,
+      homeHref = defaultCopy.homeHref,
+      homeLabel = defaultCopy.homeLabel,
+      eyebrow = defaultCopy.eyebrow,
+      reloadLabel = defaultCopy.reloadLabel
     } = this.props;
 
     if (this.state.hasError) {
@@ -31,12 +35,12 @@ export default class PageErrorBoundary extends React.Component {
         <PageStateCard
           shellClassName={shellClassName}
           withBackdrop={withBackdrop}
-          eyebrow="Error Boundary"
+          eyebrow={eyebrow}
           title={title}
           description={description}
           actions={[
             {
-              label: 'Reload page',
+              label: reloadLabel,
               onClick: () => {
                 if (typeof window !== 'undefined') window.location.reload();
               }

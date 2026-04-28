@@ -13,6 +13,21 @@ import { getVerticalLabel, guessVerticalSlugByText } from '../industry-jargon.js
 import WorkspaceHeader from '../components/WorkspaceHeader.jsx';
 import { useI18n } from '../i18n.js';
 import { formatAppDateTime as formatDateTime } from '../time.js';
+import {
+  getConfigCopy,
+  getConfiguredOption,
+  getConfiguredOptions,
+  getDashboardOrderConfig,
+  normalizeConfiguredOptionValue
+} from '../config/app-config.js';
+
+const DASHBOARD_ORDER_CONFIG = getDashboardOrderConfig();
+const ORDER_TYPE_OPTIONS = getConfiguredOptions(DASHBOARD_ORDER_CONFIG, 'orderTypes');
+const ORDER_FORM_TYPE_OPTIONS = ORDER_TYPE_OPTIONS.filter((option) => option.visibleInOrderForm !== false);
+const ORDER_PAYMENT_METHOD_OPTIONS = getConfiguredOptions(DASHBOARD_ORDER_CONFIG, 'paymentMethods');
+const ORDER_SETTLEMENT_OPTIONS = getConfiguredOptions(DASHBOARD_ORDER_CONFIG, 'settlements');
+const DEFAULT_ORDER_TYPE = DASHBOARD_ORDER_CONFIG.defaultOrderType || ORDER_TYPE_OPTIONS[0]?.value || '';
+const DEFAULT_ORDER_PAYMENT_METHOD = DASHBOARD_ORDER_CONFIG.defaultPaymentMethod || ORDER_PAYMENT_METHOD_OPTIONS[0]?.value || '';
 
 function Stat({ label, value, iconClass, tone, hint, onClick, active = false }) {
   const Tag = onClick ? 'button' : 'article';
@@ -202,51 +217,30 @@ function buildOrderTargetKey(sourceKind, sourceId) {
 }
 
 function normalizeOrderType(value) {
-  const normalized = String(value || '').trim().toLowerCase();
-  return ['membership', 'event', 'class', 'pt', 'product', 'bundle'].includes(normalized) ? normalized : 'membership';
+  return normalizeConfiguredOptionValue(DASHBOARD_ORDER_CONFIG, 'orderTypes', value, DEFAULT_ORDER_TYPE);
 }
 
 function formatOrderTypeLabel(value) {
-  const normalized = normalizeOrderType(value);
-  if (normalized === 'membership') return 'Membership';
-  if (normalized === 'event') return 'Event';
-  if (normalized === 'class') return 'Program';
-  if (normalized === 'pt') return 'PT';
-  if (normalized === 'product') return 'Product';
-  if (normalized === 'bundle') return 'Bundle';
-  return 'Order';
+  return getConfiguredOption(DASHBOARD_ORDER_CONFIG, 'orderTypes', normalizeOrderType(value))?.label || '';
 }
 
-const ORDER_PAYMENT_METHOD_OPTIONS = [
-  {
-    value: 'cash',
-    label: 'Cash',
-    note: 'Pembayaran tunai dicatat manual oleh tim CS.'
-  },
-  {
-    value: 'qris',
-    label: 'QRIS',
-    note: 'Mockup scan QR untuk pembayaran instan.'
-  },
-  {
-    value: 'virtual_account',
-    label: 'Virtual account',
-    note: 'Nomor VA virtual untuk transfer otomatis.'
-  },
-  {
-    value: 'bank_transfer',
-    label: 'Bank transfer',
-    note: 'Transfer bank dengan verifikasi manual.'
-  },
-  {
-    value: 'ewallet',
-    label: 'E-wallet',
-    note: 'Pembayaran wallet digital sebagai simulasi checkout.'
-  }
-];
+function formatOrderTypeTargetLabel(value) {
+  const option = getConfiguredOption(DASHBOARD_ORDER_CONFIG, 'orderTypes', normalizeOrderType(value));
+  return String(option?.targetLabel || option?.label || '').toLowerCase();
+}
 
 function getOrderPaymentMethodMeta(value) {
-  return ORDER_PAYMENT_METHOD_OPTIONS.find((item) => item.value === value) || ORDER_PAYMENT_METHOD_OPTIONS[0];
+  return getConfiguredOption(DASHBOARD_ORDER_CONFIG, 'paymentMethods', value) || {};
+}
+
+function getOrderCopy(key) {
+  return getConfigCopy(DASHBOARD_ORDER_CONFIG, key);
+}
+
+function getTargetPlaceholder(type, targets) {
+  const targetLabel = formatOrderTypeTargetLabel(type);
+  if (targets.length > 0) return `${getOrderCopy('targetSelectPrefix')} ${targetLabel}`;
+  return `${getOrderCopy('targetEmptyPrefix')} ${targetLabel} ${getOrderCopy('targetEmptySuffix')}`;
 }
 
 function resolveOrderReferenceLabel(item, lookups = {}) {
@@ -431,13 +425,13 @@ export default function DashboardPage() {
   const [orderItems, setOrderItems] = useState([]);
   const [editingOrderId, setEditingOrderId] = useState('');
   const [orderForm, setOrderForm] = useState({
-    order_type: 'membership',
+    order_type: DEFAULT_ORDER_TYPE,
     target_key: '',
     label: '',
     qty: '1',
     unit_price: '',
-    method: 'cash',
-    settlement: 'pending',
+    method: DEFAULT_ORDER_PAYMENT_METHOD,
+    settlement: ORDER_SETTLEMENT_OPTIONS[0]?.value || '',
     notes: ''
   });
   const [actionFeedback, setActionFeedback] = useState('');
@@ -771,13 +765,13 @@ export default function DashboardPage() {
       )));
       if (editingOrderId === orderId) {
         setOrderForm({
-          order_type: 'membership',
+          order_type: DEFAULT_ORDER_TYPE,
           target_key: '',
           label: '',
           qty: '1',
           unit_price: '',
-          method: 'cash',
-          settlement: 'pending',
+          method: DEFAULT_ORDER_PAYMENT_METHOD,
+          settlement: ORDER_SETTLEMENT_OPTIONS[0]?.value || '',
           notes: ''
         });
         setOrderItems([]);
@@ -1139,13 +1133,13 @@ export default function DashboardPage() {
       await loadSelectedMemberOrders(selectedMember.member_id);
       await loadSelectedMemberPayments(selectedMember.member_id);
       setOrderForm({
-        order_type: 'membership',
+        order_type: DEFAULT_ORDER_TYPE,
         target_key: '',
         label: '',
         qty: '1',
         unit_price: '',
-        method: 'cash',
-        settlement: 'pending',
+        method: DEFAULT_ORDER_PAYMENT_METHOD,
+        settlement: ORDER_SETTLEMENT_OPTIONS[0]?.value || '',
         notes: ''
       });
       setOrderItems([]);
@@ -1393,15 +1387,18 @@ export default function DashboardPage() {
       order_label: `Product - ${item.product_name || item.product_id}`
     }))
   ), [products]);
+  const orderTargetCollections = useMemo(() => ({
+    membership: membershipOrderTargets,
+    event: eventOrderTargets,
+    class: classOrderTargets,
+    pt: ptOrderTargets,
+    product: productOrderTargets
+  }), [membershipOrderTargets, eventOrderTargets, classOrderTargets, ptOrderTargets, productOrderTargets]);
   const currentOrderTargets = useMemo(() => {
     const orderType = normalizeOrderType(orderForm.order_type);
-    if (orderType === 'membership') return membershipOrderTargets;
-    if (orderType === 'event') return eventOrderTargets;
-    if (orderType === 'class') return classOrderTargets;
-    if (orderType === 'pt') return ptOrderTargets;
-    if (orderType === 'product') return productOrderTargets;
-    return [];
-  }, [orderForm.order_type, membershipOrderTargets, eventOrderTargets, classOrderTargets, ptOrderTargets, productOrderTargets]);
+    const orderTypeConfig = getConfiguredOption(DASHBOARD_ORDER_CONFIG, 'orderTypes', orderType);
+    return orderTargetCollections[orderTypeConfig?.targetCollection] || [];
+  }, [orderForm.order_type, orderTargetCollections]);
   const selectedOrderTarget = useMemo(
     () => currentOrderTargets.find((item) => item.key === orderForm.target_key) || null,
     [currentOrderTargets, orderForm.target_key]
@@ -3377,7 +3374,7 @@ export default function DashboardPage() {
                   {orderFlowStep === 'form' ? (
                     <div className="form">
                       <label>
-                        Order type
+                        {getOrderCopy('orderTypeLabel')}
                         <select
                           value={orderForm.order_type}
                           onChange={(e) =>
@@ -3392,15 +3389,13 @@ export default function DashboardPage() {
                             }))
                           }
                         >
-                          <option value="membership">membership</option>
-                          <option value="event">event</option>
-                          <option value="class">program</option>
-                          <option value="pt">pt</option>
-                          <option value="product">product</option>
+                          {ORDER_FORM_TYPE_OPTIONS.map((option) => (
+                            <option key={option.value} value={option.value}>{option.selectLabel || option.label}</option>
+                          ))}
                         </select>
                       </label>
                       <label>
-                        Target
+                        {getOrderCopy('targetLabel')}
                         <select
                           value={orderForm.target_key}
                           onChange={(e) => {
@@ -3412,11 +3407,7 @@ export default function DashboardPage() {
                             applyOrderTarget(nextTarget);
                           }}
                         >
-                          <option value="">
-                            {currentOrderTargets.length > 0
-                              ? `Pilih ${formatOrderTypeLabel(orderForm.order_type).toLowerCase()}`
-                              : `Belum ada ${formatOrderTypeLabel(orderForm.order_type).toLowerCase()} aktif`}
-                          </option>
+                          <option value="">{getTargetPlaceholder(orderForm.order_type, currentOrderTargets)}</option>
                           {currentOrderTargets.map((item) => (
                             <option key={item.key} value={item.key}>
                               {item.label}
@@ -3426,23 +3417,23 @@ export default function DashboardPage() {
                       </label>
                       {selectedOrderTarget ? (
                         <div className="card" style={{ borderStyle: 'dashed' }}>
-                          <p className="eyebrow">Selected target</p>
+                          <p className="eyebrow">{getOrderCopy('selectedTargetEyebrow')}</p>
                           <p><strong>{selectedOrderTarget.label}</strong></p>
                           <p>{selectedOrderTarget.helper}</p>
-                          <p>Reference: {selectedOrderTarget.reference_type} / {selectedOrderTarget.reference_id || '-'}</p>
-                          <p>Default price: {formatIdr(selectedOrderTarget.unit_price || 0)}</p>
+                          <p>{getOrderCopy('referenceLabel')}: {selectedOrderTarget.reference_type} / {selectedOrderTarget.reference_id || '-'}</p>
+                          <p>{getOrderCopy('defaultPriceLabel')}: {formatIdr(selectedOrderTarget.unit_price || 0)}</p>
                         </div>
                       ) : null}
                       <label>
-                        Order label
+                        {getOrderCopy('orderLabelLabel')}
                         <input
                           value={orderForm.label}
                           onChange={(e) => setOrderForm((prev) => ({ ...prev, label: e.target.value }))}
-                          placeholder="Opsional: Bundle April / Paket promo / Checkout member"
+                          placeholder={getOrderCopy('orderLabelPlaceholder')}
                         />
                       </label>
                       <label>
-                        Qty
+                        {getOrderCopy('qtyLabel')}
                         <input
                           type="number"
                           min="1"
@@ -3452,7 +3443,7 @@ export default function DashboardPage() {
                         />
                       </label>
                       <label>
-                        Unit price
+                        {getOrderCopy('unitPriceLabel')}
                         <input
                           type="number"
                           min="0"
@@ -3461,19 +3452,19 @@ export default function DashboardPage() {
                         />
                       </label>
                       <label>
-                        Notes
+                        {getOrderCopy('notesLabel')}
                         <input
                           value={orderForm.notes}
                           onChange={(e) => setOrderForm((prev) => ({ ...prev, notes: e.target.value }))}
-                          placeholder="Catatan internal order untuk CS"
+                          placeholder={getOrderCopy('notesPlaceholder')}
                         />
                       </label>
                       <div className="row-actions">
                         <button className="btn" type="button" disabled={orderSaving} onClick={addCurrentItemToOrder}>
-                          Tambah item ke order
+                          {getOrderCopy('addItemButton')}
                         </button>
                         <button className="btn" type="button" disabled={orderSaving} onClick={continueOrderToPayment}>
-                          Lanjut ke payment
+                          {getOrderCopy('continuePaymentButton')}
                         </button>
                         {editingOrderId ? (
                           <button
@@ -3485,34 +3476,34 @@ export default function DashboardPage() {
                               setOrderPaymentDraft(null);
                               setOrderFlowStep('form');
                               setOrderForm({
-                                order_type: 'membership',
+                                order_type: DEFAULT_ORDER_TYPE,
                                 target_key: '',
                                 label: '',
                                 qty: '1',
                                 unit_price: '',
-                                method: 'cash',
-                                settlement: 'pending',
+                                method: DEFAULT_ORDER_PAYMENT_METHOD,
+                                settlement: ORDER_SETTLEMENT_OPTIONS[0]?.value || '',
                                 notes: ''
                               });
                             }}
                           >
-                            Batal edit
+                            {getOrderCopy('cancelEditButton')}
                           </button>
                         ) : null}
                         <button className="btn ghost" type="button" onClick={applyCurrentContextToOrder}>
-                          Use current context
+                          {getOrderCopy('useCurrentContextButton')}
                         </button>
                       </div>
                       {orderItems.length > 0 ? (
                         <div className="card" style={{ borderStyle: 'dashed' }}>
-                          <p className="eyebrow">Item dalam order</p>
+                          <p className="eyebrow">{getOrderCopy('orderItemsEyebrow')}</p>
                           <div className="entity-list">
                             {orderItems.map((item) => (
                               <div className="entity-row" key={item.item_id}>
                                 <div>
                                   <strong>{item.target_label}</strong>
                                   <p>{formatOrderTypeLabel(item.order_type)} | {item.reference_type || '-'} / {item.reference_id || '-'}</p>
-                                  <p>Qty {item.qty} x {formatIdr(item.unit_price)}</p>
+                                  <p>{getOrderCopy('qtyPrefix')} {item.qty} x {formatIdr(item.unit_price)}</p>
                                 </div>
                                 <div className="payment-meta">
                                   <strong>{formatIdr(item.total_amount)}</strong>
@@ -3523,17 +3514,17 @@ export default function DashboardPage() {
                               </div>
                             ))}
                           </div>
-                          <p className="feedback">Total sementara: {formatIdr(orderItems.reduce((sum, item) => sum + Number(item.total_amount || 0), 0))}</p>
+                          <p className="feedback">{getOrderCopy('temporaryTotalLabel')}: {formatIdr(orderItems.reduce((sum, item) => sum + Number(item.total_amount || 0), 0))}</p>
                         </div>
                       ) : (
-                        <p className="muted">Belum ada item yang ditambahkan. Anda bisa langsung lanjut ke payment untuk 1 item aktif, atau tambah beberapa item dulu.</p>
+                        <p className="muted">{getOrderCopy('emptyOrderItems')}</p>
                       )}
                     </div>
                   ) : (
                     <div className="form">
                       <div className="payment-checkout-grid">
                         <div className="payment-checkout-card">
-                          <p className="eyebrow">Payment method</p>
+                          <p className="eyebrow">{getOrderCopy('paymentMethodEyebrow')}</p>
                           <div className="payment-method-grid">
                             {ORDER_PAYMENT_METHOD_OPTIONS.map((option) => (
                               <button
@@ -3550,26 +3541,27 @@ export default function DashboardPage() {
                           <div className="payment-method-preview">
                             <p><strong>{getOrderPaymentMethodMeta(orderForm.method).label}</strong></p>
                             <p className="muted">{getOrderPaymentMethodMeta(orderForm.method).note}</p>
-                            <p className="feedback">Payment ini mockup CS. Anda bisa tandai pending atau paid sebelum order dibuat.</p>
+                            <p className="feedback">{getOrderCopy('paymentMethodPreview')}</p>
                           </div>
                           <label>
-                            Payment result
+                            {getOrderCopy('paymentResultLabel')}
                             <select value={orderForm.settlement} onChange={(e) => setOrderForm((prev) => ({ ...prev, settlement: e.target.value }))}>
-                              <option value="pending">pending</option>
-                              <option value="paid">paid</option>
+                              {ORDER_SETTLEMENT_OPTIONS.map((option) => (
+                                <option key={option.value} value={option.value}>{option.label}</option>
+                              ))}
                             </select>
                           </label>
                         </div>
                         <div className="payment-checkout-card payment-summary-card">
-                          <p className="eyebrow">Order summary</p>
+                          <p className="eyebrow">{getOrderCopy('orderSummaryEyebrow')}</p>
                           <p><strong>{orderPaymentDraft?.requestBody?.order_label || '-'}</strong></p>
-                          <p className="feedback">Member: {orderPaymentDraft?.summary?.memberName || '-'}</p>
-                          <p className="feedback">Type: {orderPaymentDraft?.summary?.orderTypeLabel || '-'}</p>
-                          <p className="feedback">Target: {orderPaymentDraft?.summary?.targetLabel || '-'}</p>
-                          <p className="feedback">Reference: {orderPaymentDraft?.summary?.referenceLabel || '-'}</p>
-                          <p className="feedback">Qty: {orderPaymentDraft?.summary?.qty || 0}</p>
-                          <p className="feedback">Payment method: {getOrderPaymentMethodMeta(orderForm.method).label}</p>
-                          <p className="feedback">Status payment: {orderForm.settlement}</p>
+                          <p className="feedback">{getOrderCopy('summaryMemberLabel')}: {orderPaymentDraft?.summary?.memberName || '-'}</p>
+                          <p className="feedback">{getOrderCopy('summaryTypeLabel')}: {orderPaymentDraft?.summary?.orderTypeLabel || '-'}</p>
+                          <p className="feedback">{getOrderCopy('summaryTargetLabel')}: {orderPaymentDraft?.summary?.targetLabel || '-'}</p>
+                          <p className="feedback">{getOrderCopy('summaryReferenceLabel')}: {orderPaymentDraft?.summary?.referenceLabel || '-'}</p>
+                          <p className="feedback">{getOrderCopy('summaryQtyLabel')}: {orderPaymentDraft?.summary?.qty || 0}</p>
+                          <p className="feedback">{getOrderCopy('summaryPaymentMethodLabel')}: {getOrderPaymentMethodMeta(orderForm.method).label}</p>
+                          <p className="feedback">{getOrderCopy('summaryPaymentStatusLabel')}: {orderForm.settlement}</p>
                           <p className="payment-summary-total">{formatIdr(orderPaymentDraft?.summary?.totalAmount || 0)}</p>
                           {Array.isArray(orderPaymentDraft?.summary?.items) && orderPaymentDraft.summary.items.length > 0 ? (
                             <div className="entity-list" style={{ marginTop: '0.8rem' }}>
@@ -3581,13 +3573,13 @@ export default function DashboardPage() {
                                   </div>
                                   <div className="payment-meta">
                                     <strong>{formatIdr(item.total_amount)}</strong>
-                                    <small>Qty {item.qty}</small>
+                                    <small>{getOrderCopy('qtyPrefix')} {item.qty}</small>
                                   </div>
                                 </div>
                               ))}
                             </div>
                           ) : null}
-                          <small>Order baru akan dibuat saat tombol konfirmasi payment ditekan.</small>
+                          <small>{getOrderCopy('confirmHelp')}</small>
                         </div>
                       </div>
                       <div className="row-actions">
@@ -3600,7 +3592,7 @@ export default function DashboardPage() {
                             setOrderFlowStep('form');
                           }}
                         >
-                          Kembali ke form
+                          {getOrderCopy('backToFormButton')}
                         </button>
                         <button className="btn" type="button" disabled={orderSaving} onClick={submitOrder}>
                           {orderSaving ? 'Menyimpan...' : editingOrderId ? 'Simpan perubahan order' : 'Konfirmasi payment & create order'}
@@ -3662,9 +3654,7 @@ export default function DashboardPage() {
                             {isMultiBranchPlan ? (
                               <>
                                 <option value="">
-                                  {currentCheckinTargets.length > 0
-                                    ? `Pilih ${formatOrderTypeLabel(selectedExperienceType).toLowerCase()}`
-                                    : `Belum ada ${formatOrderTypeLabel(selectedExperienceType).toLowerCase()} aktif`}
+                                  {getTargetPlaceholder(selectedExperienceType, currentCheckinTargets)}
                                 </option>
                                 {currentCheckinTargets.map((item) => (
                                   <option key={item.key} value={item.source_id}>
@@ -3687,11 +3677,11 @@ export default function DashboardPage() {
                       </div>
                       {isMultiBranchPlan && selectedCheckinTarget ? (
                         <div className="card" style={{ marginTop: '1rem', borderStyle: 'dashed' }}>
-                          <p className="eyebrow">Selected target</p>
+                          <p className="eyebrow">{getOrderCopy('selectedTargetEyebrow')}</p>
                           <p><strong>{selectedCheckinTarget.label}</strong></p>
                           <p>{selectedCheckinTarget.helper}</p>
-                          <p>Reference: {selectedCheckinTarget.reference_type} / {selectedCheckinTarget.reference_id || '-'}</p>
-                          <p>Default price: {formatIdr(selectedCheckinTarget.unit_price || 0)}</p>
+                          <p>{getOrderCopy('referenceLabel')}: {selectedCheckinTarget.reference_type} / {selectedCheckinTarget.reference_id || '-'}</p>
+                          <p>{getOrderCopy('defaultPriceLabel')}: {formatIdr(selectedCheckinTarget.unit_price || 0)}</p>
                         </div>
                       ) : null}
 
