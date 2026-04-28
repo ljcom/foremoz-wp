@@ -48,8 +48,11 @@
     "copy": {
       "brand": "Foremoz",
       "eyebrow": "Sales Workspace",
+      "topbarEyebrow": "Foremoz Admin",
       "titleFallback": "Sales",
       "subtitle": "Manage prospects, follow-ups, conversions, and incentive basis.",
+      "signedInAs": "Signed in as",
+      "signOut": "Sign out",
       "insightEyebrow": "Insight",
       "loading": "Loading sales workspace...",
       "quickGuideEyebrow": "Quick Guide",

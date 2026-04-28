@@ -639,18 +639,26 @@ export default function SalesPage() {
     <main className="backend-shell sales-workspace-shell">
       <aside className="backend-sidebar">
         <div className="backend-sidebar-brand">{salesCopy('brand', 'Foremoz')}</div>
-        {SALES_NAV_ITEMS.map((item) => (
-          <a key={item.id} className={item.active ? 'active' : ''} href={item.href || `#${item.id}`}>
-            {item.label || item.id}
-          </a>
-        ))}
+        <nav className="backend-sidebar-nav" aria-label="Sales workspace navigation">
+          {SALES_NAV_ITEMS.map((item) => (
+            <a key={item.id} className={item.active ? 'active' : ''} href={item.href || `#${item.id}`}>
+              {item.label || item.id}
+            </a>
+          ))}
+        </nav>
+        <div className="backend-sidebar-user">
+          <p>{salesCopy('signedInAs', 'Signed in as')}</p>
+          <strong>{session?.user?.fullName || salesCopy('titleFallback', 'Sales')}</strong>
+          <small>{role}</small>
+          <button className="btn ghost small" type="button" onClick={signOut}>{salesCopy('signOut', 'Sign out')}</button>
+        </div>
       </aside>
 
       <section className="backend-main">
         <header className="backend-topbar">
           <div>
-            <p className="eyebrow">{salesCopy('eyebrow', 'Sales Workspace')}</p>
-            <h1>{session?.user?.fullName || salesCopy('titleFallback', 'Sales')}</h1>
+            <p className="eyebrow">{salesCopy('topbarEyebrow', 'Foremoz Admin')}</p>
+            <h1>{salesCopy('eyebrow', 'Sales Workspace')}</h1>
             <p className="muted">{salesCopy('subtitle', 'Manage prospects, follow-ups, conversions, and incentive basis.')}</p>
           </div>
           <div className="backend-topbar-actions">
@@ -667,7 +675,6 @@ export default function SalesPage() {
                 {getEnvironmentLabel(env)}
               </button>
             ))}
-            <button className="btn ghost small" type="button" onClick={signOut}>Sign out</button>
             <button className="btn small" type="button" onClick={() => setProspectDrawerOpen(true)}>{salesCopy('addProspect', 'Add Prospect')}</button>
           </div>
         </header>

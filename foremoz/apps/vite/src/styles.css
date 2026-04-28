@@ -2507,6 +2507,12 @@ code {
   letter-spacing: 0;
 }
 
+.backend-sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
 .backend-sidebar a {
   display: flex;
   align-items: center;
@@ -2523,6 +2529,30 @@ code {
 .backend-sidebar a.active {
   background: rgba(255, 255, 255, 0.1);
   color: #ffffff;
+}
+
+.backend-sidebar-user {
+  margin-top: auto;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  display: grid;
+  gap: 0.35rem;
+}
+
+.backend-sidebar-user p,
+.backend-sidebar-user small {
+  margin: 0;
+  color: #9fb5ad;
+}
+
+.backend-sidebar-user strong {
+  color: #ffffff;
+  font-size: 0.95rem;
+}
+
+.backend-sidebar-user .btn {
+  width: 100%;
+  margin-top: 0.35rem;
 }
 
 .backend-main {
@@ -2768,13 +2798,19 @@ code {
   .backend-sidebar {
     position: relative;
     height: auto;
+  }
+
+  .backend-sidebar-brand {
+    margin-bottom: 0.5rem;
+  }
+
+  .backend-sidebar-nav {
     flex-direction: row;
     flex-wrap: wrap;
   }
 
-  .backend-sidebar-brand {
-    width: 100%;
-    margin-bottom: 0.5rem;
+  .backend-sidebar-user {
+    margin-top: 0.75rem;
   }
 
   .backend-main {

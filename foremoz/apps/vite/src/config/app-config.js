@@ -155,7 +155,10 @@ export function validateAppUiConfig(config = appUiConfig) {
   requireConfigCopy(config, 'salesWorkspace.copy', [
     'brand',
     'eyebrow',
+    'topbarEyebrow',
     'subtitle',
+    'signedInAs',
+    'signOut',
     'quickGuideEyebrow',
     'prospectPipelineTitle',
     'addProspect',
