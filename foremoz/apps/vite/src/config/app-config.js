@@ -110,6 +110,10 @@ export function getWorkspaceAccessValue(policyKey, key) {
   return String(getRoutePolicy(policyKey)[key] || '');
 }
 
+export function getWorkspaceAccessConfigList(key) {
+  return asArray(getWorkspaceAccessConfig()[key]);
+}
+
 export function getWorkspaceConfigList(key, value, fallbackKey = 'default') {
   const accessConfig = getWorkspaceAccessConfig();
   const collection = asObject(accessConfig[key]);

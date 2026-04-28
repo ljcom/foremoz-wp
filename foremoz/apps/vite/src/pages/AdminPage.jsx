@@ -18,6 +18,7 @@ import {
   getAdminPlanLabel,
   getAdminTabsConfig,
   getMappedWorkspacePath,
+  getWorkspaceAccessConfigList,
   isConfiguredAdminEventPublishedStatus
 } from '../config/app-config.js';
 import {
@@ -93,6 +94,7 @@ const TRANSACTION_STATUS_FILTER_OPTIONS = getAdminPageOptions('transactionStatus
 const TRANSACTION_LINK_FILTER_OPTIONS = getAdminPageOptions('transactionLinkFilters');
 const TRANSACTION_CURRENCY_OPTIONS = getAdminPageOptions('transactionCurrencies');
 const TRANSACTION_METHOD_OPTIONS = getAdminPageOptions('transactionMethods');
+const WORKSPACE_SWITCHER_ENVIRONMENTS = getWorkspaceAccessConfigList('workspaceSwitcherEnvironments');
 
 const IDR_FORMATTER = new Intl.NumberFormat('id-ID');
 
@@ -2352,8 +2354,7 @@ export default function AdminPage() {
     [enabledAdminTabIds]
   );
   const lockedWorkspaces = useMemo(() => {
-    const allWorkspaceIds = ['cs', 'pt', 'sales'];
-    return allWorkspaceIds.filter((env) => !allowedEnv.includes(env));
+    return WORKSPACE_SWITCHER_ENVIRONMENTS.filter((env) => !allowedEnv.includes(env));
   }, [allowedEnv]);
   const packagePlanLabel = getAdminPlanLabel(packagePlan, sentenceCase(String(packagePlan || 'starter').replace(/_/g, ' ')));
 

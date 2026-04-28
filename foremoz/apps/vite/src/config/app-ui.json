@@ -74,6 +74,7 @@
       "admin": "settings",
       "cs": "customer service"
     },
+    "workspaceSwitcherEnvironments": ["cs", "pt", "sales"],
     "defaultEnvironments": ["admin", "cs", "pt", "sales"],
     "planEnvironments": {
       "free": ["admin", "cs"],
