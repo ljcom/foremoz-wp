@@ -477,6 +477,7 @@ export default function DashboardPage() {
   const allowedEnv = useMemo(() => {
     return getAllowedEnvironments(session, role);
   }, [session, role]);
+  const showClassWorkspace = packagePlan !== 'free';
   const csSidebarNavItems = useMemo(
     () =>
       CS_SIDEBAR_NAV_ITEMS
@@ -491,7 +492,6 @@ export default function DashboardPage() {
         })),
     [showClassWorkspace]
   );
-  const showClassWorkspace = packagePlan !== 'free';
 
   useEffect(() => {
     if (allowedEnv.length === 0) return;
