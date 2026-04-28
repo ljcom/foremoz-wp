@@ -2553,11 +2553,11 @@ code {
 
 .backend-title-env-popover {
   position: absolute;
-  top: calc(100% + 0.35rem);
+  top: 100%;
   right: 0;
   z-index: 20;
   min-width: 132px;
-  padding: 0.35rem;
+  padding: 0.45rem 0.35rem 0.35rem;
   border: 1px solid rgba(223, 247, 237, 0.18);
   border-radius: 10px;
   background: #10231d;
