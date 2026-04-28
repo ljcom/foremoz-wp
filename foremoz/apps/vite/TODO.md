@@ -29,7 +29,7 @@
 - [x] Move AdminPage SaaS extension labels, feedback, and footer copy into JSON config.
 - [x] Move AdminPage class/program validation and save feedback into JSON config.
 - [x] Move AdminPage event validation, publish/export, and save feedback into JSON config.
-- [ ] Inventory current UI surfaces that still define labels, navigation, tabs, statuses, actions, empty states, or copy directly in components.
+- [x] Inventory current UI surfaces that still define labels, navigation, tabs, statuses, actions, empty states, or copy directly in components.
 - [ ] Define or extend JSON config for navigation, page layouts, table columns, forms, badge variants, workflow actions, and empty states before adding new UI.
 - [ ] Keep renderers generic: components should receive config and context instead of owning business-specific arrays or rules.
 - [ ] Keep visual choices on design tokens, semantic variants, CSS variables, or Tailwind presets instead of raw one-off styling inside components.
