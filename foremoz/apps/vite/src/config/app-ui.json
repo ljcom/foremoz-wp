@@ -557,6 +557,22 @@
       { "value": "credit_card", "label": "credit_card" },
       { "value": "debit_card", "label": "debit_card" }
     ],
+    "transactionTableColumns": [
+      { "value": "no_transaction", "label": "No Transaction" },
+      { "value": "member_id", "label": "Member" },
+      { "value": "product", "label": "Product" },
+      { "value": "qty", "label": "Qty" },
+      { "value": "price", "label": "Price" },
+      { "value": "method", "label": "Method" },
+      { "value": "status", "label": "Status" },
+      { "value": "review_note", "label": "Review" },
+      { "value": "actions", "label": "Aksi" }
+    ],
+    "transactionActions": [
+      { "value": "view", "label": "view", "visibleWhenStatus": "any" },
+      { "value": "confirm", "label": "confirm", "visibleWhenStatus": "pending" },
+      { "value": "reject", "label": "reject", "visibleWhenStatus": "pending" }
+    ],
     "saasExtensionMonths": [
       { "value": "1", "label": "1" },
       { "value": "3", "label": "3" },

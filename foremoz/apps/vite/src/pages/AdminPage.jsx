@@ -53,6 +53,8 @@ const TRANSACTION_STATUS_FILTER_OPTIONS = getAdminPageOptions('transactionStatus
 const TRANSACTION_LINK_FILTER_OPTIONS = getAdminPageOptions('transactionLinkFilters');
 const TRANSACTION_CURRENCY_OPTIONS = getAdminPageOptions('transactionCurrencies');
 const TRANSACTION_METHOD_OPTIONS = getAdminPageOptions('transactionMethods');
+const TRANSACTION_TABLE_COLUMNS = getAdminPageOptions('transactionTableColumns');
+const TRANSACTION_ACTIONS = getAdminPageOptions('transactionActions');
 const SAAS_EXTENSION_MONTH_OPTIONS = getAdminPageOptions('saasExtensionMonths');
 const WORKSPACE_SWITCHER_ENVIRONMENTS = getWorkspaceAccessConfigList('workspaceSwitcherEnvironments');
 
@@ -68,6 +70,12 @@ function createEmptyPackageForm() {
 
 function getPackageTypeMeta(packageType) {
   return getAdminPackageTypeConfig(packageType);
+}
+
+function isAdminActionVisible(action, item) {
+  const status = String(item?.status || '').toLowerCase();
+  const condition = String(action?.visibleWhenStatus || 'any').toLowerCase();
+  return condition === 'any' || condition === status;
 }
 
 function toDurationMinutes(durationValue, durationUnit) {
@@ -8231,15 +8239,9 @@ export default function AdminPage() {
                     <table className="admin-data-table">
                       <thead>
                         <tr>
-                          <th className="admin-data-head">No Transaction</th>
-                          <th className="admin-data-head">Member</th>
-                          <th className="admin-data-head">Product</th>
-                          <th className="admin-data-head">Qty</th>
-                          <th className="admin-data-head">Price</th>
-                          <th className="admin-data-head">Method</th>
-                          <th className="admin-data-head">Status</th>
-                          <th className="admin-data-head">Review</th>
-                          <th className="admin-data-head">Aksi</th>
+                          {TRANSACTION_TABLE_COLUMNS.map((column) => (
+                            <th className="admin-data-head" key={column.value}>{column.label}</th>
+                          ))}
                         </tr>
                       </thead>
                       <tbody>
@@ -8260,45 +8262,27 @@ export default function AdminPage() {
                             <td className="admin-data-cell">{item.review_note || '-'}</td>
                             <td className="admin-data-cell">
                               <div className="row-actions admin-action-strip">
-                                <span
-                                  role="button"
-                                  tabIndex={0}
-                                  className="admin-action-chip"
-                                  onClick={() => viewTransaction(item)}
-                                  onKeyDown={(e) => {
-                                    if (e.key === 'Enter' || e.key === ' ') {
-                                      viewTransaction(item);
-                                    }
-                                  }}
-                                >
-                                  view
-                                </span>
-                                {String(item.status || '').toLowerCase() === 'pending' ? (
-                                  <>
+                                {TRANSACTION_ACTIONS.filter((action) => isAdminActionVisible(action, item)).map((action) => {
+                                  const runAction = () => {
+                                    if (action.value === 'view') viewTransaction(item);
+                                    if (action.value === 'confirm') confirmTransaction(item);
+                                    if (action.value === 'reject') rejectTransaction(item);
+                                  };
+                                  return (
                                     <span
                                       role="button"
                                       tabIndex={0}
                                       className="admin-action-chip"
-                                      onClick={() => confirmTransaction(item)}
+                                      key={action.value}
+                                      onClick={runAction}
                                       onKeyDown={(e) => {
-                                        if (e.key === 'Enter' || e.key === ' ') confirmTransaction(item);
+                                        if (e.key === 'Enter' || e.key === ' ') runAction();
                                       }}
                                     >
-                                      confirm
+                                      {action.label}
                                     </span>
-                                    <span
-                                      role="button"
-                                      tabIndex={0}
-                                      className="admin-action-chip"
-                                      onClick={() => rejectTransaction(item)}
-                                      onKeyDown={(e) => {
-                                        if (e.key === 'Enter' || e.key === ' ') rejectTransaction(item);
-                                      }}
-                                    >
-                                      reject
-                                    </span>
-                                  </>
-                                ) : null}
+                                  );
+                                })}
                               </div>
                             </td>
                           </tr>
