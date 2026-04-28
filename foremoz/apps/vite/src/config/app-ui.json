@@ -637,6 +637,15 @@
       "trainerSelect": "pilih trainer",
       "programSelect": "pilih program",
       "programEventSelect": "Pilih program/event..."
+    },
+    "titleSuggestion": {
+      "artPrefix": ["Warna", "Jejak", "Ruang", "Kanvas", "Narasi", "Spektrum"],
+      "artSuffix": ["Nusantara", "Warisan", "Majapahit", "Peradaban", "Budaya Indonesia"],
+      "genericPrefix": ["Momentum", "Ritme", "Puncak", "Arah", "Forum", "Eksplorasi"],
+      "genericSuffix": ["Komunitas", "Kreatif", "Inovasi", "Kolaborasi", "Pengalaman"],
+      "artFallbackCategory": "Art Experience",
+      "genericFallbackCategory": "Community Session",
+      "eventFallback": "Event"
     }
   },
   "csDashboard": {

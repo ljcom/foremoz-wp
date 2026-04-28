@@ -35,6 +35,10 @@ export function getAdminPageCopy(key, vars = {}) {
   return template.replace(/\{(\w+)\}/g, (_, varKey) => String(vars[varKey] ?? ''));
 }
 
+export function getAdminPageObject(key) {
+  return asObject(getAdminPageConfig()[key]);
+}
+
 export function getAdminFixture(key) {
   return asArray(asObject(getAdminPageConfig().fixtures)[key]);
 }

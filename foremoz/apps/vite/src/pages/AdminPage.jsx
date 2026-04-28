@@ -14,6 +14,7 @@ import {
   getAdminEventWorkflowValue,
   getAdminFixture,
   getAdminPageCopy,
+  getAdminPageObject,
   getAdminPackageTypeConfig,
   getAdminPackageTypesConfig,
   getAdminPageOptions,
@@ -65,6 +66,7 @@ const TRANSACTION_TABLE_COLUMNS = getAdminPageOptions('transactionTableColumns')
 const TRANSACTION_ACTIONS = getAdminPageOptions('transactionActions');
 const SAAS_EXTENSION_MONTH_OPTIONS = getAdminPageOptions('saasExtensionMonths');
 const WORKSPACE_SWITCHER_ENVIRONMENTS = getWorkspaceAccessConfigList('workspaceSwitcherEnvironments');
+const TITLE_SUGGESTION_CONFIG = getAdminPageObject('titleSuggestion');
 
 const IDR_FORMATTER = new Intl.NumberFormat('id-ID');
 
@@ -491,17 +493,15 @@ function buildCatchyTitle(baseText, categories = [], location = '') {
   const locationToken = titleCaseWords(String(location || '').split(',')[0] || '').trim();
   const isArt = /art|lukis|lukisan|pameran|gallery|exhibition|museum/i.test(`${clean} ${category}`);
 
-  const artPrefix = ['Warna', 'Jejak', 'Ruang', 'Kanvas', 'Narasi', 'Spektrum'];
-  const artSuffix = ['Nusantara', 'Warisan', 'Majapahit', 'Peradaban', 'Budaya Indonesia'];
-  const genericPrefix = ['Momentum', 'Ritme', 'Puncak', 'Arah', 'Forum', 'Eksplorasi'];
-  const genericSuffix = ['Komunitas', 'Kreatif', 'Inovasi', 'Kolaborasi', 'Pengalaman'];
-
-  const withMarker = `${pickRandom(isArt ? artPrefix : genericPrefix, clean)} ${pickRandom(isArt ? artSuffix : genericSuffix, category || 'Event')}`.trim();
+  const prefixOptions = isArt ? TITLE_SUGGESTION_CONFIG.artPrefix : TITLE_SUGGESTION_CONFIG.genericPrefix;
+  const suffixOptions = isArt ? TITLE_SUGGESTION_CONFIG.artSuffix : TITLE_SUGGESTION_CONFIG.genericSuffix;
+  const fallbackCategory = isArt ? TITLE_SUGGESTION_CONFIG.artFallbackCategory : TITLE_SUGGESTION_CONFIG.genericFallbackCategory;
+  const withMarker = `${pickRandom(prefixOptions, clean)} ${pickRandom(suffixOptions, category || TITLE_SUGGESTION_CONFIG.eventFallback)}`.trim();
   const options = [
     clean,
     `${clean}: ${withMarker}`,
     `${withMarker} | ${clean}`,
-    `${clean} - ${category || (isArt ? 'Art Experience' : 'Community Session')}`.trim(),
+    `${clean} - ${category || fallbackCategory}`.trim(),
     locationToken ? `${withMarker} @ ${locationToken}` : '',
     locationToken ? `${clean} @ ${locationToken}` : ''
   ].filter(Boolean);
