@@ -1432,15 +1432,6 @@ export default function WebOwnerPage() {
       navItems={hostSidebarNavItems}
       onSelectEnv={goToEnv}
       onSignOut={signOut}
-      primaryActions={isSetupReady ? (
-        <button
-          className="btn ghost small"
-          onClick={() => openDashboardInNewTab(setupForm.account_slug)}
-          type="button"
-        >
-          Buka dashboard
-        </button>
-      ) : null}
       role={role}
       session={session}
       targetEnv="host"
