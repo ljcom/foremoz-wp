@@ -389,6 +389,8 @@
       "classBeforeInfoPlaceholder": "Contoh: datang 15 menit lebih awal, bawa handuk, check-in di front desk, gunakan pakaian training.",
       "classAfterInfoEyebrow": "After program",
       "classAfterInfoPlaceholder": "Contoh: form evaluasi, video replay, homework, atau instruksi booking sesi berikutnya.",
+      "packageGatingEyebrow": "Package gating",
+      "clipboardUnavailableError": "clipboard not available",
       "productEyebrow": "Product",
       "productListTitle": "Product list, delete",
       "productSearchPlaceholder": "Cari product...",

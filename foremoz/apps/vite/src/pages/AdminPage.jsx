@@ -4135,7 +4135,7 @@ export default function AdminPage() {
         setFeedback(getAdminPageCopy('eventSharedCopiedFeedback', { name: eventName }));
         return;
       }
-      throw new Error('clipboard not available');
+      throw new Error(getAdminPageCopy('clipboardUnavailableError'));
     } catch {
       if (typeof window !== 'undefined') {
         window.open(shareUrl, '_blank', 'noopener,noreferrer');
@@ -4746,7 +4746,7 @@ export default function AdminPage() {
 
       {lockedAdminTabs.length > 0 || lockedWorkspaces.length > 0 ? (
         <section className="card" style={{ marginTop: '1rem', borderStyle: 'dashed' }}>
-          <p className="eyebrow">Package gating</p>
+          <p className="eyebrow">{getAdminPageCopy('packageGatingEyebrow')}</p>
           <p className="feedback">
             Paket aktif saat ini: <strong>{packagePlanLabel}</strong>.
           </p>

@@ -46,5 +46,5 @@
 - [x] Run `npm run build` after frontend changes that touch application behavior or config loading.
 
 ## Known Follow-up
-- [ ] Continue migrating remaining admin/detail page copy into the existing i18n/config layer.
+- [x] Continue migrating remaining admin/detail page copy into the existing i18n/config layer.
 - [x] Add validation for JSON config shape before rendering config-driven pages.
