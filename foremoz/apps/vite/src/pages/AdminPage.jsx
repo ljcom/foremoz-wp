@@ -987,7 +987,7 @@ function formatIdr(value) {
 function normalizeClassScheduleForPayload(form) {
   const scheduleMode = String(form?.schedule_mode || 'everyday').trim().toLowerCase();
   if (!['everyday', 'weekly', 'manual', 'none'].includes(scheduleMode)) {
-    throw new Error('schedule_mode class tidak valid');
+    throw new Error(getAdminPageCopy('classScheduleModeInvalid'));
   }
   if (scheduleMode === 'none') {
     return {
@@ -1004,7 +1004,7 @@ function normalizeClassScheduleForPayload(form) {
     const startTime = String(form?.weekly_start_time || '').trim();
     const endTime = String(form?.weekly_end_time || '').trim();
     if (!startTime || !endTime) {
-      throw new Error('Jam mulai dan akhir wajib diisi untuk schedule everyday');
+      throw new Error(getAdminPageCopy('classEverydayTimeRequired'));
     }
     return {
       schedule_mode: 'everyday',
@@ -1025,7 +1025,7 @@ function normalizeClassScheduleForPayload(form) {
     const startTime = String(form?.weekly_start_time || '').trim();
     const endTime = String(form?.weekly_end_time || '').trim();
     if (weekdays.length > 0 && (!startTime || !endTime)) {
-      throw new Error('Jam weekly class wajib diisi saat memilih hari');
+      throw new Error(getAdminPageCopy('classWeeklyTimeRequired'));
     }
     return {
       schedule_mode: 'weekly',
@@ -1045,10 +1045,10 @@ function normalizeClassScheduleForPayload(form) {
     .filter((item) => item.start_at || item.end_at);
   manualSchedule.forEach((item, index) => {
     if (!item.start_at || !item.end_at) {
-      throw new Error(`Manual schedule #${index + 1} harus punya tanggal mulai dan akhir`);
+      throw new Error(getAdminPageCopy('classManualScheduleRangeRequired', { index: index + 1 }));
     }
     if (new Date(item.end_at).getTime() <= new Date(item.start_at).getTime()) {
-      throw new Error(`Manual schedule #${index + 1} harus berakhir setelah mulai`);
+      throw new Error(getAdminPageCopy('classManualScheduleEndAfterStartRequired', { index: index + 1 }));
     }
   });
   return {
