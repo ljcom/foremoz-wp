@@ -427,6 +427,50 @@
         "requiresTrainer": false,
         "requiresClass": true
       }
+    ],
+    "userRoles": [
+      { "value": "staff", "label": "staff" },
+      { "value": "manager", "label": "manager" },
+      { "value": "admin", "label": "admin" },
+      { "value": "cs", "label": "cs" },
+      { "value": "sales", "label": "sales" },
+      { "value": "pt", "label": "pt" }
+    ],
+    "registrationFieldTypes": [
+      { "value": "free_type", "label": "free type" },
+      { "value": "date", "label": "date" },
+      { "value": "lookup", "label": "lookup" }
+    ],
+    "productCategories": [
+      { "value": "retail", "label": "retail" },
+      { "value": "service", "label": "service" },
+      { "value": "bundle", "label": "bundle" }
+    ],
+    "transactionStatusFilters": [
+      { "value": "all", "label": "all status" },
+      { "value": "pending", "label": "pending" },
+      { "value": "confirmed", "label": "confirmed" },
+      { "value": "rejected", "label": "rejected" }
+    ],
+    "transactionLinkFilters": [
+      { "value": "all", "label": "all links" },
+      { "value": "subscription", "label": "subscription" },
+      { "value": "booking", "label": "booking" },
+      { "value": "pt_package", "label": "pt package" },
+      { "value": "unlinked", "label": "unlinked" }
+    ],
+    "transactionCurrencies": [
+      { "value": "IDR", "label": "IDR" },
+      { "value": "USD", "label": "USD" }
+    ],
+    "transactionMethods": [
+      { "value": "virtual_account", "label": "virtual_account" },
+      { "value": "bank_transfer", "label": "bank_transfer" },
+      { "value": "qris", "label": "qris" },
+      { "value": "ewallet", "label": "ewallet" },
+      { "value": "cash", "label": "cash" },
+      { "value": "credit_card", "label": "credit_card" },
+      { "value": "debit_card", "label": "debit_card" }
     ]
   },
   "csDashboard": {

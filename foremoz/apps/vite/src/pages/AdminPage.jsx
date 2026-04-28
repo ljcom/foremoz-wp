@@ -86,6 +86,13 @@ const ACTIVITY_USAGE_PERIOD_OPTIONS = getAdminPageOptions('activityUsagePeriodOp
 const EVENT_TEMPLATE_OPTIONS = getAdminEventTemplatesConfig();
 const CLASS_TEMPLATE_OPTIONS = getAdminClassTemplatesConfig();
 const PACKAGE_TYPE_OPTIONS = getAdminPackageTypesConfig();
+const USER_ROLE_OPTIONS = getAdminPageOptions('userRoles');
+const REGISTRATION_FIELD_TYPE_OPTIONS = getAdminPageOptions('registrationFieldTypes');
+const PRODUCT_CATEGORY_OPTIONS = getAdminPageOptions('productCategories');
+const TRANSACTION_STATUS_FILTER_OPTIONS = getAdminPageOptions('transactionStatusFilters');
+const TRANSACTION_LINK_FILTER_OPTIONS = getAdminPageOptions('transactionLinkFilters');
+const TRANSACTION_CURRENCY_OPTIONS = getAdminPageOptions('transactionCurrencies');
+const TRANSACTION_METHOD_OPTIONS = getAdminPageOptions('transactionMethods');
 
 const IDR_FORMATTER = new Intl.NumberFormat('id-ID');
 
@@ -5717,9 +5724,9 @@ export default function AdminPage() {
                                           }))
                                         }
                                       >
-                                        <option value="free_type">free type</option>
-                                        <option value="date">date</option>
-                                        <option value="lookup">lookup</option>
+                                        {REGISTRATION_FIELD_TYPE_OPTIONS.map((option) => (
+                                          <option key={option.value} value={option.value}>{option.label}</option>
+                                        ))}
                                       </select>
                                     </label>
                                     <div className="row-actions" style={{ justifyContent: 'space-between' }}>
@@ -6119,7 +6126,11 @@ export default function AdminPage() {
                   <form className="form" onSubmit={addUser}>
                     <label>full_name<input value={userForm.full_name} onChange={(e) => setUserForm((p) => ({ ...p, full_name: e.target.value }))} /></label>
                     <label>email<input type="email" value={userForm.email} onChange={(e) => setUserForm((p) => ({ ...p, email: e.target.value }))} /></label>
-                    <label>role<select value={userForm.role} onChange={(e) => setUserForm((p) => ({ ...p, role: e.target.value }))}><option value="staff">staff</option><option value="manager">manager</option><option value="admin">admin</option><option value="cs">cs</option><option value="sales">sales</option><option value="pt">pt</option></select></label>
+                    <label>role<select value={userForm.role} onChange={(e) => setUserForm((p) => ({ ...p, role: e.target.value }))}>
+                      {USER_ROLE_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>{option.label}</option>
+                      ))}
+                    </select></label>
                     <button className="btn" type="submit">Save user</button>
                   </form>
                 </>
@@ -7313,9 +7324,9 @@ export default function AdminPage() {
                                           }))
                                         }
                                       >
-                                        <option value="free_type">free type</option>
-                                        <option value="date">date</option>
-                                        <option value="lookup">lookup</option>
+                                        {REGISTRATION_FIELD_TYPE_OPTIONS.map((option) => (
+                                          <option key={option.value} value={option.value}>{option.label}</option>
+                                        ))}
                                       </select>
                                     </label>
                                     <div className="row-actions" style={{ justifyContent: 'space-between' }}>
@@ -7653,7 +7664,11 @@ export default function AdminPage() {
                   </div>
                   <form className="form" onSubmit={addProduct}>
                     <label>product_name<input value={productForm.product_name} onChange={(e) => setProductForm((p) => ({ ...p, product_name: e.target.value }))} /></label>
-                    <label>category<select value={productForm.category} onChange={(e) => setProductForm((p) => ({ ...p, category: e.target.value }))}><option value="retail">retail</option><option value="service">service</option><option value="bundle">bundle</option></select></label>
+                    <label>category<select value={productForm.category} onChange={(e) => setProductForm((p) => ({ ...p, category: e.target.value }))}>
+                      {PRODUCT_CATEGORY_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>{option.label}</option>
+                      ))}
+                    </select></label>
                     <label>price<input type="number" min="0" value={productForm.price} onChange={(e) => setProductForm((p) => ({ ...p, price: e.target.value }))} /></label>
                     <label>stock<input type="number" min="0" value={productForm.stock} onChange={(e) => setProductForm((p) => ({ ...p, stock: e.target.value }))} /></label>
                     <button className="btn" type="submit" disabled={productSaving}>{productSaving ? 'Saving...' : 'Save product'}</button>
@@ -8257,17 +8272,14 @@ export default function AdminPage() {
                         onChange={(e) => setTransactionQuery(e.target.value)}
                       />
                       <select value={transactionStatusFilter} onChange={(e) => setTransactionStatusFilter(e.target.value)}>
-                        <option value="all">all status</option>
-                        <option value="pending">pending</option>
-                        <option value="confirmed">confirmed</option>
-                        <option value="rejected">rejected</option>
+                        {TRANSACTION_STATUS_FILTER_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>{option.label}</option>
+                        ))}
                       </select>
                       <select value={transactionLinkFilter} onChange={(e) => setTransactionLinkFilter(e.target.value)}>
-                        <option value="all">all links</option>
-                        <option value="subscription">subscription</option>
-                        <option value="booking">booking</option>
-                        <option value="pt_package">pt package</option>
-                        <option value="unlinked">unlinked</option>
+                        {TRANSACTION_LINK_FILTER_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>{option.label}</option>
+                        ))}
                       </select>
                       <button className="btn" type="button" onClick={() => setTransactionMode('add')}>
                         Add New
@@ -8447,17 +8459,14 @@ export default function AdminPage() {
                     <label>qty<input type="number" min="1" value={transactionForm.qty} onChange={(e) => setTransactionForm((p) => ({ ...p, qty: e.target.value }))} /></label>
                     <label>price<input type="number" min="0" value={transactionForm.price} onChange={(e) => setTransactionForm((p) => ({ ...p, price: e.target.value }))} /></label>
                     <label>currency<select value={transactionForm.currency} onChange={(e) => setTransactionForm((p) => ({ ...p, currency: e.target.value }))}>
-                      <option value="IDR">IDR</option>
-                      <option value="USD">USD</option>
+                      {TRANSACTION_CURRENCY_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>{option.label}</option>
+                      ))}
                     </select></label>
                     <label>method<select value={transactionForm.method} onChange={(e) => setTransactionForm((p) => ({ ...p, method: e.target.value }))}>
-                      <option value="virtual_account">virtual_account</option>
-                      <option value="bank_transfer">bank_transfer</option>
-                      <option value="qris">qris</option>
-                      <option value="ewallet">ewallet</option>
-                      <option value="cash">cash</option>
-                      <option value="credit_card">credit_card</option>
-                      <option value="debit_card">debit_card</option>
+                      {TRANSACTION_METHOD_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>{option.label}</option>
+                      ))}
                     </select></label>
                     <button className="btn" type="submit">Save transaction</button>
                   </form>
