@@ -65,6 +65,79 @@ function sentenceCase(value) {
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
+const WEEKDAY_BY_INDEX = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+
+function getProgramScheduleOptions(classItem) {
+  const scheduleMode = String(classItem?.schedule_mode || 'none').trim().toLowerCase();
+  const weeklySchedule = classItem?.weekly_schedule || {};
+  const startTime = String(weeklySchedule.start_time || '').trim();
+  const endTime = String(weeklySchedule.end_time || '').trim();
+  if (scheduleMode === 'manual') {
+    return (Array.isArray(classItem?.manual_schedule) ? classItem.manual_schedule : []).map((item, index) => ({
+      key: `manual:${item.start_at}:${item.end_at}:${index}`,
+      label: `${item.start_at} -> ${item.end_at}`,
+      payload: {
+        schedule_mode: 'manual',
+        start_at: item.start_at,
+        end_at: item.end_at
+      }
+    }));
+  }
+  if (scheduleMode === 'everyday') {
+    return [{
+      key: `everyday:${startTime}:${endTime}`,
+      label: startTime && endTime ? `Everyday | ${startTime}-${endTime}` : 'Everyday',
+      payload: {
+        schedule_mode: 'everyday',
+        start_time: startTime,
+        end_time: endTime
+      }
+    }];
+  }
+  if (scheduleMode === 'weekly') {
+    return (Array.isArray(weeklySchedule.weekdays) ? weeklySchedule.weekdays : [])
+      .map((weekday) => String(weekday || '').trim().toLowerCase())
+      .filter(Boolean)
+      .map((weekday) => ({
+        key: `weekly:${weekday}:${startTime}:${endTime}`,
+        label: `${weekday.toUpperCase()} | ${startTime}-${endTime}`,
+        payload: {
+          schedule_mode: 'weekly',
+          weekday,
+          start_time: startTime,
+          end_time: endTime
+        }
+      }));
+  }
+  return [];
+}
+
+function resolveScheduleChoiceBySessionAt(options, sessionAtInput) {
+  if (!Array.isArray(options) || options.length === 0) return null;
+  if (options.length === 1) return options[0];
+  const sessionDate = new Date(String(sessionAtInput || '').trim());
+  const sessionTime = Number.isFinite(sessionDate.getTime()) ? sessionDate.getTime() : NaN;
+  if (Number.isFinite(sessionTime)) {
+    const weekday = WEEKDAY_BY_INDEX[sessionDate.getDay()] || '';
+    const weeklyMatched = options.find((item) => String(item?.payload?.weekday || '').trim().toLowerCase() === weekday) || null;
+    if (weeklyMatched) return weeklyMatched;
+    const manualMatched = options.find((item) => {
+      const start = new Date(String(item?.payload?.start_at || '').trim()).getTime();
+      const end = new Date(String(item?.payload?.end_at || '').trim()).getTime();
+      if (!Number.isFinite(start) || !Number.isFinite(end)) return false;
+      return sessionTime >= start && sessionTime <= end;
+    }) || null;
+    if (manualMatched) return manualMatched;
+  }
+  return options[0];
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, ms);
+  });
+}
+
 function formatIdr(value) {
   return `IDR ${Number(value || 0).toLocaleString('id-ID')}`;
 }
@@ -177,6 +250,13 @@ function eventParticipantKey(row) {
   return '';
 }
 
+function getNormalizedOrderItems(order) {
+  const items = Array.isArray(order?.order_items) && order.order_items.length > 0
+    ? order.order_items
+    : [order];
+  return items.filter((item) => item && typeof item === 'object');
+}
+
 export default function PtPage() {
   const PT_TABS = [
     { id: 'profile', label: 'Coach profile' },
@@ -211,6 +291,9 @@ export default function PtPage() {
   const [ptActivityRows, setPtActivityRows] = useState([]);
   const [classBookingRows, setClassBookingRows] = useState([]);
   const [classRows, setClassRows] = useState([]);
+  const [packageRows, setPackageRows] = useState([]);
+  const [orderRows, setOrderRows] = useState([]);
+  const [activityEnrollmentRows, setActivityEnrollmentRows] = useState([]);
   const [memberDirectoryRows, setMemberDirectoryRows] = useState([]);
   const [paymentRows, setPaymentRows] = useState([]);
   const [eventRows, setEventRows] = useState([]);
@@ -286,6 +369,80 @@ export default function PtPage() {
     });
     return [...grouped.values()].sort((a, b) => a.member_id.localeCompare(b.member_id));
   }, [ptBalances]);
+  const bookingMemberRows = useMemo(() => {
+    const normalizedTrainerId = String(trainerId || '').trim().toLowerCase();
+    const normalizedTrainerName = String(session?.user?.fullName || '').trim().toLowerCase();
+    const classById = new Map(
+      classRows
+        .map((item) => [String(item?.class_id || '').trim(), item])
+        .filter(([classId]) => classId)
+    );
+    const grouped = new Map();
+    classBookingRows
+      .filter((row) => String(row?.status || '').trim().toLowerCase() !== 'canceled')
+      .forEach((row) => {
+        const classId = String(row?.class_id || '').trim();
+        const classDetail = classById.get(classId) || null;
+        const coachId = String(classDetail?.coach_id || '').trim().toLowerCase();
+        const trainerName = String(classDetail?.trainer_name || '').trim().toLowerCase();
+        const hasCoach = Boolean(classDetail?.has_coach);
+        const coachMatched =
+          (normalizedTrainerId && coachId && normalizedTrainerId === coachId)
+          || (
+            normalizedTrainerName
+            && trainerName
+            && (normalizedTrainerName === trainerName
+              || normalizedTrainerName.includes(trainerName)
+              || trainerName.includes(normalizedTrainerName))
+          );
+        if (!hasCoach || !coachMatched) return;
+        const memberId = String(row?.member_id || '').trim();
+        if (!memberId) return;
+        const current = grouped.get(memberId) || {
+          member_id: memberId,
+          package_count: 0,
+          total_sessions: 0,
+          consumed_sessions: 0,
+          remaining_sessions: 0,
+          latest_updated_at: '',
+          booking_count: 0
+        };
+        current.booking_count += 1;
+        const updatedAt = String(row?.updated_at || row?.booked_at || '').trim();
+        if (updatedAt && (!current.latest_updated_at || updatedAt > current.latest_updated_at)) {
+          current.latest_updated_at = updatedAt;
+        }
+        grouped.set(memberId, current);
+      });
+    return [...grouped.values()].sort((a, b) => a.member_id.localeCompare(b.member_id));
+  }, [classBookingRows, classRows, session?.user?.fullName, trainerId]);
+  const memberTabRows = useMemo(() => {
+    const grouped = new Map();
+    [...memberRows, ...bookingMemberRows].forEach((row) => {
+      const memberId = String(row?.member_id || '').trim();
+      if (!memberId) return;
+      const current = grouped.get(memberId) || {
+        member_id: memberId,
+        package_count: 0,
+        total_sessions: 0,
+        consumed_sessions: 0,
+        remaining_sessions: 0,
+        latest_updated_at: '',
+        booking_count: 0
+      };
+      current.package_count += Number(row?.package_count || 0);
+      current.total_sessions += Number(row?.total_sessions || 0);
+      current.consumed_sessions += Number(row?.consumed_sessions || 0);
+      current.remaining_sessions += Number(row?.remaining_sessions || 0);
+      current.booking_count += Number(row?.booking_count || 0);
+      const updatedAt = String(row?.latest_updated_at || '').trim();
+      if (updatedAt && (!current.latest_updated_at || updatedAt > current.latest_updated_at)) {
+        current.latest_updated_at = updatedAt;
+      }
+      grouped.set(memberId, current);
+    });
+    return [...grouped.values()].sort((a, b) => a.member_id.localeCompare(b.member_id));
+  }, [memberRows, bookingMemberRows]);
   const memberNameById = useMemo(
     () => new Map(
       memberDirectoryRows
@@ -356,6 +513,7 @@ export default function PtPage() {
           pt_package_id: null,
           member_id: String(row?.member_id || '').trim(),
           source_kind: 'class_booking',
+          booking_kind: String(row?.booking_kind || '').trim().toLowerCase() || 'member',
           class_id: classId,
           schedule_label: String(row?.schedule_label || '').trim()
         };
@@ -371,6 +529,60 @@ export default function PtPage() {
   const recentCompletedSessions = useMemo(
     () => [...completedSessions].sort((a, b) => new Date(b.session_at || 0).getTime() - new Date(a.session_at || 0).getTime()),
     [completedSessions]
+  );
+  const coachProgramCompletedSessions = useMemo(() => {
+    const normalizedTrainerId = String(trainerId || '').trim().toLowerCase();
+    const normalizedTrainerName = String(session?.user?.fullName || '').trim().toLowerCase();
+    const classById = new Map(
+      classRows
+        .map((item) => [String(item?.class_id || '').trim(), item])
+        .filter(([classId]) => classId)
+    );
+    return classBookingRows
+      .filter((row) => String(row?.status || '').trim().toLowerCase() === 'booked')
+      .filter((row) => row?.attendance_checked_out_at)
+      .map((row) => {
+        const classId = String(row?.class_id || '').trim();
+        const classDetail = classById.get(classId) || null;
+        const coachId = String(classDetail?.coach_id || '').trim().toLowerCase();
+        const trainerName = String(classDetail?.trainer_name || '').trim().toLowerCase();
+        const hasCoach = Boolean(classDetail?.has_coach);
+        const coachMatched =
+          (normalizedTrainerId && coachId && normalizedTrainerId === coachId)
+          || (
+            normalizedTrainerName
+            && trainerName
+            && (normalizedTrainerName === trainerName
+              || normalizedTrainerName.includes(trainerName)
+              || trainerName.includes(normalizedTrainerName))
+          );
+        if (!hasCoach || !coachMatched) return null;
+        const sessionAt = row?.attendance_checked_out_at
+          || row?.attendance_checked_in_at
+          || row?.attendance_confirmed_at
+          || row?.booked_at
+          || null;
+        return {
+          activity_id: `class_checkout:${row?.booking_id || classId}`,
+          pt_package_id: null,
+          member_id: String(row?.member_id || '').trim(),
+          session_id: String(row?.booking_id || '').trim() || null,
+          session_at: sessionAt,
+          activity_type: 'program_completed',
+          activity_note: classDetail?.class_name || classDetail?.title || classId || 'Program booking',
+          custom_fields: row?.registration_answers && typeof row.registration_answers === 'object' ? row.registration_answers : {},
+          source_kind: 'class_booking',
+          booking_kind: String(row?.booking_kind || '').trim().toLowerCase() || 'member',
+          schedule_label: String(row?.schedule_label || '').trim()
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => new Date(b.session_at || 0).getTime() - new Date(a.session_at || 0).getTime());
+  }, [classBookingRows, classRows, session?.user?.fullName, trainerId]);
+  const historySessionRows = useMemo(
+    () => [...ptActivityRows, ...coachProgramCompletedSessions]
+      .sort((a, b) => new Date(b.session_at || 0).getTime() - new Date(a.session_at || 0).getTime()),
+    [ptActivityRows, coachProgramCompletedSessions]
   );
   const paymentById = useMemo(
     () => new Map(paymentRows.map((row) => [String(row.payment_id || ''), row])),
@@ -401,16 +613,111 @@ export default function PtPage() {
       activeMembers
     };
   }, [incentiveRows]);
-  const bookPackageOptions = useMemo(() => {
+  const purchasedProgramRows = useMemo(() => {
+    const allowedClassTypes = new Set(['scheduled', 'session_pack']);
+    const allowedReferenceTypes = new Set(['activity_purchase', 'open_access_purchase', 'session_pack_purchase']);
+    const classById = new Map(
+      classRows
+        .map((item) => [String(item?.class_id || '').trim(), item])
+        .filter(([classId]) => classId)
+    );
+    const packageClassIdByPackageId = new Map(
+      packageRows
+        .map((item) => [String(item?.package_id || '').trim(), String(item?.class_id || '').trim()])
+        .filter(([packageId, classId]) => packageId && classId)
+    );
+    const normalizedTrainerId = String(trainerId || '').trim().toLowerCase();
+    const normalizedTrainerName = String(session?.user?.fullName || '').trim().toLowerCase();
+    const enrollmentByMemberClass = new Map();
+    activityEnrollmentRows.forEach((row) => {
+      const memberId = String(row?.member_id || '').trim();
+      const classId = String(row?.class_id || '').trim();
+      if (!memberId || !classId) return;
+      const key = `${memberId}:${classId}`;
+      if (enrollmentByMemberClass.has(key)) return;
+      enrollmentByMemberClass.set(key, row);
+    });
+    const seen = new Set();
+    const rows = [];
+    orderRows.forEach((order) => {
+      const orderStatus = String(order?.status || '').trim().toLowerCase();
+      const paymentStatus = String(order?.payment_status || '').trim().toLowerCase();
+      const isPurchased = orderStatus === 'paid' || paymentStatus === 'confirmed';
+      if (!isPurchased) return;
+      const memberId = String(order?.member_id || '').trim();
+      if (!memberId) return;
+      getNormalizedOrderItems(order).forEach((item) => {
+        const referenceType = String(item?.reference_type || '').trim().toLowerCase();
+        const referenceId = String(item?.reference_id || '').trim();
+        if (!referenceId || !allowedReferenceTypes.has(referenceType)) return;
+        const mappedClassId = packageClassIdByPackageId.get(referenceId);
+        const classId = mappedClassId || referenceId;
+        const classDetail = classById.get(classId) || null;
+        const classType = String(classDetail?.class_type || 'scheduled').trim().toLowerCase();
+        if (!classDetail || !allowedClassTypes.has(classType)) return;
+        const coachId = String(classDetail?.coach_id || '').trim().toLowerCase();
+        const trainerName = String(classDetail?.trainer_name || '').trim().toLowerCase();
+        const hasCoach = Boolean(classDetail?.has_coach);
+        const coachMatched =
+          (normalizedTrainerId && coachId && normalizedTrainerId === coachId)
+          || (
+            normalizedTrainerName
+            && trainerName
+            && (normalizedTrainerName === trainerName
+              || normalizedTrainerName.includes(trainerName)
+              || trainerName.includes(normalizedTrainerName))
+          );
+        if (!hasCoach || !coachMatched) return;
+        const key = `${memberId}:${classId}`;
+        if (seen.has(key)) return;
+        seen.add(key);
+        const enrollmentRow = enrollmentByMemberClass.get(key) || null;
+        const usageLimit = Number(classDetail?.usage_limit || 0);
+        const hasRemainingUsage = enrollmentRow?.remaining_usage !== null && enrollmentRow?.remaining_usage !== undefined;
+        const remainingUsage = hasRemainingUsage ? Number(enrollmentRow?.remaining_usage || 0) : null;
+        rows.push({
+          member_id: memberId,
+          class_id: classId,
+          class_type: classType,
+          class_name: String(classDetail?.class_name || classDetail?.title || classId).trim(),
+          usage_mode: String(classDetail?.usage_mode || '').trim().toLowerCase(),
+          usage_limit: usageLimit,
+          total_sessions: usageLimit > 0 ? usageLimit : null,
+          remaining_sessions: usageLimit > 0
+            ? (hasRemainingUsage && Number.isFinite(remainingUsage) ? remainingUsage : usageLimit)
+            : null
+        });
+      });
+    });
+    return rows.sort((a, b) => {
+      if (a.member_id !== b.member_id) return a.member_id.localeCompare(b.member_id);
+      return a.class_name.localeCompare(b.class_name);
+    });
+  }, [activityEnrollmentRows, classRows, orderRows, packageRows, session?.user?.fullName, trainerId]);
+  const bookMemberOptions = useMemo(() => {
+    const grouped = new Map();
+    purchasedProgramRows.forEach((row) => {
+      const memberId = String(row?.member_id || '').trim();
+      if (!memberId) return;
+      const current = grouped.get(memberId) || {
+        member_id: memberId,
+        program_count: 0
+      };
+      current.program_count += 1;
+      grouped.set(memberId, current);
+    });
+    return [...grouped.values()].sort((a, b) => a.member_id.localeCompare(b.member_id));
+  }, [purchasedProgramRows]);
+  const bookProgramOptions = useMemo(() => {
     const memberId = String(bookForm.member_id || '').trim();
-    if (!memberId) return ptBalances;
-    return ptBalances.filter((row) => String(row.member_id || '').trim() === memberId);
-  }, [bookForm.member_id, ptBalances]);
-  const completePackageOptions = useMemo(() => {
+    if (!memberId) return purchasedProgramRows;
+    return purchasedProgramRows.filter((row) => String(row?.member_id || '').trim() === memberId);
+  }, [bookForm.member_id, purchasedProgramRows]);
+  const completeProgramOptions = useMemo(() => {
     const memberId = String(completeForm.member_id || '').trim();
-    if (!memberId) return ptBalances;
-    return ptBalances.filter((row) => String(row.member_id || '').trim() === memberId);
-  }, [completeForm.member_id, ptBalances]);
+    if (!memberId) return purchasedProgramRows;
+    return purchasedProgramRows.filter((row) => String(row?.member_id || '').trim() === memberId);
+  }, [completeForm.member_id, purchasedProgramRows]);
   const activityPackageOptions = useMemo(() => {
     const memberId = String(activityForm.member_id || '').trim();
     if (!memberId) return ptBalances;
@@ -484,7 +791,7 @@ export default function PtPage() {
         })
       }).catch(() => {});
       const trainerFilter = trainerId ? `&trainer_id=${encodeURIComponent(trainerId)}` : '';
-      const [profileRes, balanceRes, activityRes, paymentRes, eventRes, bookingRes, classRes, memberRes] = await Promise.all([
+      const [profileRes, balanceRes, activityRes, paymentRes, eventRes, bookingRes, classRes, packageRes, orderRes, enrollmentRes, memberRes] = await Promise.all([
         apiJson(`/v1/pt/profile?tenant_id=${encodeURIComponent(tenantId)}&user_id=${encodeURIComponent(trainerId || '')}`).catch(() => ({ row: null })),
         apiJson(`/v1/read/pt-balance?tenant_id=${encodeURIComponent(tenantId)}&branch_id=${encodeURIComponent(branchId)}${trainerFilter}`).catch(() => ({ rows: [] })),
         apiJson(`/v1/read/pt-activity?tenant_id=${encodeURIComponent(tenantId)}${trainerFilter}`).catch(() => ({ rows: [] })),
@@ -492,6 +799,9 @@ export default function PtPage() {
         apiJson(`/v1/read/events?tenant_id=${encodeURIComponent(tenantId)}&branch_id=${encodeURIComponent(branchId)}&status=all&limit=200`).catch(() => ({ rows: [] })),
         apiJson(`/v1/read/bookings?tenant_id=${encodeURIComponent(tenantId)}`).catch(() => ({ rows: [] })),
         apiJson(`/v1/read/class-availability?tenant_id=${encodeURIComponent(tenantId)}&branch_id=${encodeURIComponent(branchId)}`).catch(() => ({ rows: [] })),
+        apiJson(`/v1/admin/packages?tenant_id=${encodeURIComponent(tenantId)}&branch_id=${encodeURIComponent(branchId)}`).catch(() => ({ rows: [] })),
+        apiJson(`/v1/read/orders?tenant_id=${encodeURIComponent(tenantId)}&branch_id=${encodeURIComponent(branchId)}&limit=500`).catch(() => ({ rows: [] })),
+        apiJson(`/v1/read/activity-enrollments?tenant_id=${encodeURIComponent(tenantId)}`).catch(() => ({ rows: [] })),
         apiJson(`/v1/read/members?tenant_id=${encodeURIComponent(tenantId)}&limit=1000`).catch(() => ({ rows: [] }))
       ]);
       const profileRow = profileRes?.row || null;
@@ -505,7 +815,26 @@ export default function PtPage() {
       setPtBalances(balances);
       setPtActivityRows(Array.isArray(activityRes.rows) ? activityRes.rows : []);
       setClassBookingRows(Array.isArray(bookingRes.rows) ? bookingRes.rows : []);
-      setClassRows(Array.isArray(classRes.rows) ? classRes.rows : []);
+      const scopedClassRows = Array.isArray(classRes.rows) ? classRes.rows : [];
+      const scopedPackageRows = Array.isArray(packageRes.rows) ? packageRes.rows : [];
+      const scopedOrderRows = Array.isArray(orderRes.rows) ? orderRes.rows : [];
+      let finalClassRows = scopedClassRows;
+      let finalPackageRows = scopedPackageRows;
+      let finalOrderRows = scopedOrderRows;
+      if (finalClassRows.length === 0 || finalPackageRows.length === 0 || finalOrderRows.length === 0) {
+        const [globalClassRes, globalPackageRes, globalOrderRes] = await Promise.all([
+          apiJson(`/v1/read/class-availability?tenant_id=${encodeURIComponent(tenantId)}`).catch(() => ({ rows: [] })),
+          apiJson(`/v1/admin/packages?tenant_id=${encodeURIComponent(tenantId)}`).catch(() => ({ rows: [] })),
+          apiJson(`/v1/read/orders?tenant_id=${encodeURIComponent(tenantId)}&limit=500`).catch(() => ({ rows: [] }))
+        ]);
+        if (finalClassRows.length === 0) finalClassRows = Array.isArray(globalClassRes?.rows) ? globalClassRes.rows : [];
+        if (finalPackageRows.length === 0) finalPackageRows = Array.isArray(globalPackageRes?.rows) ? globalPackageRes.rows : [];
+        if (finalOrderRows.length === 0) finalOrderRows = Array.isArray(globalOrderRes?.rows) ? globalOrderRes.rows : [];
+      }
+      setClassRows(finalClassRows);
+      setPackageRows(finalPackageRows);
+      setOrderRows(finalOrderRows);
+      setActivityEnrollmentRows(Array.isArray(enrollmentRes.rows) ? enrollmentRes.rows : []);
       setMemberDirectoryRows(Array.isArray(memberRes.rows) ? memberRes.rows : []);
       setPaymentRows(Array.isArray(paymentRes.rows) ? paymentRes.rows : []);
       const nextEventRows = Array.isArray(eventRes.rows) ? eventRes.rows : [];
@@ -756,28 +1085,33 @@ export default function PtPage() {
   async function submitBookSession(e) {
     e.preventDefault();
     if (!bookForm.pt_package_id || !bookForm.member_id || !bookForm.session_at) {
-      setFeedback('Lengkapi package, member, dan jadwal sesi.');
+      setFeedback('Lengkapi program, member, dan jadwal sesi.');
       return;
     }
     try {
       setSaving(true);
       setFeedback('');
-      const customFields = parseCustomFieldsInput(bookForm.custom_fields_text, 'Book session');
-      await apiJson('/v1/pt/sessions/book', {
+      const customFields = parseCustomFieldsInput(bookForm.custom_fields_text, 'Book schedule');
+      const selectedClass = classRows.find((item) => String(item?.class_id || '').trim() === String(bookForm.pt_package_id || '').trim()) || null;
+      const scheduleOptions = getProgramScheduleOptions(selectedClass);
+      const selectedSchedule = resolveScheduleChoiceBySessionAt(scheduleOptions, bookForm.session_at);
+      await apiJson('/v1/bookings/classes/create', {
         method: 'POST',
         body: JSON.stringify({
           tenant_id: tenantId,
           branch_id: branchId,
           actor_id: trainerId || undefined,
-          trainer_id: trainerId || undefined,
-          pt_package_id: bookForm.pt_package_id,
+          class_id: bookForm.pt_package_id,
+          booking_kind: 'pt',
           member_id: bookForm.member_id,
-          session_at: toAppIsoFromDateTimeInput(bookForm.session_at),
+          schedule_choice: selectedSchedule?.key || null,
+          schedule_label: selectedSchedule?.label || null,
+          booked_at: toAppIsoFromDateTimeInput(bookForm.session_at),
           activity_note: bookForm.activity_note || null,
-          custom_fields: customFields
+          registration_answers: customFields
         })
       });
-      setFeedback('Session booked.');
+      setFeedback('Program booking berhasil dibuat.');
       setBookForm((prev) => ({
         ...createBookForm(),
         pt_package_id: prev.pt_package_id,
@@ -785,7 +1119,7 @@ export default function PtPage() {
       }));
       await loadPtWorkspace();
     } catch (err) {
-      setFeedback(err.message || 'Gagal booking session.');
+      setFeedback(err.message || 'Gagal membuat booking program.');
     } finally {
       setSaving(false);
     }
@@ -800,6 +1134,74 @@ export default function PtPage() {
     try {
       setSaving(true);
       setFeedback('');
+      const completedAtIso = toAppIsoFromDateTimeInput(completeForm.completed_at);
+      const selectedProgram = classRows.find(
+        (item) => String(item?.class_id || '').trim() === String(completeForm.pt_package_id || '').trim()
+      ) || null;
+      if (selectedProgram) {
+        const normalizedMemberId = String(completeForm.member_id || '').trim();
+        const normalizedClassId = String(selectedProgram.class_id || '').trim();
+        const normalizedSessionId = String(completeForm.session_id || '').trim();
+        const candidateRows = classBookingRows
+          .filter((row) => String(row?.status || '').trim().toLowerCase() === 'booked')
+          .filter((row) => !row?.attendance_checked_out_at)
+          .filter((row) => String(row?.member_id || '').trim() === normalizedMemberId)
+          .filter((row) => String(row?.class_id || '').trim() === normalizedClassId)
+          .sort((a, b) => new Date(b?.booked_at || 0).getTime() - new Date(a?.booked_at || 0).getTime());
+        const targetBooking = normalizedSessionId
+          ? candidateRows.find((row) => String(row?.booking_id || '').trim() === normalizedSessionId) || null
+          : candidateRows[0] || null;
+        if (!targetBooking?.booking_id) {
+          setFeedback('Booking program belum ditemukan untuk member ini. Buat booking dulu di tab Book list.');
+          return;
+        }
+        const bookingId = String(targetBooking.booking_id || '').trim();
+        await apiJson(`/v1/bookings/classes/${encodeURIComponent(bookingId)}/attendance-confirm`, {
+          method: 'POST',
+          body: JSON.stringify({
+            tenant_id: tenantId,
+            branch_id: branchId,
+            actor_id: trainerId || undefined,
+            checked_in_at: completedAtIso
+          })
+        });
+        const checkoutPayload = {
+          tenant_id: tenantId,
+          branch_id: branchId,
+          actor_id: trainerId || undefined,
+          checked_out_at: completedAtIso
+        };
+        let checkoutError = null;
+        for (let attempt = 0; attempt < 3; attempt += 1) {
+          try {
+            await apiJson(`/v1/bookings/classes/${encodeURIComponent(bookingId)}/checkout`, {
+              method: 'POST',
+              body: JSON.stringify(checkoutPayload)
+            });
+            checkoutError = null;
+            break;
+          } catch (error) {
+            const message = String(error?.message || '').toLowerCase();
+            const shouldRetry = message.includes('must be checked in first');
+            if (!shouldRetry || attempt === 2) {
+              checkoutError = error;
+              break;
+            }
+            await sleep(250);
+          }
+        }
+        if (checkoutError) {
+          throw checkoutError;
+        }
+        setFeedback('Program booking completed.');
+        setCompleteForm((prev) => ({
+          ...createCompleteForm(),
+          pt_package_id: prev.pt_package_id,
+          member_id: prev.member_id
+        }));
+        await loadPtWorkspace();
+        return;
+      }
       const customFields = buildPerformanceCustomFields(
         completeForm.custom_fields_text,
         'Complete session',
@@ -814,7 +1216,7 @@ export default function PtPage() {
           trainer_id: trainerId || undefined,
           member_id: completeForm.member_id,
           session_id: completeForm.session_id || null,
-          completed_at: toAppIsoFromDateTimeInput(completeForm.completed_at),
+          completed_at: completedAtIso,
           activity_note: completeForm.activity_note || null,
           custom_fields: customFields
         })
@@ -1077,24 +1479,27 @@ export default function PtPage() {
                       }
                     >
                       <option value="">Pilih member</option>
-                      {memberRows.map((item) => (
+                      {bookMemberOptions.map((item) => (
                         <option key={item.member_id} value={item.member_id}>
                           {(memberNameById.get(String(item.member_id || '').trim()) || item.member_id)}
-                          {` - ${item.member_id} | remaining ${item.remaining_sessions}`}
+                          {` - ${item.member_id}`}
                         </option>
                       ))}
                     </select>
                   </label>
                   <label>
-                    pt_package_id
+                    pt_package_id (program)
                     <select
                       value={bookForm.pt_package_id}
                       onChange={(e) => setBookForm((p) => ({ ...p, pt_package_id: e.target.value }))}
                     >
-                      <option value="">Pilih package PT</option>
-                      {bookPackageOptions.map((item) => (
-                        <option key={item.pt_package_id} value={item.pt_package_id}>
-                          {item.pt_package_id} | {item.member_id} | remaining {item.remaining_sessions}/{item.total_sessions}
+                      <option value="">Pilih program scheduled</option>
+                      {bookProgramOptions.map((item) => (
+                        <option key={`${item.member_id}:${item.class_id}`} value={item.class_id}>
+                          {item.class_name} | {item.class_id} | {item.member_id}
+                          {` | remaining ${item.usage_mode === 'limited' && item.total_sessions
+                            ? `${item.total_sessions}/${item.remaining_sessions ?? item.total_sessions}`
+                            : '-'}`}
                         </option>
                       ))}
                     </select>
@@ -1102,7 +1507,7 @@ export default function PtPage() {
                   <label>session_at<input type="datetime-local" value={bookForm.session_at} onChange={(e) => setBookForm((p) => ({ ...p, session_at: e.target.value }))} /></label>
                   <label>activity_note<input value={bookForm.activity_note} onChange={(e) => setBookForm((p) => ({ ...p, activity_note: e.target.value }))} placeholder="Contoh: Upper body, mobility, assessment" /></label>
                   <label>custom_fields (JSON)<textarea rows={3} value={bookForm.custom_fields_text} onChange={(e) => setBookForm((p) => ({ ...p, custom_fields_text: e.target.value }))} placeholder='{"booking_source":"pt_dashboard","planned_focus":"upper body"}' /></label>
-                  <button className="btn" type="submit" disabled={saving}>{saving ? 'Saving...' : 'Book session'}</button>
+                  <button className="btn" type="submit" disabled={saving}>{saving ? 'Saving...' : 'Book program'}</button>
                 </form>
               </section>
 
@@ -1126,7 +1531,7 @@ export default function PtPage() {
                         </div>
                         {item.source_kind === 'class_booking' ? (
                           <div className="payment-meta">
-                            <span className="passport-chip">member booking</span>
+                            <span className="passport-chip">{item.booking_kind === 'pt' ? 'booking by pt' : 'member booking'}</span>
                           </div>
                         ) : (
                           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
@@ -1171,24 +1576,27 @@ export default function PtPage() {
                       }
                     >
                       <option value="">Pilih member</option>
-                      {memberRows.map((item) => (
+                      {bookMemberOptions.map((item) => (
                         <option key={item.member_id} value={item.member_id}>
                           {(memberNameById.get(String(item.member_id || '').trim()) || item.member_id)}
-                          {` - ${item.member_id} | remaining ${item.remaining_sessions}`}
+                          {` - ${item.member_id}`}
                         </option>
                       ))}
                     </select>
                   </label>
                   <label>
-                    pt_package_id
+                    pt_package_id (program)
                     <select
                       value={completeForm.pt_package_id}
                       onChange={(e) => setCompleteForm((p) => ({ ...p, pt_package_id: e.target.value }))}
                     >
-                      <option value="">Pilih package PT</option>
-                      {completePackageOptions.map((item) => (
-                        <option key={item.pt_package_id} value={item.pt_package_id}>
-                          {item.pt_package_id} | {item.member_id} | remaining {item.remaining_sessions}/{item.total_sessions}
+                      <option value="">Pilih program scheduled</option>
+                      {completeProgramOptions.map((item) => (
+                        <option key={`${item.member_id}:${item.class_id}`} value={item.class_id}>
+                          {item.class_name} | {item.class_id} | {item.member_id}
+                          {` | remaining ${item.usage_mode === 'limited' && item.total_sessions
+                            ? `${item.total_sessions}/${item.remaining_sessions ?? item.total_sessions}`
+                            : '-'}`}
                         </option>
                       ))}
                     </select>
@@ -1237,20 +1645,29 @@ export default function PtPage() {
                   <p className="eyebrow">Complete list</p>
                   <h2>Sesi yang siap diselesaikan</h2>
                   <div className="entity-list">
-                    {pendingBookedSessions.slice(0, 12).map((item) => (
+                    {upcomingBookedSessions.slice(0, 12).map((item) => (
                       <div className="entity-row" key={`${item.activity_id}-complete`}>
                         <div>
-                          <strong>{item.member_id} {item.pt_package_id ? `- ${item.pt_package_id}` : ''}</strong>
+                          <strong>{memberNameById.get(String(item.member_id || '').trim()) || item.member_id || '-'}</strong>
+                          {item.member_id ? <p>{item.member_id}</p> : null}
+                          {item.pt_package_id ? <p>{item.pt_package_id}</p> : null}
                           <p>{formatAppDateTime(item.session_at)} | session {item.session_id || '-'}</p>
+                          {item.schedule_label ? <p>{item.schedule_label}</p> : null}
                           <p>{item.activity_note || '-'}</p>
                         </div>
-                        <button className="btn ghost small" type="button" onClick={() => seedCompleteFromActivity(item)}>Use</button>
+                        {item.source_kind === 'class_booking' ? (
+                          <div className="payment-meta">
+                            <span className="passport-chip">{item.booking_kind === 'pt' ? 'booking by pt' : 'checked member'}</span>
+                          </div>
+                        ) : (
+                          <button className="btn ghost small" type="button" onClick={() => seedCompleteFromActivity(item)}>Use</button>
+                        )}
                       </div>
                     ))}
                   </div>
                 </section>
 
-                {pendingBookedSessions.length === 0 ? (
+                {upcomingBookedSessions.length === 0 ? (
                   <section className="card" style={{ alignSelf: 'start' }}>
                     <p className="eyebrow">Pending status</p>
                     <h2>Tidak ada sesi pending</h2>
@@ -1481,11 +1898,13 @@ export default function PtPage() {
           <div style={{ marginTop: '1rem' }}>
             <h2>Member</h2>
             <div className="entity-list">
-              {memberRows.map((item) => (
+              {memberTabRows.map((item) => (
                 <div className="entity-row" key={item.member_id}>
                   <div>
-                    <strong>{item.member_id}</strong>
+                    <strong>{memberNameById.get(String(item.member_id || '').trim()) || item.member_id}</strong>
+                    <p>{item.member_id}</p>
                     <p>{item.package_count} package | remaining {item.remaining_sessions} / total {item.total_sessions} | consumed {item.consumed_sessions}</p>
+                    <p>{item.booking_count} active booking program</p>
                     <p>{item.latest_updated_at ? `Last update ${formatAppDateTime(item.latest_updated_at)}` : 'Belum ada aktivitas sesi.'}</p>
                   </div>
                   <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
@@ -1495,11 +1914,11 @@ export default function PtPage() {
                   </div>
                 </div>
               ))}
-              {memberRows.length === 0 ? (
+              {memberTabRows.length === 0 ? (
                 <div className="entity-row">
                   <div>
                     <strong>Belum ada member PT</strong>
-                    <p>Member yang punya package PT akan tampil di sini.</p>
+                    <p>Member dengan package PT atau booking program akan tampil di sini.</p>
                   </div>
                 </div>
               ) : null}
@@ -1511,17 +1930,25 @@ export default function PtPage() {
             <div>
               <h2>History sessions</h2>
               <div className="entity-list">
-                {ptActivityRows.map((item) => (
+                {historySessionRows.map((item) => (
                   <div className="entity-row" key={item.activity_id}>
                     <div>
-                      <strong>{item.member_id} {item.pt_package_id ? `- ${item.pt_package_id}` : ''}</strong>
+                      <strong>{memberNameById.get(String(item.member_id || '').trim()) || item.member_id || '-'}</strong>
+                      {item.member_id ? <p>{item.member_id}</p> : null}
+                      {item.pt_package_id ? <p>{item.pt_package_id}</p> : null}
                       <p>{formatAppDateTime(item.session_at)} | {item.activity_type || 'activity_logged'}{item.session_id ? ` | session ${item.session_id}` : ''}</p>
+                      {item.schedule_label ? <p>{item.schedule_label}</p> : null}
                       <p>{item.activity_note || '-'}</p>
                       <p>{describePtCustomFields(item.custom_fields)}</p>
                     </div>
+                    {item.source_kind === 'class_booking' ? (
+                      <div className="payment-meta">
+                        <span className="passport-chip">{item.booking_kind === 'pt' ? 'booking by pt' : 'completed session'}</span>
+                      </div>
+                    ) : null}
                   </div>
                 ))}
-                {ptActivityRows.length === 0 ? (
+                {historySessionRows.length === 0 ? (
                   <div className="entity-row">
                     <div>
                       <strong>Belum ada history session</strong>
