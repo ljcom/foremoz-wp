@@ -2556,58 +2556,58 @@ export default function AdminPage() {
     const hasLimitedAccessCapacity = !isScheduledClassForm && String(classForm.capacity_mode || 'none').trim().toLowerCase() !== 'none';
     if (!String(classForm.class_name || '').trim()) {
       setClassEditTab('general');
-      setFeedback('class_name wajib diisi');
+      setFeedback(getAdminPageCopy('classNameRequired'));
       return;
     }
     if (showClassCoachFields && !String(classForm.trainer_name || '').trim()) {
       setClassEditTab('general');
-      setFeedback(`${creatorLabel} wajib dipilih`);
+      setFeedback(getAdminPageCopy('classCreatorRequired', { creator: creatorLabel }));
       return;
     }
     if (isScheduledClassForm && !String(classForm.start_date || '').trim()) {
       setClassEditTab('general');
-      setFeedback('periode mulai wajib diisi');
+      setFeedback(getAdminPageCopy('classStartDateRequired'));
       return;
     }
     if (!isScheduledClassForm && classForm.validity_unit !== 'none' && !String(classForm.validity_value || '').trim()) {
       setClassEditTab('general');
-      setFeedback('validity_value wajib diisi');
+      setFeedback(getAdminPageCopy('classValidityValueRequired'));
       return;
     }
     if (isFixedDateClassAccess && !String(classForm.start_date || '').trim()) {
       setClassEditTab('general');
-      setFeedback('periode mulai wajib diisi untuk fixed date');
+      setFeedback(getAdminPageCopy('classFixedStartDateRequired'));
       return;
     }
     if (isFixedDateClassAccess && !String(classForm.end_date || '').trim()) {
       setClassEditTab('general');
-      setFeedback('periode akhir wajib diisi untuk fixed date');
+      setFeedback(getAdminPageCopy('classFixedEndDateRequired'));
       return;
     }
     if (!isScheduledClassForm && classForm.usage_mode === 'limited' && !String(classForm.usage_limit || '').trim()) {
       setClassEditTab('general');
-      setFeedback('usage_limit wajib diisi');
+      setFeedback(getAdminPageCopy('classUsageLimitRequired'));
       return;
     }
     if (isScheduledClassForm && classForm.end_date && classForm.start_date && new Date(classForm.end_date).getTime() < new Date(classForm.start_date).getTime()) {
       setClassEditTab('general');
-      setFeedback('periode akhir harus setelah periode mulai');
+      setFeedback(getAdminPageCopy('classEndAfterStartRequired'));
       return;
     }
     if (!isScheduledClassForm && isFixedDateClassAccess && classForm.end_date && classForm.start_date && new Date(classForm.end_date).getTime() < new Date(classForm.start_date).getTime()) {
       setClassEditTab('general');
-      setFeedback('periode akhir fixed date harus setelah periode mulai');
+      setFeedback(getAdminPageCopy('classFixedEndAfterStartRequired'));
       return;
     }
     if (registrationPeriodMode === 'range_date') {
       if (!String(classForm.registration_start || '').trim() || !String(classForm.registration_end || '').trim()) {
         setClassEditTab('general');
-        setFeedback('registration start dan registration end wajib diisi');
+        setFeedback(getAdminPageCopy('classRegistrationRangeRequired'));
         return;
       }
       if (new Date(toApiDatetime(classForm.registration_end)).getTime() < new Date(toApiDatetime(classForm.registration_start)).getTime()) {
         setClassEditTab('general');
-        setFeedback('registration end harus setelah registration start');
+        setFeedback(getAdminPageCopy('classRegistrationEndAfterStartRequired'));
         return;
       }
     }
@@ -2616,12 +2616,12 @@ export default function AdminPage() {
       const minQuota = Number(classForm.min_quota || 0);
       if (!Number.isFinite(maxQuota) || maxQuota <= 0) {
         setClassEditTab('general');
-        setFeedback('max quota wajib diisi untuk quota/capacity limited');
+        setFeedback(getAdminPageCopy('classMaxQuotaRequired'));
         return;
       }
       if (Number.isFinite(minQuota) && minQuota > maxQuota) {
         setClassEditTab('general');
-        setFeedback('min quota tidak boleh lebih besar dari max quota');
+        setFeedback(getAdminPageCopy('classMinQuotaTooHigh'));
         return;
       }
     }
@@ -2630,12 +2630,12 @@ export default function AdminPage() {
       const minQuota = Number(classForm.min_quota || 0);
       if (!Number.isFinite(maxQuota) || maxQuota <= 0) {
         setClassEditTab('general');
-        setFeedback('max cap wajib diisi');
+        setFeedback(getAdminPageCopy('classMaxCapRequired'));
         return;
       }
       if (Number.isFinite(minQuota) && minQuota > maxQuota) {
         setClassEditTab('general');
-        setFeedback('min cap tidak boleh lebih besar dari max cap');
+        setFeedback(getAdminPageCopy('classMinCapTooHigh'));
         return;
       }
     }
@@ -2714,7 +2714,11 @@ export default function AdminPage() {
         })
       });
 
-      setFeedback(editingClassId ? `program.updated: ${classForm.class_name}` : `program.created: ${classForm.class_name}`);
+      setFeedback(
+        getAdminPageCopy(editingClassId ? 'classUpdatedFeedback' : 'classCreatedFeedback', {
+          name: classForm.class_name
+        })
+      );
       setClassForm(createEmptyClassForm());
       setClassTemplateWizard(createEmptyClassTemplateWizard());
       setClassTrainerDraft('');
