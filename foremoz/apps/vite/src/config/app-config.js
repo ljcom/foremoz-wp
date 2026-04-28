@@ -92,7 +92,10 @@ export function validateAppUiConfig(config = appUiConfig) {
     'adminPage.transactionCurrencies',
     'adminPage.transactionMethods',
     'adminPage.transactionActions',
-    'adminPage.saasExtensionMonths'
+    'adminPage.saasExtensionMonths',
+    'csDashboard.orders.orderTypes',
+    'csDashboard.orders.paymentMethods',
+    'csDashboard.orders.settlements'
   ].forEach((path) => requireConfigOptionArray(config, path));
 
   [
@@ -123,6 +126,14 @@ export function validateAppUiConfig(config = appUiConfig) {
     'classNameRequired',
     'transactionListTitle',
     'memberUploadEyebrow'
+  ]);
+  requireConfigCopy(config, 'csDashboard.orders.copy', [
+    'orderTypeLabel',
+    'targetRequired',
+    'pricePositiveRequired',
+    'memberRequired',
+    'createOrderFailed',
+    'orderCreatedFeedback'
   ]);
 }
 
@@ -300,6 +311,6 @@ export function normalizeConfiguredOptionValue(config, key, value, fallbackValue
   return match?.value || fallbackValue || options[0]?.value || '';
 }
 
-export function getConfigCopy(config, key) {
-  return String(asObject(asObject(config).copy)[key] || '');
+export function getConfigCopy(config, key, vars = {}) {
+  return interpolateConfigValue(String(asObject(asObject(config).copy)[key] || ''), vars);
 }

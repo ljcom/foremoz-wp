@@ -233,8 +233,8 @@ function getOrderPaymentMethodMeta(value) {
   return getConfiguredOption(DASHBOARD_ORDER_CONFIG, 'paymentMethods', value) || {};
 }
 
-function getOrderCopy(key) {
-  return getConfigCopy(DASHBOARD_ORDER_CONFIG, key);
+function getOrderCopy(key, vars = {}) {
+  return getConfigCopy(DASHBOARD_ORDER_CONFIG, key, vars);
 }
 
 function getTargetPlaceholder(type, targets) {
@@ -919,19 +919,19 @@ export default function DashboardPage() {
   function buildCurrentOrderItemDraft() {
     const orderType = normalizeOrderType(orderForm.order_type);
     if (!selectedOrderTarget) {
-      throw new Error('Pilih target item sesuai tipenya terlebih dulu.');
+      throw new Error(getOrderCopy('targetRequired'));
     }
     const qty = Math.max(1, Number(orderForm.qty || 1));
     const resolvedQty = orderType === 'product' ? qty : 1;
     const unitPrice = Math.max(0, Number(orderForm.unit_price || selectedOrderTarget.unit_price || 0));
     if (!Number.isFinite(unitPrice) || unitPrice <= 0) {
-      throw new Error('Harga item harus lebih besar dari 0.');
+      throw new Error(getOrderCopy('pricePositiveRequired'));
     }
     return {
       item_id: `itm_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
       order_type: orderType,
-      order_label: selectedOrderTarget.order_label || selectedOrderTarget.label || 'Order item',
-      target_label: selectedOrderTarget.label || selectedOrderTarget.order_label || 'Order item',
+      order_label: selectedOrderTarget.order_label || selectedOrderTarget.label || getOrderCopy('fallbackOrderItemLabel'),
+      target_label: selectedOrderTarget.label || selectedOrderTarget.order_label || getOrderCopy('fallbackOrderItemLabel'),
       helper: selectedOrderTarget.helper || '',
       qty: resolvedQty,
       unit_price: unitPrice,
@@ -952,9 +952,9 @@ export default function DashboardPage() {
         unit_price: '',
         label: prev.label || nextItem.order_label
       }));
-      setActionFeedback(`Item ditambahkan: ${nextItem.target_label}`);
+      setActionFeedback(getOrderCopy('itemAddedFeedback', { label: nextItem.target_label }));
     } catch (err) {
-      setActionFeedback(err.message || 'failed to add item');
+      setActionFeedback(err.message || getOrderCopy('addItemFailed'));
     }
   }
 
@@ -968,8 +968,8 @@ export default function DashboardPage() {
       ? orderRow.order_items.map((item, index) => ({
           item_id: item.item_id || `itm_${index + 1}`,
           order_type: normalizeOrderType(item.order_type),
-          order_label: item.order_label || item.target_label || orderRow.order_label || 'Order item',
-          target_label: item.target_label || item.order_label || orderRow.order_label || 'Order item',
+          order_label: item.order_label || item.target_label || orderRow.order_label || getOrderCopy('fallbackOrderItemLabel'),
+          target_label: item.target_label || item.order_label || orderRow.order_label || getOrderCopy('fallbackOrderItemLabel'),
           helper: '',
           qty: Number(item.qty || 1),
           unit_price: Number(item.unit_price || 0),
@@ -1005,12 +1005,12 @@ export default function DashboardPage() {
       notes: orderRow.notes || ''
     });
     setMemberWorkspaceTab('order');
-    setActionFeedback(`Edit order pending: ${orderRow.order_id}`);
+    setActionFeedback(getOrderCopy('editOrderFeedback', { orderId: orderRow.order_id }));
   }
 
   function buildOrderSubmissionDraft() {
     if (!selectedMember) {
-      throw new Error('Pilih member dulu sebelum membuat order.');
+      throw new Error(getOrderCopy('memberRequired'));
     }
     const resolvedItems = orderItems.length > 0 ? orderItems : [buildCurrentOrderItemDraft()];
     const uniqueOrderTypes = [...new Set(resolvedItems.map((item) => normalizeOrderType(item.order_type)))];
@@ -1018,9 +1018,12 @@ export default function DashboardPage() {
     const label = String(orderForm.label || '').trim()
       || (resolvedItems.length === 1
         ? resolvedItems[0].order_label
-        : `Bundle - ${selectedMember.full_name || selectedMember.member_id} (${resolvedItems.length} item)`);
+        : getOrderCopy('bundleLabel', {
+            member: selectedMember.full_name || selectedMember.member_id,
+            count: resolvedItems.length
+          }));
     if (!label) {
-      throw new Error('Label order wajib diisi.');
+      throw new Error(getOrderCopy('labelRequired'));
     }
     const totalQty = resolvedItems.reduce((sum, item) => sum + Number(item.qty || 0), 0);
     const totalAmount = resolvedItems.reduce((sum, item) => sum + Number(item.total_amount || 0), 0);
@@ -1051,12 +1054,16 @@ export default function DashboardPage() {
           reference_type: item.reference_type,
           reference_id: item.reference_id
         })),
-        notes: String(orderForm.notes || '').trim() || `CS dashboard order for ${selectedMember.full_name || selectedMember.member_id}`
+        notes: String(orderForm.notes || '').trim() || getOrderCopy('defaultOrderNotes', {
+          member: selectedMember.full_name || selectedMember.member_id
+        })
       },
       summary: {
         memberName: selectedMember.full_name || selectedMember.member_id,
         orderTypeLabel: formatOrderTypeLabel(orderType),
-        targetLabel: resolvedItems.length === 1 ? resolvedItems[0].target_label : `${resolvedItems.length} items`,
+        targetLabel: resolvedItems.length === 1
+          ? resolvedItems[0].target_label
+          : getOrderCopy('multiItemCountLabel', { count: resolvedItems.length }),
         referenceLabel: resolvedItems.length === 1
           ? resolveOrderReferenceLabel(
               {
@@ -1066,7 +1073,7 @@ export default function DashboardPage() {
               },
               orderReferenceLookups
             )
-          : 'Multi-item bundle',
+          : getOrderCopy('multiItemBundleLabel'),
         qty: totalQty,
         unitPrice: primaryItem ? primaryItem.unit_price : totalAmount,
         totalAmount,
@@ -1085,7 +1092,7 @@ export default function DashboardPage() {
       setOrderPaymentDraft(draft);
       setOrderFlowStep('payment');
     } catch (err) {
-      setActionFeedback(err.message || 'failed to prepare order payment');
+      setActionFeedback(err.message || getOrderCopy('preparePaymentFailed'));
     }
   }
 
@@ -1094,7 +1101,7 @@ export default function DashboardPage() {
       try {
         return buildOrderSubmissionDraft();
       } catch (err) {
-        setActionFeedback(err.message || 'failed to create order');
+        setActionFeedback(err.message || getOrderCopy('createOrderFailed'));
         return null;
       }
     })();
@@ -1119,7 +1126,7 @@ export default function DashboardPage() {
               branch_id: branchId,
               order_id: editingOrderId,
               actor_id: session?.user?.userId || session?.user?.user_id || 'cs_dashboard',
-              note: `Payment confirmed from CS order editor: ${draft.requestBody.order_label}`
+              note: getOrderCopy('paymentConfirmNote', { label: draft.requestBody.order_label })
             })
           });
         }
@@ -1148,11 +1155,19 @@ export default function DashboardPage() {
       setOrderFlowStep('form');
       setActionFeedback(
         editingOrderId
-          ? `order.updated: ${selectedMember.full_name || selectedMember.member_id} -> ${editingOrderId} (${orderForm.settlement === 'paid' ? 'confirmed' : 'pending'})`
-          : `order.created: ${selectedMember.full_name || selectedMember.member_id} -> ${response?.order?.order_id || '-'} (${response?.order?.payment_status || 'pending'})`
+          ? getOrderCopy('orderUpdatedFeedback', {
+              member: selectedMember.full_name || selectedMember.member_id,
+              orderId: editingOrderId,
+              status: orderForm.settlement === 'paid' ? 'confirmed' : 'pending'
+            })
+          : getOrderCopy('orderCreatedFeedback', {
+              member: selectedMember.full_name || selectedMember.member_id,
+              orderId: response?.order?.order_id || '-',
+              status: response?.order?.payment_status || 'pending'
+            })
       );
     } catch (err) {
-      setActionFeedback(err.message || 'failed to create order');
+      setActionFeedback(err.message || getOrderCopy('createOrderFailed'));
     } finally {
       setOrderSaving(false);
     }
