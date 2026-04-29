@@ -6,6 +6,7 @@ import { query, pool, withTx } from './db.js';
 import { appendDomainEvent, resolveNamespaceId } from './event-store.js';
 import { runFitnessProjection } from './projection.js';
 import { config } from './config.js';
+import { classBookingPolicy } from './domain-config.js';
 import {
   sendEventRegistrationEmail,
   sendMemberSignupEmail,
@@ -61,6 +62,25 @@ function ok(res, data) {
 
 function created(res, data) {
   return res.status(201).json({ status: 'PASS', ...data });
+}
+
+const CLASS_BOOKING_COMPLETION_COLUMN_SQL = {
+  attendance_checked_out_at: 'attendance_checked_out_at'
+};
+
+function normalizeClassBookingStatus(value) {
+  return String(value || classBookingPolicy.status.default).trim().toLowerCase();
+}
+
+function getClassBookingActiveCompletionSql() {
+  const columns = classBookingPolicy.activeUntil.completionColumns.map((column) => {
+    const sqlColumn = CLASS_BOOKING_COMPLETION_COLUMN_SQL[column];
+    if (!sqlColumn) {
+      throw new Error(`Unsupported class booking completion column: ${column}`);
+    }
+    return sqlColumn;
+  });
+  return columns.map((column) => `and ${column} is null`).join('\n       ');
 }
 
 function warnEmailDelivery(context, result) {
@@ -1736,16 +1756,19 @@ async function checkActivityAccess({ tenantId, classId, memberId, actionType = '
 
 async function findActiveClassBooking({ tenantId, classId, memberId }) {
   if (!memberId) return null;
+  const completionSql = getClassBookingActiveCompletionSql();
   const { rows } = await query(
-    `select tenant_id, booking_id, class_id, member_id, status, booked_at, attendance_confirmed_at
+    `select tenant_id, booking_id, class_id, member_id, status, booked_at, attendance_confirmed_at,
+            attendance_checked_out_at
      from read.rm_booking_list
      where tenant_id = $1
        and class_id = $2
        and member_id = $3
-       and status = 'booked'
+       and status = any($4::text[])
+       ${completionSql}
      order by booked_at desc
      limit 1`,
-    [tenantId, classId, memberId]
+    [tenantId, classId, memberId, classBookingPolicy.status.active]
   );
   return rows[0] || null;
 }
@@ -1768,8 +1791,8 @@ async function handleClassBookingCheckin({ bookingId, data }) {
   if (!bookingRow) {
     throw fail(404, 'BOOKING_NOT_FOUND', `booking ${bookingId} not found`);
   }
-  const currentStatus = String(bookingRow.status || '').toLowerCase();
-  if (currentStatus === 'canceled') {
+  const currentStatus = normalizeClassBookingStatus(bookingRow.status);
+  if (currentStatus === classBookingPolicy.status.canceled) {
     throw fail(409, 'BOOKING_ALREADY_CANCELED', `booking ${bookingId} already canceled`);
   }
   if (bookingRow.attendance_checked_in_at || bookingRow.attendance_confirmed_at) {
@@ -2408,16 +2431,18 @@ async function ensureEventParticipantRelation({ tenantId, branchId, actorId, eve
 }
 
 async function ensureClassBookingRelation({ tenantId, branchId, actorId, classId, memberId }) {
+  const completionSql = getClassBookingActiveCompletionSql();
   const existing = await query(
     `select booking_id
      from read.rm_booking_list
      where tenant_id = $1
        and class_id = $2
        and member_id = $3
-       and status = 'booked'
+       and status = any($4::text[])
+       ${completionSql}
      order by updated_at desc
      limit 1`,
-    [tenantId, classId, memberId]
+    [tenantId, classId, memberId, classBookingPolicy.status.active]
   );
   if (existing.rows[0]?.booking_id) {
     return { created: false, relation: { kind: 'class', id: classId, booking_id: existing.rows[0].booking_id } };
@@ -2447,7 +2472,7 @@ async function ensureClassBookingRelation({ tenantId, branchId, actorId, classId
       booking_kind: 'member',
       member_id: memberId,
       guest_name: null,
-      status: 'booked',
+      status: classBookingPolicy.status.default,
       booked_at: new Date().toISOString()
     },
     refs: {},
@@ -7863,8 +7888,8 @@ app.post('/v1/bookings/classes/create', async (req, res, next) => {
         throw fail(409, 'PAYMENT_MEMBER_MISMATCH', `payment ${paymentId} belongs to another member`);
       }
     }
-    const status = String(data.status || 'booked').trim().toLowerCase();
-    if (status !== 'booked') {
+    const status = normalizeClassBookingStatus(data.status);
+    if (!classBookingPolicy.status.creationAllowed.includes(status)) {
       throw fail(400, 'BAD_REQUEST', 'status must be booked for class booking creation');
     }
     const bookingId = String(data.booking_id || '').trim() || `book_${Date.now()}_${randomUUID().slice(0, 8)}`;
@@ -7919,16 +7944,16 @@ app.post('/v1/bookings/classes/:bookingId/cancel', async (req, res, next) => {
     if (!bookingRow) {
       throw fail(404, 'BOOKING_NOT_FOUND', `booking ${bookingId} not found`);
     }
-    const currentStatus = String(bookingRow.status || '').toLowerCase();
-    if (currentStatus === 'canceled') {
+    const currentStatus = normalizeClassBookingStatus(bookingRow.status);
+    if (currentStatus === classBookingPolicy.status.canceled) {
       return ok(res, {
         booking_id: bookingId,
         class_id: bookingRow.class_id,
-        status: 'canceled',
+        status: classBookingPolicy.status.canceled,
         duplicate: true
       });
     }
-    if (currentStatus !== 'booked') {
+    if (!classBookingPolicy.status.active.includes(currentStatus)) {
       throw fail(409, 'BOOKING_STATUS_INVALID', `booking ${bookingId} cannot be canceled from status ${bookingRow.status}`);
     }
 
@@ -7955,7 +7980,7 @@ app.post('/v1/bookings/classes/:bookingId/cancel', async (req, res, next) => {
       event,
       booking_id: bookingId,
       class_id: bookingRow.class_id,
-      status: 'canceled',
+      status: classBookingPolicy.status.canceled,
       canceled_at: canceledAt
     });
   } catch (error) {
@@ -8000,8 +8025,8 @@ app.post('/v1/bookings/classes/:bookingId/checkout', async (req, res, next) => {
     if (!bookingRow) {
       throw fail(404, 'BOOKING_NOT_FOUND', `booking ${bookingId} not found`);
     }
-    const currentStatus = String(bookingRow.status || '').toLowerCase();
-    if (currentStatus === 'canceled') {
+    const currentStatus = normalizeClassBookingStatus(bookingRow.status);
+    if (currentStatus === classBookingPolicy.status.canceled) {
       throw fail(409, 'BOOKING_ALREADY_CANCELED', `booking ${bookingId} already canceled`);
     }
     if (!(bookingRow.attendance_checked_in_at || bookingRow.attendance_confirmed_at)) {

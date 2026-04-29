@@ -1,0 +1,13 @@
+{
+  "class_booking": {
+    "status": {
+      "default": "booked",
+      "active": ["booked"],
+      "canceled": "canceled",
+      "creation_allowed": ["booked"]
+    },
+    "active_until": {
+      "completion_columns": ["attendance_checked_out_at"]
+    }
+  }
+}

@@ -6,7 +6,8 @@
 - [ ] Move new workflow/status/permission definitions into JSON config, fixtures, or explicit bootstrap data before wiring endpoint behavior.
 - [ ] Keep API logic generic: validate, map, and execute config-defined rules rather than embedding business matrices in handlers.
 - [ ] Keep demo or seed data isolated as replaceable fixture/config data.
-- [ ] Run `npm run check` after API changes.
+- [x] Move class booking active/terminal status policy into `config/domain.json`.
+- [x] Run `npm run check` after API changes.
 
 ## Known Follow-up
 - [ ] Add schema validation for workflow, permission, and module config before bootstrapping runtime behavior.
