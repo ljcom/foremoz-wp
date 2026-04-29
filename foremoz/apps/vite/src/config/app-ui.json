@@ -170,6 +170,10 @@
         "label": "Schedule",
         "placeholder": "Pilih jadwal",
         "requiredFeedback": "Pilih jadwal program terlebih dulu."
+      },
+      "sessionDateField": {
+        "label": "session_at",
+        "requiredFeedback": "Pilih tanggal session_at terlebih dulu."
       }
     }
   },

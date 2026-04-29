@@ -2,11 +2,12 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { apiJson, clearSession, getSession, setSession } from '../lib.js';
 import { getMemberPortalConfig } from '../config/app-config.js';
-import { formatAppDateTime } from '../time.js';
+import { formatAppDateTime, getAppTodayDateInput, toAppIsoFromDateInput } from '../time.js';
 
 const MEMBER_PORTAL_CONFIG = getMemberPortalConfig();
 const MEMBER_PROGRAMS_CONFIG = MEMBER_PORTAL_CONFIG.programs || {};
 const MEMBER_PROGRAM_SCHEDULE_FIELD_CONFIG = MEMBER_PROGRAMS_CONFIG.scheduleField || {};
+const MEMBER_PROGRAM_SESSION_DATE_FIELD_CONFIG = MEMBER_PROGRAMS_CONFIG.sessionDateField || {};
 
 function normalizeAttachmentUrls(value) {
   return Array.isArray(value)
@@ -176,6 +177,7 @@ export default function MemberPortalPage() {
   const [bookingForm, setBookingForm] = useState({
     class_id: '',
     schedule_key: '',
+    session_at: getAppTodayDateInput(),
     amount: '0',
     method: 'virtual_account',
     registration_answers: {}
@@ -466,6 +468,10 @@ export default function MemberPortalPage() {
       setFeedback(MEMBER_PROGRAM_SCHEDULE_FIELD_CONFIG.requiredFeedback);
       return;
     }
+    if (!bookingForm.session_at) {
+      setFeedback(MEMBER_PROGRAM_SESSION_DATE_FIELD_CONFIG.requiredFeedback);
+      return;
+    }
     for (let index = 0; index < selectedProgramRegistrationFields.length; index += 1) {
       const field = selectedProgramRegistrationFields[index] || {};
       const fieldId = String(field.field_id || '');
@@ -493,7 +499,8 @@ export default function MemberPortalPage() {
           guest_name: session?.user?.fullName || null,
           registration_answers: bookingForm.registration_answers,
           schedule_choice: chosenSchedule?.key || null,
-          schedule_label: chosenSchedule?.label || null
+          schedule_label: chosenSchedule?.label || null,
+          booked_at: toAppIsoFromDateInput(bookingForm.session_at)
         })
       });
 
@@ -501,6 +508,7 @@ export default function MemberPortalPage() {
       setBookingForm({
         class_id: '',
         schedule_key: '',
+        session_at: getAppTodayDateInput(),
         amount: '0',
         method: 'virtual_account',
         registration_answers: {}
@@ -751,6 +759,7 @@ export default function MemberPortalPage() {
                           ...prev,
                           class_id: e.target.value,
                           schedule_key: '',
+                          session_at: prev.session_at || getAppTodayDateInput(),
                           amount: '0',
                           registration_answers: {}
                         }))
@@ -795,6 +804,14 @@ export default function MemberPortalPage() {
                       </select>
                     </label>
                   ) : null}
+                  <label>
+                    {MEMBER_PROGRAM_SESSION_DATE_FIELD_CONFIG.label}
+                    <input
+                      type="date"
+                      value={bookingForm.session_at}
+                      onChange={(e) => setBookingForm((prev) => ({ ...prev, session_at: e.target.value }))}
+                    />
+                  </label>
                   <label>
                     Amount
                     <input
