@@ -61,6 +61,7 @@
 - [x] Run `npm run build` after PT history session layout update.
 - [x] Run `npm run build` after member programs schedule label update.
 - [x] Run `npm run build` after member programs session_at date input update.
+- [x] Run `npm run build` after member programs session_at visibility update.
 
 ## Known Follow-up
 - [x] Continue migrating remaining admin/detail page copy into the existing i18n/config layer.

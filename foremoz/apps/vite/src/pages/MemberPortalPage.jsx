@@ -804,14 +804,16 @@ export default function MemberPortalPage() {
                       </select>
                     </label>
                   ) : null}
-                  <label>
-                    {MEMBER_PROGRAM_SESSION_DATE_FIELD_CONFIG.label}
-                    <input
-                      type="date"
-                      value={bookingForm.session_at}
-                      onChange={(e) => setBookingForm((prev) => ({ ...prev, session_at: e.target.value }))}
-                    />
-                  </label>
+                  {selectedProgram ? (
+                    <label>
+                      {MEMBER_PROGRAM_SESSION_DATE_FIELD_CONFIG.label}
+                      <input
+                        type="date"
+                        value={bookingForm.session_at}
+                        onChange={(e) => setBookingForm((prev) => ({ ...prev, session_at: e.target.value }))}
+                      />
+                    </label>
+                  ) : null}
                   <label>
                     Amount
                     <input
