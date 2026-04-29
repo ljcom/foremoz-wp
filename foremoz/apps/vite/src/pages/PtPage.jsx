@@ -680,6 +680,16 @@ export default function PtPage() {
     );
     const normalizedTrainerId = String(trainerId || '').trim().toLowerCase();
     const normalizedTrainerName = String(session?.user?.fullName || '').trim().toLowerCase();
+    const completedBookingsByMemberClass = new Map();
+    classBookingRows
+      .filter((row) => row?.attendance_checked_out_at)
+      .forEach((row) => {
+        const memberId = String(row?.member_id || '').trim();
+        const classId = String(row?.class_id || '').trim();
+        if (!memberId || !classId) return;
+        const key = `${memberId}:${classId}`;
+        completedBookingsByMemberClass.set(key, (completedBookingsByMemberClass.get(key) || 0) + 1);
+      });
     const enrollmentByMemberClass = new Map();
     activityEnrollmentRows.forEach((row) => {
       const memberId = String(row?.member_id || '').trim();
@@ -727,6 +737,14 @@ export default function PtPage() {
         const usageLimit = Number(classDetail?.usage_limit || 0);
         const hasRemainingUsage = enrollmentRow?.remaining_usage !== null && enrollmentRow?.remaining_usage !== undefined;
         const remainingUsage = hasRemainingUsage ? Number(enrollmentRow?.remaining_usage || 0) : null;
+        const completedBookingCount = completedBookingsByMemberClass.get(key) || 0;
+        const usageBasedRemaining = usageLimit > 0 ? Math.max(0, usageLimit - completedBookingCount) : null;
+        const remainingSessions = usageLimit > 0
+          ? Math.min(
+            Number.isFinite(remainingUsage) ? remainingUsage : usageLimit,
+            Number.isFinite(usageBasedRemaining) ? usageBasedRemaining : usageLimit
+          )
+          : null;
         rows.push({
           member_id: memberId,
           class_id: classId,
@@ -735,9 +753,7 @@ export default function PtPage() {
           usage_mode: String(classDetail?.usage_mode || '').trim().toLowerCase(),
           usage_limit: usageLimit,
           total_sessions: usageLimit > 0 ? usageLimit : null,
-          remaining_sessions: usageLimit > 0
-            ? (hasRemainingUsage && Number.isFinite(remainingUsage) ? remainingUsage : usageLimit)
-            : null
+          remaining_sessions: remainingSessions
         });
       });
     });
@@ -745,7 +761,7 @@ export default function PtPage() {
       if (a.member_id !== b.member_id) return a.member_id.localeCompare(b.member_id);
       return a.class_name.localeCompare(b.class_name);
     });
-  }, [activityEnrollmentRows, classRows, orderRows, packageRows, session?.user?.fullName, trainerId]);
+  }, [activityEnrollmentRows, classBookingRows, classRows, orderRows, packageRows, session?.user?.fullName, trainerId]);
   const bookMemberOptions = useMemo(() => {
     const grouped = new Map();
     purchasedProgramRows.forEach((row) => {
