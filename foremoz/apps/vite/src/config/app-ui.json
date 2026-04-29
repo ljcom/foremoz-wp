@@ -134,6 +134,14 @@
     }
   },
   "ptWorkspace": {
+    "bookSession": {
+      "sessionUsedField": {
+        "key": "session_used",
+        "label": "session_used",
+        "defaultValue": 1,
+        "min": 1
+      }
+    },
     "historySession": {
       "completedAtLabel": "completed_at",
       "completedAtFields": ["completed_at", "attendance_checked_out_at"],

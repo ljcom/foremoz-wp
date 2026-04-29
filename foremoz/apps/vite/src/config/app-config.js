@@ -76,6 +76,8 @@ export function validateAppUiConfig(config = appUiConfig) {
   requireConfigObject(config, 'pageErrorBoundary.variants');
   requireConfigObject(config, 'backendShell.copy');
   requireConfigObject(config, 'backendShell.navItemsByWorkspace');
+  requireConfigObject(config, 'ptWorkspace.bookSession');
+  requireConfigObject(config, 'ptWorkspace.bookSession.sessionUsedField');
   requireConfigObject(config, 'ptWorkspace.historySession');
   requireConfigObject(config, 'workspaceAccess.routePolicies');
   requireConfigObject(config, 'workspaceAccess.roleHomePaths');
