@@ -298,6 +298,12 @@ function resolveHistoryAttendanceStatus(row) {
   return String(statusByActivityType[activityType] || '').trim();
 }
 
+function resolveHistoryBookingBadgeLabel(row) {
+  const labelByBookingKind = PT_HISTORY_SESSION_CONFIG.badgeLabelByBookingKind || {};
+  const bookingKind = String(row?.booking_kind || '').trim().toLowerCase();
+  return String(labelByBookingKind[bookingKind] || labelByBookingKind.default || '').trim();
+}
+
 function isEventAwardEnabled(value, fallback = true) {
   if (value === undefined || value === null || value === '') return fallback;
   if (typeof value === 'boolean') return value;
@@ -2031,7 +2037,7 @@ export default function PtPage() {
                     </div>
                     {item.source_kind === 'class_booking' ? (
                       <div className="payment-meta">
-                        <span className="passport-chip">{item.booking_kind === 'pt' ? 'booking by pt' : 'completed session'}</span>
+                        <span className="passport-chip">{resolveHistoryBookingBadgeLabel(item)}</span>
                       </div>
                     ) : null}
                   </div>

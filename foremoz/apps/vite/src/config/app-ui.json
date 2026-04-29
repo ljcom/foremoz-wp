@@ -152,6 +152,11 @@
           "session_completed": "completed",
           "program_completed": "completed"
         }
+      },
+      "badgeLabelByBookingKind": {
+        "pt": "booking by pt",
+        "member": "booking member",
+        "default": "booking member"
       }
     }
   },

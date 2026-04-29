@@ -93,6 +93,7 @@ export function validateAppUiConfig(config = appUiConfig) {
   requireConfigObject(config, 'salesWorkspace.copy');
   requireConfigObject(config, 'ptWorkspace.historySession.attendance');
   requireConfigObject(config, 'ptWorkspace.historySession.attendance.statusByActivityType');
+  requireConfigObject(config, 'ptWorkspace.historySession.badgeLabelByBookingKind');
 
   [
     'workspaceAccess.workspaceSwitcherEnvironments',
