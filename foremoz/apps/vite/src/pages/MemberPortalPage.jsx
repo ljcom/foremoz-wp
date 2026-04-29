@@ -480,7 +480,7 @@ export default function MemberPortalPage() {
         method: 'POST',
         body: JSON.stringify({
           tenant_id: tenantId,
-          branch_id: branchId,
+          branch_id: selectedProgram.branch_id || branchId,
           booking_id: `book_${Date.now()}`,
           class_id: selectedProgram.class_id,
           booking_kind: 'member',
@@ -518,7 +518,7 @@ export default function MemberPortalPage() {
         method: 'POST',
         body: JSON.stringify({
           tenant_id: tenantId,
-          branch_id: branchId
+          branch_id: booking.branch_id || booking.class_detail?.branch_id || branchId
         })
       });
       await refreshPortalData();
