@@ -1787,8 +1787,10 @@ export default function PtPage() {
                           <strong>{memberNameById.get(String(item.member_id || '').trim()) || item.member_id || '-'}</strong>
                           {item.member_id ? <p>{item.member_id}</p> : null}
                           {item.pt_package_id ? <p>{item.pt_package_id}</p> : null}
-                          <p>{formatAppDateTime(item.session_at)} | session {item.session_id || '-'}</p>
-                          {item.schedule_label ? <p>{item.schedule_label}</p> : null}
+                          <p>{PT_BOOK_SESSION_CONFIG.completeList?.sessionLabel} {item.session_id || '-'}</p>
+                          {formatBookListScheduleLine(item) ? (
+                            <p>{PT_BOOK_SESSION_CONFIG.completeList?.scheduleLabel}: {formatBookListScheduleLine(item)}</p>
+                          ) : null}
                           <p>{item.activity_note || '-'}</p>
                         </div>
                         {item.source_kind === 'class_booking' ? (

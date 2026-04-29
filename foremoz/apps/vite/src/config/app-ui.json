@@ -147,6 +147,10 @@
           "booked": "Booked",
           "default": "Booked"
         }
+      },
+      "completeList": {
+        "sessionLabel": "session",
+        "scheduleLabel": "schedule"
       }
     },
     "historySession": {

@@ -63,6 +63,7 @@
 - [x] Run `npm run build` after member programs session_at date input update.
 - [x] Run `npm run build` after member programs session_at visibility update.
 - [x] Run `npm run build` after PT book list status display update.
+- [x] Run `npm run build` after PT complete list schedule display update.
 
 ## Known Follow-up
 - [x] Continue migrating remaining admin/detail page copy into the existing i18n/config layer.

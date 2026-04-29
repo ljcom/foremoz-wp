@@ -79,6 +79,7 @@ export function validateAppUiConfig(config = appUiConfig) {
   requireConfigObject(config, 'ptWorkspace.bookSession');
   requireConfigObject(config, 'ptWorkspace.bookSession.scheduleField');
   requireConfigObject(config, 'ptWorkspace.bookSession.bookList');
+  requireConfigObject(config, 'ptWorkspace.bookSession.completeList');
   requireConfigObject(config, 'ptWorkspace.historySession');
   requireConfigObject(config, 'memberPortal.programs.scheduleField');
   requireConfigObject(config, 'memberPortal.programs.sessionDateField');
