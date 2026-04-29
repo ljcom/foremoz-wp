@@ -208,6 +208,7 @@ export async function runFitnessProjection({ tenantId, branchId }) {
       `alter table if exists read.rm_pt_activity_log
          add column if not exists pt_package_id text,
          add column if not exists activity_type text not null default 'activity_logged',
+         add column if not exists completed_at timestamptz,
          add column if not exists custom_fields jsonb`
     );
     await client.query(
@@ -1253,8 +1254,8 @@ export async function runFitnessProjection({ tenantId, branchId }) {
         await client.query(
           `insert into read.rm_pt_activity_log (
              tenant_id, activity_id, pt_package_id, member_id, trainer_id, session_id,
-             activity_type, activity_note, custom_fields, session_at, updated_at
-           ) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+             activity_type, activity_note, custom_fields, session_at, completed_at, updated_at
+           ) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
            on conflict (tenant_id, activity_id) do update set
              pt_package_id = excluded.pt_package_id,
              member_id = excluded.member_id,
@@ -1264,6 +1265,7 @@ export async function runFitnessProjection({ tenantId, branchId }) {
              activity_note = excluded.activity_note,
              custom_fields = excluded.custom_fields,
              session_at = excluded.session_at,
+             completed_at = excluded.completed_at,
              updated_at = excluded.updated_at`,
           [
             tenant,
@@ -1275,6 +1277,7 @@ export async function runFitnessProjection({ tenantId, branchId }) {
             'session_completed',
             data.activity_note || data.note || null,
             JSON.stringify(data.custom_fields || {}),
+            data.completed_at || eventTs,
             data.completed_at || eventTs,
             eventTs
           ]

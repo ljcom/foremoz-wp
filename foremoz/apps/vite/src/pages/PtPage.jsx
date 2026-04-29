@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { apiJson, clearSession, getAccountSlug, getAllowedEnvironments, getEnvironmentLabel, getSession, setSession } from '../lib.js';
 import BackendWorkspaceShell from '../components/BackendWorkspaceShell.jsx';
-import { getBackendShellNavItems } from '../config/app-config.js';
+import { getBackendShellNavItems, getPtWorkspaceConfig } from '../config/app-config.js';
 import {
   formatAppDateTime,
   getAppDateKey,
@@ -12,6 +12,8 @@ import {
 } from '../time.js';
 
 const COACH_SIDEBAR_NAV_ITEMS = getBackendShellNavItems('coach');
+const PT_WORKSPACE_CONFIG = getPtWorkspaceConfig();
+const PT_HISTORY_SESSION_CONFIG = PT_WORKSPACE_CONFIG.historySession || {};
 
 function Stat({ label, value, iconClass, tone, hint }) {
   return (
@@ -232,6 +234,35 @@ function describePtCustomFields(customFields) {
   if (customFields.next_focus) snippets.push(`next ${customFields.next_focus}`);
   if (snippets.length > 0) return snippets.join(' | ');
   return Object.keys(customFields).length > 0 ? `custom_fields: ${JSON.stringify(customFields)}` : 'custom_fields: -';
+}
+
+function readConfiguredRowValue(row, fieldPath) {
+  return String(fieldPath || '').split('.').reduce((current, key) => {
+    if (!current || typeof current !== 'object') return undefined;
+    return current[key];
+  }, row);
+}
+
+function resolveConfiguredDateTime(row, fieldPaths = []) {
+  for (const fieldPath of Array.isArray(fieldPaths) ? fieldPaths : []) {
+    const value = readConfiguredRowValue(row, fieldPath);
+    if (value) return value;
+  }
+  return null;
+}
+
+function shouldShowHistoryCompletedAt(row) {
+  const activityTypes = Array.isArray(PT_HISTORY_SESSION_CONFIG.completedActivityTypes)
+    ? PT_HISTORY_SESSION_CONFIG.completedActivityTypes
+    : [];
+  const activityType = String(row?.activity_type || '').trim().toLowerCase();
+  return activityTypes.includes(activityType);
+}
+
+function resolveHistoryCompletedAt(row) {
+  const configuredValue = resolveConfiguredDateTime(row, PT_HISTORY_SESSION_CONFIG.completedAtFields);
+  if (configuredValue) return configuredValue;
+  return shouldShowHistoryCompletedAt(row) ? row?.session_at || null : null;
 }
 
 function isEventAwardEnabled(value, fallback = true) {
@@ -575,6 +606,7 @@ export default function PtPage() {
           member_id: String(row?.member_id || '').trim(),
           session_id: String(row?.booking_id || '').trim() || null,
           session_at: sessionAt,
+          completed_at: row?.attendance_checked_out_at || null,
           activity_type: 'program_completed',
           activity_note: classDetail?.class_name || classDetail?.title || classId || 'Program booking',
           custom_fields: row?.registration_answers && typeof row.registration_answers === 'object' ? row.registration_answers : {},
@@ -1944,6 +1976,9 @@ export default function PtPage() {
                       {item.pt_package_id ? <p>{item.pt_package_id}</p> : null}
                       <p>{formatAppDateTime(item.session_at)} | {item.activity_type || 'activity_logged'}{item.session_id ? ` | session ${item.session_id}` : ''}</p>
                       {item.schedule_label ? <p>{item.schedule_label}</p> : null}
+                      {resolveHistoryCompletedAt(item) ? (
+                        <p>{PT_HISTORY_SESSION_CONFIG.completedAtLabel}: {formatAppDateTime(resolveHistoryCompletedAt(item))}</p>
+                      ) : null}
                       <p>{item.activity_note || '-'}</p>
                       <p>{describePtCustomFields(item.custom_fields)}</p>
                     </div>

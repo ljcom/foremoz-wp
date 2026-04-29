@@ -76,6 +76,7 @@ export function validateAppUiConfig(config = appUiConfig) {
   requireConfigObject(config, 'pageErrorBoundary.variants');
   requireConfigObject(config, 'backendShell.copy');
   requireConfigObject(config, 'backendShell.navItemsByWorkspace');
+  requireConfigObject(config, 'ptWorkspace.historySession');
   requireConfigObject(config, 'workspaceAccess.routePolicies');
   requireConfigObject(config, 'workspaceAccess.roleHomePaths');
   requireConfigObject(config, 'workspaceAccess.environmentHomePaths');
@@ -91,7 +92,9 @@ export function validateAppUiConfig(config = appUiConfig) {
 
   [
     'workspaceAccess.workspaceSwitcherEnvironments',
-    'workspaceAccess.defaultEnvironments'
+    'workspaceAccess.defaultEnvironments',
+    'ptWorkspace.historySession.completedAtFields',
+    'ptWorkspace.historySession.completedActivityTypes'
   ].forEach((path) => requireConfigStringArray(config, path));
 
   [
@@ -224,6 +227,10 @@ export function getBackendShellNavItems(workspaceKey) {
 
 export function getSalesWorkspaceConfig() {
   return asObject(appUiConfig.salesWorkspace);
+}
+
+export function getPtWorkspaceConfig() {
+  return asObject(appUiConfig.ptWorkspace);
 }
 
 export function getAdminPageConfig() {
