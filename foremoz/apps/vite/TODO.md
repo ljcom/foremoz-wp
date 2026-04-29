@@ -46,6 +46,7 @@
 - [x] Run `npm run build` after frontend changes that touch application behavior or config loading.
 - [x] Run `npm run build` after PT program completion custom field persistence fix.
 - [x] Run `npm run build` after member portal program booking branch resolution fix.
+- [x] Run `npm run build` after PT book list empty-state layout adjustment.
 
 ## Known Follow-up
 - [x] Continue migrating remaining admin/detail page copy into the existing i18n/config layer.
