@@ -141,7 +141,12 @@
         "requiredFeedback": "Pilih jadwal program terlebih dulu."
       },
       "bookList": {
-        "scheduleLabel": "Schedule"
+        "scheduleLabel": "Schedule",
+        "statusLabel": "Status",
+        "statusByValue": {
+          "booked": "Booked",
+          "default": "Booked"
+        }
       }
     },
     "historySession": {

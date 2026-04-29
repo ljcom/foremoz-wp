@@ -298,6 +298,12 @@ function formatBookListScheduleLine(row) {
   return [scheduleLabel, sessionAtLabel].filter(Boolean).join(' | ');
 }
 
+function resolveBookListStatusLabel(row) {
+  const statusByValue = PT_BOOK_SESSION_CONFIG.bookList?.statusByValue || {};
+  const status = String(row?.status || 'booked').trim().toLowerCase();
+  return String(statusByValue[status] || statusByValue.default || status).trim();
+}
+
 function isEventAwardEnabled(value, fallback = true) {
   if (value === undefined || value === null || value === '') return fallback;
   if (typeof value === 'boolean') return value;
@@ -1655,6 +1661,7 @@ export default function PtPage() {
                           {formatBookListScheduleLine(item) ? (
                             <p>{PT_BOOK_SESSION_CONFIG.bookList?.scheduleLabel}: {formatBookListScheduleLine(item)}</p>
                           ) : null}
+                          <p>{PT_BOOK_SESSION_CONFIG.bookList?.statusLabel} : {resolveBookListStatusLabel(item)}</p>
                           <p>{item.activity_note || '-'}</p>
                           <p>{describePtCustomFields(item.custom_fields)}</p>
                         </div>
