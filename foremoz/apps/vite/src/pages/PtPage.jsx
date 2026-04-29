@@ -5,9 +5,12 @@ import BackendWorkspaceShell from '../components/BackendWorkspaceShell.jsx';
 import { getBackendShellNavItems, getPtWorkspaceConfig } from '../config/app-config.js';
 import {
   formatAppDateTime,
+  getAppDateInputValue,
   getAppDateKey,
   getAppDateTimeInputValue,
   getAppNowDateTimeInput,
+  getAppTodayDateInput,
+  toAppIsoFromDateInput,
   toAppIsoFromDateTimeInput
 } from '../time.js';
 
@@ -175,7 +178,7 @@ function createBookForm() {
     pt_package_id: '',
     member_id: '',
     schedule_key: '',
-    session_at: getAppNowDateTimeInput(),
+    session_at: getAppTodayDateInput(),
     activity_note: '',
     custom_fields_text: ''
   };
@@ -1206,7 +1209,7 @@ export default function PtPage() {
           member_id: bookForm.member_id,
           schedule_choice: fallbackSchedule?.key || null,
           schedule_label: fallbackSchedule?.label || null,
-          booked_at: toAppIsoFromDateTimeInput(bookForm.session_at),
+          booked_at: toAppIsoFromDateInput(bookForm.session_at),
           activity_note: bookForm.activity_note || null,
           registration_answers: customFields
         })
@@ -1407,7 +1410,7 @@ export default function PtPage() {
       pt_package_id: String(row?.pt_package_id || prev.pt_package_id || ''),
       member_id: String(row?.member_id || prev.member_id || ''),
       schedule_key: '',
-      session_at: row?.session_at ? getAppDateTimeInputValue(row.session_at) : prev.session_at,
+      session_at: row?.session_at ? getAppDateInputValue(row.session_at) : prev.session_at,
       activity_note: String(row?.activity_note || prev.activity_note || ''),
       custom_fields_text: row?.custom_fields && Object.keys(row.custom_fields).length > 0 ? JSON.stringify(row.custom_fields, null, 2) : ''
     }));
@@ -1630,7 +1633,7 @@ export default function PtPage() {
                       </select>
                     </label>
                   ) : null}
-                  <label>session_at<input type="datetime-local" value={bookForm.session_at} onChange={(e) => setBookForm((p) => ({ ...p, session_at: e.target.value }))} /></label>
+                  <label>session_at<input type="date" value={bookForm.session_at} onChange={(e) => setBookForm((p) => ({ ...p, session_at: e.target.value }))} /></label>
                   <label>activity_note<input value={bookForm.activity_note} onChange={(e) => setBookForm((p) => ({ ...p, activity_note: e.target.value }))} placeholder="Contoh: Upper body, mobility, assessment" /></label>
                   <label>custom_fields (JSON)<textarea rows={3} value={bookForm.custom_fields_text} onChange={(e) => setBookForm((p) => ({ ...p, custom_fields_text: e.target.value }))} placeholder='{"booking_source":"pt_dashboard","planned_focus":"upper body"}' /></label>
                   <button className="btn" type="submit" disabled={saving}>{saving ? 'Saving...' : 'Book program'}</button>
