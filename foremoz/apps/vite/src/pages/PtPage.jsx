@@ -291,6 +291,13 @@ function resolveHistoryCompletedAt(row) {
   return shouldShowHistoryCompletedAt(row) ? row?.session_at || null : null;
 }
 
+function resolveHistoryAttendanceStatus(row) {
+  const attendanceConfig = PT_HISTORY_SESSION_CONFIG.attendance || {};
+  const statusByActivityType = attendanceConfig.statusByActivityType || {};
+  const activityType = String(row?.activity_type || '').trim().toLowerCase();
+  return String(statusByActivityType[activityType] || '').trim();
+}
+
 function isEventAwardEnabled(value, fallback = true) {
   if (value === undefined || value === null || value === '') return fallback;
   if (typeof value === 'boolean') return value;
@@ -2015,6 +2022,9 @@ export default function PtPage() {
                       {item.schedule_label ? <p>{item.schedule_label}</p> : null}
                       {resolveHistoryCompletedAt(item) ? (
                         <p>{PT_HISTORY_SESSION_CONFIG.completedAtLabel}: {formatAppDateTime(resolveHistoryCompletedAt(item))}</p>
+                      ) : null}
+                      {resolveHistoryAttendanceStatus(item) ? (
+                        <p>{PT_HISTORY_SESSION_CONFIG.attendance?.label}: {resolveHistoryAttendanceStatus(item)}</p>
                       ) : null}
                       <p>{item.activity_note || '-'}</p>
                       <p>{describePtCustomFields(item.custom_fields)}</p>

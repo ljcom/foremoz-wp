@@ -91,6 +91,8 @@ export function validateAppUiConfig(config = appUiConfig) {
   requireConfigObject(config, 'adminPage.memberUpload');
   requireConfigObject(config, 'csDashboard.orders');
   requireConfigObject(config, 'salesWorkspace.copy');
+  requireConfigObject(config, 'ptWorkspace.historySession.attendance');
+  requireConfigObject(config, 'ptWorkspace.historySession.attendance.statusByActivityType');
 
   [
     'workspaceAccess.workspaceSwitcherEnvironments',

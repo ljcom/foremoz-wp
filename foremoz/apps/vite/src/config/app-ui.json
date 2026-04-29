@@ -145,7 +145,14 @@
     "historySession": {
       "completedAtLabel": "completed_at",
       "completedAtFields": ["completed_at", "attendance_checked_out_at"],
-      "completedActivityTypes": ["session_completed", "program_completed"]
+      "completedActivityTypes": ["session_completed", "program_completed"],
+      "attendance": {
+        "label": "Attendance",
+        "statusByActivityType": {
+          "session_completed": "completed",
+          "program_completed": "completed"
+        }
+      }
     }
   },
   "salesWorkspace": {
