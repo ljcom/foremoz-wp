@@ -136,7 +136,7 @@
   "ptWorkspace": {
     "bookSession": {
       "scheduleField": {
-        "label": "Schedule",
+        "label": "schedule",
         "placeholder": "Pilih jadwal",
         "requiredFeedback": "Pilih jadwal program terlebih dulu."
       },
