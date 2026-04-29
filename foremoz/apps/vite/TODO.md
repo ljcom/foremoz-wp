@@ -55,6 +55,7 @@
 - [x] Run `npm run build` after PT book list session_used form removal.
 - [x] Run `npm run build` after PT program remaining session calculation fix.
 - [x] Run `npm run build` after PT book list schedule selector update.
+- [x] Run `npm run build` after PT book list schedule display update.
 
 ## Known Follow-up
 - [x] Continue migrating remaining admin/detail page copy into the existing i18n/config layer.

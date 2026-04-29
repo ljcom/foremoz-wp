@@ -290,6 +290,12 @@ function resolveHistoryBookingBadgeLabel(row) {
   return String(labelByBookingKind[bookingKind] || labelByBookingKind.default || '').trim();
 }
 
+function formatBookListScheduleLine(row) {
+  const scheduleLabel = String(row?.schedule_label || '').trim();
+  const sessionAtLabel = row?.session_at ? formatAppDateTime(row.session_at) : '';
+  return [scheduleLabel, sessionAtLabel].filter(Boolean).join(' | ');
+}
+
 function isEventAwardEnabled(value, fallback = true) {
   if (value === undefined || value === null || value === '') return fallback;
   if (typeof value === 'boolean') return value;
@@ -1644,8 +1650,9 @@ export default function PtPage() {
                           </strong>
                           {item.member_id ? <p>{item.member_id}</p> : null}
                           {item.pt_package_id ? <p>{item.pt_package_id}</p> : null}
-                          <p>{formatAppDateTime(item.session_at)}</p>
-                          {item.schedule_label ? <p>{item.schedule_label}</p> : null}
+                          {formatBookListScheduleLine(item) ? (
+                            <p>{PT_BOOK_SESSION_CONFIG.bookList?.scheduleLabel}: {formatBookListScheduleLine(item)}</p>
+                          ) : null}
                           <p>{item.activity_note || '-'}</p>
                           <p>{describePtCustomFields(item.custom_fields)}</p>
                         </div>

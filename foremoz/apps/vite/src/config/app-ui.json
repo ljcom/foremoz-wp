@@ -139,6 +139,9 @@
         "label": "Jadwal",
         "placeholder": "Pilih jadwal",
         "requiredFeedback": "Pilih jadwal program terlebih dulu."
+      },
+      "bookList": {
+        "scheduleLabel": "Schedule"
       }
     },
     "historySession": {
