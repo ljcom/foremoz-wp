@@ -1196,9 +1196,15 @@ export async function runFitnessProjection({ tenantId, branchId }) {
         await client.query(
           `update read.rm_booking_list
            set attendance_checked_out_at = $3,
+               registration_answers = coalesce(registration_answers, '{}'::jsonb) || $4::jsonb,
                updated_at = $3
            where tenant_id = $1 and booking_id = $2`,
-          [tenant, data.booking_id, data.checked_out_at || eventTs]
+          [
+            tenant,
+            data.booking_id,
+            data.checked_out_at || eventTs,
+            JSON.stringify(data.custom_fields || {})
+          ]
         );
         applied += 1;
         continue;

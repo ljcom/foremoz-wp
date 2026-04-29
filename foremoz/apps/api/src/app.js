@@ -8019,6 +8019,7 @@ app.post('/v1/bookings/classes/:bookingId/attendance-confirm', async (req, res, 
 app.post('/v1/bookings/classes/:bookingId/checkout', async (req, res, next) => {
   try {
     const data = req.body || {};
+    const customFields = normalizeCustomFields(data.custom_fields);
     const tenantId = data.tenant_id || config.defaultTenantId;
     const bookingId = required(req.params.bookingId, 'bookingId');
     const bookingRow = await getClassBookingRow({ tenantId, bookingId });
@@ -8056,7 +8057,8 @@ app.post('/v1/bookings/classes/:bookingId/checkout', async (req, res, next) => {
         class_id: bookingRow.class_id,
         member_id: bookingRow.member_id || null,
         guest_name: bookingRow.guest_name || null,
-        checked_out_at: checkedOutAt
+        checked_out_at: checkedOutAt,
+        custom_fields: customFields
       },
       refs: {}
     });

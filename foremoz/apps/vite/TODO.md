@@ -44,6 +44,7 @@
 - [x] Keep renderers generic: components should receive config and context instead of owning business-specific arrays or rules.
 - [x] Keep visual choices on design tokens, semantic variants, CSS variables, or Tailwind presets instead of raw one-off styling inside components.
 - [x] Run `npm run build` after frontend changes that touch application behavior or config loading.
+- [x] Run `npm run build` after PT program completion custom field persistence fix.
 
 ## Known Follow-up
 - [x] Continue migrating remaining admin/detail page copy into the existing i18n/config layer.

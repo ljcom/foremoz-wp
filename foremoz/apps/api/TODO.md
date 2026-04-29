@@ -7,6 +7,7 @@
 - [ ] Keep API logic generic: validate, map, and execute config-defined rules rather than embedding business matrices in handlers.
 - [ ] Keep demo or seed data isolated as replaceable fixture/config data.
 - [x] Move class booking active/terminal status policy into `config/domain.json`.
+- [x] Persist PT program completion performance fields through class booking checkout projection.
 - [x] Run `npm run check` after API changes.
 
 ## Known Follow-up

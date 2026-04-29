@@ -1146,6 +1146,11 @@ export default function PtPage() {
         (item) => String(item?.class_id || '').trim() === String(completeForm.pt_package_id || '').trim()
       ) || null;
       if (selectedProgram) {
+        const customFields = buildPerformanceCustomFields(
+          completeForm.custom_fields_text,
+          'Complete session',
+          completeForm.performance_fields
+        );
         const normalizedMemberId = String(completeForm.member_id || '').trim();
         const normalizedClassId = String(selectedProgram.class_id || '').trim();
         const normalizedSessionId = String(completeForm.session_id || '').trim();
@@ -1176,7 +1181,8 @@ export default function PtPage() {
           tenant_id: tenantId,
           branch_id: branchId,
           actor_id: trainerId || undefined,
-          checked_out_at: completedAtIso
+          checked_out_at: completedAtIso,
+          custom_fields: customFields
         };
         let checkoutError = null;
         for (let attempt = 0; attempt < 3; attempt += 1) {
