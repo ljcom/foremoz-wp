@@ -8,6 +8,7 @@
 - [ ] Keep demo or seed data isolated as replaceable fixture/config data.
 - [x] Move class booking active/terminal status policy into `config/domain.json`.
 - [x] Persist PT program completion performance fields through class booking checkout projection.
+- [x] Allow class booking checkout to use check-in event source when read model projection is behind.
 - [x] Run `npm run check` after API changes.
 
 ## Known Follow-up

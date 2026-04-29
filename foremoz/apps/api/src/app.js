@@ -1785,6 +1785,20 @@ async function getClassBookingRow({ tenantId, bookingId }) {
   return rows[0] || null;
 }
 
+async function getLatestClassBookingCheckinData({ tenantId, bookingId }) {
+  const { rows } = await query(
+    `select payload->'data' as data
+     from eventdb_event
+     where namespace_id = $1
+       and event_type in ('class.attendance.checked_in', 'class.attendance.confirmed')
+       and payload->'data'->>'booking_id' = $2
+     order by event_time desc, sequence desc
+     limit 1`,
+    [resolveNamespaceId(tenantId), bookingId]
+  );
+  return rows[0]?.data || null;
+}
+
 async function handleClassBookingCheckin({ bookingId, data }) {
   const tenantId = data.tenant_id || config.defaultTenantId;
   const bookingRow = await getClassBookingRow({ tenantId, bookingId });
@@ -8030,7 +8044,10 @@ app.post('/v1/bookings/classes/:bookingId/checkout', async (req, res, next) => {
     if (currentStatus === classBookingPolicy.status.canceled) {
       throw fail(409, 'BOOKING_ALREADY_CANCELED', `booking ${bookingId} already canceled`);
     }
-    if (!(bookingRow.attendance_checked_in_at || bookingRow.attendance_confirmed_at)) {
+    const latestCheckin = bookingRow.attendance_checked_in_at || bookingRow.attendance_confirmed_at
+      ? null
+      : await getLatestClassBookingCheckinData({ tenantId, bookingId });
+    if (!(bookingRow.attendance_checked_in_at || bookingRow.attendance_confirmed_at || latestCheckin)) {
       throw fail(409, 'BOOKING_NOT_CHECKED_IN', `booking ${bookingId} must be checked in first`);
     }
     if (bookingRow.attendance_checked_out_at) {
