@@ -134,6 +134,13 @@
     }
   },
   "ptWorkspace": {
+    "bookSession": {
+      "scheduleField": {
+        "label": "Jadwal",
+        "placeholder": "Pilih jadwal",
+        "requiredFeedback": "Pilih jadwal program terlebih dulu."
+      }
+    },
     "historySession": {
       "completedAtLabel": "completed_at",
       "completedAtFields": ["completed_at", "attendance_checked_out_at"],

@@ -13,6 +13,8 @@ import {
 
 const COACH_SIDEBAR_NAV_ITEMS = getBackendShellNavItems('coach');
 const PT_WORKSPACE_CONFIG = getPtWorkspaceConfig();
+const PT_BOOK_SESSION_CONFIG = PT_WORKSPACE_CONFIG.bookSession || {};
+const PT_BOOK_SCHEDULE_FIELD_CONFIG = PT_BOOK_SESSION_CONFIG.scheduleField || {};
 const PT_HISTORY_SESSION_CONFIG = PT_WORKSPACE_CONFIG.historySession || {};
 
 function Stat({ label, value, iconClass, tone, hint }) {
@@ -71,6 +73,15 @@ function sentenceCase(value) {
 }
 
 const WEEKDAY_BY_INDEX = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+const WEEKDAY_LABELS = {
+  sun: 'Minggu',
+  mon: 'Senin',
+  tue: 'Selasa',
+  wed: 'Rabu',
+  thu: 'Kamis',
+  fri: 'Jumat',
+  sat: 'Sabtu'
+};
 
 function getProgramScheduleOptions(classItem) {
   const scheduleMode = String(classItem?.schedule_mode || 'none').trim().toLowerCase();
@@ -80,7 +91,7 @@ function getProgramScheduleOptions(classItem) {
   if (scheduleMode === 'manual') {
     return (Array.isArray(classItem?.manual_schedule) ? classItem.manual_schedule : []).map((item, index) => ({
       key: `manual:${item.start_at}:${item.end_at}:${index}`,
-      label: `${item.start_at} -> ${item.end_at}`,
+      label: `${formatAppDateTime(item.start_at)} - ${formatAppDateTime(item.end_at)}`,
       payload: {
         schedule_mode: 'manual',
         start_at: item.start_at,
@@ -91,7 +102,7 @@ function getProgramScheduleOptions(classItem) {
   if (scheduleMode === 'everyday') {
     return [{
       key: `everyday:${startTime}:${endTime}`,
-      label: startTime && endTime ? `Everyday | ${startTime}-${endTime}` : 'Everyday',
+      label: startTime && endTime ? `Setiap hari | ${startTime}-${endTime}` : 'Setiap hari',
       payload: {
         schedule_mode: 'everyday',
         start_time: startTime,
@@ -105,7 +116,7 @@ function getProgramScheduleOptions(classItem) {
       .filter(Boolean)
       .map((weekday) => ({
         key: `weekly:${weekday}:${startTime}:${endTime}`,
-        label: `${weekday.toUpperCase()} | ${startTime}-${endTime}`,
+        label: `${WEEKDAY_LABELS[weekday] || weekday.toUpperCase()} | ${startTime}-${endTime}`,
         payload: {
           schedule_mode: 'weekly',
           weekday,
@@ -163,6 +174,7 @@ function createBookForm() {
   return {
     pt_package_id: '',
     member_id: '',
+    schedule_key: '',
     session_at: getAppNowDateTimeInput(),
     activity_note: '',
     custom_fields_text: ''
@@ -781,6 +793,14 @@ export default function PtPage() {
     if (!memberId) return purchasedProgramRows;
     return purchasedProgramRows.filter((row) => String(row?.member_id || '').trim() === memberId);
   }, [bookForm.member_id, purchasedProgramRows]);
+  const selectedBookProgram = useMemo(
+    () => classRows.find((item) => String(item?.class_id || '').trim() === String(bookForm.pt_package_id || '').trim()) || null,
+    [bookForm.pt_package_id, classRows]
+  );
+  const selectedBookProgramScheduleOptions = useMemo(
+    () => getProgramScheduleOptions(selectedBookProgram),
+    [selectedBookProgram]
+  );
   const completeProgramOptions = useMemo(() => {
     const memberId = String(completeForm.member_id || '').trim();
     if (!memberId) return purchasedProgramRows;
@@ -1162,7 +1182,13 @@ export default function PtPage() {
       const customFields = parseCustomFieldsInput(bookForm.custom_fields_text, 'Book schedule');
       const selectedClass = classRows.find((item) => String(item?.class_id || '').trim() === String(bookForm.pt_package_id || '').trim()) || null;
       const scheduleOptions = getProgramScheduleOptions(selectedClass);
-      const selectedSchedule = resolveScheduleChoiceBySessionAt(scheduleOptions, bookForm.session_at);
+      const selectedSchedule = scheduleOptions.find((item) => item.key === bookForm.schedule_key)
+        || (scheduleOptions.length === 1 ? scheduleOptions[0] : null);
+      if (scheduleOptions.length > 0 && !selectedSchedule) {
+        setFeedback(PT_BOOK_SCHEDULE_FIELD_CONFIG.requiredFeedback);
+        return;
+      }
+      const fallbackSchedule = selectedSchedule || resolveScheduleChoiceBySessionAt(scheduleOptions, bookForm.session_at);
       await apiJson('/v1/bookings/classes/create', {
         method: 'POST',
         body: JSON.stringify({
@@ -1172,8 +1198,8 @@ export default function PtPage() {
           class_id: bookForm.pt_package_id,
           booking_kind: 'pt',
           member_id: bookForm.member_id,
-          schedule_choice: selectedSchedule?.key || null,
-          schedule_label: selectedSchedule?.label || null,
+          schedule_choice: fallbackSchedule?.key || null,
+          schedule_label: fallbackSchedule?.label || null,
           booked_at: toAppIsoFromDateTimeInput(bookForm.session_at),
           activity_note: bookForm.activity_note || null,
           registration_answers: customFields
@@ -1183,7 +1209,8 @@ export default function PtPage() {
       setBookForm((prev) => ({
         ...createBookForm(),
         pt_package_id: prev.pt_package_id,
-        member_id: prev.member_id
+        member_id: prev.member_id,
+        schedule_key: prev.schedule_key
       }));
       await loadPtWorkspace();
     } catch (err) {
@@ -1354,7 +1381,7 @@ export default function PtPage() {
   function seedFormsFromBalance(row) {
     const packageId = String(row?.pt_package_id || '');
     const memberId = String(row?.member_id || '');
-    setBookForm((prev) => ({ ...prev, pt_package_id: packageId, member_id: memberId }));
+    setBookForm((prev) => ({ ...prev, pt_package_id: packageId, member_id: memberId, schedule_key: '' }));
     setCompleteForm((prev) => ({ ...prev, pt_package_id: packageId, member_id: memberId }));
     setActivityForm((prev) => ({ ...prev, pt_package_id: packageId, member_id: memberId }));
   }
@@ -1362,7 +1389,7 @@ export default function PtPage() {
   function seedMemberIntoForms(memberId, nextTab = 'book') {
     const normalizedMemberId = String(memberId || '').trim();
     if (!normalizedMemberId) return;
-    setBookForm((prev) => ({ ...prev, member_id: normalizedMemberId }));
+    setBookForm((prev) => ({ ...prev, member_id: normalizedMemberId, schedule_key: '' }));
     setCompleteForm((prev) => ({ ...prev, member_id: normalizedMemberId }));
     setActivityForm((prev) => ({ ...prev, member_id: normalizedMemberId }));
     setActiveTab(nextTab);
@@ -1373,6 +1400,7 @@ export default function PtPage() {
       ...prev,
       pt_package_id: String(row?.pt_package_id || prev.pt_package_id || ''),
       member_id: String(row?.member_id || prev.member_id || ''),
+      schedule_key: '',
       session_at: row?.session_at ? getAppDateTimeInputValue(row.session_at) : prev.session_at,
       activity_note: String(row?.activity_note || prev.activity_note || ''),
       custom_fields_text: row?.custom_fields && Object.keys(row.custom_fields).length > 0 ? JSON.stringify(row.custom_fields, null, 2) : ''
@@ -1423,6 +1451,14 @@ export default function PtPage() {
     }
     loadAwardParticipants(selectedAwardEventId);
   }, [selectedAwardEventId, tenantId, branchId]);
+
+  useEffect(() => {
+    if (!selectedBookProgram) return;
+    setBookForm((prev) => ({
+      ...prev,
+      schedule_key: prev.schedule_key || (selectedBookProgramScheduleOptions.length === 1 ? selectedBookProgramScheduleOptions[0].key : '')
+    }));
+  }, [selectedBookProgram, selectedBookProgramScheduleOptions]);
 
   return (
     <BackendWorkspaceShell
@@ -1541,7 +1577,8 @@ export default function PtPage() {
                         setBookForm((p) => ({
                           ...p,
                           member_id: e.target.value,
-                          pt_package_id: ''
+                          pt_package_id: '',
+                          schedule_key: ''
                         }))
                       }
                     >
@@ -1558,7 +1595,7 @@ export default function PtPage() {
                     pt_package_id (program)
                     <select
                       value={bookForm.pt_package_id}
-                      onChange={(e) => setBookForm((p) => ({ ...p, pt_package_id: e.target.value }))}
+                      onChange={(e) => setBookForm((p) => ({ ...p, pt_package_id: e.target.value, schedule_key: '' }))}
                     >
                       <option value="">Pilih program scheduled</option>
                       {bookProgramOptions.map((item) => (
@@ -1571,6 +1608,22 @@ export default function PtPage() {
                       ))}
                     </select>
                   </label>
+                  {selectedBookProgramScheduleOptions.length > 0 ? (
+                    <label>
+                      {PT_BOOK_SCHEDULE_FIELD_CONFIG.label}
+                      <select
+                        value={bookForm.schedule_key}
+                        onChange={(e) => setBookForm((p) => ({ ...p, schedule_key: e.target.value }))}
+                      >
+                        <option value="">{PT_BOOK_SCHEDULE_FIELD_CONFIG.placeholder}</option>
+                        {selectedBookProgramScheduleOptions.map((item) => (
+                          <option key={item.key} value={item.key}>
+                            {item.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  ) : null}
                   <label>session_at<input type="datetime-local" value={bookForm.session_at} onChange={(e) => setBookForm((p) => ({ ...p, session_at: e.target.value }))} /></label>
                   <label>activity_note<input value={bookForm.activity_note} onChange={(e) => setBookForm((p) => ({ ...p, activity_note: e.target.value }))} placeholder="Contoh: Upper body, mobility, assessment" /></label>
                   <label>custom_fields (JSON)<textarea rows={3} value={bookForm.custom_fields_text} onChange={(e) => setBookForm((p) => ({ ...p, custom_fields_text: e.target.value }))} placeholder='{"booking_source":"pt_dashboard","planned_focus":"upper body"}' /></label>
