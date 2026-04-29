@@ -1670,16 +1670,16 @@ export default function PtPage() {
                         )}
                       </div>
                     ))}
+                    {upcomingBookedSessions.length === 0 ? (
+                      <div className="entity-row">
+                        <div>
+                          <strong>Tidak ada sesi pending</strong>
+                          <p>Booked session yang belum completed akan muncul di sini.</p>
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
                 </section>
-
-                {upcomingBookedSessions.length === 0 ? (
-                  <section className="card" style={{ alignSelf: 'start' }}>
-                    <p className="eyebrow">Pending status</p>
-                    <h2>Tidak ada sesi pending</h2>
-                    <p className="feedback">Booked session yang belum completed akan muncul di sini.</p>
-                  </section>
-                ) : null}
               </div>
             </div>
 
