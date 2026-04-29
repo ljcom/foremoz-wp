@@ -80,6 +80,7 @@ export function validateAppUiConfig(config = appUiConfig) {
   requireConfigObject(config, 'ptWorkspace.bookSession.scheduleField');
   requireConfigObject(config, 'ptWorkspace.bookSession.bookList');
   requireConfigObject(config, 'ptWorkspace.historySession');
+  requireConfigObject(config, 'memberPortal.programs.scheduleField');
   requireConfigObject(config, 'workspaceAccess.routePolicies');
   requireConfigObject(config, 'workspaceAccess.roleHomePaths');
   requireConfigObject(config, 'workspaceAccess.environmentHomePaths');
@@ -237,6 +238,10 @@ export function getSalesWorkspaceConfig() {
 
 export function getPtWorkspaceConfig() {
   return asObject(appUiConfig.ptWorkspace);
+}
+
+export function getMemberPortalConfig() {
+  return asObject(appUiConfig.memberPortal);
 }
 
 export function getAdminPageConfig() {

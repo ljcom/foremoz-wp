@@ -164,6 +164,15 @@
       }
     }
   },
+  "memberPortal": {
+    "programs": {
+      "scheduleField": {
+        "label": "Schedule",
+        "placeholder": "Pilih jadwal",
+        "requiredFeedback": "Pilih jadwal program terlebih dulu."
+      }
+    }
+  },
   "salesWorkspace": {
     "copy": {
       "brand": "Foremoz",

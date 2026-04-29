@@ -1,7 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { apiJson, clearSession, getSession, setSession } from '../lib.js';
+import { getMemberPortalConfig } from '../config/app-config.js';
 import { formatAppDateTime } from '../time.js';
+
+const MEMBER_PORTAL_CONFIG = getMemberPortalConfig();
+const MEMBER_PROGRAMS_CONFIG = MEMBER_PORTAL_CONFIG.programs || {};
+const MEMBER_PROGRAM_SCHEDULE_FIELD_CONFIG = MEMBER_PROGRAMS_CONFIG.scheduleField || {};
 
 function normalizeAttachmentUrls(value) {
   return Array.isArray(value)
@@ -458,7 +463,7 @@ export default function MemberPortalPage() {
     const scheduleOptions = selectedProgramScheduleOptions;
     const chosenSchedule = scheduleOptions.find((item) => item.key === bookingForm.schedule_key) || (scheduleOptions.length === 1 ? scheduleOptions[0] : null);
     if (scheduleOptions.length > 0 && !chosenSchedule) {
-      setFeedback('Pilih jadwal program terlebih dulu.');
+      setFeedback(MEMBER_PROGRAM_SCHEDULE_FIELD_CONFIG.requiredFeedback);
       return;
     }
     for (let index = 0; index < selectedProgramRegistrationFields.length; index += 1) {
@@ -776,12 +781,12 @@ export default function MemberPortalPage() {
                   ) : null}
                   {selectedProgramScheduleOptions.length > 0 ? (
                     <label>
-                      Jadwal
+                      {MEMBER_PROGRAM_SCHEDULE_FIELD_CONFIG.label}
                       <select
                         value={bookingForm.schedule_key}
                         onChange={(e) => setBookingForm((prev) => ({ ...prev, schedule_key: e.target.value }))}
                       >
-                        <option value="">Pilih jadwal</option>
+                        <option value="">{MEMBER_PROGRAM_SCHEDULE_FIELD_CONFIG.placeholder}</option>
                         {selectedProgramScheduleOptions.map((item) => (
                           <option key={item.key} value={item.key}>
                             {item.label}

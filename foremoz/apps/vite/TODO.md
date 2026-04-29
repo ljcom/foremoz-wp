@@ -59,6 +59,7 @@
 - [x] Run `npm run build` after PT book list session date-only input update.
 - [x] Run `npm run build` after PT book list schedule label update.
 - [x] Run `npm run build` after PT history session layout update.
+- [x] Run `npm run build` after member programs schedule label update.
 
 ## Known Follow-up
 - [x] Continue migrating remaining admin/detail page copy into the existing i18n/config layer.
