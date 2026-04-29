@@ -13,8 +13,6 @@ import {
 
 const COACH_SIDEBAR_NAV_ITEMS = getBackendShellNavItems('coach');
 const PT_WORKSPACE_CONFIG = getPtWorkspaceConfig();
-const PT_BOOK_SESSION_CONFIG = PT_WORKSPACE_CONFIG.bookSession || {};
-const PT_BOOK_SESSION_USED_FIELD_CONFIG = PT_BOOK_SESSION_CONFIG.sessionUsedField || {};
 const PT_HISTORY_SESSION_CONFIG = PT_WORKSPACE_CONFIG.historySession || {};
 
 function Stat({ label, value, iconClass, tone, hint }) {
@@ -165,7 +163,6 @@ function createBookForm() {
   return {
     pt_package_id: '',
     member_id: '',
-    session_used: String(PT_BOOK_SESSION_USED_FIELD_CONFIG.defaultValue || 1),
     session_at: getAppNowDateTimeInput(),
     activity_note: '',
     custom_fields_text: ''
@@ -224,29 +221,6 @@ function buildPerformanceCustomFields(rawText, label, performanceFields = {}) {
   if (String(performanceFields.next_focus || '').trim()) next.next_focus = String(performanceFields.next_focus).trim();
   if (String(performanceFields.coach_note || '').trim()) next.coach_note = String(performanceFields.coach_note).trim();
   return next;
-}
-
-function normalizeIntegerInput(value, fallbackValue = 1, minValue = 1) {
-  const parsed = Number.parseInt(String(value || '').trim(), 10);
-  const fallback = Number.parseInt(String(fallbackValue || 1), 10);
-  const min = Number.parseInt(String(minValue || 1), 10);
-  if (!Number.isFinite(parsed)) return Number.isFinite(fallback) ? fallback : min;
-  if (Number.isFinite(min) && parsed < min) return min;
-  return parsed;
-}
-
-function buildBookSessionCustomFields(rawText, sessionUsedValue) {
-  const parsed = parseCustomFieldsInput(rawText, 'Book schedule');
-  const fieldKey = String(PT_BOOK_SESSION_USED_FIELD_CONFIG.key || 'session_used').trim();
-  if (!fieldKey) return parsed;
-  return {
-    ...parsed,
-    [fieldKey]: normalizeIntegerInput(
-      sessionUsedValue,
-      PT_BOOK_SESSION_USED_FIELD_CONFIG.defaultValue,
-      PT_BOOK_SESSION_USED_FIELD_CONFIG.min
-    )
-  };
 }
 
 function describePtCustomFields(customFields) {
@@ -1169,7 +1143,7 @@ export default function PtPage() {
     try {
       setSaving(true);
       setFeedback('');
-      const customFields = buildBookSessionCustomFields(bookForm.custom_fields_text, bookForm.session_used);
+      const customFields = parseCustomFieldsInput(bookForm.custom_fields_text, 'Book schedule');
       const selectedClass = classRows.find((item) => String(item?.class_id || '').trim() === String(bookForm.pt_package_id || '').trim()) || null;
       const scheduleOptions = getProgramScheduleOptions(selectedClass);
       const selectedSchedule = resolveScheduleChoiceBySessionAt(scheduleOptions, bookForm.session_at);
@@ -1383,7 +1357,6 @@ export default function PtPage() {
       ...prev,
       pt_package_id: String(row?.pt_package_id || prev.pt_package_id || ''),
       member_id: String(row?.member_id || prev.member_id || ''),
-      session_used: String(row?.custom_fields?.[PT_BOOK_SESSION_USED_FIELD_CONFIG.key] || prev.session_used || PT_BOOK_SESSION_USED_FIELD_CONFIG.defaultValue || 1),
       session_at: row?.session_at ? getAppDateTimeInputValue(row.session_at) : prev.session_at,
       activity_note: String(row?.activity_note || prev.activity_note || ''),
       custom_fields_text: row?.custom_fields && Object.keys(row.custom_fields).length > 0 ? JSON.stringify(row.custom_fields, null, 2) : ''
@@ -1581,16 +1554,6 @@ export default function PtPage() {
                         </option>
                       ))}
                     </select>
-                  </label>
-                  <label>
-                    {PT_BOOK_SESSION_USED_FIELD_CONFIG.label}
-                    <input
-                      type="number"
-                      min={PT_BOOK_SESSION_USED_FIELD_CONFIG.min || 1}
-                      step="1"
-                      value={bookForm.session_used}
-                      onChange={(e) => setBookForm((p) => ({ ...p, session_used: e.target.value }))}
-                    />
                   </label>
                   <label>session_at<input type="datetime-local" value={bookForm.session_at} onChange={(e) => setBookForm((p) => ({ ...p, session_at: e.target.value }))} /></label>
                   <label>activity_note<input value={bookForm.activity_note} onChange={(e) => setBookForm((p) => ({ ...p, activity_note: e.target.value }))} placeholder="Contoh: Upper body, mobility, assessment" /></label>

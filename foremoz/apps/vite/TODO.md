@@ -52,6 +52,7 @@
 - [x] Run `npm run build` after PT book list session_used form field update.
 - [x] Run `npm run build` after PT history session attendance status display update.
 - [x] Run `npm run build` after PT history session booking member badge update.
+- [x] Run `npm run build` after PT book list session_used form removal.
 
 ## Known Follow-up
 - [x] Continue migrating remaining admin/detail page copy into the existing i18n/config layer.
