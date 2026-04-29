@@ -145,6 +145,8 @@
       }
     },
     "historySession": {
+      "sessionLabel": "session",
+      "scheduledLabel": "scheduled",
       "completedAtLabel": "completed_at",
       "completedAtFields": ["completed_at", "attendance_checked_out_at"],
       "completedActivityTypes": ["session_completed", "program_completed"],

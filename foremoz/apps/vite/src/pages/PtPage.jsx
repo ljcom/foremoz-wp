@@ -280,17 +280,16 @@ function resolveHistoryCompletedAt(row) {
   return shouldShowHistoryCompletedAt(row) ? row?.session_at || null : null;
 }
 
-function resolveHistoryAttendanceStatus(row) {
-  const attendanceConfig = PT_HISTORY_SESSION_CONFIG.attendance || {};
-  const statusByActivityType = attendanceConfig.statusByActivityType || {};
-  const activityType = String(row?.activity_type || '').trim().toLowerCase();
-  return String(statusByActivityType[activityType] || '').trim();
-}
-
 function resolveHistoryBookingBadgeLabel(row) {
   const labelByBookingKind = PT_HISTORY_SESSION_CONFIG.badgeLabelByBookingKind || {};
   const bookingKind = String(row?.booking_kind || '').trim().toLowerCase();
   return String(labelByBookingKind[bookingKind] || labelByBookingKind.default || '').trim();
+}
+
+function formatHistoryScheduleLine(row) {
+  const scheduleLabel = String(row?.schedule_label || '').trim();
+  const sessionAtLabel = row?.session_at ? formatAppDateTime(row.session_at) : '';
+  return [scheduleLabel, sessionAtLabel].filter(Boolean).join(' | ');
 }
 
 function formatBookListScheduleLine(row) {
@@ -2066,13 +2065,12 @@ export default function PtPage() {
                       <strong>{memberNameById.get(String(item.member_id || '').trim()) || item.member_id || '-'}</strong>
                       {item.member_id ? <p>{item.member_id}</p> : null}
                       {item.pt_package_id ? <p>{item.pt_package_id}</p> : null}
-                      <p>{formatAppDateTime(item.session_at)} | {item.activity_type || 'activity_logged'}{item.session_id ? ` | session ${item.session_id}` : ''}</p>
-                      {item.schedule_label ? <p>{item.schedule_label}</p> : null}
-                      {resolveHistoryCompletedAt(item) ? (
-                        <p>{PT_HISTORY_SESSION_CONFIG.completedAtLabel}: {formatAppDateTime(resolveHistoryCompletedAt(item))}</p>
+                      {item.session_id ? <p>{PT_HISTORY_SESSION_CONFIG.sessionLabel} {item.session_id}</p> : null}
+                      {formatHistoryScheduleLine(item) ? (
+                        <p>{PT_HISTORY_SESSION_CONFIG.scheduledLabel}: {formatHistoryScheduleLine(item)}</p>
                       ) : null}
-                      {resolveHistoryAttendanceStatus(item) ? (
-                        <p>{PT_HISTORY_SESSION_CONFIG.attendance?.label}: {resolveHistoryAttendanceStatus(item)}</p>
+                      {resolveHistoryCompletedAt(item) ? (
+                        <p>{PT_HISTORY_SESSION_CONFIG.completedAtLabel}: {formatAppDateTime(resolveHistoryCompletedAt(item))}{item.activity_type ? ` | ${item.activity_type}` : ''}</p>
                       ) : null}
                       <p>{item.activity_note || '-'}</p>
                       <p>{describePtCustomFields(item.custom_fields)}</p>
