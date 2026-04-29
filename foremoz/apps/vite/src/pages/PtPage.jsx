@@ -1582,7 +1582,7 @@ export default function PtPage() {
                         </div>
                         {item.source_kind === 'class_booking' ? (
                           <div className="payment-meta">
-                            <span className="passport-chip">{item.booking_kind === 'pt' ? 'booking by pt' : 'member booking'}</span>
+                            <span className="passport-chip">{item.booking_kind === 'pt' ? 'booking by pt' : 'booking member'}</span>
                           </div>
                         ) : (
                           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
@@ -1708,7 +1708,7 @@ export default function PtPage() {
                         </div>
                         {item.source_kind === 'class_booking' ? (
                           <div className="payment-meta">
-                            <span className="passport-chip">{item.booking_kind === 'pt' ? 'booking by pt' : 'checked member'}</span>
+                            <span className="passport-chip">{item.booking_kind === 'pt' ? 'booking by pt' : 'checked-in member'}</span>
                           </div>
                         ) : (
                           <button className="btn ghost small" type="button" onClick={() => seedCompleteFromActivity(item)}>Use</button>
