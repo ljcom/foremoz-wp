@@ -1472,7 +1472,7 @@ export default function MemberPortalPage() {
                   ))}
                 </div>
               </section>
-              <section className="card">
+              <section className="card span-2">
                 <p className="eyebrow">{MEMBER_INFO_SESSION_HISTORY_CARD_CONFIG.title}</p>
                 <div className="entity-list">
                   {memberSessionHistoryRows.map((item) => (
