@@ -208,10 +208,23 @@
       },
       "sessionHistoryCard": {
         "title": "history sesions",
-        "metrics": [
-          { "id": "total_sessions", "label": "Total sessions" },
-          { "id": "checked_in_sessions", "label": "Checked in" },
-          { "id": "completed_sessions", "label": "Completed" }
+        "memberFallback": "member",
+        "sessionLabel": "session",
+        "scheduledLabel": "scheduled",
+        "completedAtLabel": "completed_at",
+        "emptyTitle": "Belum ada history session",
+        "emptyDescription": "Session PT yang sudah selesai akan tampil di sini.",
+        "customFieldsFallback": "custom_fields: -",
+        "customFieldsPrefix": "custom_fields",
+        "completedActivityTypes": ["session_completed"],
+        "programActivityType": "program_completed",
+        "performanceFields": [
+          { "path": "performance_score", "label": "score" },
+          { "path": "energy_level", "label": "energy" },
+          { "path": "body_weight_kg", "label": "weight", "suffix": "kg" },
+          { "path": "reps", "label": "reps" },
+          { "path": "load_kg", "label": "load", "suffix": "kg" },
+          { "path": "next_focus", "label": "next" }
         ]
       }
     },

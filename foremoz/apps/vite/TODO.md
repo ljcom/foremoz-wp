@@ -70,6 +70,8 @@
 - [x] Run `npm run build:stg4` after member portal history card update.
 - [x] Run `npm run build:stg1` after member portal session history card update.
 - [x] Run `npm run build:stg4` after member portal session history card update.
+- [x] Run `npm run build:stg1` after member portal session history list update.
+- [x] Run `npm run build:stg4` after member portal session history list update.
 
 ## Known Follow-up
 - [x] Continue migrating remaining admin/detail page copy into the existing i18n/config layer.

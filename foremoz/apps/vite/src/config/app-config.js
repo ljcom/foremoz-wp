@@ -106,7 +106,8 @@ export function validateAppUiConfig(config = appUiConfig) {
     'workspaceAccess.workspaceSwitcherEnvironments',
     'workspaceAccess.defaultEnvironments',
     'ptWorkspace.historySession.completedAtFields',
-    'ptWorkspace.historySession.completedActivityTypes'
+    'ptWorkspace.historySession.completedActivityTypes',
+    'memberPortal.info.sessionHistoryCard.completedActivityTypes'
   ].forEach((path) => requireConfigStringArray(config, path));
 
   [
@@ -150,7 +151,7 @@ export function validateAppUiConfig(config = appUiConfig) {
 
   requireConfigOptionArray(config, 'salesWorkspace.quickGuide', 'text');
   requireConfigOptionArray(config, 'memberPortal.info.historyCard.metrics', 'id');
-  requireConfigOptionArray(config, 'memberPortal.info.sessionHistoryCard.metrics', 'id');
+  requireConfigOptionArray(config, 'memberPortal.info.sessionHistoryCard.performanceFields', 'path');
 
   [
     'adminPage.productTableColumns',

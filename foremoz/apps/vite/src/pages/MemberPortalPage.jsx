@@ -14,8 +14,11 @@ const MEMBER_INFO_HISTORY_METRICS = Array.isArray(MEMBER_INFO_HISTORY_CARD_CONFI
   ? MEMBER_INFO_HISTORY_CARD_CONFIG.metrics.filter((item) => item && typeof item === 'object' && item.id)
   : [];
 const MEMBER_INFO_SESSION_HISTORY_CARD_CONFIG = MEMBER_INFO_CONFIG.sessionHistoryCard || {};
-const MEMBER_INFO_SESSION_HISTORY_METRICS = Array.isArray(MEMBER_INFO_SESSION_HISTORY_CARD_CONFIG.metrics)
-  ? MEMBER_INFO_SESSION_HISTORY_CARD_CONFIG.metrics.filter((item) => item && typeof item === 'object' && item.id)
+const MEMBER_INFO_SESSION_HISTORY_COMPLETED_ACTIVITY_TYPES = Array.isArray(MEMBER_INFO_SESSION_HISTORY_CARD_CONFIG.completedActivityTypes)
+  ? MEMBER_INFO_SESSION_HISTORY_CARD_CONFIG.completedActivityTypes.map((item) => String(item || '').trim().toLowerCase()).filter(Boolean)
+  : [];
+const MEMBER_INFO_SESSION_HISTORY_PERFORMANCE_FIELDS = Array.isArray(MEMBER_INFO_SESSION_HISTORY_CARD_CONFIG.performanceFields)
+  ? MEMBER_INFO_SESSION_HISTORY_CARD_CONFIG.performanceFields.filter((item) => item && typeof item === 'object' && item.path)
   : [];
 const MEMBER_PROGRAMS_CONFIG = MEMBER_PORTAL_CONFIG.programs || {};
 const MEMBER_PROGRAM_SCHEDULE_FIELD_CONFIG = MEMBER_PROGRAMS_CONFIG.scheduleField || {};
@@ -169,13 +172,39 @@ function getMemberHistoryMetricValue(metricId, context) {
   return values[metricId] ?? '-';
 }
 
-function getMemberSessionHistoryMetricValue(metricId, context) {
-  const values = {
-    total_sessions: context.orderedBookings.length,
-    checked_in_sessions: context.orderedBookings.filter((item) => getBookingAttendanceStatus(item) === 'checked_in').length,
-    completed_sessions: context.orderedBookings.filter((item) => getBookingAttendanceStatus(item) === 'completed').length
-  };
-  return values[metricId] ?? '-';
+function readObjectPath(source, fieldPath) {
+  return String(fieldPath || '').split('.').reduce((current, key) => {
+    if (!current || typeof current !== 'object') return undefined;
+    return current[key];
+  }, source);
+}
+
+function describeMemberSessionCustomFields(customFields) {
+  if (!customFields || typeof customFields !== 'object' || Array.isArray(customFields)) {
+    return String(MEMBER_INFO_SESSION_HISTORY_CARD_CONFIG.customFieldsFallback || '');
+  }
+  const snippets = MEMBER_INFO_SESSION_HISTORY_PERFORMANCE_FIELDS
+    .map((field) => {
+      const value = readObjectPath(customFields, field.path);
+      if (value === undefined || value === null || value === '') return '';
+      return `${field.label} ${value}${field.suffix || ''}`;
+    })
+    .filter(Boolean);
+  if (snippets.length > 0) return snippets.join(' | ');
+  const keys = Object.keys(customFields);
+  return keys.length > 0
+    ? `${MEMBER_INFO_SESSION_HISTORY_CARD_CONFIG.customFieldsPrefix}: ${JSON.stringify(customFields)}`
+    : String(MEMBER_INFO_SESSION_HISTORY_CARD_CONFIG.customFieldsFallback || '');
+}
+
+function resolveMemberSessionCompletedAt(row) {
+  return row?.completed_at || row?.attendance_checked_out_at || row?.session_at || null;
+}
+
+function formatMemberSessionScheduleLine(row) {
+  const scheduleLabel = String(row?.schedule_label || '').trim();
+  const sessionAtLabel = row?.session_at ? formatAppDateTime(row.session_at) : '';
+  return [scheduleLabel, sessionAtLabel].filter(Boolean).join(' | ');
 }
 
 export default function MemberPortalPage() {
@@ -203,6 +232,7 @@ export default function MemberPortalPage() {
   const [payments, setPayments] = useState([]);
   const [orders, setOrders] = useState([]);
   const [bookings, setBookings] = useState([]);
+  const [ptActivities, setPtActivities] = useState([]);
   const [subscriptions, setSubscriptions] = useState([]);
   const [ptBalances, setPtBalances] = useState([]);
   const [packages, setPackages] = useState([]);
@@ -350,6 +380,48 @@ export default function MemberPortalPage() {
       .filter((item) => !item.schedule_start_at || new Date(item.schedule_start_at).getTime() >= now)
       .sort((left, right) => new Date(left.schedule_start_at || left.booked_at || 0).getTime() - new Date(right.schedule_start_at || right.booked_at || 0).getTime())[0] || null;
   }, [orderedBookings]);
+  const memberCompletedProgramSessions = useMemo(
+    () => orderedBookings
+      .filter((row) => row?.attendance_checked_out_at)
+      .map((row) => {
+        const classDetail = row?.class_detail || null;
+        const sessionAt = row?.attendance_checked_out_at
+          || row?.attendance_checked_in_at
+          || row?.attendance_confirmed_at
+          || row?.booked_at
+          || null;
+        return {
+          activity_id: `class_checkout:${row?.booking_id || row?.class_id || sessionAt}`,
+          pt_package_id: null,
+          member_id: String(row?.member_id || '').trim(),
+          member_name: String(session?.user?.fullName || '').trim(),
+          session_id: String(row?.booking_id || '').trim() || null,
+          session_at: sessionAt,
+          completed_at: row?.attendance_checked_out_at || null,
+          activity_type: MEMBER_INFO_SESSION_HISTORY_CARD_CONFIG.programActivityType,
+          activity_note: classDetail?.class_name || classDetail?.title || row?.class_id || '',
+          custom_fields: row?.registration_answers && typeof row.registration_answers === 'object' ? row.registration_answers : {},
+          schedule_label: String(row?.schedule_label || '').trim()
+        };
+      }),
+    [orderedBookings, session?.user?.fullName]
+  );
+  const memberCompletedPtSessions = useMemo(
+    () => ptActivities
+      .filter((row) => {
+        return MEMBER_INFO_SESSION_HISTORY_COMPLETED_ACTIVITY_TYPES.includes(String(row?.activity_type || '').trim().toLowerCase());
+      })
+      .map((row) => ({
+        ...row,
+        member_name: String(session?.user?.fullName || '').trim()
+      })),
+    [ptActivities, session?.user?.fullName]
+  );
+  const memberSessionHistoryRows = useMemo(
+    () => [...memberCompletedPtSessions, ...memberCompletedProgramSessions]
+      .sort((a, b) => new Date(resolveMemberSessionCompletedAt(b) || b?.session_at || 0).getTime() - new Date(resolveMemberSessionCompletedAt(a) || a?.session_at || 0).getTime()),
+    [memberCompletedProgramSessions, memberCompletedPtSessions]
+  );
 
   useEffect(
     () => () => {
@@ -365,6 +437,7 @@ export default function MemberPortalPage() {
       setPayments([]);
       setOrders([]);
       setBookings([]);
+      setPtActivities([]);
       setSubscriptions([]);
       setPtBalances([]);
       setPackages([]);
@@ -381,13 +454,14 @@ export default function MemberPortalPage() {
           branch_id: branchId
         })
       }).catch(() => {});
-      const [registrationRes, eventRes, paymentRes, bookingRes, subscriptionRes, ptBalanceRes] = await Promise.all([
+      const [registrationRes, eventRes, paymentRes, bookingRes, subscriptionRes, ptBalanceRes, ptActivityRes] = await Promise.all([
         apiJson(`/v1/read/event-registrations?email=${encodeURIComponent(memberEmail)}&passport_id=${encodeURIComponent(memberId)}&limit=400`),
         apiJson('/v1/read/events?status=all&limit=400'),
         apiJson(`/v1/read/payments/history?tenant_id=${encodeURIComponent(tenantId)}&member_id=${encodeURIComponent(memberId)}`).catch(() => ({ rows: [] })),
         apiJson(`/v1/read/bookings?tenant_id=${encodeURIComponent(tenantId)}&member_id=${encodeURIComponent(memberId)}`).catch(() => ({ rows: [] })),
         apiJson(`/v1/read/subscriptions/active?tenant_id=${encodeURIComponent(tenantId)}&member_id=${encodeURIComponent(memberId)}`).catch(() => ({ rows: [] })),
-        apiJson(`/v1/read/pt-balance?tenant_id=${encodeURIComponent(tenantId)}&member_id=${encodeURIComponent(memberId)}`).catch(() => ({ rows: [] }))
+        apiJson(`/v1/read/pt-balance?tenant_id=${encodeURIComponent(tenantId)}&member_id=${encodeURIComponent(memberId)}`).catch(() => ({ rows: [] })),
+        apiJson(`/v1/read/pt-activity?tenant_id=${encodeURIComponent(tenantId)}&member_id=${encodeURIComponent(memberId)}&activity_type=${encodeURIComponent(MEMBER_INFO_SESSION_HISTORY_COMPLETED_ACTIVITY_TYPES[0] || '')}`).catch(() => ({ rows: [] }))
       ]);
       const [classScopedRes, packageScopedRes, orderScopedRes] = await Promise.all([
         apiJson(`/v1/read/class-availability?tenant_id=${encodeURIComponent(tenantId)}&branch_id=${encodeURIComponent(branchId)}`).catch(() => ({ rows: [] })),
@@ -437,6 +511,7 @@ export default function MemberPortalPage() {
       setPayments(Array.isArray(paymentRes?.rows) ? paymentRes.rows : []);
       setOrders(orderRows);
       setBookings(enrichedBookings);
+      setPtActivities(Array.isArray(ptActivityRes?.rows) ? ptActivityRes.rows : []);
       setSubscriptions(Array.isArray(subscriptionRes?.rows) ? subscriptionRes.rows : []);
       setPtBalances(Array.isArray(ptBalanceRes?.rows) ? ptBalanceRes.rows : []);
       setPackages(packageRows);
@@ -446,6 +521,7 @@ export default function MemberPortalPage() {
       setPayments([]);
       setOrders([]);
       setBookings([]);
+      setPtActivities([]);
       setSubscriptions([]);
       setPtBalances([]);
       setPackages([]);
@@ -1399,16 +1475,32 @@ export default function MemberPortalPage() {
               <section className="card">
                 <p className="eyebrow">{MEMBER_INFO_SESSION_HISTORY_CARD_CONFIG.title}</p>
                 <div className="entity-list">
-                  {MEMBER_INFO_SESSION_HISTORY_METRICS.map((item) => (
-                    <div className="entity-row" key={`info-session-history-${item.id}`}>
+                  {memberSessionHistoryRows.map((item) => (
+                    <div className="entity-row" key={item.activity_id || `info-session-history-${item.session_id || item.completed_at}`}>
                       <div>
-                        <strong>{item.label}</strong>
+                        <strong>{item.member_name || MEMBER_INFO_SESSION_HISTORY_CARD_CONFIG.memberFallback}</strong>
+                        {item.member_id ? <p>{item.member_id}</p> : null}
+                        {item.pt_package_id ? <p>{item.pt_package_id}</p> : null}
+                        {item.session_id ? <p>{MEMBER_INFO_SESSION_HISTORY_CARD_CONFIG.sessionLabel} {item.session_id}</p> : null}
+                        {formatMemberSessionScheduleLine(item) ? (
+                          <p>{MEMBER_INFO_SESSION_HISTORY_CARD_CONFIG.scheduledLabel}: {formatMemberSessionScheduleLine(item)}</p>
+                        ) : null}
+                        {resolveMemberSessionCompletedAt(item) ? (
+                          <p>{MEMBER_INFO_SESSION_HISTORY_CARD_CONFIG.completedAtLabel}: {formatAppDateTime(resolveMemberSessionCompletedAt(item))}{item.activity_type ? ` | ${item.activity_type}` : ''}</p>
+                        ) : null}
+                        <p>{item.activity_note || '-'}</p>
+                        <p>{describeMemberSessionCustomFields(item.custom_fields)}</p>
                       </div>
-                      <span className="passport-chip">
-                        {getMemberSessionHistoryMetricValue(item.id, { orderedBookings })}
-                      </span>
                     </div>
                   ))}
+                  {memberSessionHistoryRows.length === 0 ? (
+                    <div className="entity-row">
+                      <div>
+                        <strong>{MEMBER_INFO_SESSION_HISTORY_CARD_CONFIG.emptyTitle}</strong>
+                        <p>{MEMBER_INFO_SESSION_HISTORY_CARD_CONFIG.emptyDescription}</p>
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
               </section>
             </div>
