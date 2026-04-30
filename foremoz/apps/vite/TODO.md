@@ -74,6 +74,9 @@
 - [x] Run `npm run build:stg4` after member portal session history list update.
 - [x] Run `npm run build:stg1` after member portal session history full-width layout update.
 - [x] Run `npm run build:stg4` after member portal session history full-width layout update.
+- [x] Run `npm run build:stg1` after CS membership start date field update.
+- [x] Run `npm run build:stg4` after CS membership start date field update.
+- [x] Run API validation after CS membership start date field update.
 
 ## Known Follow-up
 - [x] Continue migrating remaining admin/detail page copy into the existing i18n/config layer.

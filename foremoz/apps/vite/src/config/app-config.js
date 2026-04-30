@@ -94,6 +94,8 @@ export function validateAppUiConfig(config = appUiConfig) {
   requireConfigObject(config, 'adminPage.eventWorkflow');
   requireConfigObject(config, 'adminPage.memberUpload');
   requireConfigObject(config, 'csDashboard.orders');
+  requireConfigObject(config, 'csDashboard.orders.startMembershipField');
+  requireConfigObject(config, 'csDashboard.orders.startMembershipField.visibleWhen');
   requireConfigObject(config, 'salesWorkspace.copy');
   requireConfigObject(config, 'ptWorkspace.historySession.attendance');
   requireConfigObject(config, 'ptWorkspace.historySession.attendance.statusByActivityType');
@@ -182,6 +184,7 @@ export function validateAppUiConfig(config = appUiConfig) {
     'pricePositiveRequired',
     'memberRequired',
     'createOrderFailed',
+    'startMembershipRequired',
     'orderCreatedFeedback'
   ]);
   requireConfigCopy(config, 'backendShell.copy', [

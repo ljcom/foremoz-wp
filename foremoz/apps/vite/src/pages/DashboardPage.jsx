@@ -28,6 +28,7 @@ const ORDER_TYPE_OPTIONS = getConfiguredOptions(DASHBOARD_ORDER_CONFIG, 'orderTy
 const ORDER_FORM_TYPE_OPTIONS = ORDER_TYPE_OPTIONS.filter((option) => option.visibleInOrderForm !== false);
 const ORDER_PAYMENT_METHOD_OPTIONS = getConfiguredOptions(DASHBOARD_ORDER_CONFIG, 'paymentMethods');
 const ORDER_SETTLEMENT_OPTIONS = getConfiguredOptions(DASHBOARD_ORDER_CONFIG, 'settlements');
+const START_MEMBERSHIP_FIELD_CONFIG = DASHBOARD_ORDER_CONFIG.startMembershipField || {};
 const DEFAULT_ORDER_TYPE = DASHBOARD_ORDER_CONFIG.defaultOrderType || ORDER_TYPE_OPTIONS[0]?.value || '';
 const DEFAULT_ORDER_PAYMENT_METHOD = DASHBOARD_ORDER_CONFIG.defaultPaymentMethod || ORDER_PAYMENT_METHOD_OPTIONS[0]?.value || '';
 
@@ -430,6 +431,7 @@ export default function DashboardPage() {
     order_type: DEFAULT_ORDER_TYPE,
     target_key: '',
     label: '',
+    start_membership: '',
     qty: '1',
     unit_price: '',
     method: DEFAULT_ORDER_PAYMENT_METHOD,
@@ -784,6 +786,7 @@ export default function DashboardPage() {
           order_type: DEFAULT_ORDER_TYPE,
           target_key: '',
           label: '',
+          start_membership: '',
           qty: '1',
           unit_price: '',
           method: DEFAULT_ORDER_PAYMENT_METHOD,
@@ -943,6 +946,9 @@ export default function DashboardPage() {
     if (!Number.isFinite(unitPrice) || unitPrice <= 0) {
       throw new Error(getOrderCopy('pricePositiveRequired'));
     }
+    if (isStartMembershipFieldVisible && START_MEMBERSHIP_FIELD_CONFIG.required && !String(orderForm.start_membership || '').trim()) {
+      throw new Error(getOrderCopy('startMembershipRequired'));
+    }
     return {
       item_id: `itm_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
       order_type: orderType,
@@ -953,7 +959,8 @@ export default function DashboardPage() {
       unit_price: unitPrice,
       total_amount: resolvedQty * unitPrice,
       reference_type: selectedOrderTarget.reference_type || null,
-      reference_id: selectedOrderTarget.reference_id || null
+      reference_id: selectedOrderTarget.reference_id || null,
+      start_membership: isStartMembershipFieldVisible ? String(orderForm.start_membership || '').trim() : null
     };
   }
 
@@ -966,6 +973,7 @@ export default function DashboardPage() {
         target_key: '',
         qty: '1',
         unit_price: '',
+        start_membership: '',
         label: prev.label || nextItem.order_label
       }));
       setActionFeedback(getOrderCopy('itemAddedFeedback', { label: nextItem.target_label }));
@@ -991,7 +999,8 @@ export default function DashboardPage() {
           unit_price: Number(item.unit_price || 0),
           total_amount: Number(item.total_amount || (Number(item.qty || 1) * Number(item.unit_price || 0)) || 0),
           reference_type: item.reference_type || null,
-          reference_id: item.reference_id || null
+          reference_id: item.reference_id || null,
+          start_membership: item.start_membership || ''
         }))
       : [{
           item_id: `${orderRow.order_id}_1`,
@@ -1003,7 +1012,8 @@ export default function DashboardPage() {
           unit_price: Number(orderRow.unit_price || 0),
           total_amount: Number(orderRow.total_amount || 0),
           reference_type: orderRow.reference_type || null,
-          reference_id: orderRow.reference_id || null
+          reference_id: orderRow.reference_id || null,
+          start_membership: orderRow.start_membership || ''
         }];
     const firstItem = normalizedItems[0] || null;
     setEditingOrderId(String(orderRow.order_id || ''));
@@ -1014,6 +1024,7 @@ export default function DashboardPage() {
       order_type: firstItem ? normalizeOrderType(firstItem.order_type) : 'membership',
       target_key: '',
       label: orderRow.order_label || '',
+      start_membership: firstItem?.start_membership || '',
       qty: firstItem ? String(firstItem.qty || 1) : '1',
       unit_price: firstItem ? String(firstItem.unit_price || '') : '',
       method: orderRow.payment_method || 'cash',
@@ -1068,7 +1079,8 @@ export default function DashboardPage() {
           qty: item.qty,
           unit_price: item.unit_price,
           reference_type: item.reference_type,
-          reference_id: item.reference_id
+          reference_id: item.reference_id,
+          start_membership: item.start_membership || null
         })),
         notes: String(orderForm.notes || '').trim() || getOrderCopy('defaultOrderNotes', {
           member: selectedMember.full_name || selectedMember.member_id
@@ -1159,6 +1171,7 @@ export default function DashboardPage() {
         order_type: DEFAULT_ORDER_TYPE,
         target_key: '',
         label: '',
+        start_membership: '',
         qty: '1',
         unit_price: '',
         method: DEFAULT_ORDER_PAYMENT_METHOD,
@@ -1324,6 +1337,7 @@ export default function DashboardPage() {
         source_id: String(item.package_id || ''),
         label: item.package_name || item.package_id || 'Membership Package',
         helper: `${Number(item.max_months || item.duration_months || 1)} bulan`,
+        has_coach: Boolean(item.trainer_user_id || item.trainer_name || item.coach_id || item.has_coach),
         unit_price: Number(item.price || 0),
         reference_type: 'membership_purchase',
         reference_id: item.package_id || null,
@@ -1434,6 +1448,14 @@ export default function DashboardPage() {
     () => currentOrderTargets.find((item) => item.key === orderForm.target_key) || null,
     [currentOrderTargets, orderForm.target_key]
   );
+  const isStartMembershipFieldVisible = useMemo(() => {
+    const visibleWhen = START_MEMBERSHIP_FIELD_CONFIG.visibleWhen || {};
+    if (visibleWhen.orderType && normalizeOrderType(orderForm.order_type) !== normalizeOrderType(visibleWhen.orderType)) return false;
+    if (!selectedOrderTarget) return false;
+    if (visibleWhen.referenceType && String(selectedOrderTarget.reference_type || '').trim() !== String(visibleWhen.referenceType || '').trim()) return false;
+    if (Object.prototype.hasOwnProperty.call(visibleWhen, 'targetHasCoach') && Boolean(selectedOrderTarget.has_coach) !== Boolean(visibleWhen.targetHasCoach)) return false;
+    return true;
+  }, [orderForm.order_type, selectedOrderTarget]);
   const purchasedProgramSourceIds = useMemo(() => {
     const allowedReferenceTypes = new Set([
       'class_booking',
@@ -3383,6 +3405,7 @@ export default function DashboardPage() {
                               order_type: normalizeOrderType(e.target.value),
                               target_key: '',
                               label: '',
+                              start_membership: '',
                               qty: normalizeOrderType(e.target.value) === 'product' ? prev.qty : '1',
                               unit_price: '',
                               notes: ''
@@ -3432,6 +3455,16 @@ export default function DashboardPage() {
                           placeholder={getOrderCopy('orderLabelPlaceholder')}
                         />
                       </label>
+                      {isStartMembershipFieldVisible ? (
+                        <label>
+                          {START_MEMBERSHIP_FIELD_CONFIG.label}
+                          <input
+                            type={START_MEMBERSHIP_FIELD_CONFIG.type || 'date'}
+                            value={orderForm.start_membership}
+                            onChange={(e) => setOrderForm((prev) => ({ ...prev, start_membership: e.target.value }))}
+                          />
+                        </label>
+                      ) : null}
                       <label>
                         {getOrderCopy('qtyLabel')}
                         <input
@@ -3479,6 +3512,7 @@ export default function DashboardPage() {
                                 order_type: DEFAULT_ORDER_TYPE,
                                 target_key: '',
                                 label: '',
+                                start_membership: '',
                                 qty: '1',
                                 unit_price: '',
                                 method: DEFAULT_ORDER_PAYMENT_METHOD,

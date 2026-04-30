@@ -254,7 +254,8 @@ function normalizeOrderItems(data = {}) {
         qty: data.qty || 1,
         unit_price: data.unit_price,
         reference_type: data.reference_type || null,
-        reference_id: data.reference_id || null
+        reference_id: data.reference_id || null,
+        start_membership: data.start_membership || data.start_date || null
       }];
 
   return rawItems.map((item, index) => {
@@ -281,7 +282,8 @@ function normalizeOrderItems(data = {}) {
       unit_price: unitPrice,
       total_amount: totalAmount,
       reference_type: item.reference_type || null,
-      reference_id: item.reference_id || null
+      reference_id: item.reference_id || null,
+      start_membership: normalizeOptionalDate(item.start_membership || item.start_date || data.start_membership || null, 'start_membership', null)
     };
   });
 }
@@ -1900,7 +1902,8 @@ function normalizeStoredOrderItems(orderRow) {
         unit_price: Number(orderRow?.unit_price || 0),
         total_amount: Number(orderRow?.total_amount || 0),
         reference_type: orderRow?.reference_type || null,
-        reference_id: orderRow?.reference_id || null
+        reference_id: orderRow?.reference_id || null,
+        start_membership: orderRow?.start_membership || null
       }];
   return rawItems.map((item, index) => ({
     item_id: String(item?.item_id || `itm_${index + 1}`).trim(),
@@ -1911,7 +1914,8 @@ function normalizeStoredOrderItems(orderRow) {
     unit_price: Number(item?.unit_price || 0),
     total_amount: Number(item?.total_amount || (Number(item?.qty || 1) * Number(item?.unit_price || 0)) || 0),
     reference_type: item?.reference_type || null,
-    reference_id: item?.reference_id || null
+    reference_id: item?.reference_id || null,
+    start_membership: normalizeOptionalDate(item?.start_membership || item?.start_date || null, 'start_membership', null)
   }));
 }
 
@@ -2071,7 +2075,8 @@ async function ensureOrderEntitlements({ tenantId, orderId, actorId }) {
         results.push({ item_id: item.item_id, kind: 'subscription', created: false, duplicate: true });
         continue;
       }
-      const startDate = toDateOnly(paymentRow.reviewed_at || paymentRow.recorded_at || new Date().toISOString());
+      const startDate = normalizeOptionalDate(item.start_membership || item.start_date || null, 'start_membership', null)
+        || toDateOnly(paymentRow.reviewed_at || paymentRow.recorded_at || new Date().toISOString());
       const durationMonths = Math.max(1, Number(latestPackage.max_months || latestPackage.duration_months || 1));
       const endDate = addCalendarMonths(startDate, durationMonths) || startDate;
       await appendDomainEvent({

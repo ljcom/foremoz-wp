@@ -11,6 +11,9 @@
 - [x] Allow class booking checkout to use check-in event source when read model projection is behind.
 - [x] Add `completed_at` to PT activity read model for completed session history display.
 - [x] Run `npm run check` after API changes.
+- [x] Preserve CS order `start_membership` date for membership entitlement activation.
+- [x] Run `npm run check` after CS membership start date order update.
+- [x] Restart `foremoz-api` after CS membership start date order update.
 
 ## Known Follow-up
 - [ ] Add schema validation for workflow, permission, and module config before bootstrapping runtime behavior.

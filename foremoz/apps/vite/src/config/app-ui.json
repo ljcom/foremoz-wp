@@ -1257,6 +1257,7 @@
         "defaultPriceLabel": "Default price",
         "orderLabelLabel": "Order label",
         "orderLabelPlaceholder": "Opsional: Bundle April / Paket promo / Checkout member",
+        "startMembershipRequired": "Tanggal start memberhsip wajib diisi.",
         "qtyLabel": "Qty",
         "unitPriceLabel": "Unit price",
         "notesLabel": "Notes",
@@ -1350,6 +1351,17 @@
           "visibleInOrderForm": false
         }
       ],
+      "startMembershipField": {
+        "name": "start_membership",
+        "label": "start memberhsip",
+        "type": "date",
+        "required": true,
+        "visibleWhen": {
+          "orderType": "membership",
+          "referenceType": "membership_purchase",
+          "targetHasCoach": false
+        }
+      },
       "paymentMethods": [
         {
           "value": "cash",
