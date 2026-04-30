@@ -205,6 +205,14 @@
           { "id": "program_bookings", "label": "Program bookings" },
           { "id": "payments", "label": "Payments" }
         ]
+      },
+      "sessionHistoryCard": {
+        "title": "history sesions",
+        "metrics": [
+          { "id": "total_sessions", "label": "Total sessions" },
+          { "id": "checked_in_sessions", "label": "Checked in" },
+          { "id": "completed_sessions", "label": "Completed" }
+        ]
       }
     },
     "programs": {

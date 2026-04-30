@@ -100,6 +100,7 @@ export function validateAppUiConfig(config = appUiConfig) {
   requireConfigObject(config, 'ptWorkspace.historySession.badgeLabelByBookingKind');
   requireConfigObject(config, 'memberPortal.info');
   requireConfigObject(config, 'memberPortal.info.historyCard');
+  requireConfigObject(config, 'memberPortal.info.sessionHistoryCard');
 
   [
     'workspaceAccess.workspaceSwitcherEnvironments',
@@ -149,6 +150,7 @@ export function validateAppUiConfig(config = appUiConfig) {
 
   requireConfigOptionArray(config, 'salesWorkspace.quickGuide', 'text');
   requireConfigOptionArray(config, 'memberPortal.info.historyCard.metrics', 'id');
+  requireConfigOptionArray(config, 'memberPortal.info.sessionHistoryCard.metrics', 'id');
 
   [
     'adminPage.productTableColumns',

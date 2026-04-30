@@ -13,6 +13,10 @@ const MEMBER_INFO_HISTORY_CARD_CONFIG = MEMBER_INFO_CONFIG.historyCard || {};
 const MEMBER_INFO_HISTORY_METRICS = Array.isArray(MEMBER_INFO_HISTORY_CARD_CONFIG.metrics)
   ? MEMBER_INFO_HISTORY_CARD_CONFIG.metrics.filter((item) => item && typeof item === 'object' && item.id)
   : [];
+const MEMBER_INFO_SESSION_HISTORY_CARD_CONFIG = MEMBER_INFO_CONFIG.sessionHistoryCard || {};
+const MEMBER_INFO_SESSION_HISTORY_METRICS = Array.isArray(MEMBER_INFO_SESSION_HISTORY_CARD_CONFIG.metrics)
+  ? MEMBER_INFO_SESSION_HISTORY_CARD_CONFIG.metrics.filter((item) => item && typeof item === 'object' && item.id)
+  : [];
 const MEMBER_PROGRAMS_CONFIG = MEMBER_PORTAL_CONFIG.programs || {};
 const MEMBER_PROGRAM_SCHEDULE_FIELD_CONFIG = MEMBER_PROGRAMS_CONFIG.scheduleField || {};
 const MEMBER_PROGRAM_SESSION_DATE_FIELD_CONFIG = MEMBER_PROGRAMS_CONFIG.sessionDateField || {};
@@ -161,6 +165,15 @@ function getMemberHistoryMetricValue(metricId, context) {
     joined_events: context.orderedMyEvents.length,
     program_bookings: context.orderedBookings.length,
     payments: context.orderedPayments.length
+  };
+  return values[metricId] ?? '-';
+}
+
+function getMemberSessionHistoryMetricValue(metricId, context) {
+  const values = {
+    total_sessions: context.orderedBookings.length,
+    checked_in_sessions: context.orderedBookings.filter((item) => getBookingAttendanceStatus(item) === 'checked_in').length,
+    completed_sessions: context.orderedBookings.filter((item) => getBookingAttendanceStatus(item) === 'completed').length
   };
   return values[metricId] ?? '-';
 }
@@ -1378,6 +1391,21 @@ export default function MemberPortalPage() {
                       </div>
                       <span className="passport-chip">
                         {getMemberHistoryMetricValue(item.id, { orderedBookings, orderedMyEvents, orderedPayments })}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </section>
+              <section className="card">
+                <p className="eyebrow">{MEMBER_INFO_SESSION_HISTORY_CARD_CONFIG.title}</p>
+                <div className="entity-list">
+                  {MEMBER_INFO_SESSION_HISTORY_METRICS.map((item) => (
+                    <div className="entity-row" key={`info-session-history-${item.id}`}>
+                      <div>
+                        <strong>{item.label}</strong>
+                      </div>
+                      <span className="passport-chip">
+                        {getMemberSessionHistoryMetricValue(item.id, { orderedBookings })}
                       </span>
                     </div>
                   ))}
