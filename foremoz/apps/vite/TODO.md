@@ -82,6 +82,7 @@
 - [x] Run API validation after CS program membership start date visibility correction.
 - [x] Run `npm run build:stg1` after CS order history start membership display update.
 - [x] Run `npm run build:stg4` after CS order history start membership display update.
+- [x] Format CS order/payment history start membership date with Indonesian long date.
 
 ## Known Follow-up
 - [x] Continue migrating remaining admin/detail page copy into the existing i18n/config layer.

@@ -186,6 +186,7 @@ export function validateAppUiConfig(config = appUiConfig) {
     'createOrderFailed',
     'startMembershipRequired',
     'historyStartMembershipLabel',
+    'historyStartMembershipText',
     'orderCreatedFeedback'
   ]);
   requireConfigCopy(config, 'backendShell.copy', [

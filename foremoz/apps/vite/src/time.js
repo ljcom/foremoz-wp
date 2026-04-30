@@ -18,6 +18,13 @@ const dateFormatter = new Intl.DateTimeFormat('id-ID', {
   timeZone: APP_TIME_ZONE
 });
 
+const longDateFormatter = new Intl.DateTimeFormat('id-ID', {
+  day: '2-digit',
+  month: 'long',
+  year: 'numeric',
+  timeZone: APP_TIME_ZONE
+});
+
 function normalizeRaw(value) {
   return String(value || '').trim();
 }
@@ -105,6 +112,15 @@ export function formatAppDate(value, options = {}) {
   const date = toDate(raw);
   if (!date) return raw;
   return dateFormatter.format(date);
+}
+
+export function formatAppLongDate(value, options = {}) {
+  const { fallback = '-' } = options;
+  const raw = normalizeRaw(value);
+  if (!raw) return fallback;
+  const date = toDate(raw);
+  if (!date) return raw;
+  return longDateFormatter.format(date);
 }
 
 export function getAppDateTimeInputValue(value) {

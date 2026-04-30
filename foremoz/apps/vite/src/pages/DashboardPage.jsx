@@ -12,7 +12,7 @@ import {
 import { getVerticalLabel, guessVerticalSlugByText } from '../industry-jargon.js';
 import BackendWorkspaceShell from '../components/BackendWorkspaceShell.jsx';
 import { useI18n } from '../i18n.js';
-import { formatAppDateTime as formatDateTime } from '../time.js';
+import { formatAppDateTime as formatDateTime, formatAppLongDate } from '../time.js';
 import {
   getConfigCopy,
   getConfiguredOption,
@@ -284,7 +284,8 @@ function resolveOrderReferenceLabel(item, lookups = {}) {
 function resolveOrderStartMembership(item) {
   const orderItems = Array.isArray(item?.order_items) ? item.order_items : [];
   const matchedItem = orderItems.find((entry) => String(entry?.start_membership || '').trim()) || null;
-  return String(matchedItem?.start_membership || item?.start_membership || '').trim();
+  const startMembership = String(matchedItem?.start_membership || item?.start_membership || '').trim();
+  return startMembership ? formatAppLongDate(startMembership, { fallback: '' }) : '';
 }
 
 export default function DashboardPage() {
@@ -3916,7 +3917,10 @@ export default function DashboardPage() {
                               <p>{item.order_id} | {Array.isArray(item.order_items) && item.order_items.length > 1 ? `${item.item_count || item.order_items.length || 0} items` : `qty ${item.qty || 0}`}</p>
                               <p>{formatDateTime(item.created_at || item.updated_at)}</p>
                               {resolveOrderStartMembership(item) ? (
-                                <p>{getOrderCopy('historyStartMembershipLabel')} : {resolveOrderStartMembership(item)}</p>
+                                <p>{getOrderCopy('historyStartMembershipText', {
+                                  label: getOrderCopy('historyStartMembershipLabel'),
+                                  date: resolveOrderStartMembership(item)
+                                })}</p>
                               ) : null}
                             </div>
                             <div className="payment-meta">
