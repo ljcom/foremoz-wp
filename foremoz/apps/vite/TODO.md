@@ -64,6 +64,8 @@
 - [x] Run `npm run build` after member programs session_at visibility update.
 - [x] Run `npm run build` after PT book list status display update.
 - [x] Run `npm run build` after PT complete list schedule display update.
+- [x] Run `npm run build` after member portal info tab config update.
+- [x] Run `npm run build:stg4` after member portal info tab config update.
 
 ## Known Follow-up
 - [x] Continue migrating remaining admin/detail page copy into the existing i18n/config layer.

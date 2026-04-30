@@ -5,6 +5,10 @@ import { getMemberPortalConfig } from '../config/app-config.js';
 import { formatAppDateTime, getAppTodayDateInput, toAppIsoFromDateInput } from '../time.js';
 
 const MEMBER_PORTAL_CONFIG = getMemberPortalConfig();
+const MEMBER_PORTAL_TABS = Array.isArray(MEMBER_PORTAL_CONFIG.tabs)
+  ? MEMBER_PORTAL_CONFIG.tabs.filter((item) => item && typeof item === 'object' && item.id)
+  : [];
+const MEMBER_INFO_CONFIG = MEMBER_PORTAL_CONFIG.info || {};
 const MEMBER_PROGRAMS_CONFIG = MEMBER_PORTAL_CONFIG.programs || {};
 const MEMBER_PROGRAM_SCHEDULE_FIELD_CONFIG = MEMBER_PROGRAMS_CONFIG.scheduleField || {};
 const MEMBER_PROGRAM_SESSION_DATE_FIELD_CONFIG = MEMBER_PROGRAMS_CONFIG.sessionDateField || {};
@@ -142,6 +146,10 @@ function getBookingAttendanceStatus(booking) {
   if (booking?.attendance_checked_out_at) return 'completed';
   if (booking?.attendance_checked_in_at || booking?.attendance_confirmed_at) return 'checked_in';
   return String(booking?.status || 'booked').trim().toLowerCase() || 'booked';
+}
+
+function getMemberInfoCopy(key, fallbackValue = '') {
+  return String(MEMBER_INFO_CONFIG[key] || fallbackValue || '');
 }
 
 export default function MemberPortalPage() {
@@ -573,24 +581,16 @@ export default function MemberPortalPage() {
 
       <section className="landing-section">
         <div className="landing-tabs">
-          <button className={`landing-tab ${tab === 'overview' ? 'active' : ''}`} onClick={() => setTab('overview')}>
-            Overview
-          </button>
-          <button className={`landing-tab ${tab === 'programs' ? 'active' : ''}`} onClick={() => setTab('programs')}>
-            Programs
-          </button>
-          <button className={`landing-tab ${tab === 'my_events' ? 'active' : ''}`} onClick={() => setTab('my_events')}>
-            My Events
-          </button>
-          <button className={`landing-tab ${tab === 'profile' ? 'active' : ''}`} onClick={() => setTab('profile')}>
-            Change profile
-          </button>
-          <button className={`landing-tab ${tab === 'password' ? 'active' : ''}`} onClick={() => setTab('password')}>
-            Change password
-          </button>
-          <button className={`landing-tab ${tab === 'photo' ? 'active' : ''}`} onClick={() => setTab('photo')}>
-            Upload foto
-          </button>
+          {MEMBER_PORTAL_TABS.map((item) => (
+            <button
+              className={`landing-tab ${tab === item.id ? 'active' : ''}`}
+              key={item.id}
+              onClick={() => setTab(item.id)}
+              type="button"
+            >
+              {item.label}
+            </button>
+          ))}
         </div>
 
         <article className="card admin-main">
@@ -1286,6 +1286,76 @@ export default function MemberPortalPage() {
               <p className="mini-note">{photoName ? `Selected: ${photoName}` : 'No file selected'}</p>
               <button className="btn" type="submit">Upload foto</button>
             </form>
+          </>
+        ) : null}
+
+        {tab === 'info' ? (
+          <>
+            <p className="eyebrow">{getMemberInfoCopy('eyebrow')}</p>
+            <h2>{getMemberInfoCopy('title')}</h2>
+            <div className="ops-grid">
+              <section className="card">
+                <p className="eyebrow">{getMemberInfoCopy('eventSectionTitle')}</p>
+                {nextUpcomingEvent ? (() => {
+                  const memberInfo = resolveMemberInfo(nextUpcomingEvent.custom_fields);
+                  return (
+                    <>
+                      <h3>{nextUpcomingEvent.event_name || getMemberInfoCopy('eventFallbackTitle')}</h3>
+                      <p>{formatAppDateTime(nextUpcomingEvent.start_at)} | {nextUpcomingEvent.location || '-'}</p>
+                      {memberInfo.preText ? <p>{memberInfo.preText}</p> : <p className="sub">{getMemberInfoCopy('eventInfoEmpty')}</p>}
+                      {memberInfo.preAttachments.length > 0 ? (
+                        <div className="entity-list">
+                          {memberInfo.preAttachments.map((url) => (
+                            <div className="entity-row" key={`info-event-pre-${url}`}>
+                              <div>
+                                <strong>{attachmentNameFromUrl(url)}</strong>
+                                <p>{isImageAttachment(url) ? getMemberInfoCopy('imageAttachmentLabel') : getMemberInfoCopy('fileAttachmentLabel')}</p>
+                              </div>
+                              <a className="btn ghost small" href={url} target="_blank" rel="noreferrer">
+                                {getMemberInfoCopy('openAttachmentLabel')}
+                              </a>
+                            </div>
+                          ))}
+                        </div>
+                      ) : null}
+                    </>
+                  );
+                })() : (
+                  <p className="sub">{getMemberInfoCopy('eventEmpty')}</p>
+                )}
+              </section>
+              <section className="card">
+                <p className="eyebrow">{getMemberInfoCopy('programSectionTitle')}</p>
+                {nextUpcomingProgramBooking ? (() => {
+                  const programInfo = resolveProgramInfo(nextUpcomingProgramBooking.class_detail);
+                  return (
+                    <>
+                      <h3>{nextUpcomingProgramBooking.class_detail?.class_name || nextUpcomingProgramBooking.class_id || getMemberInfoCopy('programFallbackTitle')}</h3>
+                      <p>{getBookingScheduleLabel(nextUpcomingProgramBooking) || getProgramScheduleSummary(nextUpcomingProgramBooking.class_detail)}</p>
+                      <p>{getMemberInfoCopy('statusLabel')}: {getBookingAttendanceStatus(nextUpcomingProgramBooking)}</p>
+                      {programInfo.preText ? <p>{programInfo.preText}</p> : <p className="sub">{getMemberInfoCopy('programInfoEmpty')}</p>}
+                      {programInfo.preAttachments.length > 0 ? (
+                        <div className="entity-list">
+                          {programInfo.preAttachments.map((url) => (
+                            <div className="entity-row" key={`info-program-pre-${url}`}>
+                              <div>
+                                <strong>{attachmentNameFromUrl(url)}</strong>
+                                <p>{isImageAttachment(url) ? getMemberInfoCopy('imageAttachmentLabel') : getMemberInfoCopy('fileAttachmentLabel')}</p>
+                              </div>
+                              <a className="btn ghost small" href={url} target="_blank" rel="noreferrer">
+                                {getMemberInfoCopy('openAttachmentLabel')}
+                              </a>
+                            </div>
+                          ))}
+                        </div>
+                      ) : null}
+                    </>
+                  );
+                })() : (
+                  <p className="sub">{getMemberInfoCopy('programEmpty')}</p>
+                )}
+              </section>
+            </div>
           </>
         ) : null}
 

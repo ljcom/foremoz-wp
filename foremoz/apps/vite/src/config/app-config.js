@@ -98,6 +98,7 @@ export function validateAppUiConfig(config = appUiConfig) {
   requireConfigObject(config, 'ptWorkspace.historySession.attendance');
   requireConfigObject(config, 'ptWorkspace.historySession.attendance.statusByActivityType');
   requireConfigObject(config, 'ptWorkspace.historySession.badgeLabelByBookingKind');
+  requireConfigObject(config, 'memberPortal.info');
 
   [
     'workspaceAccess.workspaceSwitcherEnvironments',
@@ -141,6 +142,7 @@ export function validateAppUiConfig(config = appUiConfig) {
     'backendShell.navItemsByWorkspace.admin',
     'backendShell.navItemsByWorkspace.coach',
     'backendShell.navItemsByWorkspace.host',
+    'memberPortal.tabs',
     'salesWorkspace.navItems'
   ].forEach((path) => requireConfigOptionArray(config, path, 'id'));
 
