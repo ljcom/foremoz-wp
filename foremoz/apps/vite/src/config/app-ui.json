@@ -197,7 +197,15 @@
       "statusLabel": "Status",
       "imageAttachmentLabel": "Image attachment",
       "fileAttachmentLabel": "File attachment",
-      "openAttachmentLabel": "Open"
+      "openAttachmentLabel": "Open",
+      "historyCard": {
+        "title": "Riwayat member",
+        "metrics": [
+          { "id": "joined_events", "label": "Event joined" },
+          { "id": "program_bookings", "label": "Program bookings" },
+          { "id": "payments", "label": "Payments" }
+        ]
+      }
     },
     "programs": {
       "scheduleField": {

@@ -66,6 +66,8 @@
 - [x] Run `npm run build` after PT complete list schedule display update.
 - [x] Run `npm run build` after member portal info tab config update.
 - [x] Run `npm run build:stg4` after member portal info tab config update.
+- [x] Run `npm run build:stg1` after member portal history card update.
+- [x] Run `npm run build:stg4` after member portal history card update.
 
 ## Known Follow-up
 - [x] Continue migrating remaining admin/detail page copy into the existing i18n/config layer.
