@@ -1355,7 +1355,7 @@
       ],
       "startMembershipField": {
         "name": "start_membership",
-        "label": "start memberhsip",
+        "label": "Start memberhsip",
         "type": "date",
         "required": true,
         "visibleWhen": {
