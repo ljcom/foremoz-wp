@@ -1357,9 +1357,9 @@
         "type": "date",
         "required": true,
         "visibleWhen": {
-          "orderType": "membership",
-          "referenceType": "membership_purchase",
-          "targetHasCoach": false
+          "orderType": "class",
+          "referenceType": "open_access_purchase",
+          "targetClassType": "open_access"
         }
       },
       "paymentMethods": [

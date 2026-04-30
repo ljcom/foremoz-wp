@@ -77,6 +77,9 @@
 - [x] Run `npm run build:stg1` after CS membership start date field update.
 - [x] Run `npm run build:stg4` after CS membership start date field update.
 - [x] Run API validation after CS membership start date field update.
+- [x] Run `npm run build:stg1` after CS program membership start date visibility correction.
+- [x] Run `npm run build:stg4` after CS program membership start date visibility correction.
+- [x] Run API validation after CS program membership start date visibility correction.
 
 ## Known Follow-up
 - [x] Continue migrating remaining admin/detail page copy into the existing i18n/config layer.

@@ -14,6 +14,9 @@
 - [x] Preserve CS order `start_membership` date for membership entitlement activation.
 - [x] Run `npm run check` after CS membership start date order update.
 - [x] Restart `foremoz-api` after CS membership start date order update.
+- [x] Apply CS `start_membership` date to program membership activity enrollment.
+- [x] Run `npm run check` after CS program membership start date correction.
+- [x] Restart `foremoz-api` after CS program membership start date correction.
 
 ## Known Follow-up
 - [ ] Add schema validation for workflow, permission, and module config before bootstrapping runtime behavior.

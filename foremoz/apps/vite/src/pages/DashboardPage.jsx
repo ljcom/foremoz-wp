@@ -1387,6 +1387,7 @@ export default function DashboardPage() {
         ),
         source_kind: String(item?.class_type || 'scheduled').trim().toLowerCase() === 'scheduled' ? 'class' : 'activity',
         source_id: String(item.class_id || ''),
+        class_type: String(item?.class_type || 'scheduled').trim().toLowerCase(),
         label: item.class_name || item.class_id || 'Program',
         helper: String(item?.class_type || 'scheduled').trim().toLowerCase() === 'scheduled'
           ? (item.trainer_name || item.branch_id || 'program')
@@ -1453,6 +1454,7 @@ export default function DashboardPage() {
     if (visibleWhen.orderType && normalizeOrderType(orderForm.order_type) !== normalizeOrderType(visibleWhen.orderType)) return false;
     if (!selectedOrderTarget) return false;
     if (visibleWhen.referenceType && String(selectedOrderTarget.reference_type || '').trim() !== String(visibleWhen.referenceType || '').trim()) return false;
+    if (visibleWhen.targetClassType && String(selectedOrderTarget.class_type || '').trim() !== String(visibleWhen.targetClassType || '').trim()) return false;
     if (Object.prototype.hasOwnProperty.call(visibleWhen, 'targetHasCoach') && Boolean(selectedOrderTarget.has_coach) !== Boolean(visibleWhen.targetHasCoach)) return false;
     return true;
   }, [orderForm.order_type, selectedOrderTarget]);

@@ -2006,14 +2006,20 @@ async function ensureOrderEntitlements({ tenantId, orderId, actorId }) {
         continue;
       }
       touchedBranches.add(String(activityRow.branch_id || '').trim());
+      const explicitStartDate = normalizeOptionalDate(item.start_membership || item.start_date || null, 'start_membership', null);
+      const explicitStartAt = explicitStartDate ? toIsoStartOfDate(explicitStartDate) : null;
       const enrollmentState = buildActivityEnrollmentState({
         activity: activityRow,
         memberId,
         purchasedAt: paymentRow.recorded_at || new Date().toISOString(),
         paymentRow,
-        activatedAt: paymentRow.reviewed_at || new Date().toISOString(),
+        activatedAt: explicitStartAt || paymentRow.reviewed_at || new Date().toISOString(),
         explicitStatus: 'active'
       });
+      if (explicitStartAt) {
+        enrollmentState.valid_from = explicitStartAt;
+        enrollmentState.activated_at = explicitStartAt;
+      }
       const packageDurationMonths = Math.max(0, Number(packageRow?.max_months || packageRow?.duration_months || 0));
       const packageSessionCount = Math.max(0, Number(packageRow?.session_count || 0));
       if (packageDurationMonths > 0) {
