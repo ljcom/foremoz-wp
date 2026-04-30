@@ -281,6 +281,12 @@ function resolveOrderReferenceLabel(item, lookups = {}) {
   return referenceId || '-';
 }
 
+function resolveOrderStartMembership(item) {
+  const orderItems = Array.isArray(item?.order_items) ? item.order_items : [];
+  const matchedItem = orderItems.find((entry) => String(entry?.start_membership || '').trim()) || null;
+  return String(matchedItem?.start_membership || item?.start_membership || '').trim();
+}
+
 export default function DashboardPage() {
   const { language } = useI18n();
   const copy = useMemo(() => (language === 'en'
@@ -3909,6 +3915,9 @@ export default function DashboardPage() {
                               <p>{formatOrderTypeLabel(item.order_type)} | {resolveOrderReferenceLabel(item, orderReferenceLookups)}</p>
                               <p>{item.order_id} | {Array.isArray(item.order_items) && item.order_items.length > 1 ? `${item.item_count || item.order_items.length || 0} items` : `qty ${item.qty || 0}`}</p>
                               <p>{formatDateTime(item.created_at || item.updated_at)}</p>
+                              {resolveOrderStartMembership(item) ? (
+                                <p>{getOrderCopy('historyStartMembershipLabel')} : {resolveOrderStartMembership(item)}</p>
+                              ) : null}
                             </div>
                             <div className="payment-meta">
                               <strong>{formatIdr(item.total_amount || 0)}</strong>

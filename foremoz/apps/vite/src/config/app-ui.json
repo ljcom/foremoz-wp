@@ -1294,6 +1294,7 @@
         "labelRequired": "Label order wajib diisi.",
         "multiItemCountLabel": "{count} items",
         "multiItemBundleLabel": "Multi-item bundle",
+        "historyStartMembershipLabel": "start-membership",
         "defaultOrderNotes": "CS dashboard order for {member}",
         "preparePaymentFailed": "failed to prepare order payment",
         "createOrderFailed": "failed to create order",
