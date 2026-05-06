@@ -1243,6 +1243,12 @@
     }
   },
   "csDashboard": {
+    "checkin": {
+      "selection": {
+        "defaultExperienceType": "event",
+        "autoSelectWhenUntouched": true
+      }
+    },
     "orders": {
       "defaultOrderType": "membership",
       "defaultPaymentMethod": "cash",

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   accountPath,
@@ -18,11 +18,13 @@ import {
   getConfiguredOption,
   getConfiguredOptions,
   getBackendShellNavItems,
+  getDashboardCheckinConfig,
   getDashboardOrderConfig,
   normalizeConfiguredOptionValue
 } from '../config/app-config.js';
 
 const CS_SIDEBAR_NAV_ITEMS = getBackendShellNavItems('cs');
+const DASHBOARD_CHECKIN_CONFIG = getDashboardCheckinConfig();
 const DASHBOARD_ORDER_CONFIG = getDashboardOrderConfig();
 const ORDER_TYPE_OPTIONS = getConfiguredOptions(DASHBOARD_ORDER_CONFIG, 'orderTypes');
 const ORDER_FORM_TYPE_OPTIONS = ORDER_TYPE_OPTIONS.filter((option) => option.visibleInOrderForm !== false);
@@ -31,6 +33,9 @@ const ORDER_SETTLEMENT_OPTIONS = getConfiguredOptions(DASHBOARD_ORDER_CONFIG, 's
 const START_MEMBERSHIP_FIELD_CONFIG = DASHBOARD_ORDER_CONFIG.startMembershipField || {};
 const DEFAULT_ORDER_TYPE = DASHBOARD_ORDER_CONFIG.defaultOrderType || ORDER_TYPE_OPTIONS[0]?.value || '';
 const DEFAULT_ORDER_PAYMENT_METHOD = DASHBOARD_ORDER_CONFIG.defaultPaymentMethod || ORDER_PAYMENT_METHOD_OPTIONS[0]?.value || '';
+const CHECKIN_SELECTION_CONFIG = DASHBOARD_CHECKIN_CONFIG.selection || {};
+const DEFAULT_CHECKIN_EXPERIENCE_TYPE = CHECKIN_SELECTION_CONFIG.defaultExperienceType || 'event';
+const CHECKIN_AUTO_SELECT_WHEN_UNTOUCHED = CHECKIN_SELECTION_CONFIG.autoSelectWhenUntouched !== false;
 
 function Stat({ label, value, iconClass, tone, hint, onClick, active = false }) {
   const Tag = onClick ? 'button' : 'article';
@@ -409,8 +414,9 @@ export default function DashboardPage() {
   const [products, setProducts] = useState([]);
   const [packages, setPackages] = useState([]);
   const [selectedMemberId, setSelectedMemberId] = useState('');
-  const [selectedExperienceType, setSelectedExperienceType] = useState('event');
+  const [selectedExperienceType, setSelectedExperienceType] = useState(DEFAULT_CHECKIN_EXPERIENCE_TYPE);
   const [selectedExperienceId, setSelectedExperienceId] = useState('');
+  const checkinSelectionTouchedRef = useRef(false);
   const [eventParticipants, setEventParticipants] = useState([]);
   const [eventParticipantsLoading, setEventParticipantsLoading] = useState(false);
   const [classBookings, setClassBookings] = useState([]);
@@ -515,7 +521,7 @@ export default function DashboardPage() {
       setWorkspaceTab('member');
     }
     if (selectedExperienceType === 'class') {
-      setSelectedExperienceType('event');
+      setSelectedExperienceType(DEFAULT_CHECKIN_EXPERIENCE_TYPE);
       setSelectedExperienceId('');
     }
   }, [showClassWorkspace, workspaceTab, selectedExperienceType]);
@@ -2152,8 +2158,15 @@ export default function DashboardPage() {
   }, [selectedMember]);
 
   useEffect(() => {
+    checkinSelectionTouchedRef.current = false;
+  }, [selectedMemberId, memberWorkspaceTab]);
+
+  useEffect(() => {
     if (!selectedMember) return;
     if (memberWorkspaceTab !== 'checkin' && memberWorkspaceTab !== 'checkout') return;
+    if (memberOrderLoading) return;
+    if (!CHECKIN_AUTO_SELECT_WHEN_UNTOUCHED && !selectedExperienceId) return;
+    if (checkinSelectionTouchedRef.current) return;
 
     if (isMultiBranchPlan) {
       const hasSelectedEvent = selectedExperienceType === 'event'
@@ -2212,6 +2225,7 @@ export default function DashboardPage() {
     checkinEventTargets,
     isMultiBranchPlan,
     memberWorkspaceTab,
+    memberOrderLoading,
     selectedExperienceId,
     selectedExperienceType,
     selectedMember,
@@ -2246,13 +2260,14 @@ export default function DashboardPage() {
     setSelectedMemberId('');
     setMemberWorkspaceTab('profile');
     setMemberScopedFilter(null);
-    setSelectedExperienceType('event');
+    setSelectedExperienceType(DEFAULT_CHECKIN_EXPERIENCE_TYPE);
     setSelectedExperienceId('');
     setEventParticipantQuery('');
     setActionFeedback('');
   }
 
   function selectFocusedMemberExperience(kind, sourceId) {
+    checkinSelectionTouchedRef.current = true;
     setSelectedExperienceType(kind);
     setSelectedExperienceId(sourceId);
     setMemberScopedFilter(null);
@@ -3658,6 +3673,7 @@ export default function DashboardPage() {
                             value={selectedExperienceType}
                             disabled={memberWorkspaceTab === 'checkout'}
                             onChange={(e) => {
+                              checkinSelectionTouchedRef.current = true;
                               setSelectedExperienceType(e.target.value);
                               setSelectedExperienceId('');
                             }}

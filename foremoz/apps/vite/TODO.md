@@ -83,6 +83,7 @@
 - [x] Run `npm run build:stg1` after CS order history start membership display update.
 - [x] Run `npm run build:stg4` after CS order history start membership display update.
 - [x] Format CS order/payment history start membership date with Indonesian long date.
+- [x] Stabilize CS member check-in relation type dropdown auto-selection from JSON config.
 
 ## Known Follow-up
 - [x] Continue migrating remaining admin/detail page copy into the existing i18n/config layer.

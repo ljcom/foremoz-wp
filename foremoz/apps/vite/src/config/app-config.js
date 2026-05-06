@@ -96,6 +96,8 @@ export function validateAppUiConfig(config = appUiConfig) {
   requireConfigObject(config, 'csDashboard.orders');
   requireConfigObject(config, 'csDashboard.orders.startMembershipField');
   requireConfigObject(config, 'csDashboard.orders.startMembershipField.visibleWhen');
+  requireConfigObject(config, 'csDashboard.checkin');
+  requireConfigObject(config, 'csDashboard.checkin.selection');
   requireConfigObject(config, 'salesWorkspace.copy');
   requireConfigObject(config, 'ptWorkspace.historySession.attendance');
   requireConfigObject(config, 'ptWorkspace.historySession.attendance.statusByActivityType');
@@ -233,6 +235,10 @@ export function getPageErrorBoundaryConfig(variant) {
 
 export function getDashboardOrderConfig() {
   return asObject(asObject(appUiConfig.csDashboard).orders);
+}
+
+export function getDashboardCheckinConfig() {
+  return asObject(asObject(appUiConfig.csDashboard).checkin);
 }
 
 export function getBackendShellConfig() {
