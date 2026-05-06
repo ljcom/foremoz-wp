@@ -524,11 +524,12 @@ export default function DashboardPage() {
     if (workspaceTab === 'class') {
       setWorkspaceTab('member');
     }
+    if (workspaceTab === 'member' && (memberWorkspaceTab === 'checkin' || memberWorkspaceTab === 'checkout')) return;
     if (selectedExperienceType === 'class') {
       setSelectedExperienceType(DEFAULT_CHECKIN_EXPERIENCE_TYPE);
       setSelectedExperienceId('');
     }
-  }, [showClassWorkspace, workspaceTab, selectedExperienceType]);
+  }, [memberWorkspaceTab, showClassWorkspace, workspaceTab, selectedExperienceType]);
 
   async function loadDashboard() {
     try {
