@@ -85,6 +85,7 @@
 - [x] Format CS order/payment history start membership date with Indonesian long date.
 - [x] Stabilize CS member check-in relation type dropdown auto-selection from JSON config.
 - [x] Keep CS member check-in program relation selection from being reset by class workspace guards.
+- [x] Show CS order history expired membership date from configured program/package duration.
 
 ## Known Follow-up
 - [x] Continue migrating remaining admin/detail page copy into the existing i18n/config layer.

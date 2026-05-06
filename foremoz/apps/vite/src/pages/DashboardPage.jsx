@@ -290,11 +290,92 @@ function resolveOrderReferenceLabel(item, lookups = {}) {
   return referenceId || '-';
 }
 
-function resolveOrderStartMembership(item) {
-  const orderItems = Array.isArray(item?.order_items) ? item.order_items : [];
-  const matchedItem = orderItems.find((entry) => String(entry?.start_membership || '').trim()) || null;
-  const startMembership = String(matchedItem?.start_membership || item?.start_membership || '').trim();
-  return startMembership ? formatAppLongDate(startMembership, { fallback: '' }) : '';
+function getDateKeyParts(value) {
+  const match = String(value || '').trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!match) return null;
+  return {
+    year: Number(match[1]),
+    month: Number(match[2]),
+    day: Number(match[3])
+  };
+}
+
+function formatDateKey({ year, month, day }) {
+  return `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
+function getDaysInMonth(year, month) {
+  return new Date(Date.UTC(year, month, 0)).getUTCDate();
+}
+
+function addCalendarMonthsToDateKey(value, months) {
+  const parts = getDateKeyParts(value);
+  const duration = Number(months || 0);
+  if (!parts || !Number.isFinite(duration)) return '';
+  const monthIndex = parts.month - 1 + duration;
+  const year = parts.year + Math.floor(monthIndex / 12);
+  const month = ((monthIndex % 12) + 12) % 12 + 1;
+  const day = Math.min(parts.day, getDaysInMonth(year, month));
+  return formatDateKey({ year, month, day });
+}
+
+function addDurationToDateKey(value, unit, amount) {
+  const parts = getDateKeyParts(value);
+  const duration = Number(amount || 0);
+  if (!parts || !Number.isFinite(duration) || duration <= 0) return '';
+  const normalizedUnit = String(unit || '').trim().toLowerCase();
+  if (normalizedUnit === 'month' || normalizedUnit === 'months') {
+    return addCalendarMonthsToDateKey(value, duration);
+  }
+  if (normalizedUnit === 'year' || normalizedUnit === 'years') {
+    return addCalendarMonthsToDateKey(value, duration * 12);
+  }
+  const dayMultiplier = normalizedUnit === 'week' || normalizedUnit === 'weeks' ? 7 : 1;
+  const date = new Date(Date.UTC(parts.year, parts.month - 1, parts.day + (duration * dayMultiplier)));
+  return formatDateKey({
+    year: date.getUTCFullYear(),
+    month: date.getUTCMonth() + 1,
+    day: date.getUTCDate()
+  });
+}
+
+function resolveDurationFromEntity(entity) {
+  if (!entity || typeof entity !== 'object') return null;
+  const maxMonths = Number(entity.max_months || entity.duration_months || 0);
+  if (Number.isFinite(maxMonths) && maxMonths > 0) {
+    return { unit: 'month', amount: maxMonths };
+  }
+  const validityUnit = String(entity.validity_unit || '').trim().toLowerCase();
+  const validityValue = Number(entity.validity_value || 0);
+  if (validityUnit && validityUnit !== 'none' && Number.isFinite(validityValue) && validityValue > 0) {
+    return { unit: validityUnit, amount: validityValue };
+  }
+  return null;
+}
+
+function resolveOrderMembershipPeriod(item, lookups = {}) {
+  const orderItems = Array.isArray(item?.order_items) && item.order_items.length > 0 ? item.order_items : [item];
+  const packagesById = lookups.packageRowsById || new Map();
+  const classesById = lookups.classRowsById || new Map();
+  for (let index = 0; index < orderItems.length; index += 1) {
+    const orderItem = orderItems[index] || {};
+    const startMembership = String(orderItem.start_membership || item?.start_membership || '').trim();
+    if (!startMembership) continue;
+    const referenceType = String(orderItem.reference_type || item?.reference_type || '').trim().toLowerCase();
+    const referenceId = String(orderItem.reference_id || item?.reference_id || '').trim();
+    const packageRow = packagesById.get(referenceId) || null;
+    const classRow = classesById.get(referenceId) || null;
+    const duration = resolveDurationFromEntity(packageRow) || resolveDurationFromEntity(classRow);
+    const explicitEndDate = String(orderItem.end_membership || orderItem.end_date || item?.end_membership || item?.end_date || classRow?.end_date || '').trim();
+    const expiredDateKey = duration
+      ? addDurationToDateKey(startMembership, duration.unit, duration.amount)
+      : explicitEndDate;
+    return {
+      startDate: formatAppLongDate(startMembership, { fallback: '' }),
+      expiredDate: expiredDateKey ? formatAppLongDate(expiredDateKey, { fallback: '' }) : ''
+    };
+  }
+  return null;
 }
 
 export default function DashboardPage() {
@@ -1553,6 +1634,16 @@ export default function DashboardPage() {
     [currentCheckinTargets, selectedExperienceId]
   );
   const orderReferenceLookups = useMemo(() => {
+    const packageRowsById = new Map(
+      packages
+        .map((item) => [String(item?.package_id || ''), item])
+        .filter(([id]) => Boolean(id))
+    );
+    const classRowsById = new Map(
+      classes
+        .map((item) => [String(item?.class_id || ''), item])
+        .filter(([id]) => Boolean(id))
+    );
     const packagesById = new Map(
       packages
         .map((item) => [String(item?.package_id || ''), item.package_name || item.class_name || item.package_id || '-'])
@@ -1560,6 +1651,8 @@ export default function DashboardPage() {
     );
     return {
       packagesById,
+      packageRowsById,
+      classRowsById,
       eventsById: new Map(activeEvents.map((item) => [String(item.event_id || ''), item.event_name || item.event_id || '-'])),
       classesById: new Map(classes.map((item) => [String(item.class_id || ''), item.class_name || item.class_id || '-'])),
       productsById: new Map(products.map((item) => [String(item.product_id || ''), item.product_name || item.product_id || '-']))
@@ -3945,12 +4038,23 @@ export default function DashboardPage() {
                               <p>{formatOrderTypeLabel(item.order_type)} | {resolveOrderReferenceLabel(item, orderReferenceLookups)}</p>
                               <p>{item.order_id} | {Array.isArray(item.order_items) && item.order_items.length > 1 ? `${item.item_count || item.order_items.length || 0} items` : `qty ${item.qty || 0}`}</p>
                               <p>{formatDateTime(item.created_at || item.updated_at)}</p>
-                              {resolveOrderStartMembership(item) ? (
-                                <p>{getOrderCopy('historyStartMembershipText', {
-                                  label: getOrderCopy('historyStartMembershipLabel'),
-                                  date: resolveOrderStartMembership(item)
-                                })}</p>
-                              ) : null}
+                              {(() => {
+                                const membershipPeriod = resolveOrderMembershipPeriod(item, orderReferenceLookups);
+                                if (!membershipPeriod?.startDate) return null;
+                                return (
+                                  <p>{membershipPeriod.expiredDate
+                                    ? getOrderCopy('historyMembershipPeriodText', {
+                                        startLabel: getOrderCopy('historyStartMembershipLabel'),
+                                        startDate: membershipPeriod.startDate,
+                                        expiredLabel: getOrderCopy('historyExpiredMembershipLabel'),
+                                        expiredDate: membershipPeriod.expiredDate
+                                      })
+                                    : getOrderCopy('historyStartMembershipText', {
+                                        label: getOrderCopy('historyStartMembershipLabel'),
+                                        date: membershipPeriod.startDate
+                                      })}</p>
+                                );
+                              })()}
                             </div>
                             <div className="payment-meta">
                               <strong>{formatIdr(item.total_amount || 0)}</strong>
