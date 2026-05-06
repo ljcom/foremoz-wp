@@ -34,8 +34,12 @@ const START_MEMBERSHIP_FIELD_CONFIG = DASHBOARD_ORDER_CONFIG.startMembershipFiel
 const DEFAULT_ORDER_TYPE = DASHBOARD_ORDER_CONFIG.defaultOrderType || ORDER_TYPE_OPTIONS[0]?.value || '';
 const DEFAULT_ORDER_PAYMENT_METHOD = DASHBOARD_ORDER_CONFIG.defaultPaymentMethod || ORDER_PAYMENT_METHOD_OPTIONS[0]?.value || '';
 const CHECKIN_SELECTION_CONFIG = DASHBOARD_CHECKIN_CONFIG.selection || {};
-const DEFAULT_CHECKIN_EXPERIENCE_TYPE = CHECKIN_SELECTION_CONFIG.defaultExperienceType || 'event';
+const DEFAULT_CHECKIN_EXPERIENCE_TYPE = Object.prototype.hasOwnProperty.call(CHECKIN_SELECTION_CONFIG, 'defaultExperienceType')
+  ? String(CHECKIN_SELECTION_CONFIG.defaultExperienceType || '')
+  : 'event';
 const CHECKIN_AUTO_SELECT_WHEN_UNTOUCHED = CHECKIN_SELECTION_CONFIG.autoSelectWhenUntouched !== false;
+const CHECKIN_TYPE_PLACEHOLDER = CHECKIN_SELECTION_CONFIG.typePlaceholder || '';
+const CHECKIN_TARGET_PLACEHOLDER = CHECKIN_SELECTION_CONFIG.targetPlaceholder || '';
 
 function Stat({ label, value, iconClass, tone, hint, onClick, active = false }) {
   const Tag = onClick ? 'button' : 'article';
@@ -1540,7 +1544,8 @@ export default function DashboardPage() {
   );
   const currentCheckinTargets = useMemo(() => {
     if (selectedExperienceType === 'class') return checkinClassTargets;
-    return checkinEventTargets;
+    if (selectedExperienceType === 'event') return checkinEventTargets;
+    return [];
   }, [checkinClassTargets, checkinEventTargets, selectedExperienceType]);
   const selectedCheckinTarget = useMemo(
     () => currentCheckinTargets.find((item) => String(item.source_id || '') === String(selectedExperienceId || '')) || null,
@@ -2165,7 +2170,7 @@ export default function DashboardPage() {
     if (!selectedMember) return;
     if (memberWorkspaceTab !== 'checkin' && memberWorkspaceTab !== 'checkout') return;
     if (memberOrderLoading) return;
-    if (!CHECKIN_AUTO_SELECT_WHEN_UNTOUCHED && !selectedExperienceId) return;
+    if (!CHECKIN_AUTO_SELECT_WHEN_UNTOUCHED) return;
     if (checkinSelectionTouchedRef.current) return;
 
     if (isMultiBranchPlan) {
@@ -2252,6 +2257,8 @@ export default function DashboardPage() {
     setSelectedMemberId(memberId);
     setMemberWorkspaceTab(nextTab);
     setMemberScopedFilter(null);
+    setSelectedExperienceType(DEFAULT_CHECKIN_EXPERIENCE_TYPE);
+    setSelectedExperienceId('');
     setActionFeedback('');
     setMemberCreateNotice('');
   }
@@ -3678,17 +3685,22 @@ export default function DashboardPage() {
                               setSelectedExperienceId('');
                             }}
                           >
+                            {CHECKIN_TYPE_PLACEHOLDER ? (
+                              <option value="">
+                                {CHECKIN_TYPE_PLACEHOLDER}
+                              </option>
+                            ) : null}
                             <option
                               value="event"
                               disabled={checkinEventTargets.length === 0}
                             >
-                              Event
+                              {formatOrderTypeLabel('event')}
                             </option>
                             <option
                               value="class"
                               disabled={checkinClassTargets.length === 0}
                             >
-                              Program
+                              {formatOrderTypeLabel('class')}
                             </option>
                           </select>
                         </label>
@@ -3723,7 +3735,7 @@ export default function DashboardPage() {
                               </>
                             ) : (
                               <>
-                                <option value="">Pilih item aktif</option>
+                                <option value="">{CHECKIN_TARGET_PLACEHOLDER}</option>
                                 {currentCheckinTargets.map((item) => (
                                   <option key={item.key} value={item.source_id}>
                                     {item.label}

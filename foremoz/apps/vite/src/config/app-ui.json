@@ -1245,8 +1245,10 @@
   "csDashboard": {
     "checkin": {
       "selection": {
-        "defaultExperienceType": "event",
-        "autoSelectWhenUntouched": true
+        "defaultExperienceType": "",
+        "typePlaceholder": "Pilih tipe relasi",
+        "targetPlaceholder": "Pilih item aktif",
+        "autoSelectWhenUntouched": false
       }
     },
     "orders": {
