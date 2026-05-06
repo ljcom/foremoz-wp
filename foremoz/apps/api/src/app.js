@@ -4849,6 +4849,7 @@ app.post('/v1/auth/signup', async (req, res, next) => {
           member_id: memberId,
           full_name: fullName,
           phone: data.phone || null,
+          email,
           status: 'active'
         },
         refs: {},
@@ -8835,13 +8836,18 @@ app.get('/v1/read/members', async (req, res, next) => {
     const branchId = req.query.branch_id || null;
     const limit = Math.min(Math.max(Number(req.query.limit || 50), 1), 200);
     const params = [tenantId];
-    let sql = `select * from read.rm_member where tenant_id = $1`;
+    let sql = `select m.*, coalesce(nullif(m.email, ''), a.email) as email
+               from read.rm_member m
+               left join read.rm_member_auth a
+                 on a.tenant_id = m.tenant_id
+                and a.member_id = m.member_id
+               where m.tenant_id = $1`;
     if (branchId) {
       params.push(branchId);
-      sql += ` and branch_id = $2`;
+      sql += ` and m.branch_id = $2`;
     }
     params.push(limit);
-    sql += ` order by updated_at desc limit $${params.length}`;
+    sql += ` order by m.updated_at desc limit $${params.length}`;
     const { rows } = await query(sql, params);
     return ok(res, { rows, limit });
   } catch (error) {
