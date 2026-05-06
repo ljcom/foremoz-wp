@@ -4062,8 +4062,11 @@ export default function DashboardPage() {
                               <p>{item.kind === 'class' ? 'Program' : 'Event'} | status: {item.linked_status || item.status || '-'}</p>
                               <p>booking/registration: {item.registration_id || '-'}</p>
                               <p>booked: {item.booked_at ? formatDateTime(item.booked_at) : '-'}</p>
-                              <p>check-in: {item.checked_in_at ? formatDateTime(item.checked_in_at) : '-'}</p>
-                              <p>check-out: {item.checked_out_at ? formatDateTime(item.checked_out_at) : '-'}</p>
+                              <p>
+                                {getOrderCopy('historyCheckinLabel')}: {item.checked_in_at ? formatDateTime(item.checked_in_at) : '-'}
+                                {' | '}
+                                {getOrderCopy('historyCheckoutLabel')}: {item.checked_out_at ? formatDateTime(item.checked_out_at) : '-'}
+                              </p>
                             </div>
                             <span className="passport-chip">{item.kind === 'class' ? 'Program' : 'Event'}</span>
                           </div>

@@ -189,6 +189,8 @@ export function validateAppUiConfig(config = appUiConfig) {
     'startMembershipRequired',
     'historyStartMembershipLabel',
     'historyExpiredMembershipLabel',
+    'historyCheckinLabel',
+    'historyCheckoutLabel',
     'historyStartMembershipText',
     'historyMembershipPeriodText',
     'selectedTargetExpiredMembershipText',

@@ -1304,6 +1304,8 @@
         "multiItemBundleLabel": "Multi-item bundle",
         "historyStartMembershipLabel": "Start membership",
         "historyExpiredMembershipLabel": "Expired membership",
+        "historyCheckinLabel": "Check-in",
+        "historyCheckoutLabel": "Check-out",
         "historyStartMembershipText": "{label}: {date}",
         "historyMembershipPeriodText": "{startLabel}: {startDate} | {expiredLabel}: {expiredDate}",
         "selectedTargetExpiredMembershipText": "{label}: {date}",
