@@ -371,6 +371,8 @@ function resolveOrderMembershipPeriod(item, lookups = {}) {
       ? addDurationToDateKey(startMembership, duration.unit, duration.amount)
       : explicitEndDate;
     return {
+      startDateKey: startMembership,
+      expiredDateKey,
       startDate: formatAppLongDate(startMembership, { fallback: '' }),
       expiredDate: expiredDateKey ? formatAppLongDate(expiredDateKey, { fallback: '' }) : ''
     };
@@ -399,6 +401,12 @@ function resolveOrderMembershipPeriodForTarget(target, orderRows = [], lookups =
     if (period?.startDate || period?.expiredDate) return period;
   }
   return null;
+}
+
+function isDateKeyBeforeToday(value) {
+  const parts = getDateKeyParts(value);
+  if (!parts) return false;
+  return formatDateKey(parts) < toLocalDateKey(new Date());
 }
 
 export default function DashboardPage() {
@@ -1685,6 +1693,10 @@ export default function DashboardPage() {
     () => resolveOrderMembershipPeriodForTarget(selectedCheckinTarget, memberOrderRows, orderReferenceLookups),
     [memberOrderRows, orderReferenceLookups, selectedCheckinTarget]
   );
+  const selectedCheckinMembershipExpired = useMemo(
+    () => isDateKeyBeforeToday(selectedCheckinMembershipPeriod?.expiredDateKey),
+    [selectedCheckinMembershipPeriod]
+  );
 
   useEffect(() => {
     if (memberWorkspaceTab === 'order') return;
@@ -2919,6 +2931,10 @@ export default function DashboardPage() {
     }
     if (!selectedClassIsMembershipMode) {
       setActionFeedback('Check-in tanpa booking hanya untuk program membership.');
+      return;
+    }
+    if (selectedCheckinMembershipExpired) {
+      setActionFeedback(getOrderCopy('checkinMembershipExpiredFeedback'));
       return;
     }
     try {

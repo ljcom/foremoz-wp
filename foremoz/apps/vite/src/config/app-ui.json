@@ -1307,6 +1307,7 @@
         "historyStartMembershipText": "{label}: {date}",
         "historyMembershipPeriodText": "{startLabel}: {startDate} | {expiredLabel}: {expiredDate}",
         "selectedTargetExpiredMembershipText": "{label}: {date}",
+        "checkinMembershipExpiredFeedback": "Check in not available, membership expired",
         "defaultOrderNotes": "CS dashboard order for {member}",
         "preparePaymentFailed": "failed to prepare order payment",
         "createOrderFailed": "failed to create order",

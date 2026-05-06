@@ -87,6 +87,7 @@
 - [x] Keep CS member check-in program relation selection from being reset by class workspace guards.
 - [x] Show CS order history expired membership date from configured program/package duration.
 - [x] Show selected CS check-in membership target expired date from the matching paid order.
+- [x] Block CS membership check-in with configured feedback when selected membership is expired.
 
 ## Known Follow-up
 - [x] Continue migrating remaining admin/detail page copy into the existing i18n/config layer.
