@@ -191,6 +191,7 @@ export function validateAppUiConfig(config = appUiConfig) {
     'historyExpiredMembershipLabel',
     'historyStartMembershipText',
     'historyMembershipPeriodText',
+    'selectedTargetExpiredMembershipText',
     'orderCreatedFeedback'
   ]);
   requireConfigCopy(config, 'backendShell.copy', [

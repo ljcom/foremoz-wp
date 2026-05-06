@@ -378,6 +378,29 @@ function resolveOrderMembershipPeriod(item, lookups = {}) {
   return null;
 }
 
+function resolveOrderMembershipPeriodForTarget(target, orderRows = [], lookups = {}) {
+  const targetReferenceType = String(target?.reference_type || '').trim().toLowerCase();
+  const targetReferenceId = String(target?.reference_id || target?.source_id || '').trim();
+  if (!targetReferenceType || !targetReferenceId) return null;
+  for (let orderIndex = 0; orderIndex < orderRows.length; orderIndex += 1) {
+    const order = orderRows[orderIndex] || {};
+    const status = String(order?.status || '').trim().toLowerCase();
+    const paymentStatus = String(order?.payment_status || '').trim().toLowerCase();
+    const isPurchased = status === 'paid' || paymentStatus === 'confirmed';
+    if (!isPurchased) continue;
+    const orderItems = Array.isArray(order?.order_items) && order.order_items.length > 0 ? order.order_items : [order];
+    const matchedItem = orderItems.find((item) => {
+      const referenceType = String(item?.reference_type || order?.reference_type || '').trim().toLowerCase();
+      const referenceId = String(item?.reference_id || order?.reference_id || '').trim();
+      return referenceType === targetReferenceType && referenceId === targetReferenceId;
+    }) || null;
+    if (!matchedItem) continue;
+    const period = resolveOrderMembershipPeriod({ ...order, order_items: [matchedItem] }, lookups);
+    if (period?.startDate || period?.expiredDate) return period;
+  }
+  return null;
+}
+
 export default function DashboardPage() {
   const { language } = useI18n();
   const copy = useMemo(() => (language === 'en'
@@ -1658,6 +1681,10 @@ export default function DashboardPage() {
       productsById: new Map(products.map((item) => [String(item.product_id || ''), item.product_name || item.product_id || '-']))
     };
   }, [packages, activeEvents, classes, products]);
+  const selectedCheckinMembershipPeriod = useMemo(
+    () => resolveOrderMembershipPeriodForTarget(selectedCheckinTarget, memberOrderRows, orderReferenceLookups),
+    [memberOrderRows, orderReferenceLookups, selectedCheckinTarget]
+  );
 
   useEffect(() => {
     if (memberWorkspaceTab === 'order') return;
@@ -3846,6 +3873,12 @@ export default function DashboardPage() {
                           <p><strong>{selectedCheckinTarget.label}</strong></p>
                           <p>{selectedCheckinTarget.helper}</p>
                           <p>{getOrderCopy('referenceLabel')}: {selectedCheckinTarget.reference_type} / {selectedCheckinTarget.reference_id || '-'}</p>
+                          {selectedCheckinMembershipPeriod?.expiredDate ? (
+                            <p>{getOrderCopy('selectedTargetExpiredMembershipText', {
+                              label: getOrderCopy('historyExpiredMembershipLabel'),
+                              date: selectedCheckinMembershipPeriod.expiredDate
+                            })}</p>
+                          ) : null}
                           <p>{getOrderCopy('defaultPriceLabel')}: {formatIdr(selectedCheckinTarget.unit_price || 0)}</p>
                         </div>
                       ) : null}
