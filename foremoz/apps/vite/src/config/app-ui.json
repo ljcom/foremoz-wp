@@ -447,6 +447,9 @@
       "transactionEyebrow": "Transaction",
       "transactionListTitle": "Transaction list",
       "transactionSearchPlaceholder": "Cari transaction...",
+      "transactionPaginationSummary": "Showing {start}-{end} of {total}",
+      "transactionPaginationPrevious": "Previous",
+      "transactionPaginationNext": "Next",
       "transactionDetailTitle": "Transaction detail",
       "transactionConfirm": "Confirm",
       "transactionReject": "Reject",
@@ -1229,6 +1232,9 @@
       { "value": "confirm", "label": "confirm", "visibleWhenStatus": "pending" },
       { "value": "reject", "label": "reject", "visibleWhenStatus": "pending" }
     ],
+    "transactionPagination": {
+      "pageSize": 10
+    },
     "saasExtensionMonths": [
       { "value": "1", "label": "1" },
       { "value": "3", "label": "3" },

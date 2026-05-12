@@ -316,6 +316,15 @@ select:focus-visible {
   gap: 0;
 }
 
+.admin-pagination-bar {
+  justify-content: space-between;
+  margin-top: 0.75rem;
+}
+
+.admin-pagination-summary {
+  margin: 0;
+}
+
 .public-hero-image {
   border: 1px solid #ddc9a8;
   border-radius: 18px;

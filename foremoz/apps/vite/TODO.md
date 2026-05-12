@@ -98,6 +98,7 @@
 - [x] Disable Sales create order unit price editing in Prospect detail.
 - [x] Disable Sales create order order label and commission reward fields in Prospect detail.
 - [x] Allow Sales create order quantity editing in Prospect detail.
+- [x] Add config-driven 10 item pagination to Admin transaction list.
 
 ## Known Follow-up
 - [x] Continue migrating remaining admin/detail page copy into the existing i18n/config layer.

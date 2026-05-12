@@ -71,6 +71,8 @@ const SAAS_EXTENSION_MONTH_OPTIONS = getAdminPageOptions('saasExtensionMonths');
 const WORKSPACE_SWITCHER_ENVIRONMENTS = getWorkspaceAccessConfigList('workspaceSwitcherEnvironments');
 const TITLE_SUGGESTION_CONFIG = getAdminPageObject('titleSuggestion');
 const MEMBER_UPLOAD_CONFIG = getAdminPageObject('memberUpload');
+const TRANSACTION_PAGINATION_CONFIG = getAdminPageObject('transactionPagination');
+const TRANSACTION_PAGE_SIZE = Math.max(1, Number(TRANSACTION_PAGINATION_CONFIG.pageSize || 10));
 
 const IDR_FORMATTER = new Intl.NumberFormat('id-ID');
 
@@ -1800,6 +1802,7 @@ export default function AdminPage() {
   const [transactionQuery, setTransactionQuery] = useState('');
   const [transactionStatusFilter, setTransactionStatusFilter] = useState('all');
   const [transactionLinkFilter, setTransactionLinkFilter] = useState('all');
+  const [transactionPage, setTransactionPage] = useState(1);
   const [eventPostQuote, setEventPostQuote] = useState(null);
   const [pendingPostedEventId, setPendingPostedEventId] = useState('');
   const [eventParticipants, setEventParticipants] = useState([]);
@@ -2219,6 +2222,10 @@ export default function AdminPage() {
   }, [activeTab, tenantId, branchId]);
 
   useEffect(() => {
+    setTransactionPage(1);
+  }, [transactionQuery, transactionStatusFilter, transactionLinkFilter]);
+
+  useEffect(() => {
     setTrainers(loadList('trainers', accountSlug, DEFAULT_TRAINERS));
     setSales(loadList('sales', accountSlug, DEFAULT_SALES));
     setTransactions(loadList('transactions', accountSlug, DEFAULT_TRANSACTIONS));
@@ -2569,6 +2576,15 @@ export default function AdminPage() {
       operationLink.includes(q)
     );
   });
+  const transactionTotalPages = Math.max(1, Math.ceil(filteredTransactions.length / TRANSACTION_PAGE_SIZE));
+  const boundedTransactionPage = Math.min(transactionPage, transactionTotalPages);
+  const transactionStartIndex = (boundedTransactionPage - 1) * TRANSACTION_PAGE_SIZE;
+  const paginatedTransactions = filteredTransactions.slice(
+    transactionStartIndex,
+    transactionStartIndex + TRANSACTION_PAGE_SIZE
+  );
+  const transactionPageStart = filteredTransactions.length === 0 ? 0 : transactionStartIndex + 1;
+  const transactionPageEnd = Math.min(transactionStartIndex + paginatedTransactions.length, filteredTransactions.length);
   const filteredEventCheckinParticipants = useMemo(() => {
     const q = normalizeToken(eventCheckinSearch);
     if (!q) return eventParticipants;
@@ -8239,7 +8255,7 @@ export default function AdminPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {filteredTransactions.map((item, idx) => (
+                        {paginatedTransactions.map((item, idx) => (
                           <tr key={item.transaction_id} className={idx % 2 === 0 ? 'admin-data-row' : 'admin-data-row admin-data-row-alt'}>
                             <td className="admin-data-cell">{item.no_transaction}</td>
                             <td className="admin-data-cell">{item.member_id || '-'}</td>
@@ -8283,6 +8299,35 @@ export default function AdminPage() {
                         ))}
                       </tbody>
                     </table>
+                  </div>
+                  <div className="row-actions admin-pagination-bar">
+                    <p className="feedback admin-pagination-summary">
+                      {getAdminPageCopy('transactionPaginationSummary', {
+                        start: transactionPageStart,
+                        end: transactionPageEnd,
+                        total: filteredTransactions.length,
+                        page: boundedTransactionPage,
+                        totalPages: transactionTotalPages
+                      })}
+                    </p>
+                    <div className="row-actions">
+                      <button
+                        className="btn ghost small"
+                        type="button"
+                        disabled={boundedTransactionPage <= 1}
+                        onClick={() => setTransactionPage((prev) => Math.max(1, prev - 1))}
+                      >
+                        {getAdminPageCopy('transactionPaginationPrevious')}
+                      </button>
+                      <button
+                        className="btn ghost small"
+                        type="button"
+                        disabled={boundedTransactionPage >= transactionTotalPages}
+                        onClick={() => setTransactionPage((prev) => Math.min(transactionTotalPages, prev + 1))}
+                      >
+                        {getAdminPageCopy('transactionPaginationNext')}
+                      </button>
+                    </div>
                   </div>
                 </>
               ) : transactionMode === 'detail' ? (
