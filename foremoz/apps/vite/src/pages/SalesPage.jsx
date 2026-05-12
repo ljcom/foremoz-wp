@@ -960,7 +960,6 @@ export default function SalesPage() {
                   type="number"
                   min="1"
                   value={orderForm.qty}
-                  disabled={!['product', 'manual'].includes(normalizeSalesOrderType(orderForm.order_type))}
                   onChange={(e) => setOrderForm((prev) => ({ ...prev, qty: e.target.value }))}
                 />
               </label>
