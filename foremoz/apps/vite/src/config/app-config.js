@@ -177,6 +177,7 @@ export function validateAppUiConfig(config = appUiConfig) {
     'saveTransaction',
     'eventNameRequired',
     'classNameRequired',
+    'classCommissionField',
     'transactionListTitle',
     'memberUploadEyebrow'
   ]);

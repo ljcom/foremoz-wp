@@ -1081,6 +1081,9 @@ function normalizeActivityPayload(rawValue, fallback = {}) {
   if (registrationStart && registrationEnd && new Date(registrationEnd).getTime() < new Date(registrationStart).getTime()) {
     throw fail(400, 'BAD_REQUEST', 'registration_end must be after registration_start');
   }
+  const commission = Object.prototype.hasOwnProperty.call(source, 'commission')
+    ? normalizeOptionalInteger(source.commission, 'commission', null, 0)
+    : normalizeOptionalInteger(latest.commission, 'commission', null, 0);
 
   const bounds = getActivityScheduleBounds({
     classType,
@@ -1109,6 +1112,7 @@ function normalizeActivityPayload(rawValue, fallback = {}) {
     quota_mode: quotaMode,
     validity_mode: validityMode,
     price: asNonNegativeInteger(source.price, 'price', Number(latest.price || 0)),
+    commission,
     start_date: startDate,
     end_date: endDate,
     start_at: bounds.startAt,

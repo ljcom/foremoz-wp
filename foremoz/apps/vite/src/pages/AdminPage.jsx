@@ -611,6 +611,7 @@ function createEmptyClassForm() {
     quota_mode: 'manual',
     validity_mode: 'fixed',
     price: '0',
+    commission: '',
     start_date: '',
     end_date: '',
     registration_start: '',
@@ -2005,6 +2006,7 @@ export default function AdminPage() {
           quota_mode: item.quota_mode || 'manual',
           validity_mode: item.validity_mode || 'fixed',
           price: String(item.price || '0'),
+          commission: item.commission === undefined || item.commission === null ? '' : String(item.commission),
           start_date: item.start_date || toInputDate(item.start_at || ''),
           end_date: item.end_date || toInputDate(item.period_end_at || item.end_at || ''),
           registration_start: toInputDatetime(item.registration_start || ''),
@@ -2761,6 +2763,7 @@ export default function AdminPage() {
             : (hasLimitedAccessCapacity ? 'manual' : 'none'),
           validity_mode: classForm.validity_mode,
           price: Number(classForm.price || 0),
+          commission: classForm.commission === '' ? null : Number(classForm.commission || 0),
           start_date: classForm.start_date || null,
           end_date: classForm.end_date || null,
           registration_start: registrationPeriodMode === 'range_date' && classForm.registration_start
@@ -2857,6 +2860,7 @@ export default function AdminPage() {
       quota_mode: item.quota_mode || 'manual',
       validity_mode: item.validity_mode || 'fixed',
       price: String(item.price || '0'),
+      commission: item.commission === undefined || item.commission === null ? '' : String(item.commission),
       start_date: item.start_date || toInputDate(item.start_at || ''),
       end_date: item.end_date || toInputDate(item.period_end_at || item.end_at || ''),
       registration_start: toInputDatetime(item.registration_start || ''),
@@ -6432,6 +6436,7 @@ export default function AdminPage() {
                               <p className="feedback">Mode ini tidak mewajibkan coach. Cocok untuk gym access, open studio, atau paket sesi generik.</p>
                             ) : null}
                             <label>Price<input type="number" min="0" value={classForm.price} onChange={(e) => setClassForm((p) => ({ ...p, price: e.target.value }))} /></label>
+                            <label>{getAdminPageCopy('classCommissionField')}<input type="number" min="0" value={classForm.commission} onChange={(e) => setClassForm((p) => ({ ...p, commission: e.target.value }))} /></label>
                             {!isScheduledClassForm ? (
                               <p className="feedback">
                                 Price adalah harga per enrollment/pembelian.
