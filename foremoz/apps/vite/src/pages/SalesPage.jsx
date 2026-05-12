@@ -970,6 +970,7 @@ export default function SalesPage() {
                   type="number"
                   min="0"
                   value={orderForm.unit_price}
+                  disabled
                   onChange={(e) => setOrderForm((prev) => ({ ...prev, unit_price: e.target.value }))}
                 />
               </label>
