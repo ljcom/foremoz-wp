@@ -282,7 +282,10 @@
       { "value": "qualified", "label": "qualified" },
       { "value": "converted", "label": "converted" },
       { "value": "lost", "label": "lost" }
-    ]
+    ],
+    "prospectDetail": {
+      "actionFormsLayout": "stack"
+    }
   },
   "workspaceAccess": {
     "defaultAccount": "tn_001",

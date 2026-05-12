@@ -15,7 +15,14 @@ const SALES_WORKSPACE_COPY = SALES_WORKSPACE_CONFIG.copy || {};
 const SALES_NAV_ITEMS = Array.isArray(SALES_WORKSPACE_CONFIG.navItems) ? SALES_WORKSPACE_CONFIG.navItems : [];
 const SALES_QUICK_GUIDE = Array.isArray(SALES_WORKSPACE_CONFIG.quickGuide) ? SALES_WORKSPACE_CONFIG.quickGuide : [];
 const SALES_STAGE_FILTERS = Array.isArray(SALES_WORKSPACE_CONFIG.stageFilters) ? SALES_WORKSPACE_CONFIG.stageFilters : [];
+const SALES_PROSPECT_DETAIL_CONFIG = SALES_WORKSPACE_CONFIG.prospectDetail || {};
 const WORKSPACE_ENV_SWITCHER = ['admin', 'cs', 'pt', 'sales'];
+
+function resolveLayoutClass(layoutValue) {
+  const layout = String(layoutValue || '').trim().toLowerCase();
+  if (layout === 'responsive-grid') return 'is-responsive-grid';
+  return 'is-stack';
+}
 
 function salesCopy(key, fallback = '', vars = {}) {
   const template = String(SALES_WORKSPACE_COPY[key] || fallback || '');
@@ -851,7 +858,7 @@ export default function SalesPage() {
           <p>ID: {selectedProspect.prospect_id}</p>
           <p>Stage: {selectedProspect.stage || '-'} | member_id: {selectedProspect.converted_member_id || '-'}</p>
           <p>Custom fields: {selectedProspect.custom_fields ? JSON.stringify(selectedProspect.custom_fields) : '-'}</p>
-          <div style={{ display: 'grid', gap: '1rem', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))' }}>
+          <div className={`sales-prospect-action-forms ${resolveLayoutClass(SALES_PROSPECT_DETAIL_CONFIG.actionFormsLayout)}`}>
             <form className="form" onSubmit={submitFollowup}>
               <p className="eyebrow">Follow-up</p>
               <label>stage

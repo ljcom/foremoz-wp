@@ -90,6 +90,7 @@
 - [x] Show selected CS check-in membership target expired date from the matching paid order.
 - [x] Block CS membership check-in with configured feedback when selected membership is expired.
 - [x] Combine CS member history check-in and check-out timestamps into one configured line.
+- [x] Stack Sales prospect detail action forms from JSON workspace config.
 
 ## Known Follow-up
 - [x] Continue migrating remaining admin/detail page copy into the existing i18n/config layer.

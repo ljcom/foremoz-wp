@@ -2852,6 +2852,19 @@ code {
   background: #f3fbf7;
 }
 
+.sales-prospect-action-forms {
+  display: grid;
+  gap: 1rem;
+}
+
+.sales-prospect-action-forms.is-stack {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.sales-prospect-action-forms.is-responsive-grid {
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
 .backend-drawer-overlay {
   position: fixed;
   inset: 0;
