@@ -100,6 +100,7 @@ export function validateAppUiConfig(config = appUiConfig) {
   requireConfigObject(config, 'csDashboard.checkin.selection');
   requireConfigObject(config, 'salesWorkspace.copy');
   requireConfigObject(config, 'salesWorkspace.prospectDetail');
+  requireConfigObject(config, 'salesWorkspace.prospectDetail.commissionRewardField');
   requireConfigObject(config, 'ptWorkspace.historySession.attendance');
   requireConfigObject(config, 'ptWorkspace.historySession.attendance.statusByActivityType');
   requireConfigObject(config, 'ptWorkspace.historySession.badgeLabelByBookingKind');

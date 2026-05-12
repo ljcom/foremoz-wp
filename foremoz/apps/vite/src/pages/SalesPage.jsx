@@ -16,6 +16,7 @@ const SALES_NAV_ITEMS = Array.isArray(SALES_WORKSPACE_CONFIG.navItems) ? SALES_W
 const SALES_QUICK_GUIDE = Array.isArray(SALES_WORKSPACE_CONFIG.quickGuide) ? SALES_WORKSPACE_CONFIG.quickGuide : [];
 const SALES_STAGE_FILTERS = Array.isArray(SALES_WORKSPACE_CONFIG.stageFilters) ? SALES_WORKSPACE_CONFIG.stageFilters : [];
 const SALES_PROSPECT_DETAIL_CONFIG = SALES_WORKSPACE_CONFIG.prospectDetail || {};
+const SALES_COMMISSION_REWARD_FIELD = SALES_PROSPECT_DETAIL_CONFIG.commissionRewardField || {};
 const WORKSPACE_ENV_SWITCHER = ['admin', 'cs', 'pt', 'sales'];
 
 function resolveLayoutClass(layoutValue) {
@@ -112,6 +113,7 @@ function createSalesOrderTarget(item, type) {
       reference_id: item.class_id,
       order_label: item.class_name || item.title || item.class_id,
       unit_price: Number(item.price || item.amount || 0),
+      commission: Number(item.commission || 0),
       hint: item.class_type || 'class'
     };
   }
@@ -969,6 +971,15 @@ export default function SalesPage() {
                   min="0"
                   value={orderForm.unit_price}
                   onChange={(e) => setOrderForm((prev) => ({ ...prev, unit_price: e.target.value }))}
+                />
+              </label>
+              <label>
+                {SALES_COMMISSION_REWARD_FIELD.label || 'commission(reward)'}
+                <input
+                  type="number"
+                  min="0"
+                  value={selectedOrderTarget?.commission || 0}
+                  readOnly
                 />
               </label>
               <label>

@@ -284,7 +284,10 @@
       { "value": "lost", "label": "lost" }
     ],
     "prospectDetail": {
-      "actionFormsLayout": "stack"
+      "actionFormsLayout": "stack",
+      "commissionRewardField": {
+        "label": "commission(reward)"
+      }
     }
   },
   "workspaceAccess": {
