@@ -952,7 +952,7 @@ export default function SalesPage() {
               ) : null}
               <label>
                 order_label
-                <input value={orderForm.label} onChange={(e) => setOrderForm((prev) => ({ ...prev, label: e.target.value }))} />
+                <input value={orderForm.label} disabled onChange={(e) => setOrderForm((prev) => ({ ...prev, label: e.target.value }))} />
               </label>
               <label>
                 qty
@@ -981,7 +981,7 @@ export default function SalesPage() {
                     type="number"
                     min="0"
                     value={selectedOrderTarget.commission || 0}
-                    readOnly
+                    disabled
                   />
                 </label>
               ) : null}

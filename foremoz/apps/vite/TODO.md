@@ -96,6 +96,7 @@
 - [x] Show readonly Sales create order commission reward from Admin Program commission config/data.
 - [x] Show Sales create order commission reward only after an order target is selected.
 - [x] Disable Sales create order unit price editing in Prospect detail.
+- [x] Disable Sales create order order label and commission reward fields in Prospect detail.
 
 ## Known Follow-up
 - [x] Continue migrating remaining admin/detail page copy into the existing i18n/config layer.
