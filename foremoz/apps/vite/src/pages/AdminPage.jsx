@@ -71,7 +71,9 @@ const SAAS_EXTENSION_MONTH_OPTIONS = getAdminPageOptions('saasExtensionMonths');
 const WORKSPACE_SWITCHER_ENVIRONMENTS = getWorkspaceAccessConfigList('workspaceSwitcherEnvironments');
 const TITLE_SUGGESTION_CONFIG = getAdminPageObject('titleSuggestion');
 const MEMBER_UPLOAD_CONFIG = getAdminPageObject('memberUpload');
+const MEMBER_PAGINATION_CONFIG = getAdminPageObject('memberPagination');
 const TRANSACTION_PAGINATION_CONFIG = getAdminPageObject('transactionPagination');
+const MEMBER_PAGE_SIZE = Math.max(1, Number(MEMBER_PAGINATION_CONFIG.pageSize || 10));
 const TRANSACTION_PAGE_SIZE = Math.max(1, Number(TRANSACTION_PAGINATION_CONFIG.pageSize || 10));
 
 const IDR_FORMATTER = new Intl.NumberFormat('id-ID');
@@ -92,6 +94,23 @@ function isAdminActionVisible(action, item) {
   const status = String(item?.status || '').toLowerCase();
   const condition = String(action?.visibleWhenStatus || 'any').toLowerCase();
   return condition === 'any' || condition === status;
+}
+
+function getPaginationState(items, page, pageSize) {
+  const rows = Array.isArray(items) ? items : [];
+  const size = Math.max(1, Number(pageSize || 10));
+  const totalPages = Math.max(1, Math.ceil(rows.length / size));
+  const currentPage = Math.min(Math.max(1, Number(page || 1)), totalPages);
+  const startIndex = (currentPage - 1) * size;
+  const pageRows = rows.slice(startIndex, startIndex + size);
+  return {
+    rows: pageRows,
+    totalPages,
+    currentPage,
+    start: rows.length === 0 ? 0 : startIndex + 1,
+    end: Math.min(startIndex + pageRows.length, rows.length),
+    total: rows.length
+  };
 }
 
 function toDurationMinutes(durationValue, durationUnit) {
@@ -1799,6 +1818,7 @@ export default function AdminPage() {
   const [trainerPackageQuery, setTrainerPackageQuery] = useState('');
   const [salesMemberQuery, setSalesMemberQuery] = useState('');
   const [memberQuery, setMemberQuery] = useState('');
+  const [memberPage, setMemberPage] = useState(1);
   const [transactionQuery, setTransactionQuery] = useState('');
   const [transactionStatusFilter, setTransactionStatusFilter] = useState('all');
   const [transactionLinkFilter, setTransactionLinkFilter] = useState('all');
@@ -2226,6 +2246,10 @@ export default function AdminPage() {
   }, [transactionQuery, transactionStatusFilter, transactionLinkFilter]);
 
   useEffect(() => {
+    setMemberPage(1);
+  }, [memberQuery]);
+
+  useEffect(() => {
     setTrainers(loadList('trainers', accountSlug, DEFAULT_TRAINERS));
     setSales(loadList('sales', accountSlug, DEFAULT_SALES));
     setTransactions(loadList('transactions', accountSlug, DEFAULT_TRANSACTIONS));
@@ -2370,6 +2394,7 @@ export default function AdminPage() {
     String(item.member_name || '').toLowerCase().includes(memberQuery.toLowerCase()) ||
     String(item.email || '').toLowerCase().includes(memberQuery.toLowerCase())
   );
+  const memberPagination = getPaginationState(filteredMembers, memberPage, MEMBER_PAGE_SIZE);
   const filteredEvents = events.filter((item) =>
     String(item.event_name || '').toLowerCase().includes(eventQuery.toLowerCase()) ||
     String(item.trainer_name || '').toLowerCase().includes(eventQuery.toLowerCase()) ||
@@ -2576,15 +2601,7 @@ export default function AdminPage() {
       operationLink.includes(q)
     );
   });
-  const transactionTotalPages = Math.max(1, Math.ceil(filteredTransactions.length / TRANSACTION_PAGE_SIZE));
-  const boundedTransactionPage = Math.min(transactionPage, transactionTotalPages);
-  const transactionStartIndex = (boundedTransactionPage - 1) * TRANSACTION_PAGE_SIZE;
-  const paginatedTransactions = filteredTransactions.slice(
-    transactionStartIndex,
-    transactionStartIndex + TRANSACTION_PAGE_SIZE
-  );
-  const transactionPageStart = filteredTransactions.length === 0 ? 0 : transactionStartIndex + 1;
-  const transactionPageEnd = Math.min(transactionStartIndex + paginatedTransactions.length, filteredTransactions.length);
+  const transactionPagination = getPaginationState(filteredTransactions, transactionPage, TRANSACTION_PAGE_SIZE);
   const filteredEventCheckinParticipants = useMemo(() => {
     const q = normalizeToken(eventCheckinSearch);
     if (!q) return eventParticipants;
@@ -8141,7 +8158,7 @@ export default function AdminPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {filteredMembers.map((item, idx) => (
+                        {memberPagination.rows.map((item, idx) => (
                           <tr key={item.member_id} className={idx % 2 === 0 ? 'admin-data-row' : 'admin-data-row admin-data-row-alt'}>
                             <td className="admin-data-cell">{item.member_name}</td>
                             <td className="admin-data-cell">{item.phone}</td>
@@ -8156,6 +8173,35 @@ export default function AdminPage() {
                         ))}
                       </tbody>
                     </table>
+                  </div>
+                  <div className="row-actions admin-pagination-bar">
+                    <p className="feedback admin-pagination-summary">
+                      {getAdminPageCopy('memberPaginationSummary', {
+                        start: memberPagination.start,
+                        end: memberPagination.end,
+                        total: memberPagination.total,
+                        page: memberPagination.currentPage,
+                        totalPages: memberPagination.totalPages
+                      })}
+                    </p>
+                    <div className="row-actions">
+                      <button
+                        className="btn ghost small"
+                        type="button"
+                        disabled={memberPagination.currentPage <= 1}
+                        onClick={() => setMemberPage((prev) => Math.max(1, prev - 1))}
+                      >
+                        {getAdminPageCopy('memberPaginationPrevious')}
+                      </button>
+                      <button
+                        className="btn ghost small"
+                        type="button"
+                        disabled={memberPagination.currentPage >= memberPagination.totalPages}
+                        onClick={() => setMemberPage((prev) => Math.min(memberPagination.totalPages, prev + 1))}
+                      >
+                        {getAdminPageCopy('memberPaginationNext')}
+                      </button>
+                    </div>
                   </div>
                 </>
               ) : (
@@ -8255,7 +8301,7 @@ export default function AdminPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {paginatedTransactions.map((item, idx) => (
+                        {transactionPagination.rows.map((item, idx) => (
                           <tr key={item.transaction_id} className={idx % 2 === 0 ? 'admin-data-row' : 'admin-data-row admin-data-row-alt'}>
                             <td className="admin-data-cell">{item.no_transaction}</td>
                             <td className="admin-data-cell">{item.member_id || '-'}</td>
@@ -8303,18 +8349,18 @@ export default function AdminPage() {
                   <div className="row-actions admin-pagination-bar">
                     <p className="feedback admin-pagination-summary">
                       {getAdminPageCopy('transactionPaginationSummary', {
-                        start: transactionPageStart,
-                        end: transactionPageEnd,
-                        total: filteredTransactions.length,
-                        page: boundedTransactionPage,
-                        totalPages: transactionTotalPages
+                        start: transactionPagination.start,
+                        end: transactionPagination.end,
+                        total: transactionPagination.total,
+                        page: transactionPagination.currentPage,
+                        totalPages: transactionPagination.totalPages
                       })}
                     </p>
                     <div className="row-actions">
                       <button
                         className="btn ghost small"
                         type="button"
-                        disabled={boundedTransactionPage <= 1}
+                        disabled={transactionPagination.currentPage <= 1}
                         onClick={() => setTransactionPage((prev) => Math.max(1, prev - 1))}
                       >
                         {getAdminPageCopy('transactionPaginationPrevious')}
@@ -8322,8 +8368,8 @@ export default function AdminPage() {
                       <button
                         className="btn ghost small"
                         type="button"
-                        disabled={boundedTransactionPage >= transactionTotalPages}
-                        onClick={() => setTransactionPage((prev) => Math.min(transactionTotalPages, prev + 1))}
+                        disabled={transactionPagination.currentPage >= transactionPagination.totalPages}
+                        onClick={() => setTransactionPage((prev) => Math.min(transactionPagination.totalPages, prev + 1))}
                       >
                         {getAdminPageCopy('transactionPaginationNext')}
                       </button>

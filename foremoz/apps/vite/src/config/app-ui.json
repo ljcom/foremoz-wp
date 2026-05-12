@@ -443,6 +443,9 @@
       "memberEmailRequired": "email wajib diisi",
       "memberRelationRequired": "Pilih minimal satu class/event.",
       "memberSavedFeedback": "member.saved: {email} ({count} relasi)",
+      "memberPaginationSummary": "Showing {start}-{end} of {total}",
+      "memberPaginationPrevious": "Previous",
+      "memberPaginationNext": "Next",
       "removeTokenLabel": "x",
       "transactionEyebrow": "Transaction",
       "transactionListTitle": "Transaction list",
@@ -1232,6 +1235,9 @@
       { "value": "confirm", "label": "confirm", "visibleWhenStatus": "pending" },
       { "value": "reject", "label": "reject", "visibleWhenStatus": "pending" }
     ],
+    "memberPagination": {
+      "pageSize": 10
+    },
     "transactionPagination": {
       "pageSize": 10
     },
