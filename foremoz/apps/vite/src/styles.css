@@ -2865,6 +2865,14 @@ code {
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
 }
 
+.sales-prospect-action-card {
+  padding: 1rem;
+  border: 1px solid var(--backend-border);
+  border-radius: 14px;
+  background: var(--backend-surface);
+  box-shadow: var(--backend-shadow);
+}
+
 .sales-prospect-detail,
 .sales-prospect-detail * {
   min-width: 0;

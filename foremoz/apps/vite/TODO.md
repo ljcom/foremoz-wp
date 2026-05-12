@@ -92,6 +92,7 @@
 - [x] Combine CS member history check-in and check-out timestamps into one configured line.
 - [x] Stack Sales prospect detail action forms from JSON workspace config.
 - [x] Contain Sales prospect detail forms, orders, and timeline content inside the page width.
+- [x] Add card framing to Sales prospect detail follow-up, convert, and create order forms.
 
 ## Known Follow-up
 - [x] Continue migrating remaining admin/detail page copy into the existing i18n/config layer.

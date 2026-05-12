@@ -859,7 +859,7 @@ export default function SalesPage() {
           <p>Stage: {selectedProspect.stage || '-'} | member_id: {selectedProspect.converted_member_id || '-'}</p>
           <p>Custom fields: {selectedProspect.custom_fields ? JSON.stringify(selectedProspect.custom_fields) : '-'}</p>
           <div className={`sales-prospect-action-forms ${resolveLayoutClass(SALES_PROSPECT_DETAIL_CONFIG.actionFormsLayout)}`}>
-            <form className="form" onSubmit={submitFollowup}>
+            <form className="form sales-prospect-action-card" onSubmit={submitFollowup}>
               <p className="eyebrow">Follow-up</p>
               <label>stage
                 <select value={followupForm.stage} onChange={(e) => setFollowupForm((p) => ({ ...p, stage: e.target.value }))}>
@@ -874,7 +874,7 @@ export default function SalesPage() {
               <button className="btn" type="submit" disabled={saving}>{saving ? 'Saving...' : 'Log follow-up'}</button>
             </form>
 
-            <form className="form" onSubmit={submitConvert}>
+            <form className="form sales-prospect-action-card" onSubmit={submitConvert}>
               <p className="eyebrow">Convert</p>
               <label style={{ display: 'inline-flex', gap: '0.5rem', alignItems: 'center' }}>
                 <input
@@ -894,7 +894,7 @@ export default function SalesPage() {
               <button className="btn" type="submit" disabled={saving}>{saving ? 'Saving...' : 'Convert prospect'}</button>
             </form>
 
-            <form className="form" onSubmit={submitOrder}>
+            <form className="form sales-prospect-action-card" onSubmit={submitOrder}>
               <p className="eyebrow">Create order</p>
               {!selectedProspect.converted_member_id ? (
                 <div className="card" style={{ borderStyle: 'dashed' }}>
