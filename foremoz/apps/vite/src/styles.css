@@ -2865,6 +2865,37 @@ code {
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
 }
 
+.sales-prospect-detail,
+.sales-prospect-detail * {
+  min-width: 0;
+}
+
+.sales-prospect-detail p,
+.sales-prospect-detail strong,
+.sales-prospect-detail label {
+  overflow-wrap: anywhere;
+}
+
+.sales-prospect-detail input,
+.sales-prospect-detail select,
+.sales-prospect-detail textarea {
+  width: 100%;
+  max-width: 100%;
+}
+
+.sales-prospect-detail .entity-row {
+  align-items: flex-start;
+}
+
+.sales-prospect-detail .entity-row > div:first-child {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.sales-prospect-detail .payment-meta {
+  flex-shrink: 0;
+}
+
 .backend-drawer-overlay {
   position: fixed;
   inset: 0;

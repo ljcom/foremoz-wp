@@ -853,7 +853,7 @@ export default function SalesPage() {
       ) : null}
 
       {salesView === 'orders' && selectedProspect ? (
-        <section className="card admin-main" id="orders" style={{ marginTop: '1rem' }}>
+        <section className="card admin-main sales-prospect-detail" id="orders" style={{ marginTop: '1rem' }}>
           <h2>Prospect detail - {selectedProspect.full_name}</h2>
           <p>ID: {selectedProspect.prospect_id}</p>
           <p>Stage: {selectedProspect.stage || '-'} | member_id: {selectedProspect.converted_member_id || '-'}</p>
