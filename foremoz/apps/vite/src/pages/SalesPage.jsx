@@ -973,15 +973,17 @@ export default function SalesPage() {
                   onChange={(e) => setOrderForm((prev) => ({ ...prev, unit_price: e.target.value }))}
                 />
               </label>
-              <label>
-                {SALES_COMMISSION_REWARD_FIELD.label || 'commission(reward)'}
-                <input
-                  type="number"
-                  min="0"
-                  value={selectedOrderTarget?.commission || 0}
-                  readOnly
-                />
-              </label>
+              {selectedOrderTarget ? (
+                <label>
+                  {SALES_COMMISSION_REWARD_FIELD.label || 'commission(reward)'}
+                  <input
+                    type="number"
+                    min="0"
+                    value={selectedOrderTarget.commission || 0}
+                    readOnly
+                  />
+                </label>
+              ) : null}
               <label>
                 payment_route
                 <select

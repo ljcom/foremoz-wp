@@ -94,6 +94,7 @@
 - [x] Contain Sales prospect detail forms, orders, and timeline content inside the page width.
 - [x] Add card framing to Sales prospect detail follow-up, convert, and create order forms.
 - [x] Show readonly Sales create order commission reward from Admin Program commission config/data.
+- [x] Show Sales create order commission reward only after an order target is selected.
 
 ## Known Follow-up
 - [x] Continue migrating remaining admin/detail page copy into the existing i18n/config layer.
