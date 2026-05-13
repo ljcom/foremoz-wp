@@ -183,6 +183,30 @@
       { "id": "photo", "label": "Upload foto" },
       { "id": "info", "label": "Info" }
     ],
+    "profile": {
+      "eyebrow": "Profile",
+      "title": "Change profile",
+      "submitLabel": "Save profile",
+      "savedFeedback": "member.profile.updated saved",
+      "fields": [
+        { "name": "fullName", "label": "Full name", "type": "text" },
+        { "name": "email", "label": "Email", "type": "email" },
+        { "name": "phone", "label": "Phone", "type": "text" },
+        { "name": "joinDate", "label": "Join date", "type": "date" },
+        { "name": "dateBirth", "label": "Date birth", "type": "date" },
+        {
+          "name": "gender",
+          "label": "Gender",
+          "type": "select",
+          "options": [
+            { "value": "", "label": "-" },
+            { "value": "man", "label": "Man" },
+            { "value": "woman", "label": "Woman" }
+          ]
+        },
+        { "name": "address", "label": "Address", "type": "textarea" }
+      ]
+    },
     "info": {
       "eyebrow": "Info",
       "title": "Info member",

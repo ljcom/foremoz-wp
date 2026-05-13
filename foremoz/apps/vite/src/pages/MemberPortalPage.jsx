@@ -21,6 +21,10 @@ const MEMBER_INFO_SESSION_HISTORY_COMPLETED_ACTIVITY_TYPES = Array.isArray(MEMBE
 const MEMBER_INFO_SESSION_HISTORY_PERFORMANCE_FIELDS = Array.isArray(MEMBER_INFO_SESSION_HISTORY_CARD_CONFIG.performanceFields)
   ? MEMBER_INFO_SESSION_HISTORY_CARD_CONFIG.performanceFields.filter((item) => item && typeof item === 'object' && item.path)
   : [];
+const MEMBER_PROFILE_CONFIG = MEMBER_PORTAL_CONFIG.profile || {};
+const MEMBER_PROFILE_FIELDS = Array.isArray(MEMBER_PROFILE_CONFIG.fields)
+  ? MEMBER_PROFILE_CONFIG.fields.filter((item) => item && typeof item === 'object' && item.name)
+  : [];
 const MEMBER_PROGRAMS_CONFIG = MEMBER_PORTAL_CONFIG.programs || {};
 const MEMBER_PROGRAM_SCHEDULE_FIELD_CONFIG = MEMBER_PROGRAMS_CONFIG.scheduleField || {};
 const MEMBER_PROGRAM_SESSION_DATE_FIELD_CONFIG = MEMBER_PROGRAMS_CONFIG.sessionDateField || {};
@@ -169,6 +173,10 @@ function getMemberInfoCardStyle(cardId) {
   return index >= 0 ? { order: index + 1 } : {};
 }
 
+function getMemberProfileCopy(key, fallbackValue = '') {
+  return String(MEMBER_PROFILE_CONFIG[key] || fallbackValue || '');
+}
+
 function getMemberHistoryMetricValue(metricId, context) {
   const values = {
     joined_events: context.orderedMyEvents.length,
@@ -222,7 +230,11 @@ export default function MemberPortalPage() {
   const [profile, setProfile] = useState({
     fullName: session?.user?.fullName || '',
     email: session?.user?.email || '',
-    phone: session?.user?.phone || ''
+    phone: session?.user?.phone || '',
+    joinDate: session?.user?.joinDate || '',
+    dateBirth: session?.user?.dateBirth || '',
+    gender: session?.user?.gender || '',
+    address: session?.user?.address || ''
   });
   const [passwordForm, setPasswordForm] = useState({
     currentPassword: '',
@@ -1261,8 +1273,8 @@ export default function MemberPortalPage() {
 
         {tab === 'profile' ? (
           <>
-            <p className="eyebrow">Profile</p>
-            <h2>Change profile</h2>
+            <p className="eyebrow">{getMemberProfileCopy('eyebrow')}</p>
+            <h2>{getMemberProfileCopy('title')}</h2>
             <form
               className="form"
               onSubmit={(e) => {
@@ -1271,29 +1283,46 @@ export default function MemberPortalPage() {
                   ...session,
                   user: {
                     ...session?.user,
-                    fullName: profile.fullName,
-                    email: profile.email,
-                    phone: profile.phone,
+                    ...profile,
                     photoName
                   }
                 };
                 setSession(next);
-                setFeedback('member.profile.updated saved');
+                setFeedback(getMemberProfileCopy('savedFeedback'));
               }}
             >
-              <label>
-                Full name
-                <input value={profile.fullName} onChange={(e) => setProfile((p) => ({ ...p, fullName: e.target.value }))} />
-              </label>
-              <label>
-                Email
-                <input type="email" value={profile.email} onChange={(e) => setProfile((p) => ({ ...p, email: e.target.value }))} />
-              </label>
-              <label>
-                Phone
-                <input value={profile.phone} onChange={(e) => setProfile((p) => ({ ...p, phone: e.target.value }))} />
-              </label>
-              <button className="btn" type="submit">Save profile</button>
+              {MEMBER_PROFILE_FIELDS.map((field) => {
+                const fieldName = String(field.name || '');
+                const fieldType = String(field.type || 'text');
+                if (fieldType === 'select') {
+                  const options = Array.isArray(field.options) ? field.options : [];
+                  return (
+                    <label key={fieldName}>
+                      {field.label}
+                      <select value={profile[fieldName] || ''} onChange={(e) => setProfile((p) => ({ ...p, [fieldName]: e.target.value }))}>
+                        {options.map((option) => (
+                          <option key={option.value} value={option.value}>{option.label}</option>
+                        ))}
+                      </select>
+                    </label>
+                  );
+                }
+                if (fieldType === 'textarea') {
+                  return (
+                    <label key={fieldName}>
+                      {field.label}
+                      <textarea value={profile[fieldName] || ''} onChange={(e) => setProfile((p) => ({ ...p, [fieldName]: e.target.value }))} />
+                    </label>
+                  );
+                }
+                return (
+                  <label key={fieldName}>
+                    {field.label}
+                    <input type={fieldType} value={profile[fieldName] || ''} onChange={(e) => setProfile((p) => ({ ...p, [fieldName]: e.target.value }))} />
+                  </label>
+                );
+              })}
+              <button className="btn" type="submit">{getMemberProfileCopy('submitLabel')}</button>
             </form>
           </>
         ) : null}

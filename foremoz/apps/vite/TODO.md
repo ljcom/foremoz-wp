@@ -106,6 +106,7 @@
 - [x] Show four Program cards per row in Admin program list on desktop.
 - [x] Move Member Portal info tab Event info card to the right via config-driven card order.
 - [x] Add vertical spacing to Member Portal overview pre-info and recent activity cards.
+- [x] Add config-driven join date, date birth, gender, and address fields to Member Portal profile form.
 
 ## Known Follow-up
 - [x] Continue migrating remaining admin/detail page copy into the existing i18n/config layer.
