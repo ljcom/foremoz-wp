@@ -71,8 +71,10 @@ const SAAS_EXTENSION_MONTH_OPTIONS = getAdminPageOptions('saasExtensionMonths');
 const WORKSPACE_SWITCHER_ENVIRONMENTS = getWorkspaceAccessConfigList('workspaceSwitcherEnvironments');
 const TITLE_SUGGESTION_CONFIG = getAdminPageObject('titleSuggestion');
 const MEMBER_UPLOAD_CONFIG = getAdminPageObject('memberUpload');
+const LIST_PAGINATION_CONFIG = getAdminPageObject('listPagination');
 const MEMBER_PAGINATION_CONFIG = getAdminPageObject('memberPagination');
 const TRANSACTION_PAGINATION_CONFIG = getAdminPageObject('transactionPagination');
+const LIST_PAGE_SIZE = Math.max(1, Number(LIST_PAGINATION_CONFIG.pageSize || 10));
 const MEMBER_PAGE_SIZE = Math.max(1, Number(MEMBER_PAGINATION_CONFIG.pageSize || 10));
 const TRANSACTION_PAGE_SIZE = Math.max(1, Number(TRANSACTION_PAGINATION_CONFIG.pageSize || 10));
 
@@ -111,6 +113,40 @@ function getPaginationState(items, page, pageSize) {
     end: Math.min(startIndex + pageRows.length, rows.length),
     total: rows.length
   };
+}
+
+function AdminPagination({ pagination, onPrevious, onNext, copyPrefix = 'listPagination' }) {
+  return (
+    <div className="row-actions admin-pagination-bar">
+      <p className="feedback admin-pagination-summary">
+        {getAdminPageCopy(`${copyPrefix}Summary`, {
+          start: pagination.start,
+          end: pagination.end,
+          total: pagination.total,
+          page: pagination.currentPage,
+          totalPages: pagination.totalPages
+        })}
+      </p>
+      <div className="row-actions">
+        <button
+          className="btn ghost small"
+          type="button"
+          disabled={pagination.currentPage <= 1}
+          onClick={onPrevious}
+        >
+          {getAdminPageCopy(`${copyPrefix}Previous`)}
+        </button>
+        <button
+          className="btn ghost small"
+          type="button"
+          disabled={pagination.currentPage >= pagination.totalPages}
+          onClick={onNext}
+        >
+          {getAdminPageCopy(`${copyPrefix}Next`)}
+        </button>
+      </div>
+    </div>
+  );
 }
 
 function toDurationMinutes(durationValue, durationUnit) {
@@ -1811,10 +1847,14 @@ export default function AdminPage() {
   const [eventQuery, setEventQuery] = useState('');
   const [trainerQuery, setTrainerQuery] = useState('');
   const [productQuery, setProductQuery] = useState('');
+  const [productPage, setProductPage] = useState(1);
   const [packageQuery, setPackageQuery] = useState('');
+  const [packagePage, setPackagePage] = useState(1);
   const [salesQuery, setSalesQuery] = useState('');
   const [salesUserQuery, setSalesUserQuery] = useState('');
+  const [salesUserPage, setSalesUserPage] = useState(1);
   const [ptUserQuery, setPtUserQuery] = useState('');
+  const [ptUserPage, setPtUserPage] = useState(1);
   const [trainerPackageQuery, setTrainerPackageQuery] = useState('');
   const [salesMemberQuery, setSalesMemberQuery] = useState('');
   const [memberQuery, setMemberQuery] = useState('');
@@ -2250,6 +2290,22 @@ export default function AdminPage() {
   }, [memberQuery]);
 
   useEffect(() => {
+    setProductPage(1);
+  }, [productQuery]);
+
+  useEffect(() => {
+    setPackagePage(1);
+  }, [packageQuery]);
+
+  useEffect(() => {
+    setPtUserPage(1);
+  }, [ptUserQuery]);
+
+  useEffect(() => {
+    setSalesUserPage(1);
+  }, [salesUserQuery]);
+
+  useEffect(() => {
     setTrainers(loadList('trainers', accountSlug, DEFAULT_TRAINERS));
     setSales(loadList('sales', accountSlug, DEFAULT_SALES));
     setTransactions(loadList('transactions', accountSlug, DEFAULT_TRANSACTIONS));
@@ -2528,6 +2584,7 @@ export default function AdminPage() {
     String(item.category || '').toLowerCase().includes(productQuery.toLowerCase()) ||
     String(item.price || '').toLowerCase().includes(productQuery.toLowerCase())
   );
+  const productPagination = getPaginationState(filteredProducts, productPage, LIST_PAGE_SIZE);
   const filteredPackages = packages.filter((item) =>
     String(item.package_name || '').toLowerCase().includes(packageQuery.toLowerCase()) ||
     String(item.package_type || '').toLowerCase().includes(packageQuery.toLowerCase()) ||
@@ -2536,6 +2593,7 @@ export default function AdminPage() {
     String(item.trainer_name || '').toLowerCase().includes(packageQuery.toLowerCase()) ||
     String(item.class_name || '').toLowerCase().includes(packageQuery.toLowerCase())
   );
+  const packagePagination = getPaginationState(filteredPackages, packagePage, LIST_PAGE_SIZE);
   const classLookupOptions = classes.filter((item) => String(item.class_id || '').trim() && String(item.class_name || '').trim());
   const filteredSales = sales.filter((item) =>
     item.sales_name.toLowerCase().includes(salesQuery.toLowerCase()) ||
@@ -2552,6 +2610,7 @@ export default function AdminPage() {
       String(item.email || '').toLowerCase().includes(q)
     );
   });
+  const salesUserPagination = getPaginationState(filteredSalesUsers, salesUserPage, LIST_PAGE_SIZE);
   const filteredPtUsers = users.filter((item) => {
     const itemRole = String(item.role || '').toLowerCase();
     if (itemRole !== 'pt' && itemRole !== 'owner') return false;
@@ -2562,6 +2621,7 @@ export default function AdminPage() {
       String(item.email || '').toLowerCase().includes(q)
     );
   });
+  const ptUserPagination = getPaginationState(filteredPtUsers, ptUserPage, LIST_PAGE_SIZE);
   const filteredTrainerPackageRows = trainerPackageRows.filter((item) => {
     const q = trainerPackageQuery.toLowerCase();
     if (!q) return true;
@@ -7626,7 +7686,7 @@ export default function AdminPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {filteredProducts.map((item, idx) => (
+                        {productPagination.rows.map((item, idx) => (
                           <tr key={item.product_id} className={idx % 2 === 0 ? 'admin-data-row' : 'admin-data-row admin-data-row-alt'}>
                             <td className="admin-data-cell">{item.product_name}</td>
                             <td className="admin-data-cell">{item.category}</td>
@@ -7643,6 +7703,11 @@ export default function AdminPage() {
                       </tbody>
                     </table>
                   </div>
+                  <AdminPagination
+                    pagination={productPagination}
+                    onPrevious={() => setProductPage((prev) => Math.max(1, prev - 1))}
+                    onNext={() => setProductPage((prev) => Math.min(productPagination.totalPages, prev + 1))}
+                  />
                 </>
               ) : (
                 <>
@@ -7698,7 +7763,7 @@ export default function AdminPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {filteredPackages.map((item, idx) => (
+                        {packagePagination.rows.map((item, idx) => (
                           <tr key={item.package_id} className={idx % 2 === 0 ? 'admin-data-row' : 'admin-data-row admin-data-row-alt'}>
                             <td className="admin-data-cell">{item.package_name}</td>
                             <td className="admin-data-cell">{item.package_type}</td>
@@ -7718,6 +7783,11 @@ export default function AdminPage() {
                       </tbody>
                     </table>
                   </div>
+                  <AdminPagination
+                    pagination={packagePagination}
+                    onPrevious={() => setPackagePage((prev) => Math.max(1, prev - 1))}
+                    onNext={() => setPackagePage((prev) => Math.min(packagePagination.totalPages, prev + 1))}
+                  />
                 </>
               ) : (
                 <>
@@ -7842,7 +7912,7 @@ export default function AdminPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {filteredPtUsers.map((item, idx) => (
+                        {ptUserPagination.rows.map((item, idx) => (
                           <tr key={item.user_id} className={idx % 2 === 0 ? 'admin-data-row' : 'admin-data-row admin-data-row-alt'}>
                             <td className="admin-data-cell">{item.full_name}</td>
                             <td className="admin-data-cell">{item.email}</td>
@@ -7878,6 +7948,11 @@ export default function AdminPage() {
                       </tbody>
                     </table>
                   </div>
+                  <AdminPagination
+                    pagination={ptUserPagination}
+                    onPrevious={() => setPtUserPage((prev) => Math.max(1, prev - 1))}
+                    onNext={() => setPtUserPage((prev) => Math.min(ptUserPagination.totalPages, prev + 1))}
+                  />
                 </>
               )}
 
@@ -7959,7 +8034,7 @@ export default function AdminPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {filteredSalesUsers.map((item, idx) => (
+                        {salesUserPagination.rows.map((item, idx) => (
                           <tr key={item.user_id} className={idx % 2 === 0 ? 'admin-data-row' : 'admin-data-row admin-data-row-alt'}>
                             <td className="admin-data-cell">{item.full_name}</td>
                             <td className="admin-data-cell">{item.email}</td>
@@ -7994,6 +8069,11 @@ export default function AdminPage() {
                       </tbody>
                     </table>
                   </div>
+                  <AdminPagination
+                    pagination={salesUserPagination}
+                    onPrevious={() => setSalesUserPage((prev) => Math.max(1, prev - 1))}
+                    onNext={() => setSalesUserPage((prev) => Math.min(salesUserPagination.totalPages, prev + 1))}
+                  />
                 </>
               )}
             </>
@@ -8174,35 +8254,12 @@ export default function AdminPage() {
                       </tbody>
                     </table>
                   </div>
-                  <div className="row-actions admin-pagination-bar">
-                    <p className="feedback admin-pagination-summary">
-                      {getAdminPageCopy('memberPaginationSummary', {
-                        start: memberPagination.start,
-                        end: memberPagination.end,
-                        total: memberPagination.total,
-                        page: memberPagination.currentPage,
-                        totalPages: memberPagination.totalPages
-                      })}
-                    </p>
-                    <div className="row-actions">
-                      <button
-                        className="btn ghost small"
-                        type="button"
-                        disabled={memberPagination.currentPage <= 1}
-                        onClick={() => setMemberPage((prev) => Math.max(1, prev - 1))}
-                      >
-                        {getAdminPageCopy('memberPaginationPrevious')}
-                      </button>
-                      <button
-                        className="btn ghost small"
-                        type="button"
-                        disabled={memberPagination.currentPage >= memberPagination.totalPages}
-                        onClick={() => setMemberPage((prev) => Math.min(memberPagination.totalPages, prev + 1))}
-                      >
-                        {getAdminPageCopy('memberPaginationNext')}
-                      </button>
-                    </div>
-                  </div>
+                  <AdminPagination
+                    pagination={memberPagination}
+                    copyPrefix="memberPagination"
+                    onPrevious={() => setMemberPage((prev) => Math.max(1, prev - 1))}
+                    onNext={() => setMemberPage((prev) => Math.min(memberPagination.totalPages, prev + 1))}
+                  />
                 </>
               ) : (
                 <>

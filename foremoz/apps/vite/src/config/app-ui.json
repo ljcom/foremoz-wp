@@ -446,6 +446,9 @@
       "memberPaginationSummary": "Showing {start}-{end} of {total}",
       "memberPaginationPrevious": "Previous",
       "memberPaginationNext": "Next",
+      "listPaginationSummary": "Showing {start}-{end} of {total}",
+      "listPaginationPrevious": "Previous",
+      "listPaginationNext": "Next",
       "removeTokenLabel": "x",
       "transactionEyebrow": "Transaction",
       "transactionListTitle": "Transaction list",
@@ -1236,6 +1239,9 @@
       { "value": "reject", "label": "reject", "visibleWhenStatus": "pending" }
     ],
     "memberPagination": {
+      "pageSize": 10
+    },
+    "listPagination": {
       "pageSize": 10
     },
     "transactionPagination": {

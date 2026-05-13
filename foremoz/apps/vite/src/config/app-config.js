@@ -91,6 +91,7 @@ export function validateAppUiConfig(config = appUiConfig) {
   requireConfigObject(config, 'adminPage.localizedCopy.id');
   requireConfigObject(config, 'adminPage.localizedCopy.en');
   requireConfigObject(config, 'adminPage.fixtures');
+  requireConfigObject(config, 'adminPage.listPagination');
   requireConfigObject(config, 'adminPage.transactionPagination');
   requireConfigObject(config, 'adminPage.eventWorkflow');
   requireConfigObject(config, 'adminPage.memberUpload');

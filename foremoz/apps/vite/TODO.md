@@ -102,6 +102,7 @@
 - [x] Apply config-driven 10 item pagination to Admin member list.
 - [x] Show membership payment references with program/class names when the payment reference id points to a class.
 - [x] Show member names next to member ids in Sales report order rows.
+- [x] Apply config-driven pagination to Admin product, package, coach, and sales lists.
 
 ## Known Follow-up
 - [x] Continue migrating remaining admin/detail page copy into the existing i18n/config layer.
