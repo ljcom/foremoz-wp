@@ -238,6 +238,7 @@ export default function MemberPortalPage() {
     joinDate: session?.user?.joinDate || toDateInputValue(session?.user?.registeredAt),
     dateBirth: session?.user?.dateBirth || '',
     gender: session?.user?.gender || '',
+    regencyCity: session?.user?.regencyCity || '',
     address: session?.user?.address || ''
   });
   const [passwordForm, setPasswordForm] = useState({
