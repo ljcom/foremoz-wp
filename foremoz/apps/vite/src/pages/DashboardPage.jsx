@@ -20,12 +20,14 @@ import {
   getBackendShellNavItems,
   getDashboardCheckinConfig,
   getDashboardOrderConfig,
+  getDashboardProfileConfig,
   normalizeConfiguredOptionValue
 } from '../config/app-config.js';
 
 const CS_SIDEBAR_NAV_ITEMS = getBackendShellNavItems('cs');
 const DASHBOARD_CHECKIN_CONFIG = getDashboardCheckinConfig();
 const DASHBOARD_ORDER_CONFIG = getDashboardOrderConfig();
+const DASHBOARD_PROFILE_CONFIG = getDashboardProfileConfig();
 const ORDER_TYPE_OPTIONS = getConfiguredOptions(DASHBOARD_ORDER_CONFIG, 'orderTypes');
 const ORDER_FORM_TYPE_OPTIONS = ORDER_TYPE_OPTIONS.filter((option) => option.visibleInOrderForm !== false);
 const ORDER_PAYMENT_METHOD_OPTIONS = getConfiguredOptions(DASHBOARD_ORDER_CONFIG, 'paymentMethods');
@@ -40,6 +42,9 @@ const DEFAULT_CHECKIN_EXPERIENCE_TYPE = Object.prototype.hasOwnProperty.call(CHE
 const CHECKIN_AUTO_SELECT_WHEN_UNTOUCHED = CHECKIN_SELECTION_CONFIG.autoSelectWhenUntouched !== false;
 const CHECKIN_TYPE_PLACEHOLDER = CHECKIN_SELECTION_CONFIG.typePlaceholder || '';
 const CHECKIN_TARGET_PLACEHOLDER = CHECKIN_SELECTION_CONFIG.targetPlaceholder || '';
+const CS_PROFILE_FIELDS = Array.isArray(DASHBOARD_PROFILE_CONFIG.fields)
+  ? DASHBOARD_PROFILE_CONFIG.fields.filter((item) => item && typeof item === 'object' && item.name)
+  : [];
 
 function Stat({ label, value, iconClass, tone, hint, onClick, active = false }) {
   const Tag = onClick ? 'button' : 'article';
@@ -83,6 +88,23 @@ function toLocalDateKey(value) {
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
+}
+
+function createCsProfileForm(seed = {}) {
+  const form = CS_PROFILE_FIELDS.reduce((next, field) => {
+    const fieldName = String(field.name || '');
+    if (!fieldName) return next;
+    if (fieldName === 'join_date') {
+      next[fieldName] = seed.join_date || toLocalDateKey(seed.registered_at);
+      return next;
+    }
+    next[fieldName] = seed[fieldName] || '';
+    return next;
+  }, {});
+  return {
+    ...form,
+    status: seed.status || 'active'
+  };
 }
 
 function formatMemberCreateError(err) {
@@ -581,12 +603,7 @@ export default function DashboardPage() {
   });
   const [memberWorkspaceTab, setMemberWorkspaceTab] = useState('profile');
   const [memberProfileSaving, setMemberProfileSaving] = useState(false);
-  const [memberProfileForm, setMemberProfileForm] = useState({
-    full_name: '',
-    phone: '',
-    email: '',
-    status: 'active'
-  });
+  const [memberProfileForm, setMemberProfileForm] = useState(() => createCsProfileForm());
   const [selectedInsightKey, setSelectedInsightKey] = useState('');
   const [insightDetailRows, setInsightDetailRows] = useState([]);
   const [insightDetailLoading, setInsightDetailLoading] = useState(false);
@@ -1399,11 +1416,17 @@ export default function DashboardPage() {
           full_name: String(memberProfileForm.full_name || '').trim(),
           phone: String(memberProfileForm.phone || '').trim(),
           email: String(memberProfileForm.email || '').trim().toLowerCase(),
+          date_birth: String(memberProfileForm.date_birth || '').trim(),
+          gender: String(memberProfileForm.gender || '').trim(),
+          profession: String(memberProfileForm.profession || '').trim(),
+          join_date: String(memberProfileForm.join_date || '').trim(),
+          regency_city: String(memberProfileForm.regency_city || '').trim(),
+          address: String(memberProfileForm.address || '').trim(),
           status: String(memberProfileForm.status || 'active').trim().toLowerCase()
         })
       });
       await loadDashboard();
-      setActionFeedback(`member.updated: ${selectedMember.member_id}`);
+      setActionFeedback(String(DASHBOARD_PROFILE_CONFIG.updatedFeedback || '').replace('{memberId}', selectedMember.member_id));
     } catch (err) {
       setActionFeedback(formatMemberProfileError(err));
     } finally {
@@ -2279,20 +2302,10 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!selectedMember) {
       setMemberWorkspaceTab('profile');
-      setMemberProfileForm({
-        full_name: '',
-        phone: '',
-        email: '',
-        status: 'active'
-      });
+      setMemberProfileForm(createCsProfileForm());
       return;
     }
-    setMemberProfileForm({
-      full_name: selectedMember.full_name || '',
-      phone: selectedMember.phone || '',
-      email: selectedMember.email || '',
-      status: selectedMember.status || 'active'
-    });
+    setMemberProfileForm(createCsProfileForm(selectedMember));
   }, [selectedMember]);
 
   useEffect(() => {
@@ -3511,42 +3524,40 @@ export default function DashboardPage() {
 
               {memberWorkspaceTab === 'profile' ? (
                 <form className="card form" style={{ marginTop: '0.9rem' }} onSubmit={submitMemberProfileUpdate}>
-                  <p className="eyebrow">Edit profile</p>
-                  <label>
-                    Nama lengkap
-                    <input
-                      value={memberProfileForm.full_name}
-                      onChange={(e) => setMemberProfileForm((prev) => ({ ...prev, full_name: e.target.value }))}
-                    />
-                  </label>
-                  <label>
-                    No. HP
-                    <input
-                      value={memberProfileForm.phone}
-                      onChange={(e) => setMemberProfileForm((prev) => ({ ...prev, phone: e.target.value }))}
-                    />
-                  </label>
-                  <label>
-                    Email
-                    <input
-                      type="email"
-                      value={memberProfileForm.email}
-                      onChange={(e) => setMemberProfileForm((prev) => ({ ...prev, email: e.target.value }))}
-                    />
-                  </label>
-                  <label>
-                    Status
-                    <select
-                      value={memberProfileForm.status}
-                      onChange={(e) => setMemberProfileForm((prev) => ({ ...prev, status: e.target.value }))}
-                    >
-                      <option value="active">active</option>
-                      <option value="inactive">inactive</option>
-                    </select>
-                  </label>
+                  <p className="eyebrow">{DASHBOARD_PROFILE_CONFIG.eyebrow}</p>
+                  {CS_PROFILE_FIELDS.map((field) => {
+                    const fieldName = String(field.name || '');
+                    const fieldType = String(field.type || 'text');
+                    if (fieldType === 'select') {
+                      const options = Array.isArray(field.options) ? field.options : [];
+                      return (
+                        <label key={fieldName}>
+                          {field.label}
+                          <select
+                            value={memberProfileForm[fieldName] || ''}
+                            onChange={(e) => setMemberProfileForm((prev) => ({ ...prev, [fieldName]: e.target.value }))}
+                          >
+                            {options.map((option) => (
+                              <option key={option.value} value={option.value}>{option.label}</option>
+                            ))}
+                          </select>
+                        </label>
+                      );
+                    }
+                    return (
+                      <label key={fieldName}>
+                        {field.label}
+                        <input
+                          type={fieldType}
+                          value={memberProfileForm[fieldName] || ''}
+                          onChange={(e) => setMemberProfileForm((prev) => ({ ...prev, [fieldName]: e.target.value }))}
+                        />
+                      </label>
+                    );
+                  })}
                   <div className="row-actions">
                     <button className="btn" type="submit" disabled={memberProfileSaving}>
-                      {memberProfileSaving ? 'Menyimpan...' : 'Simpan profile'}
+                      {memberProfileSaving ? DASHBOARD_PROFILE_CONFIG.savingLabel : DASHBOARD_PROFILE_CONFIG.submitLabel}
                     </button>
                   </div>
                 </form>

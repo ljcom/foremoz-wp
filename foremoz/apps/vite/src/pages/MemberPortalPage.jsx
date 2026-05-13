@@ -488,15 +488,28 @@ export default function MemberPortalPage() {
         apiJson(`/v1/read/pt-activity?tenant_id=${encodeURIComponent(tenantId)}&member_id=${encodeURIComponent(memberId)}&activity_type=${encodeURIComponent(MEMBER_INFO_SESSION_HISTORY_COMPLETED_ACTIVITY_TYPES[0] || '')}`).catch(() => ({ rows: [] }))
       ]);
       const authMeRes = await apiJson('/v1/auth/me').catch(() => ({ member: null }));
-      const registeredAt = authMeRes?.member?.registered_at || null;
-      const joinDate = toDateInputValue(registeredAt);
-      if (joinDate && !profile.joinDate) {
-        setProfile((prev) => ({ ...prev, joinDate }));
+      const memberProfile = authMeRes?.member || null;
+      const registeredAt = memberProfile?.registered_at || null;
+      const profilePatch = {
+        joinDate: toDateInputValue(memberProfile?.join_date || registeredAt),
+        dateBirth: toDateInputValue(memberProfile?.date_birth),
+        gender: memberProfile?.gender || '',
+        profession: memberProfile?.profession || '',
+        regencyCity: memberProfile?.regency_city || '',
+        address: memberProfile?.address || ''
+      };
+      const nextProfilePatch = Object.fromEntries(
+        Object.entries(profilePatch).filter(([key, value]) => value && !profile[key])
+      );
+      if (Object.keys(nextProfilePatch).length > 0 || registeredAt) {
+        if (Object.keys(nextProfilePatch).length > 0) {
+          setProfile((prev) => ({ ...prev, ...nextProfilePatch }));
+        }
         setSession({
           ...session,
           user: {
             ...session?.user,
-            joinDate,
+            ...nextProfilePatch,
             registeredAt
           }
         });

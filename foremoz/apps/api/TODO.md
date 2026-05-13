@@ -19,6 +19,7 @@
 - [x] Restart `foremoz-api` after CS program membership start date correction.
 - [x] Persist member signup email into member read model and backfill read member email from auth records.
 - [x] Persist optional program commission in class schedule event payload.
+- [x] Persist extended member profile fields for CS edit profile.
 
 ## Known Follow-up
 - [ ] Add schema validation for workflow, permission, and module config before bootstrapping runtime behavior.

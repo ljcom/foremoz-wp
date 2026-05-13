@@ -68,6 +68,15 @@ export async function runFitnessProjection({ tenantId, branchId }) {
          add column if not exists payment_id text`
     );
     await client.query(
+      `alter table if exists read.rm_member
+         add column if not exists date_birth date,
+         add column if not exists gender text,
+         add column if not exists profession text,
+         add column if not exists join_date date,
+         add column if not exists regency_city text,
+         add column if not exists address text`
+    );
+    await client.query(
       `create table if not exists read.rm_activity_enrollment (
          tenant_id text not null,
          branch_id text,
@@ -316,16 +325,40 @@ export async function runFitnessProjection({ tenantId, branchId }) {
       if (event.event_type === 'member.registered') {
         await client.query(
           `insert into read.rm_member (
-             tenant_id, branch_id, member_id, full_name, phone, email, status, registered_at, updated_at
-           ) values ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+             tenant_id, branch_id, member_id, full_name, phone, email, status,
+             date_birth, gender, profession, join_date, regency_city, address,
+             registered_at, updated_at
+           ) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
            on conflict (tenant_id, member_id) do update set
              branch_id = excluded.branch_id,
              full_name = excluded.full_name,
              phone = excluded.phone,
              email = excluded.email,
              status = excluded.status,
+             date_birth = excluded.date_birth,
+             gender = excluded.gender,
+             profession = excluded.profession,
+             join_date = excluded.join_date,
+             regency_city = excluded.regency_city,
+             address = excluded.address,
              updated_at = excluded.updated_at`,
-          [tenant, branch, data.member_id, data.full_name, data.phone || null, data.email || null, data.status || 'active', eventTs, eventTs]
+          [
+            tenant,
+            branch,
+            data.member_id,
+            data.full_name,
+            data.phone || null,
+            data.email || null,
+            data.status || 'active',
+            toDateOnly(data.date_birth || ''),
+            data.gender || null,
+            data.profession || null,
+            toDateOnly(data.join_date || data.registered_at || eventTs),
+            data.regency_city || null,
+            data.address || null,
+            eventTs,
+            eventTs
+          ]
         );
         applied += 1;
         continue;
@@ -335,13 +368,43 @@ export async function runFitnessProjection({ tenantId, branchId }) {
         const patch = data.patch || {};
         await client.query(
           `update read.rm_member
-           set full_name = coalesce($3, full_name),
-               phone = coalesce($4, phone),
-               email = coalesce($5, email),
-               status = coalesce($6, status),
-               updated_at = $7
+           set full_name = case when $3 then $4 else full_name end,
+               phone = case when $5 then $6 else phone end,
+               email = case when $7 then $8 else email end,
+               status = case when $9 then $10 else status end,
+               date_birth = case when $11 then $12 else date_birth end,
+               gender = case when $13 then $14 else gender end,
+               profession = case when $15 then $16 else profession end,
+               join_date = case when $17 then $18 else join_date end,
+               regency_city = case when $19 then $20 else regency_city end,
+               address = case when $21 then $22 else address end,
+               updated_at = $23
            where tenant_id = $1 and member_id = $2`,
-          [tenant, data.member_id, patch.full_name || null, patch.phone || null, patch.email || null, patch.status || null, eventTs]
+          [
+            tenant,
+            data.member_id,
+            Object.prototype.hasOwnProperty.call(patch, 'full_name'),
+            patch.full_name || null,
+            Object.prototype.hasOwnProperty.call(patch, 'phone'),
+            patch.phone || null,
+            Object.prototype.hasOwnProperty.call(patch, 'email'),
+            patch.email || null,
+            Object.prototype.hasOwnProperty.call(patch, 'status'),
+            patch.status || null,
+            Object.prototype.hasOwnProperty.call(patch, 'date_birth'),
+            toDateOnly(patch.date_birth || ''),
+            Object.prototype.hasOwnProperty.call(patch, 'gender'),
+            patch.gender || null,
+            Object.prototype.hasOwnProperty.call(patch, 'profession'),
+            patch.profession || null,
+            Object.prototype.hasOwnProperty.call(patch, 'join_date'),
+            toDateOnly(patch.join_date || ''),
+            Object.prototype.hasOwnProperty.call(patch, 'regency_city'),
+            patch.regency_city || null,
+            Object.prototype.hasOwnProperty.call(patch, 'address'),
+            patch.address || null,
+            eventTs
+          ]
         );
         applied += 1;
         continue;

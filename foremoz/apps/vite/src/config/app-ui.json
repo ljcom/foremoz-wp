@@ -1298,6 +1298,32 @@
     }
   },
   "csDashboard": {
+    "profile": {
+      "eyebrow": "Edit profile",
+      "submitLabel": "Simpan profile",
+      "savingLabel": "Menyimpan...",
+      "updatedFeedback": "member.updated: {memberId}",
+      "fields": [
+        { "name": "full_name", "label": "Full Name", "type": "text" },
+        { "name": "email", "label": "Email", "type": "email" },
+        { "name": "phone", "label": "Phone", "type": "text" },
+        { "name": "date_birth", "label": "Date birth", "type": "date" },
+        {
+          "name": "gender",
+          "label": "Gender",
+          "type": "select",
+          "options": [
+            { "value": "", "label": "Select gender" },
+            { "value": "man", "label": "Man" },
+            { "value": "woman", "label": "Woman" }
+          ]
+        },
+        { "name": "profession", "label": "Profession (optional)", "type": "text" },
+        { "name": "join_date", "label": "Join Date", "type": "date" },
+        { "name": "regency_city", "label": "Regency / City", "type": "text" },
+        { "name": "address", "label": "Address", "type": "text" }
+      ]
+    },
     "checkin": {
       "selection": {
         "defaultExperienceType": "",

@@ -2323,7 +2323,7 @@ async function findMemberByEmailOrId({ tenantId, memberId, email }) {
     filters.push(`lower(email) = $${params.length}`);
   }
   const { rows } = await query(
-    `select tenant_id, branch_id, member_id, full_name, phone, email, status
+    `select *
      from read.rm_member
      where tenant_id = $1
        and (${filters.join(' or ')})
@@ -2342,12 +2342,24 @@ async function upsertMemberRecord({
   fullName,
   phone,
   email,
-  status
+  status,
+  dateBirth,
+  gender,
+  profession,
+  joinDate,
+  regencyCity,
+  address
 }) {
   const existing = await findMemberByEmailOrId({ tenantId, memberId, email });
   const normalizedPhone = String(phone || '').trim() || null;
   const normalizedEmail = String(email || '').trim().toLowerCase();
   const resolvedStatus = status || existing?.status || 'active';
+  const normalizedDateBirth = normalizeOptionalDate(dateBirth, 'date_birth', null);
+  const normalizedJoinDate = normalizeOptionalDate(joinDate, 'join_date', null);
+  const normalizedGender = String(gender || '').trim() || null;
+  const normalizedProfession = String(profession || '').trim() || null;
+  const normalizedRegencyCity = String(regencyCity || '').trim() || null;
+  const normalizedAddress = String(address || '').trim() || null;
 
   if (!existing) {
     const event = await appendDomainEvent({
@@ -2364,7 +2376,13 @@ async function upsertMemberRecord({
         full_name: fullName,
         phone: normalizedPhone,
         email: normalizedEmail,
-        status: resolvedStatus
+        status: resolvedStatus,
+        date_birth: normalizedDateBirth,
+        gender: normalizedGender,
+        profession: normalizedProfession,
+        join_date: normalizedJoinDate,
+        regency_city: normalizedRegencyCity,
+        address: normalizedAddress
       },
       refs: {},
       uniqueIds: [{ scope: 'member.member_id', value: memberId }]
@@ -2379,6 +2397,12 @@ async function upsertMemberRecord({
   if (normalizedEmail && normalizedEmail !== String(existing.email || '').trim().toLowerCase()) {
     patch.email = normalizedEmail;
   }
+  if (normalizedDateBirth !== toDateOnly(existing.date_birth || '')) patch.date_birth = normalizedDateBirth;
+  if (normalizedGender !== (existing.gender || null)) patch.gender = normalizedGender;
+  if (normalizedProfession !== (existing.profession || null)) patch.profession = normalizedProfession;
+  if (normalizedJoinDate !== toDateOnly(existing.join_date || '')) patch.join_date = normalizedJoinDate;
+  if (normalizedRegencyCity !== (existing.regency_city || null)) patch.regency_city = normalizedRegencyCity;
+  if (normalizedAddress !== (existing.address || null)) patch.address = normalizedAddress;
 
   if (Object.keys(patch).length === 0) {
     return { event: null, created: false };
@@ -4952,7 +4976,7 @@ app.post('/v1/auth/signin', async (req, res, next) => {
     }
 
     const memberResult = await query(
-      `select member_id, full_name, phone, status, registered_at
+      `select *
        from read.rm_member
        where tenant_id = $1 and member_id = $2
        limit 1`,
@@ -4974,6 +4998,12 @@ app.post('/v1/auth/signin', async (req, res, next) => {
         phone: memberRow?.phone || null,
         status: memberRow?.status || authRow.status,
         registered_at: memberRow?.registered_at || authRow.registered_at || null,
+        date_birth: memberRow?.date_birth || null,
+        gender: memberRow?.gender || null,
+        profession: memberRow?.profession || null,
+        join_date: memberRow?.join_date || null,
+        regency_city: memberRow?.regency_city || null,
+        address: memberRow?.address || null,
         email: authRow.email
       },
       auth: {
@@ -5114,7 +5144,7 @@ app.get('/v1/auth/me', async (req, res, next) => {
     }
 
     const memberResult = await query(
-      `select full_name, phone, status, registered_at
+      `select *
        from read.rm_member
        where tenant_id = $1 and member_id = $2
        limit 1`,
@@ -5130,7 +5160,13 @@ app.get('/v1/auth/me', async (req, res, next) => {
         full_name: memberResult.rows[0]?.full_name || null,
         phone: memberResult.rows[0]?.phone || null,
         status: memberResult.rows[0]?.status || authRow.status,
-        registered_at: memberResult.rows[0]?.registered_at || authRow.registered_at || null
+        registered_at: memberResult.rows[0]?.registered_at || authRow.registered_at || null,
+        date_birth: memberResult.rows[0]?.date_birth || null,
+        gender: memberResult.rows[0]?.gender || null,
+        profession: memberResult.rows[0]?.profession || null,
+        join_date: memberResult.rows[0]?.join_date || null,
+        regency_city: memberResult.rows[0]?.regency_city || null,
+        address: memberResult.rows[0]?.address || null
       }
     });
   } catch (error) {
@@ -5200,7 +5236,13 @@ app.post('/v1/members/:memberId/update', async (req, res, next) => {
       fullName: required(data.full_name === undefined ? existing.full_name : data.full_name, 'full_name'),
       phone: uniqueIdentity.phone,
       email: uniqueIdentity.email,
-      status: data.status || existing.status || 'active'
+      status: data.status || existing.status || 'active',
+      dateBirth: data.date_birth === undefined ? existing.date_birth : data.date_birth,
+      gender: data.gender === undefined ? existing.gender : data.gender,
+      profession: data.profession === undefined ? existing.profession : data.profession,
+      joinDate: data.join_date === undefined ? (existing.join_date || existing.registered_at) : data.join_date,
+      regencyCity: data.regency_city === undefined ? existing.regency_city : data.regency_city,
+      address: data.address === undefined ? existing.address : data.address
     });
 
     await runFitnessProjection({ tenantId, branchId: data.branch_id || existing.branch_id || 'core' });

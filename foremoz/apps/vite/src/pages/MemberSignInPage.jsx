@@ -178,8 +178,13 @@ export default function MemberSignInPage() {
           email: result.member?.email || email,
           phone: result.member?.phone || null,
           memberId: result.member?.member_id || null,
-          joinDate: toDateInputValue(result.member?.registered_at),
-          registeredAt: result.member?.registered_at || null
+          joinDate: toDateInputValue(result.member?.join_date || result.member?.registered_at),
+          registeredAt: result.member?.registered_at || null,
+          dateBirth: toDateInputValue(result.member?.date_birth),
+          gender: result.member?.gender || '',
+          profession: result.member?.profession || '',
+          regencyCity: result.member?.regency_city || '',
+          address: result.member?.address || ''
         },
         tenant: {
           id: tenantId,

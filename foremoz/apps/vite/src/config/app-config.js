@@ -98,6 +98,7 @@ export function validateAppUiConfig(config = appUiConfig) {
   requireConfigObject(config, 'csDashboard.orders');
   requireConfigObject(config, 'csDashboard.orders.startMembershipField');
   requireConfigObject(config, 'csDashboard.orders.startMembershipField.visibleWhen');
+  requireConfigObject(config, 'csDashboard.profile');
   requireConfigObject(config, 'csDashboard.checkin');
   requireConfigObject(config, 'csDashboard.checkin.selection');
   requireConfigObject(config, 'salesWorkspace.copy');
@@ -160,6 +161,7 @@ export function validateAppUiConfig(config = appUiConfig) {
   ].forEach((path) => requireConfigOptionArray(config, path, 'id'));
 
   requireConfigOptionArray(config, 'salesWorkspace.quickGuide', 'text');
+  requireConfigOptionArray(config, 'csDashboard.profile.fields', 'name');
   requireConfigOptionArray(config, 'memberPortal.info.historyCard.metrics', 'id');
   requireConfigOptionArray(config, 'memberPortal.info.sessionHistoryCard.performanceFields', 'path');
   requireConfigOptionArray(config, 'memberPortal.profile.fields', 'name');
@@ -249,6 +251,10 @@ export function getPageErrorBoundaryConfig(variant) {
 
 export function getDashboardOrderConfig() {
   return asObject(asObject(appUiConfig.csDashboard).orders);
+}
+
+export function getDashboardProfileConfig() {
+  return asObject(asObject(appUiConfig.csDashboard).profile);
 }
 
 export function getDashboardCheckinConfig() {
