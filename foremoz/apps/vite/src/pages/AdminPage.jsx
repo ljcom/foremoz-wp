@@ -1309,7 +1309,7 @@ function resolvePaymentReferenceLabel(item, lookups = {}) {
     return `Event Registration - ${eventName}`;
   }
   if (referenceType === 'membership_purchase') {
-    const packageName = packagesById.get(referenceId) || referenceId || item?.subscription_id || '-';
+    const packageName = packagesById.get(referenceId) || classesById.get(referenceId) || referenceId || item?.subscription_id || '-';
     return `Membership - ${packageName}`;
   }
   if (referenceType === 'activity_purchase' || referenceType === 'open_access_purchase' || referenceType === 'session_pack_purchase') {

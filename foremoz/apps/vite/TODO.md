@@ -100,6 +100,7 @@
 - [x] Allow Sales create order quantity editing in Prospect detail.
 - [x] Add config-driven 10 item pagination to Admin transaction list.
 - [x] Apply config-driven 10 item pagination to Admin member list.
+- [x] Show membership payment references with program/class names when the payment reference id points to a class.
 
 ## Known Follow-up
 - [x] Continue migrating remaining admin/detail page copy into the existing i18n/config layer.
