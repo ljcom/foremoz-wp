@@ -109,6 +109,7 @@
 - [x] Add config-driven join date, date birth, gender, and address fields to Member Portal profile form.
 - [x] Fill Member Portal profile join date from member registration date and update gender placeholder copy.
 - [x] Add Regency / City field to Member Portal profile form.
+- [x] Change Member Portal profile Address field from textarea to text input.
 
 ## Known Follow-up
 - [x] Continue migrating remaining admin/detail page copy into the existing i18n/config layer.
