@@ -192,7 +192,6 @@
         { "name": "fullName", "label": "Full name", "type": "text" },
         { "name": "email", "label": "Email", "type": "email" },
         { "name": "phone", "label": "Phone", "type": "text" },
-        { "name": "joinDate", "label": "Join date", "type": "date" },
         { "name": "dateBirth", "label": "Date birth", "type": "date" },
         {
           "name": "gender",
@@ -204,9 +203,10 @@
             { "value": "woman", "label": "Woman" }
           ]
         },
+        { "name": "profession", "label": "Profession (optional)", "type": "text" },
+        { "name": "joinDate", "label": "Join date", "type": "date" },
         { "name": "regencyCity", "label": "Regency / City", "type": "text" },
-        { "name": "address", "label": "Address", "type": "text" },
-        { "name": "profession", "label": "Profession (optional)", "type": "text" }
+        { "name": "address", "label": "Address", "type": "text" }
       ]
     },
     "info": {
