@@ -9,6 +9,7 @@ const MEMBER_PORTAL_TABS = Array.isArray(MEMBER_PORTAL_CONFIG.tabs)
   ? MEMBER_PORTAL_CONFIG.tabs.filter((item) => item && typeof item === 'object' && item.id)
   : [];
 const MEMBER_INFO_CONFIG = MEMBER_PORTAL_CONFIG.info || {};
+const MEMBER_INFO_CARD_ORDER = Array.isArray(MEMBER_INFO_CONFIG.cardOrder) ? MEMBER_INFO_CONFIG.cardOrder : [];
 const MEMBER_INFO_HISTORY_CARD_CONFIG = MEMBER_INFO_CONFIG.historyCard || {};
 const MEMBER_INFO_HISTORY_METRICS = Array.isArray(MEMBER_INFO_HISTORY_CARD_CONFIG.metrics)
   ? MEMBER_INFO_HISTORY_CARD_CONFIG.metrics.filter((item) => item && typeof item === 'object' && item.id)
@@ -161,6 +162,11 @@ function getBookingAttendanceStatus(booking) {
 
 function getMemberInfoCopy(key, fallbackValue = '') {
   return String(MEMBER_INFO_CONFIG[key] || fallbackValue || '');
+}
+
+function getMemberInfoCardStyle(cardId) {
+  const index = MEMBER_INFO_CARD_ORDER.indexOf(cardId);
+  return index >= 0 ? { order: index + 1 } : {};
 }
 
 function getMemberHistoryMetricValue(metricId, context) {
@@ -1396,7 +1402,7 @@ export default function MemberPortalPage() {
             <p className="eyebrow">{getMemberInfoCopy('eyebrow')}</p>
             <h2>{getMemberInfoCopy('title')}</h2>
             <div className="ops-grid">
-              <section className="card">
+              <section className="card" style={getMemberInfoCardStyle('event')}>
                 <p className="eyebrow">{getMemberInfoCopy('eventSectionTitle')}</p>
                 {nextUpcomingEvent ? (() => {
                   const memberInfo = resolveMemberInfo(nextUpcomingEvent.custom_fields);
@@ -1426,7 +1432,7 @@ export default function MemberPortalPage() {
                   <p className="sub">{getMemberInfoCopy('eventEmpty')}</p>
                 )}
               </section>
-              <section className="card">
+              <section className="card" style={getMemberInfoCardStyle('program')}>
                 <p className="eyebrow">{getMemberInfoCopy('programSectionTitle')}</p>
                 {nextUpcomingProgramBooking ? (() => {
                   const programInfo = resolveProgramInfo(nextUpcomingProgramBooking.class_detail);
@@ -1457,7 +1463,7 @@ export default function MemberPortalPage() {
                   <p className="sub">{getMemberInfoCopy('programEmpty')}</p>
                 )}
               </section>
-              <section className="card">
+              <section className="card" style={getMemberInfoCardStyle('history')}>
                 <p className="eyebrow">{MEMBER_INFO_HISTORY_CARD_CONFIG.title}</p>
                 <div className="entity-list">
                   {MEMBER_INFO_HISTORY_METRICS.map((item) => (
@@ -1472,7 +1478,7 @@ export default function MemberPortalPage() {
                   ))}
                 </div>
               </section>
-              <section className="card span-2">
+              <section className="card span-2" style={getMemberInfoCardStyle('session_history')}>
                 <p className="eyebrow">{MEMBER_INFO_SESSION_HISTORY_CARD_CONFIG.title}</p>
                 <div className="entity-list">
                   {memberSessionHistoryRows.map((item) => (

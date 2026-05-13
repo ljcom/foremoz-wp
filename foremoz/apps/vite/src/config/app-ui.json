@@ -186,6 +186,7 @@
     "info": {
       "eyebrow": "Info",
       "title": "Info member",
+      "cardOrder": ["program", "history", "event", "session_history"],
       "eventSectionTitle": "Event info",
       "programSectionTitle": "Program info",
       "eventFallbackTitle": "Upcoming event",

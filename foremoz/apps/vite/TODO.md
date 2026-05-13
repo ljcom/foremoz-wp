@@ -104,6 +104,7 @@
 - [x] Show member names next to member ids in Sales report order rows.
 - [x] Apply config-driven pagination to Admin product, package, coach, and sales lists.
 - [x] Show four Program cards per row in Admin program list on desktop.
+- [x] Move Member Portal info tab Event info card to the right via config-driven card order.
 
 ## Known Follow-up
 - [x] Continue migrating remaining admin/detail page copy into the existing i18n/config layer.

@@ -115,6 +115,7 @@ export function validateAppUiConfig(config = appUiConfig) {
     'workspaceAccess.defaultEnvironments',
     'ptWorkspace.historySession.completedAtFields',
     'ptWorkspace.historySession.completedActivityTypes',
+    'memberPortal.info.cardOrder',
     'memberPortal.info.sessionHistoryCard.completedActivityTypes'
   ].forEach((path) => requireConfigStringArray(config, path));
 
