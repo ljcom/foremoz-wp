@@ -6,6 +6,10 @@ import { useI18n } from '../i18n.js';
 import { apiJson, IS_MOCK_MODE, IS_MOCKUP_OPEN_ACCESS, requireField, setSession } from '../lib.js';
 import { passportApiJson } from '../passport-client.js';
 
+function toDateInputValue(value) {
+  return String(value || '').trim().slice(0, 10);
+}
+
 export default function MemberSignInPage() {
   const { t } = useI18n();
   const navigate = useNavigate();
@@ -173,7 +177,9 @@ export default function MemberSignInPage() {
           fullName: result.member?.full_name || 'Member',
           email: result.member?.email || email,
           phone: result.member?.phone || null,
-          memberId: result.member?.member_id || null
+          memberId: result.member?.member_id || null,
+          joinDate: toDateInputValue(result.member?.registered_at),
+          registeredAt: result.member?.registered_at || null
         },
         tenant: {
           id: tenantId,

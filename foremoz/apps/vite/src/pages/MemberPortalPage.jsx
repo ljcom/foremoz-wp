@@ -221,6 +221,10 @@ function formatMemberSessionScheduleLine(row) {
   return [scheduleLabel, sessionAtLabel].filter(Boolean).join(' | ');
 }
 
+function toDateInputValue(value) {
+  return String(value || '').trim().slice(0, 10);
+}
+
 export default function MemberPortalPage() {
   const navigate = useNavigate();
   const { account } = useParams();
@@ -231,7 +235,7 @@ export default function MemberPortalPage() {
     fullName: session?.user?.fullName || '',
     email: session?.user?.email || '',
     phone: session?.user?.phone || '',
-    joinDate: session?.user?.joinDate || '',
+    joinDate: session?.user?.joinDate || toDateInputValue(session?.user?.registeredAt),
     dateBirth: session?.user?.dateBirth || '',
     gender: session?.user?.gender || '',
     address: session?.user?.address || ''
@@ -481,6 +485,20 @@ export default function MemberPortalPage() {
         apiJson(`/v1/read/pt-balance?tenant_id=${encodeURIComponent(tenantId)}&member_id=${encodeURIComponent(memberId)}`).catch(() => ({ rows: [] })),
         apiJson(`/v1/read/pt-activity?tenant_id=${encodeURIComponent(tenantId)}&member_id=${encodeURIComponent(memberId)}&activity_type=${encodeURIComponent(MEMBER_INFO_SESSION_HISTORY_COMPLETED_ACTIVITY_TYPES[0] || '')}`).catch(() => ({ rows: [] }))
       ]);
+      const authMeRes = await apiJson('/v1/auth/me').catch(() => ({ member: null }));
+      const registeredAt = authMeRes?.member?.registered_at || null;
+      const joinDate = toDateInputValue(registeredAt);
+      if (joinDate && !profile.joinDate) {
+        setProfile((prev) => ({ ...prev, joinDate }));
+        setSession({
+          ...session,
+          user: {
+            ...session?.user,
+            joinDate,
+            registeredAt
+          }
+        });
+      }
       const [classScopedRes, packageScopedRes, orderScopedRes] = await Promise.all([
         apiJson(`/v1/read/class-availability?tenant_id=${encodeURIComponent(tenantId)}&branch_id=${encodeURIComponent(branchId)}`).catch(() => ({ rows: [] })),
         apiJson(`/v1/admin/packages?tenant_id=${encodeURIComponent(tenantId)}&branch_id=${encodeURIComponent(branchId)}`).catch(() => ({ rows: [] })),

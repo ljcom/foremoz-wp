@@ -199,7 +199,7 @@
           "label": "Gender",
           "type": "select",
           "options": [
-            { "value": "", "label": "-" },
+            { "value": "", "label": "Select gender" },
             { "value": "man", "label": "Man" },
             { "value": "woman", "label": "Woman" }
           ]

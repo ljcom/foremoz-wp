@@ -4905,7 +4905,8 @@ app.post('/v1/auth/signup', async (req, res, next) => {
         member_id: memberId,
         full_name: fullName,
         email,
-        phone: data.phone || null
+        phone: data.phone || null,
+        registered_at: ts
       },
       auth: {
         access_token: tokenSigned.token,
@@ -4929,7 +4930,7 @@ app.post('/v1/auth/signin', async (req, res, next) => {
     const password = String(required(data.password, 'password'));
 
     const authResult = await query(
-      `select tenant_id, member_id, email, password_hash, status, updated_at
+      `select tenant_id, member_id, email, password_hash, status, registered_at, updated_at
        from read.rm_member_auth
        where tenant_id = $1 and email = $2
        limit 1`,
@@ -4951,7 +4952,7 @@ app.post('/v1/auth/signin', async (req, res, next) => {
     }
 
     const memberResult = await query(
-      `select member_id, full_name, phone, status
+      `select member_id, full_name, phone, status, registered_at
        from read.rm_member
        where tenant_id = $1 and member_id = $2
        limit 1`,
@@ -4972,6 +4973,7 @@ app.post('/v1/auth/signin', async (req, res, next) => {
         full_name: memberRow?.full_name || null,
         phone: memberRow?.phone || null,
         status: memberRow?.status || authRow.status,
+        registered_at: memberRow?.registered_at || authRow.registered_at || null,
         email: authRow.email
       },
       auth: {
@@ -5099,7 +5101,7 @@ app.get('/v1/auth/me', async (req, res, next) => {
 
     const payload = verifyMemberJwt(token);
     const authResult = await query(
-      `select tenant_id, member_id, email, status
+      `select tenant_id, member_id, email, status, registered_at
        from read.rm_member_auth
        where tenant_id = $1 and member_id = $2
        limit 1`,
@@ -5112,7 +5114,7 @@ app.get('/v1/auth/me', async (req, res, next) => {
     }
 
     const memberResult = await query(
-      `select full_name, phone, status
+      `select full_name, phone, status, registered_at
        from read.rm_member
        where tenant_id = $1 and member_id = $2
        limit 1`,
@@ -5127,7 +5129,8 @@ app.get('/v1/auth/me', async (req, res, next) => {
         email: authRow.email,
         full_name: memberResult.rows[0]?.full_name || null,
         phone: memberResult.rows[0]?.phone || null,
-        status: memberResult.rows[0]?.status || authRow.status
+        status: memberResult.rows[0]?.status || authRow.status,
+        registered_at: memberResult.rows[0]?.registered_at || authRow.registered_at || null
       }
     });
   } catch (error) {
