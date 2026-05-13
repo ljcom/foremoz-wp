@@ -1134,6 +1134,14 @@ select:focus-visible {
   color: var(--muted);
 }
 
+.member-overview-info-card {
+  margin: 1rem 0;
+}
+
+.member-overview-info-card + .member-overview-info-card {
+  margin-top: 1.25rem;
+}
+
 .feature-card {
   border: 1px solid #ddccb2;
   border-radius: 15px;

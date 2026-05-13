@@ -756,7 +756,7 @@ export default function MemberPortalPage() {
                 <p><strong>Attendance rate:</strong> {bookingPerformance.attendanceRate}%</p>
               </section>
             </div>
-            <section className="card">
+            <section className="card member-overview-info-card">
               <p className="eyebrow">Pre-event info</p>
               {nextUpcomingEvent ? (() => {
                 const memberInfo = resolveMemberInfo(nextUpcomingEvent.custom_fields);
@@ -799,7 +799,7 @@ export default function MemberPortalPage() {
                 <p className="sub">Belum ada event mendatang yang kamu join.</p>
               )}
             </section>
-            <section className="card">
+            <section className="card member-overview-info-card">
               <p className="eyebrow">Pre-program info</p>
               {nextUpcomingProgramBooking ? (() => {
                 const programInfo = resolveProgramInfo(nextUpcomingProgramBooking.class_detail);
@@ -830,7 +830,7 @@ export default function MemberPortalPage() {
                 <p className="sub">Belum ada booking program aktif.</p>
               )}
             </section>
-            <section className="card">
+            <section className="card member-overview-info-card">
               <p className="eyebrow">Recent Activity</p>
               <div className="entity-list">
                 {orderedPayments.slice(0, 3).map((item) => (
