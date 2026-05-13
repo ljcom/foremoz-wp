@@ -158,6 +158,7 @@ export default function SalesPage() {
   const [eventRows, setEventRows] = useState([]);
   const [classRows, setClassRows] = useState([]);
   const [productRows, setProductRows] = useState([]);
+  const [memberRows, setMemberRows] = useState([]);
   const [timelineRows, setTimelineRows] = useState([]);
   const [timelineLoading, setTimelineLoading] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -244,6 +245,33 @@ export default function SalesPage() {
     () => currentOrderTargets.find((item) => item.key === orderForm.target_key) || null,
     [currentOrderTargets, orderForm.target_key]
   );
+  const prospectsById = useMemo(
+    () => new Map(items.map((item) => [String(item.prospect_id || ''), item]).filter(([id]) => Boolean(id))),
+    [items]
+  );
+  const prospectsByMemberId = useMemo(
+    () => new Map(items.map((item) => [String(item.converted_member_id || ''), item]).filter(([id]) => Boolean(id))),
+    [items]
+  );
+  const memberNamesById = useMemo(
+    () => new Map(
+      memberRows
+        .map((item) => [
+          String(item.member_id || ''),
+          String(item.full_name || item.member_name || item.name || '').trim()
+        ])
+        .filter(([id, name]) => Boolean(id && name))
+    ),
+    [memberRows]
+  );
+  function resolveOrderMemberName(item) {
+    const memberId = String(item?.member_id || '').trim();
+    const prospectId = String(item?.prospect_id || '').trim();
+    return memberNamesById.get(memberId)
+      || prospectsByMemberId.get(memberId)?.full_name
+      || prospectsById.get(prospectId)?.full_name
+      || '';
+  }
 
   const insightStats = useMemo(() => {
     const today = getAppDateKey(new Date().toISOString());
@@ -292,13 +320,14 @@ export default function SalesPage() {
       if (role === 'sales' && userId) {
         qs.set('owner_sales_id', userId);
       }
-      const [prospectRes, orderRes, packageRes, eventRes, classRes, productRes] = await Promise.all([
+      const [prospectRes, orderRes, packageRes, eventRes, classRes, productRes, memberRes] = await Promise.all([
         apiJson(`/v1/read/sales/prospects?${qs.toString()}`),
         apiJson(`/v1/read/orders?tenant_id=${encodeURIComponent(tenantId)}&branch_id=${encodeURIComponent(branchId)}&sales_owner_id=${encodeURIComponent(userId || '')}&limit=200`).catch(() => ({ rows: [] })),
         apiJson(`/v1/admin/packages?tenant_id=${encodeURIComponent(tenantId)}&branch_id=${encodeURIComponent(branchId)}`).catch(() => ({ rows: [] })),
         apiJson(`/v1/read/events?tenant_id=${encodeURIComponent(tenantId)}&branch_id=${encodeURIComponent(branchId)}&status=all&limit=200`).catch(() => ({ rows: [] })),
         apiJson(`/v1/read/class-availability?tenant_id=${encodeURIComponent(tenantId)}&branch_id=${encodeURIComponent(branchId)}`).catch(() => ({ rows: [] })),
-        apiJson(`/v1/admin/products?tenant_id=${encodeURIComponent(tenantId)}&branch_id=${encodeURIComponent(branchId)}`).catch(() => ({ rows: [] }))
+        apiJson(`/v1/admin/products?tenant_id=${encodeURIComponent(tenantId)}&branch_id=${encodeURIComponent(branchId)}`).catch(() => ({ rows: [] })),
+        apiJson(`/v1/read/members?tenant_id=${encodeURIComponent(tenantId)}&branch_id=${encodeURIComponent(branchId)}&limit=200`).catch(() => ({ rows: [] }))
       ]);
       setItems(Array.isArray(prospectRes.rows) ? prospectRes.rows : []);
       setOrderRows(Array.isArray(orderRes.rows) ? orderRes.rows : []);
@@ -306,6 +335,7 @@ export default function SalesPage() {
       setEventRows(Array.isArray(eventRes.rows) ? eventRes.rows : []);
       setClassRows(Array.isArray(classRes.rows) ? classRes.rows : []);
       setProductRows(Array.isArray(productRes.rows) ? productRes.rows : []);
+      setMemberRows(Array.isArray(memberRes.rows) ? memberRes.rows : []);
     } catch (err) {
       setError(err.message || 'failed to load sales workspace');
     } finally {
@@ -1097,20 +1127,23 @@ export default function SalesPage() {
           Report ini adalah basis incentive sederhana dari order yang sudah `paid`. Belum memakai rule komisi terpisah.
         </p>
         <div className="entity-list" style={{ marginTop: '1rem' }}>
-          {orderRows.map((item) => (
-            <div className="entity-row" key={`report-${item.order_id}`}>
-              <div>
-                <strong>{item.order_label || item.order_id}</strong>
-                <p>{item.prospect_id || '-'} | member {item.member_id || '-'}</p>
-                <p>{item.order_type || '-'} | {item.reference_type || '-'}:{item.reference_id || '-'}</p>
-                <p>{item.payment_responsibility === 'cs_assisted' ? 'Payment via CS' : 'Payment by member'} | {formatAppDateTime(item.created_at)}</p>
+          {orderRows.map((item) => {
+            const memberName = resolveOrderMemberName(item);
+            return (
+              <div className="entity-row" key={`report-${item.order_id}`}>
+                <div>
+                  <strong>{item.order_label || item.order_id}</strong>
+                  <p>{item.prospect_id || '-'} | member {item.member_id || '-'}{memberName ? ` | ${memberName}` : ''}</p>
+                  <p>{item.order_type || '-'} | {item.reference_type || '-'}:{item.reference_id || '-'}</p>
+                  <p>{item.payment_responsibility === 'cs_assisted' ? 'Payment via CS' : 'Payment by member'} | {formatAppDateTime(item.created_at)}</p>
+                </div>
+                <div className="payment-meta">
+                  <strong>{formatIdr(item.total_amount || 0)}</strong>
+                  <span className={`status ${item.payment_status || 'pending'}`}>{item.payment_status || 'pending'}</span>
+                </div>
               </div>
-              <div className="payment-meta">
-                <strong>{formatIdr(item.total_amount || 0)}</strong>
-                <span className={`status ${item.payment_status || 'pending'}`}>{item.payment_status || 'pending'}</span>
-              </div>
-            </div>
-          ))}
+            );
+          })}
           {orderRows.length === 0 ? <p className="muted">Belum ada order sales.</p> : null}
         </div>
       </section>
