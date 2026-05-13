@@ -6201,7 +6201,7 @@ export default function AdminPage() {
                     </div>
                   </div>
                   {classLoading ? <p className="feedback">{getAdminPageCopy('loadingProgramList')}</p> : null}
-                  <div className="event-card-grid">
+                  <div className="event-card-grid program-card-grid">
                     {filteredClasses.map((item) => {
                       const customFields = splitClassCustomFields(item.custom_fields, item.category || '');
                       const coachLabel = item.has_coach !== false ? (item.trainer_name || item.coach_id || '-') : 'No coach';

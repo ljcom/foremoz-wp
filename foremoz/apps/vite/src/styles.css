@@ -1582,6 +1582,10 @@ code {
   margin-bottom: 0.8rem;
 }
 
+.program-card-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
 .event-admin-card {
   border: 1px solid #ddceb8;
   border-radius: 12px;
