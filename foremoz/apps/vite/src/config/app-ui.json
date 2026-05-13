@@ -205,7 +205,8 @@
           ]
         },
         { "name": "regencyCity", "label": "Regency / City", "type": "text" },
-        { "name": "address", "label": "Address", "type": "text" }
+        { "name": "address", "label": "Address", "type": "text" },
+        { "name": "profession", "label": "Profession (optional)", "type": "text" }
       ]
     },
     "info": {

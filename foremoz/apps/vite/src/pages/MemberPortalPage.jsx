@@ -239,7 +239,8 @@ export default function MemberPortalPage() {
     dateBirth: session?.user?.dateBirth || '',
     gender: session?.user?.gender || '',
     regencyCity: session?.user?.regencyCity || '',
-    address: session?.user?.address || ''
+    address: session?.user?.address || '',
+    profession: session?.user?.profession || ''
   });
   const [passwordForm, setPasswordForm] = useState({
     currentPassword: '',

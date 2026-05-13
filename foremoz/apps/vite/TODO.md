@@ -110,6 +110,7 @@
 - [x] Fill Member Portal profile join date from member registration date and update gender placeholder copy.
 - [x] Add Regency / City field to Member Portal profile form.
 - [x] Change Member Portal profile Address field from textarea to text input.
+- [x] Add optional Profession field to Member Portal profile form.
 
 ## Known Follow-up
 - [x] Continue migrating remaining admin/detail page copy into the existing i18n/config layer.
