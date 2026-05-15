@@ -1315,6 +1315,7 @@
       { "value": "debit_card", "label": "debit_card" }
     ],
     "transactionTableColumns": [
+      { "value": "row_number", "label": "No" },
       { "value": "no_transaction", "label": "No Transaction" },
       { "value": "member_id", "label": "Member" },
       { "value": "product", "label": "Product" },
