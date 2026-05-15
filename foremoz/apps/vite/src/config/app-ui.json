@@ -1330,7 +1330,7 @@
       { "value": "price", "label": "Price" },
       { "value": "method", "label": "Method" },
       { "value": "status", "label": "Status" },
-      { "value": "review_note", "label": "Review" },
+      { "value": "review_note", "label": "Review", "visible": false },
       { "value": "actions", "label": "Aksi" }
     ],
     "transactionActions": [

@@ -8505,7 +8505,7 @@ export default function AdminPage() {
                     <table className="admin-data-table">
                       <thead>
                         <tr>
-                          {TRANSACTION_TABLE_COLUMNS.map((column) => (
+                          {TRANSACTION_TABLE_COLUMNS.filter((column) => column.visible !== false).map((column) => (
                             <th className="admin-data-head" key={column.value}>{column.label}</th>
                           ))}
                         </tr>
@@ -8513,7 +8513,7 @@ export default function AdminPage() {
                       <tbody>
                         {transactionPagination.rows.map((item, idx) => (
                           <tr key={item.transaction_id} className={idx % 2 === 0 ? 'admin-data-row' : 'admin-data-row admin-data-row-alt'}>
-                            {TRANSACTION_TABLE_COLUMNS.map((column) => (
+                            {TRANSACTION_TABLE_COLUMNS.filter((column) => column.visible !== false).map((column) => (
                               <td className="admin-data-cell" key={column.value}>{getTransactionTableCell(item, column.value, idx)}</td>
                             ))}
                           </tr>
