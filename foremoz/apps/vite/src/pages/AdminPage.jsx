@@ -2223,7 +2223,10 @@ export default function AdminPage() {
           member_id: item.member_id || '',
           member_name: item.full_name || '',
           phone: item.phone || '',
-          email: item.email || ''
+          email: item.email || '',
+          gender: item.gender || '',
+          join_date: item.join_date || '',
+          registered_at: item.registered_at || ''
         }))
       );
     } catch (error) {
@@ -2723,6 +2726,29 @@ export default function AdminPage() {
     );
   });
   const transactionPagination = getPaginationState(filteredTransactions, transactionPage, TRANSACTION_PAGE_SIZE);
+  function formatMemberGender(value) {
+    const normalized = String(value || '').trim().toLowerCase();
+    if (normalized === 'man') return 'Man';
+    if (normalized === 'woman') return 'Woman';
+    return String(value || '').trim() || '-';
+  }
+
+  function getMemberTableCell(item, column, rowIndex = 0) {
+    const columnValue = typeof column === 'object' ? column.value : column;
+    if (columnValue === 'row_number') return getRowNumber(memberPagination, rowIndex);
+    if (columnValue === 'gender') return formatMemberGender(item.gender);
+    if (columnValue === 'join_date') return formatDateOnly(item.join_date || item.registered_at);
+    if (columnValue === 'actions') {
+      return (
+        <div className="row-actions">
+          <ViewButton onClick={() => viewMember(item)} />
+          <DeleteButton onClick={() => setMembers((prev) => prev.filter((v) => v.member_id !== item.member_id))} />
+        </div>
+      );
+    }
+    return item[columnValue] || '-';
+  }
+
   function getTransactionTableCell(item, column, rowIndex = 0) {
     const columnValue = typeof column === 'object' ? column.value : column;
     if (columnValue === 'row_number') return transactionPagination.start + rowIndex;
@@ -8383,7 +8409,7 @@ export default function AdminPage() {
                       </div>
                     </div>
                   ) : null}
-                  <div className="entity-list">
+                  <div className="entity-list admin-table-scroll">
                     <table className="admin-data-table">
                       <thead>
                         <tr>
@@ -8395,16 +8421,9 @@ export default function AdminPage() {
                       <tbody>
                         {memberPagination.rows.map((item, idx) => (
                           <tr key={item.member_id} className={idx % 2 === 0 ? 'admin-data-row' : 'admin-data-row admin-data-row-alt'}>
-                            <td className="admin-data-cell">{getRowNumber(memberPagination, idx)}</td>
-                            <td className="admin-data-cell">{item.member_name}</td>
-                            <td className="admin-data-cell">{item.phone}</td>
-                            <td className="admin-data-cell">{item.email || '-'}</td>
-                            <td className="admin-data-cell">
-                              <div className="row-actions">
-                                <ViewButton onClick={() => viewMember(item)} />
-                                <DeleteButton onClick={() => setMembers((prev) => prev.filter((v) => v.member_id !== item.member_id))} />
-                              </div>
-                            </td>
+                            {MEMBER_TABLE_COLUMNS.map((column) => (
+                              <td className="admin-data-cell" key={column.value}>{getMemberTableCell(item, column, idx)}</td>
+                            ))}
                           </tr>
                         ))}
                       </tbody>

@@ -1293,6 +1293,8 @@
       { "value": "member_name", "label": "Nama Member" },
       { "value": "phone", "label": "No. HP" },
       { "value": "email", "label": "Email Aktif" },
+      { "value": "gender", "label": "Gender" },
+      { "value": "join_date", "label": "Join Date" },
       { "value": "actions", "label": "Aksi" }
     ],
     "transactionStatusFilters": [
