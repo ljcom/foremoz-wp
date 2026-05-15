@@ -1052,15 +1052,6 @@
         "visualClass": "membership",
         "accents": ["Others", "Program lainnya"],
         "formFields": {
-          "class_name": {
-            "label": "Program Name",
-            "control": "select",
-            "options": [
-              { "value": "", "label": "Pilih program" },
-              { "value": "Cuti", "label": "Cuti" },
-              { "value": "Transfer Member", "label": "Transfer Member" }
-            ]
-          },
           "commission": {
             "visible": false
           },
@@ -1070,7 +1061,7 @@
         },
         "formDefaults": {
           "class_type": "open_access",
-          "class_name": "",
+          "class_name": "Others Program",
           "description": "Program administratif dengan aturan akses seperti membership.",
           "has_coach": false,
           "coach_id": "",
