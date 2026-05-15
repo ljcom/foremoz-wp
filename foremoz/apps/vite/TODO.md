@@ -131,6 +131,7 @@
 - [x] Hide Admin transaction product operation link through JSON config.
 - [x] Contain Admin transaction table overflow at 100% browser zoom with responsive horizontal scroll.
 - [x] Keep Admin transaction filters and table from widening the workspace at 100% browser zoom.
+- [x] Format Admin transaction list price values as Rupiah.
 
 ## Known Follow-up
 - [x] Continue migrating remaining admin/detail page copy into the existing i18n/config layer.

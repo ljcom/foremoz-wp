@@ -2737,7 +2737,7 @@ export default function AdminPage() {
         </div>
       );
     }
-    if (columnValue === 'price') return `${item.currency || 'IDR'} ${item.price}`;
+    if (columnValue === 'price') return formatIdr(item.price);
     if (columnValue === 'status') return String(item.status || '-').toUpperCase();
     if (columnValue === 'actions') {
       return (
