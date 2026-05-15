@@ -1155,6 +1155,17 @@ function getClassEditorFormProfile(template) {
   return String(config?.formProfile || config?.id || 'custom').trim().toLowerCase() || 'custom';
 }
 
+function getClassTemplateFormFields(template) {
+  const fields = getAdminClassTemplateConfig(template)?.formFields;
+  return fields && typeof fields === 'object' && !Array.isArray(fields) ? fields : {};
+}
+
+function getClassTemplateFieldOptions(fieldConfig) {
+  return Array.isArray(fieldConfig?.options)
+    ? fieldConfig.options.filter((item) => item && typeof item === 'object' && String(item.value || '').trim())
+    : [];
+}
+
 function createClassFormFromTemplate(template) {
   const normalizedTemplate = String(template || 'custom').trim().toLowerCase() || 'custom';
   return {
@@ -2561,6 +2572,11 @@ export default function AdminPage() {
   const isSessionPackClassForm = resolvedClassType === 'session_pack';
   const classEditorTemplate = String(classTemplateWizard.template || 'custom').trim().toLowerCase() || 'custom';
   const classEditorFormProfile = getClassEditorFormProfile(classEditorTemplate);
+  const classTemplateFormFields = useMemo(() => getClassTemplateFormFields(classEditorTemplate), [classEditorTemplate]);
+  const classNameFieldConfig = classTemplateFormFields.class_name || {};
+  const classNameFieldOptions = getClassTemplateFieldOptions(classNameFieldConfig);
+  const isClassNameSelectField = String(classNameFieldConfig.control || '').trim().toLowerCase() === 'select' && classNameFieldOptions.length > 0;
+  const isClassCommissionFieldVisible = classTemplateFormFields.commission?.visible !== false;
   const isMembershipClassEditor = classEditorFormProfile === 'membership';
   const isActivityClassEditor = classEditorFormProfile === 'activity_class';
   const isPersonalTrainingClassEditor = classEditorFormProfile === 'personal_training';
@@ -2873,7 +2889,9 @@ export default function AdminPage() {
             : (hasLimitedAccessCapacity ? 'manual' : 'none'),
           validity_mode: classForm.validity_mode,
           price: Number(classForm.price || 0),
-          commission: classForm.commission === '' ? null : Number(classForm.commission || 0),
+          commission: isClassCommissionFieldVisible
+            ? (classForm.commission === '' ? null : Number(classForm.commission || 0))
+            : null,
           start_date: classForm.start_date || null,
           end_date: classForm.end_date || null,
           registration_start: registrationPeriodMode === 'range_date' && classForm.registration_start
@@ -6400,7 +6418,18 @@ export default function AdminPage() {
                       <>
                         <div className="class-general-layout">
                           <div className="class-general-main">
-                            <label>Program Name<input value={classForm.class_name} onChange={(e) => setClassForm((p) => ({ ...p, class_name: e.target.value }))} /></label>
+                            <label>
+                              {classNameFieldConfig.label || 'Program Name'}
+                              {isClassNameSelectField ? (
+                                <select value={classForm.class_name} onChange={(e) => setClassForm((p) => ({ ...p, class_name: e.target.value }))}>
+                                  {classNameFieldOptions.map((option) => (
+                                    <option key={option.value} value={option.value}>{option.label || option.value}</option>
+                                  ))}
+                                </select>
+                              ) : (
+                                <input value={classForm.class_name} onChange={(e) => setClassForm((p) => ({ ...p, class_name: e.target.value }))} />
+                              )}
+                            </label>
                             <label>
                               Description
                               <textarea
@@ -6547,7 +6576,9 @@ export default function AdminPage() {
                               <p className="feedback">Mode ini tidak mewajibkan coach. Cocok untuk gym access, open studio, atau paket sesi generik.</p>
                             ) : null}
                             <label>Price<input type="number" min="0" value={classForm.price} onChange={(e) => setClassForm((p) => ({ ...p, price: e.target.value }))} /></label>
-                            <label>{getAdminPageCopy('classCommissionField')}<input type="number" min="0" value={classForm.commission} onChange={(e) => setClassForm((p) => ({ ...p, commission: e.target.value }))} /></label>
+                            {isClassCommissionFieldVisible ? (
+                              <label>{getAdminPageCopy('classCommissionField')}<input type="number" min="0" value={classForm.commission} onChange={(e) => setClassForm((p) => ({ ...p, commission: e.target.value }))} /></label>
+                            ) : null}
                             {!isScheduledClassForm ? (
                               <p className="feedback">
                                 Price adalah harga per enrollment/pembelian.
