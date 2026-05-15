@@ -2589,6 +2589,8 @@ export default function AdminPage() {
   const isClassNameSelectField = String(classNameFieldConfig.control || '').trim().toLowerCase() === 'select' && classNameFieldOptions.length > 0;
   const isClassCommissionFieldVisible = classTemplateFormFields.commission?.visible !== false;
   const isClassLocationFieldVisible = classTemplateFormFields.location?.visible !== false;
+  const isClassValidityAnchorFieldVisible = classTemplateFormFields.validity_anchor?.visible !== false;
+  const isClassRegistrationSectionVisible = classTemplateFormFields.registration?.visible !== false;
   const isMembershipClassEditor = classEditorFormProfile === 'membership';
   const isActivityClassEditor = classEditorFormProfile === 'activity_class';
   const isPersonalTrainingClassEditor = classEditorFormProfile === 'personal_training';
@@ -6876,14 +6878,16 @@ export default function AdminPage() {
                                           ))}
                                         </select>
                                       </label>
-                                      <label>
-                                        Activation / Start
-                                        <select value={classForm.validity_anchor} onChange={(e) => setClassForm((p) => ({ ...p, validity_anchor: e.target.value }))}>
-                                          {ACTIVITY_VALIDITY_ANCHOR_OPTIONS.map((item) => (
-                                            <option key={item.value} value={item.value}>{item.label}</option>
-                                          ))}
-                                        </select>
-                                      </label>
+                                      {isClassValidityAnchorFieldVisible ? (
+                                        <label>
+                                          Activation / Start
+                                          <select value={classForm.validity_anchor} onChange={(e) => setClassForm((p) => ({ ...p, validity_anchor: e.target.value }))}>
+                                            {ACTIVITY_VALIDITY_ANCHOR_OPTIONS.map((item) => (
+                                              <option key={item.value} value={item.value}>{item.label}</option>
+                                            ))}
+                                          </select>
+                                        </label>
+                                      ) : null}
                                       {isFixedDateClassAccess ? (
                                         <>
                                           <label>Periode Mulai<input type="date" value={classForm.start_date} onChange={(e) => setClassForm((p) => ({ ...p, start_date: e.target.value }))} /></label>
@@ -7064,6 +7068,7 @@ export default function AdminPage() {
                                     ) : null}
                                     </div>
                                   ) : null}
+                                  {isClassRegistrationSectionVisible ? (
                                   <div className="card" style={{ borderStyle: 'dashed', marginTop: '0.75rem' }}>
                                     <p className="eyebrow">{getAdminPageCopy('classRegistrationEyebrow')}</p>
                                     <div style={{ display: 'grid', gap: '0.35rem', marginBottom: '0.75rem' }}>
@@ -7122,6 +7127,7 @@ export default function AdminPage() {
                                       </p>
                                     )}
                                   </div>
+                                  ) : null}
                                   {isActivityClassEditor || isCustomClassEditor ? (
                                     <div className="card" style={{ borderStyle: 'dashed', marginTop: '0.75rem' }}>
                                     <p className="eyebrow">{getAdminPageCopy('classCapacityEyebrow')}</p>

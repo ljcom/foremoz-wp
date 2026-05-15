@@ -1066,6 +1066,12 @@
           },
           "location": {
             "visible": false
+          },
+          "validity_anchor": {
+            "visible": false
+          },
+          "registration": {
+            "visible": false
           }
         },
         "formDefaults": {
