@@ -7903,7 +7903,7 @@ export default function AdminPage() {
                     </div>
                   </div>
                   {packageLoading ? <p className="feedback">{getAdminPageCopy('loadingPackageList')}</p> : null}
-                  <div className="entity-list">
+                  <div className="entity-list admin-table-scroll admin-transaction-table-scroll">
                     <table className="admin-data-table">
                       <thead>
                         <tr>

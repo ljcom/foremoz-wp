@@ -285,6 +285,21 @@ select:focus-visible {
   border-collapse: collapse;
 }
 
+.admin-table-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+
+.admin-table-scroll .admin-data-table {
+  min-width: max-content;
+}
+
+.admin-transaction-table-scroll .admin-data-table {
+  min-width: 760px;
+}
+
 .admin-data-head {
   text-align: left;
   padding: 0.65rem 0.5rem;
@@ -304,6 +319,12 @@ select:focus-visible {
 .admin-data-cell {
   padding: 0.5rem;
   border-bottom: 1px solid var(--table-row-border);
+  vertical-align: top;
+  white-space: nowrap;
+}
+
+.admin-data-cell strong {
+  white-space: normal;
 }
 
 .admin-operation-link {
