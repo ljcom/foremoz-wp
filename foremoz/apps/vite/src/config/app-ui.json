@@ -1050,7 +1050,7 @@
         "tag": "Administrative",
         "formProfile": "membership",
         "visualClass": "membership",
-        "accents": ["Others", "Admin"],
+        "accents": ["Others", "Program lainnya"],
         "formFields": {
           "class_name": {
             "label": "Program Name",
