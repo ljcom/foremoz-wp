@@ -128,6 +128,7 @@
 - [x] Add config-driven row number column to Admin transaction list.
 - [x] Add config-driven row number columns to Admin member, sales, coach, package, and product lists.
 - [x] Hide Admin transaction list Review column through JSON config.
+- [x] Hide Admin transaction product operation link through JSON config.
 
 ## Known Follow-up
 - [x] Continue migrating remaining admin/detail page copy into the existing i18n/config layer.

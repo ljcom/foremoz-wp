@@ -2723,14 +2723,17 @@ export default function AdminPage() {
     );
   });
   const transactionPagination = getPaginationState(filteredTransactions, transactionPage, TRANSACTION_PAGE_SIZE);
-  function getTransactionTableCell(item, columnValue, rowIndex = 0) {
+  function getTransactionTableCell(item, column, rowIndex = 0) {
+    const columnValue = typeof column === 'object' ? column.value : column;
     if (columnValue === 'row_number') return transactionPagination.start + rowIndex;
     if (columnValue === 'member_id') return resolveAdminMemberDisplayName(item.member_id, members);
     if (columnValue === 'product') {
       return (
         <div>
           <strong>{item.product}</strong>
-          <p className="admin-operation-link">{item.operation_link || '-'}</p>
+          {column.showOperationLink !== false ? (
+            <p className="admin-operation-link">{item.operation_link || '-'}</p>
+          ) : null}
         </div>
       );
     }
@@ -8514,7 +8517,7 @@ export default function AdminPage() {
                         {transactionPagination.rows.map((item, idx) => (
                           <tr key={item.transaction_id} className={idx % 2 === 0 ? 'admin-data-row' : 'admin-data-row admin-data-row-alt'}>
                             {TRANSACTION_TABLE_COLUMNS.filter((column) => column.visible !== false).map((column) => (
-                              <td className="admin-data-cell" key={column.value}>{getTransactionTableCell(item, column.value, idx)}</td>
+                              <td className="admin-data-cell" key={column.value}>{getTransactionTableCell(item, column, idx)}</td>
                             ))}
                           </tr>
                         ))}

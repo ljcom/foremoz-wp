@@ -1325,7 +1325,7 @@
       { "value": "row_number", "label": "No" },
       { "value": "no_transaction", "label": "No Transaction" },
       { "value": "member_id", "label": "Member" },
-      { "value": "product", "label": "Product" },
+      { "value": "product", "label": "Product", "showOperationLink": false },
       { "value": "qty", "label": "Qty" },
       { "value": "price", "label": "Price" },
       { "value": "method", "label": "Method" },
