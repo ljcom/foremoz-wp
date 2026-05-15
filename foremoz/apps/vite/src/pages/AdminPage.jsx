@@ -2221,6 +2221,7 @@ export default function AdminPage() {
       setMembers(
         rows.map((item) => ({
           member_id: item.member_id || '',
+          member_code: item.member_code || item.member_id || '',
           member_name: item.full_name || '',
           phone: item.phone || '',
           email: item.email || '',
@@ -2736,6 +2737,7 @@ export default function AdminPage() {
   function getMemberTableCell(item, column, rowIndex = 0) {
     const columnValue = typeof column === 'object' ? column.value : column;
     if (columnValue === 'row_number') return getRowNumber(memberPagination, rowIndex);
+    if (columnValue === 'member_code') return item.member_code || item.member_id || '-';
     if (columnValue === 'gender') return formatMemberGender(item.gender);
     if (columnValue === 'join_date') return formatDateOnly(item.join_date || item.registered_at);
     if (columnValue === 'actions') {

@@ -134,6 +134,7 @@
 - [x] Format Admin transaction list price values as Rupiah.
 - [x] Hide IDR text from Admin transaction list price values.
 - [x] Show Admin member list gender and join date columns.
+- [x] Add Admin member list code column and update member column labels.
 
 ## Known Follow-up
 - [x] Continue migrating remaining admin/detail page copy into the existing i18n/config layer.
