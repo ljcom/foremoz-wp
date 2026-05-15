@@ -1056,17 +1056,21 @@
             "label": "Program Name",
             "control": "select",
             "options": [
+              { "value": "", "label": "Pilih program" },
               { "value": "Cuti", "label": "Cuti" },
               { "value": "Transfer Member", "label": "Transfer Member" }
             ]
           },
           "commission": {
             "visible": false
+          },
+          "location": {
+            "visible": false
           }
         },
         "formDefaults": {
           "class_type": "open_access",
-          "class_name": "Cuti",
+          "class_name": "",
           "description": "Program administratif dengan aturan akses seperti membership.",
           "has_coach": false,
           "coach_id": "",

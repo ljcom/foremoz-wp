@@ -115,6 +115,7 @@
 - [x] Add config-driven CS member edit profile fields matching Member Portal profile.
 - [x] Add Administrative / Others program type with membership-form profile from JSON config.
 - [x] Configure Administrative program name dropdown and hide commission field from JSON config.
+- [x] Add Administrative program dropdown placeholder and hide location field from JSON config.
 
 ## Known Follow-up
 - [x] Continue migrating remaining admin/detail page copy into the existing i18n/config layer.

@@ -1162,7 +1162,7 @@ function getClassTemplateFormFields(template) {
 
 function getClassTemplateFieldOptions(fieldConfig) {
   return Array.isArray(fieldConfig?.options)
-    ? fieldConfig.options.filter((item) => item && typeof item === 'object' && String(item.value || '').trim())
+    ? fieldConfig.options.filter((item) => item && typeof item === 'object' && Object.prototype.hasOwnProperty.call(item, 'value'))
     : [];
 }
 
@@ -2577,6 +2577,7 @@ export default function AdminPage() {
   const classNameFieldOptions = getClassTemplateFieldOptions(classNameFieldConfig);
   const isClassNameSelectField = String(classNameFieldConfig.control || '').trim().toLowerCase() === 'select' && classNameFieldOptions.length > 0;
   const isClassCommissionFieldVisible = classTemplateFormFields.commission?.visible !== false;
+  const isClassLocationFieldVisible = classTemplateFormFields.location?.visible !== false;
   const isMembershipClassEditor = classEditorFormProfile === 'membership';
   const isActivityClassEditor = classEditorFormProfile === 'activity_class';
   const isPersonalTrainingClassEditor = classEditorFormProfile === 'personal_training';
@@ -6586,7 +6587,9 @@ export default function AdminPage() {
                                 Kalau `No expiry`, harga ini berarti akses tanpa batas waktu sampai dinonaktifkan manual.
                               </p>
                             ) : null}
-                            <label>Location<input value={classForm.location} onChange={(e) => setClassForm((p) => ({ ...p, location: e.target.value }))} /></label>
+                            {isClassLocationFieldVisible ? (
+                              <label>Location<input value={classForm.location} onChange={(e) => setClassForm((p) => ({ ...p, location: e.target.value }))} /></label>
+                            ) : null}
                             <label>Image URL<input value={classForm.image_url} onChange={(e) => setClassForm((p) => ({ ...p, image_url: e.target.value }))} /></label>
                             <div className="row-actions" style={{ marginTop: '-0.2rem' }}>
                               <button
