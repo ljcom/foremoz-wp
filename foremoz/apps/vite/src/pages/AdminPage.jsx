@@ -687,6 +687,7 @@ function createEmptyClassForm() {
     post_event_attachments_text: '',
     min_quota: '',
     max_quota: '',
+    class_template_id: '',
     auto_start_when_quota_met: false
   };
 }
@@ -760,6 +761,7 @@ function splitClassCustomFields(value, primaryCategory = '') {
     registration_fields: _registrationFields,
     category_tags: _categoryTags,
     registration_mode: _registrationMode,
+    class_template_id: _classTemplateId,
     member_pre_info_text: _memberPreInfoText,
     member_pre_info_attachments: _memberPreInfoAttachments,
     member_post_info_text: _memberPostInfoText,
@@ -809,6 +811,11 @@ function buildClassCustomFieldsPayload(formValue) {
     base.registration_mode = registrationMode;
   } else {
     delete base.registration_mode;
+  }
+  if (String(formValue?.class_template_id || '').trim()) {
+    base.class_template_id = String(formValue.class_template_id || '').trim();
+  } else {
+    delete base.class_template_id;
   }
   if (String(formValue?.location || '').trim()) {
     base.location = String(formValue.location || '').trim();
@@ -1128,6 +1135,8 @@ function resolveClassTypeForForm(form) {
 }
 
 function inferClassEditorTemplate(item) {
+  const storedTemplate = String(item?.custom_fields?.class_template_id || '').trim().toLowerCase();
+  if (CLASS_TEMPLATE_OPTIONS.some((option) => option.id === storedTemplate)) return storedTemplate;
   const scheduleMode = String(item?.schedule_mode || 'none').trim().toLowerCase();
   const normalizedType = String(item?.class_type || 'open_access').trim().toLowerCase();
   const hasCoach = item?.has_coach !== false;
@@ -1141,10 +1150,17 @@ function getClassEditorTemplateLabel(template) {
   return getAdminClassTemplateConfig(template)?.title || '';
 }
 
+function getClassEditorFormProfile(template) {
+  const config = getAdminClassTemplateConfig(template);
+  return String(config?.formProfile || config?.id || 'custom').trim().toLowerCase() || 'custom';
+}
+
 function createClassFormFromTemplate(template) {
+  const normalizedTemplate = String(template || 'custom').trim().toLowerCase() || 'custom';
   return {
     ...createEmptyClassForm(),
-    ...(getAdminClassTemplateConfig(template)?.formDefaults || {})
+    ...(getAdminClassTemplateConfig(normalizedTemplate)?.formDefaults || {}),
+    class_template_id: normalizedTemplate
   };
 }
 
@@ -2544,10 +2560,11 @@ export default function AdminPage() {
   const isOpenAccessClassForm = resolvedClassType === 'open_access';
   const isSessionPackClassForm = resolvedClassType === 'session_pack';
   const classEditorTemplate = String(classTemplateWizard.template || 'custom').trim().toLowerCase() || 'custom';
-  const isMembershipClassEditor = classEditorTemplate === 'membership';
-  const isActivityClassEditor = classEditorTemplate === 'activity_class';
-  const isPersonalTrainingClassEditor = classEditorTemplate === 'personal_training';
-  const isCustomClassEditor = classEditorTemplate === 'custom';
+  const classEditorFormProfile = getClassEditorFormProfile(classEditorTemplate);
+  const isMembershipClassEditor = classEditorFormProfile === 'membership';
+  const isActivityClassEditor = classEditorFormProfile === 'activity_class';
+  const isPersonalTrainingClassEditor = classEditorFormProfile === 'personal_training';
+  const isCustomClassEditor = classEditorFormProfile === 'custom';
   const eventEditorTemplate = String(eventTemplateWizard || 'custom').trim().toLowerCase() || 'custom';
   const isCompetitionEventEditor = eventEditorTemplate === 'race_competition';
   const isWorkshopEventEditor = eventEditorTemplate === 'workshop_seminar';
@@ -2968,6 +2985,7 @@ export default function AdminPage() {
       usage_period: item.usage_period || 'entire_validity',
       min_quota: item.min_quota === undefined || item.min_quota === null ? '' : String(item.min_quota),
       max_quota: item.max_quota === undefined || item.max_quota === null ? '' : String(item.max_quota),
+      class_template_id: editorTemplate,
       auto_start_when_quota_met: item.auto_start_when_quota_met === true
     });
     setClassTemplateWizard({

@@ -1013,6 +1013,7 @@
         "title": "Membership",
         "description": "Untuk gym access atau membership periode tanpa schedule wajib.",
         "tag": "Access",
+        "formProfile": "membership",
         "visualClass": "membership",
         "accents": ["30 Hari", "Bulanan"],
         "formDefaults": {
@@ -1043,10 +1044,46 @@
         }
       },
       {
+        "id": "administrative",
+        "title": "Others program",
+        "description": "Untuk program administratif atau kebutuhan lain dengan input seperti membership.",
+        "tag": "Administrative",
+        "formProfile": "membership",
+        "visualClass": "membership",
+        "accents": ["Others", "Admin"],
+        "formDefaults": {
+          "class_type": "open_access",
+          "class_name": "Others Program",
+          "description": "Program administratif dengan aturan akses seperti membership.",
+          "has_coach": false,
+          "coach_id": "",
+          "trainer_name": "",
+          "coach_shares": [],
+          "categories_text": "Others Program",
+          "tags_text": "administrative, others program",
+          "schedule_mode": "none",
+          "price": "0",
+          "commission": "",
+          "validity_mode": "per_enrollment",
+          "validity_unit": "month",
+          "validity_value": "1",
+          "validity_anchor": "activation",
+          "usage_mode": "unlimited",
+          "usage_limit": "",
+          "usage_period": "entire_validity",
+          "capacity_mode": "none",
+          "quota_mode": "none",
+          "min_quota": "",
+          "max_quota": "",
+          "registration_period_mode": "always_open"
+        }
+      },
+      {
         "id": "activity_class",
         "title": "Activity program",
         "description": "Untuk program dengan coach, jadwal, booking, dan capacity.",
         "tag": "Schedule",
+        "formProfile": "activity_class",
         "visualClass": "activity",
         "accents": ["Mon", "Thu"],
         "formDefaults": {
@@ -1082,6 +1119,7 @@
         "title": "Personal training",
         "description": "Untuk paket sesi atau credit dengan coach.",
         "tag": "Coach",
+        "formProfile": "personal_training",
         "visualClass": "pt",
         "accents": ["4 Sesi", "8 Sesi"],
         "formDefaults": {
@@ -1113,6 +1151,7 @@
         "title": "Custom",
         "description": "Buka form lengkap dan atur semuanya manual.",
         "tag": "Manual",
+        "formProfile": "custom",
         "visualClass": "custom",
         "accents": ["Full form", "Advanced"],
         "formDefaults": {}
