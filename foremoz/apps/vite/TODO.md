@@ -120,6 +120,7 @@
 - [x] Add Administrative Program type dropdown above Program Name from JSON config.
 - [x] Hide Administrative Activation / Start field and Registration section from JSON config.
 - [x] Validate Administrative Program type selection with configured feedback.
+- [x] Make CS Create Order target selection searchable while keeping target data config/data-driven.
 
 ## Known Follow-up
 - [x] Continue migrating remaining admin/detail page copy into the existing i18n/config layer.

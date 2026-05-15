@@ -277,6 +277,14 @@ function getTargetPlaceholder(type, targets) {
   return `${getOrderCopy('targetEmptyPrefix')} ${targetLabel} ${getOrderCopy('targetEmptySuffix')}`;
 }
 
+function formatOrderTargetSearchValue(target) {
+  if (!target) return '';
+  const label = String(target.label || '').trim();
+  const helper = String(target.helper || '').trim();
+  if (helper && helper !== label) return `${label} - ${helper}`;
+  return label;
+}
+
 function resolveOrderReferenceLabel(item, lookups = {}) {
   const orderItems = Array.isArray(item?.order_items) ? item.order_items : [];
   if (orderItems.length > 1) {
@@ -578,6 +586,7 @@ export default function DashboardPage() {
   const [orderPaymentDraft, setOrderPaymentDraft] = useState(null);
   const [orderItems, setOrderItems] = useState([]);
   const [editingOrderId, setEditingOrderId] = useState('');
+  const [orderTargetSearchText, setOrderTargetSearchText] = useState('');
   const [orderForm, setOrderForm] = useState({
     order_type: DEFAULT_ORDER_TYPE,
     target_key: '',
@@ -929,6 +938,7 @@ export default function DashboardPage() {
           : item
       )));
       if (editingOrderId === orderId) {
+        setOrderTargetSearchText('');
         setOrderForm({
           order_type: DEFAULT_ORDER_TYPE,
           target_key: '',
@@ -1051,6 +1061,7 @@ export default function DashboardPage() {
 
   function applyOrderTarget(target) {
     if (!target) return;
+    setOrderTargetSearchText(formatOrderTargetSearchValue(target));
     setOrderForm((prev) => ({
       ...prev,
       target_key: target.key,
@@ -1123,6 +1134,7 @@ export default function DashboardPage() {
         start_membership: '',
         label: prev.label || nextItem.order_label
       }));
+      setOrderTargetSearchText('');
       setActionFeedback(getOrderCopy('itemAddedFeedback', { label: nextItem.target_label }));
     } catch (err) {
       setActionFeedback(err.message || getOrderCopy('addItemFailed'));
@@ -1165,6 +1177,7 @@ export default function DashboardPage() {
     const firstItem = normalizedItems[0] || null;
     setEditingOrderId(String(orderRow.order_id || ''));
     setOrderItems(normalizedItems);
+    setOrderTargetSearchText('');
     setOrderPaymentDraft(null);
     setOrderFlowStep('form');
     setOrderForm({
@@ -1326,6 +1339,7 @@ export default function DashboardPage() {
         notes: ''
       });
       setOrderItems([]);
+      setOrderTargetSearchText('');
       setEditingOrderId('');
       setOrderPaymentDraft(null);
       setOrderFlowStep('form');
@@ -1598,6 +1612,12 @@ export default function DashboardPage() {
     const orderTypeConfig = getConfiguredOption(DASHBOARD_ORDER_CONFIG, 'orderTypes', orderType);
     return orderTargetCollections[orderTypeConfig?.targetCollection] || [];
   }, [orderForm.order_type, orderTargetCollections]);
+  const currentOrderTargetSearchOptions = useMemo(() => (
+    currentOrderTargets.map((item) => ({
+      ...item,
+      searchValue: formatOrderTargetSearchValue(item)
+    }))
+  ), [currentOrderTargets]);
   const selectedOrderTarget = useMemo(
     () => currentOrderTargets.find((item) => item.key === orderForm.target_key) || null,
     [currentOrderTargets, orderForm.target_key]
@@ -3578,7 +3598,8 @@ export default function DashboardPage() {
                         {getOrderCopy('orderTypeLabel')}
                         <select
                           value={orderForm.order_type}
-                          onChange={(e) =>
+                          onChange={(e) => {
+                            setOrderTargetSearchText('');
                             setOrderForm((prev) => ({
                               ...prev,
                               order_type: normalizeOrderType(e.target.value),
@@ -3588,8 +3609,8 @@ export default function DashboardPage() {
                               qty: normalizeOrderType(e.target.value) === 'product' ? prev.qty : '1',
                               unit_price: '',
                               notes: ''
-                            }))
-                          }
+                            }));
+                          }}
                         >
                           {ORDER_FORM_TYPE_OPTIONS.map((option) => (
                             <option key={option.value} value={option.value}>{option.selectLabel || option.label}</option>
@@ -3598,24 +3619,31 @@ export default function DashboardPage() {
                       </label>
                       <label>
                         {getOrderCopy('targetLabel')}
-                        <select
-                          value={orderForm.target_key}
+                        <input
+                          list="cs-order-target-options"
+                          value={orderTargetSearchText}
+                          placeholder={getTargetPlaceholder(orderForm.order_type, currentOrderTargets)}
                           onChange={(e) => {
-                            const nextTarget = currentOrderTargets.find((item) => item.key === e.target.value) || null;
+                            const nextValue = e.target.value;
+                            setOrderTargetSearchText(nextValue);
+                            const nextTarget = currentOrderTargetSearchOptions.find((item) => item.searchValue === nextValue) || null;
                             if (!nextTarget) {
-                              setOrderForm((prev) => ({ ...prev, target_key: '' }));
+                              setOrderForm((prev) => ({
+                                ...prev,
+                                target_key: '',
+                                unit_price: '',
+                                start_membership: ''
+                              }));
                               return;
                             }
                             applyOrderTarget(nextTarget);
                           }}
-                        >
-                          <option value="">{getTargetPlaceholder(orderForm.order_type, currentOrderTargets)}</option>
-                          {currentOrderTargets.map((item) => (
-                            <option key={item.key} value={item.key}>
-                              {item.label}
-                            </option>
+                        />
+                        <datalist id="cs-order-target-options">
+                          {currentOrderTargetSearchOptions.map((item) => (
+                            <option key={item.key} value={item.searchValue} />
                           ))}
-                        </select>
+                        </datalist>
                       </label>
                       {selectedOrderTarget ? (
                         <div className="card" style={{ borderStyle: 'dashed' }}>
@@ -3685,6 +3713,7 @@ export default function DashboardPage() {
                             onClick={() => {
                               setEditingOrderId('');
                               setOrderItems([]);
+                              setOrderTargetSearchText('');
                               setOrderPaymentDraft(null);
                               setOrderFlowStep('form');
                               setOrderForm({
