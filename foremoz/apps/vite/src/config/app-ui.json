@@ -1340,14 +1340,14 @@
       "pageSize": 10
     },
     "programListCardFields": [
-      { "id": "coach", "label": "Coach", "visible": true },
-      { "id": "location", "label": "Location", "visible": true },
-      { "id": "category", "label": "Category", "visible": true },
-      { "id": "schedule", "label": "Schedule", "visible": true },
-      { "id": "capacity", "label": "Capacity", "visible": true },
-      { "id": "price", "label": "Price", "visible": true },
-      { "id": "period", "label": "Periode", "visible": true },
-      { "id": "max_meeting", "label": "Max meeting", "visible": true }
+      { "value": "coach", "label": "Coach", "visible": true },
+      { "value": "location", "label": "Location", "visible": true },
+      { "value": "category", "label": "Category", "visible": true },
+      { "value": "schedule", "label": "Schedule", "visible": true },
+      { "value": "capacity", "label": "Capacity", "visible": true },
+      { "value": "price", "label": "Price", "visible": true },
+      { "value": "period", "label": "Periode", "visible": true },
+      { "value": "max_meeting", "label": "Max meeting", "visible": true }
     ],
     "saasExtensionMonths": [
       { "value": "1", "label": "1" },
