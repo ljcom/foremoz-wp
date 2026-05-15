@@ -7903,7 +7903,7 @@ export default function AdminPage() {
                     </div>
                   </div>
                   {packageLoading ? <p className="feedback">{getAdminPageCopy('loadingPackageList')}</p> : null}
-                  <div className="entity-list admin-table-scroll admin-transaction-table-scroll">
+                  <div className="entity-list admin-table-scroll">
                     <table className="admin-data-table">
                       <thead>
                         <tr>
@@ -8481,7 +8481,7 @@ export default function AdminPage() {
                 <>
                   <div className="panel-head">
                     <h2>{getAdminPageCopy('transactionListTitle')}</h2>
-                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginLeft: 'auto' }}>
+                    <div className="admin-transaction-filterbar" style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginLeft: 'auto' }}>
                       <input
                         type="text"
                         placeholder={getAdminPageCopy('transactionSearchPlaceholder')}
@@ -8504,7 +8504,7 @@ export default function AdminPage() {
                     </div>
                   </div>
                   {transactionLoading ? <p className="feedback">{getAdminPageCopy('loadingPayments')}</p> : null}
-                  <div className="entity-list">
+                  <div className="entity-list admin-table-scroll admin-transaction-table-scroll">
                     <table className="admin-data-table">
                       <thead>
                         <tr>

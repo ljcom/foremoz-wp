@@ -287,6 +287,7 @@ select:focus-visible {
 
 .admin-table-scroll {
   max-width: 100%;
+  min-width: 0;
   overflow-x: auto;
   overflow-y: hidden;
   -webkit-overflow-scrolling: touch;
@@ -298,6 +299,24 @@ select:focus-visible {
 
 .admin-transaction-table-scroll .admin-data-table {
   min-width: 760px;
+}
+
+.admin-main {
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: hidden;
+}
+
+.admin-transaction-filterbar {
+  min-width: 0;
+  max-width: 100%;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.admin-transaction-filterbar input,
+.admin-transaction-filterbar select {
+  min-width: 0;
 }
 
 .admin-data-head {
@@ -1533,7 +1552,7 @@ code {
 .workspace {
   margin-top: 1rem;
   display: grid;
-  grid-template-columns: 230px 1fr;
+  grid-template-columns: 230px minmax(0, 1fr);
   gap: 0.8rem;
 }
 
@@ -1666,6 +1685,7 @@ code {
 
 .panel-head {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-start;
   justify-content: space-between;
   gap: 0.8rem;
