@@ -1344,10 +1344,10 @@
       { "id": "location", "label": "Location", "visible": true },
       { "id": "category", "label": "Category", "visible": true },
       { "id": "schedule", "label": "Schedule", "visible": true },
-      { "id": "capacity", "label": "Capacity", "visible": false },
+      { "id": "capacity", "label": "Capacity", "visible": true },
       { "id": "price", "label": "Price", "visible": true },
-      { "id": "period", "label": "Periode", "visible": false },
-      { "id": "max_meeting", "label": "Max meeting", "visible": false }
+      { "id": "period", "label": "Periode", "visible": true },
+      { "id": "max_meeting", "label": "Max meeting", "visible": true }
     ],
     "saasExtensionMonths": [
       { "value": "1", "label": "1" },

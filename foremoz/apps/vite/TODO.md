@@ -122,6 +122,7 @@
 - [x] Validate Administrative Program type selection with configured feedback.
 - [x] Make CS Create Order target selection searchable while keeping target data config/data-driven.
 - [x] Hide Admin Program list Capacity, Periode, and Max meeting fields through JSON config.
+- [x] Restore Admin Program list Capacity, Periode, and Max meeting fields through JSON config.
 
 ## Known Follow-up
 - [x] Continue migrating remaining admin/detail page copy into the existing i18n/config layer.
