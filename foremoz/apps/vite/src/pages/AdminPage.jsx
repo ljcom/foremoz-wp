@@ -57,7 +57,6 @@ const PRODUCT_CATEGORY_OPTIONS = getAdminPageOptions('productCategories');
 const PRODUCT_TABLE_COLUMNS = getAdminPageOptions('productTableColumns');
 const PACKAGE_TABLE_COLUMNS = getAdminPageOptions('packageTableColumns');
 const TRAINER_PACKAGE_TABLE_COLUMNS = getAdminPageOptions('trainerPackageTableColumns');
-const PROGRAM_LIST_CARD_FIELDS = getAdminPageOptions('programListCardFields');
 const SALES_MEMBER_TABLE_COLUMNS = getAdminPageOptions('salesMemberTableColumns');
 const PT_USER_TABLE_COLUMNS = getAdminPageOptions('ptUserTableColumns');
 const SALES_USER_TABLE_COLUMNS = getAdminPageOptions('salesUserTableColumns');
@@ -6276,16 +6275,6 @@ export default function AdminPage() {
                       const meetingLabel = item.class_type === 'scheduled'
                         ? (Number(item.max_meetings || 0) > 0 ? item.max_meetings : '-')
                         : (String(item.usage_mode || '').toLowerCase() === 'limited' ? item.usage_limit || '-' : '-');
-                      const programCardValues = {
-                        coach: coachLabel,
-                        location: locationLabel,
-                        category: categoryLabel,
-                        schedule: formatClassScheduleSummary(item),
-                        capacity: capacityLabel,
-                        price: formatIdr(item.price || 0),
-                        period: periodLabel,
-                        max_meeting: meetingLabel
-                      };
                       return (
                         <article key={item.class_id} className="event-admin-card">
                           <img
@@ -6298,9 +6287,14 @@ export default function AdminPage() {
                               <h3>{item.class_name}</h3>
                               <span className="event-admin-status">{templateLabel}</span>
                             </div>
-                            {PROGRAM_LIST_CARD_FIELDS.filter((field) => field.visible !== false).map((field) => (
-                              <p key={field.value}>{field.label}: {programCardValues[field.value] || '-'}</p>
-                            ))}
+                            <p>Coach: {coachLabel}</p>
+                            <p>Location: {locationLabel}</p>
+                            <p>Category: {categoryLabel}</p>
+                            <p>Schedule: {formatClassScheduleSummary(item)}</p>
+                            <p>Capacity: {capacityLabel}</p>
+                            <p>Price: {formatIdr(item.price || 0)}</p>
+                            <p>Periode: {periodLabel}</p>
+                            <p>Max meeting: {meetingLabel}</p>
                             <div className="row-actions">
                               <ViewButton onClick={() => viewClass(item)} />
                               <DeleteButton onClick={() => deleteClass(item.class_id)} />
