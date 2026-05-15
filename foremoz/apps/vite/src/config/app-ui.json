@@ -1237,6 +1237,7 @@
       { "value": "bundle", "label": "bundle" }
     ],
     "productTableColumns": [
+      { "value": "row_number", "label": "No" },
       { "value": "product_name", "label": "Product" },
       { "value": "category", "label": "Category" },
       { "value": "price", "label": "Price" },
@@ -1244,6 +1245,7 @@
       { "value": "actions", "label": "Aksi" }
     ],
     "packageTableColumns": [
+      { "value": "row_number", "label": "No" },
       { "value": "package_name", "label": "Package" },
       { "value": "package_type", "label": "Type" },
       { "value": "trainer_name", "label": "PT Trainer" },
@@ -1254,6 +1256,7 @@
       { "value": "actions", "label": "Aksi" }
     ],
     "trainerPackageTableColumns": [
+      { "value": "row_number", "label": "No" },
       { "value": "member_name", "label": "Member" },
       { "value": "member_id", "label": "Member ID" },
       { "value": "pt_package_id", "label": "PT Package" },
@@ -1262,6 +1265,7 @@
       { "value": "updated_at", "label": "Updated" }
     ],
     "salesMemberTableColumns": [
+      { "value": "row_number", "label": "No" },
       { "value": "member_name", "label": "Member" },
       { "value": "member_id", "label": "Member ID" },
       { "value": "subscription_id", "label": "Subscription" },
@@ -1270,6 +1274,7 @@
       { "value": "stage", "label": "Stage" }
     ],
     "ptUserTableColumns": [
+      { "value": "row_number", "label": "No" },
       { "value": "full_name", "label": "Nama" },
       { "value": "email", "label": "Email" },
       { "value": "role", "label": "Role" },
@@ -1277,12 +1282,14 @@
       { "value": "coach", "label": "Coach" }
     ],
     "salesUserTableColumns": [
+      { "value": "row_number", "label": "No" },
       { "value": "full_name", "label": "Nama" },
       { "value": "email", "label": "Email" },
       { "value": "list", "label": "List" },
       { "value": "sales", "label": "Sales" }
     ],
     "memberTableColumns": [
+      { "value": "row_number", "label": "No" },
       { "value": "member_name", "label": "Nama Member" },
       { "value": "phone", "label": "No. HP" },
       { "value": "email", "label": "Email Aktif" },

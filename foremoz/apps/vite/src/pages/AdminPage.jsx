@@ -116,6 +116,10 @@ function getPaginationState(items, page, pageSize) {
   };
 }
 
+function getRowNumber(pagination, rowIndex) {
+  return Number(pagination?.start || 1) + Number(rowIndex || 0);
+}
+
 function AdminPagination({ pagination, onPrevious, onNext, copyPrefix = 'listPagination' }) {
   return (
     <div className="row-actions admin-pagination-bar">
@@ -7830,6 +7834,7 @@ export default function AdminPage() {
                       <tbody>
                         {productPagination.rows.map((item, idx) => (
                           <tr key={item.product_id} className={idx % 2 === 0 ? 'admin-data-row' : 'admin-data-row admin-data-row-alt'}>
+                            <td className="admin-data-cell">{getRowNumber(productPagination, idx)}</td>
                             <td className="admin-data-cell">{item.product_name}</td>
                             <td className="admin-data-cell">{item.category}</td>
                             <td className="admin-data-cell">{item.price}</td>
@@ -7907,6 +7912,7 @@ export default function AdminPage() {
                       <tbody>
                         {packagePagination.rows.map((item, idx) => (
                           <tr key={item.package_id} className={idx % 2 === 0 ? 'admin-data-row' : 'admin-data-row admin-data-row-alt'}>
+                            <td className="admin-data-cell">{getRowNumber(packagePagination, idx)}</td>
                             <td className="admin-data-cell">{item.package_name}</td>
                             <td className="admin-data-cell">{item.package_type}</td>
                             <td className="admin-data-cell">{item.package_type === 'pt' ? (item.trainer_name || '-') : '-'}</td>
@@ -8013,6 +8019,7 @@ export default function AdminPage() {
                       <tbody>
                         {filteredTrainerPackageRows.map((item, idx) => (
                           <tr key={`${item.pt_package_id}-${item.member_id}-${idx}`} className={idx % 2 === 0 ? 'admin-data-row' : 'admin-data-row admin-data-row-alt'}>
+                            <td className="admin-data-cell">{idx + 1}</td>
                             <td className="admin-data-cell">{item.member_name}</td>
                             <td className="admin-data-cell">{item.member_id}</td>
                             <td className="admin-data-cell">{item.pt_package_id}</td>
@@ -8023,7 +8030,7 @@ export default function AdminPage() {
                         ))}
                         {filteredTrainerPackageRows.length === 0 ? (
                           <tr>
-                            <td colSpan={6} className="admin-data-cell">{getAdminPageCopy('coachMemberPackageEmpty')}</td>
+                            <td colSpan={TRAINER_PACKAGE_TABLE_COLUMNS.length} className="admin-data-cell">{getAdminPageCopy('coachMemberPackageEmpty')}</td>
                           </tr>
                         ) : null}
                       </tbody>
@@ -8056,6 +8063,7 @@ export default function AdminPage() {
                       <tbody>
                         {ptUserPagination.rows.map((item, idx) => (
                           <tr key={item.user_id} className={idx % 2 === 0 ? 'admin-data-row' : 'admin-data-row admin-data-row-alt'}>
+                            <td className="admin-data-cell">{getRowNumber(ptUserPagination, idx)}</td>
                             <td className="admin-data-cell">{item.full_name}</td>
                             <td className="admin-data-cell">{item.email}</td>
                             <td className="admin-data-cell">{String(item.role || '-').toLowerCase()}</td>
@@ -8084,7 +8092,7 @@ export default function AdminPage() {
                         ))}
                         {filteredPtUsers.length === 0 ? (
                           <tr>
-                            <td colSpan={5} className="admin-data-cell">{getAdminPageCopy('coachUserEmpty')}</td>
+                            <td colSpan={PT_USER_TABLE_COLUMNS.length} className="admin-data-cell">{getAdminPageCopy('coachUserEmpty')}</td>
                           </tr>
                         ) : null}
                       </tbody>
@@ -8135,6 +8143,7 @@ export default function AdminPage() {
                       <tbody>
                         {filteredSalesMemberRows.map((item, idx) => (
                           <tr key={`${item.member_id}-${item.prospect_id}-${idx}`} className={idx % 2 === 0 ? 'admin-data-row' : 'admin-data-row admin-data-row-alt'}>
+                            <td className="admin-data-cell">{idx + 1}</td>
                             <td className="admin-data-cell">{item.member_name}</td>
                             <td className="admin-data-cell">{item.member_id}</td>
                             <td className="admin-data-cell">{item.subscription_id}</td>
@@ -8145,7 +8154,7 @@ export default function AdminPage() {
                         ))}
                         {filteredSalesMemberRows.length === 0 ? (
                           <tr>
-                            <td colSpan={6} className="admin-data-cell">{getAdminPageCopy('salesMemberEmpty')}</td>
+                            <td colSpan={SALES_MEMBER_TABLE_COLUMNS.length} className="admin-data-cell">{getAdminPageCopy('salesMemberEmpty')}</td>
                           </tr>
                         ) : null}
                       </tbody>
@@ -8178,6 +8187,7 @@ export default function AdminPage() {
                       <tbody>
                         {salesUserPagination.rows.map((item, idx) => (
                           <tr key={item.user_id} className={idx % 2 === 0 ? 'admin-data-row' : 'admin-data-row admin-data-row-alt'}>
+                            <td className="admin-data-cell">{getRowNumber(salesUserPagination, idx)}</td>
                             <td className="admin-data-cell">{item.full_name}</td>
                             <td className="admin-data-cell">{item.email}</td>
                             <td className="admin-data-cell">
@@ -8205,7 +8215,7 @@ export default function AdminPage() {
                         ))}
                         {filteredSalesUsers.length === 0 ? (
                           <tr>
-                            <td colSpan={4} className="admin-data-cell">{getAdminPageCopy('salesUserEmpty')}</td>
+                            <td colSpan={SALES_USER_TABLE_COLUMNS.length} className="admin-data-cell">{getAdminPageCopy('salesUserEmpty')}</td>
                           </tr>
                         ) : null}
                       </tbody>
@@ -8382,6 +8392,7 @@ export default function AdminPage() {
                       <tbody>
                         {memberPagination.rows.map((item, idx) => (
                           <tr key={item.member_id} className={idx % 2 === 0 ? 'admin-data-row' : 'admin-data-row admin-data-row-alt'}>
+                            <td className="admin-data-cell">{getRowNumber(memberPagination, idx)}</td>
                             <td className="admin-data-cell">{item.member_name}</td>
                             <td className="admin-data-cell">{item.phone}</td>
                             <td className="admin-data-cell">{item.email || '-'}</td>
