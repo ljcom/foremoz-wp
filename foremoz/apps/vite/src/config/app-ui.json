@@ -1055,6 +1055,8 @@
           "program_type": {
             "label": "Program type",
             "control": "select",
+            "required": true,
+            "requiredFeedback": "Program type is null",
             "options": [
               { "value": "", "label": "Pilih program" },
               { "value": "Cuti", "label": "Cuti" },

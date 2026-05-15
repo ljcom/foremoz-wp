@@ -2769,6 +2769,11 @@ export default function AdminPage() {
       setFeedback(getAdminPageCopy('classNameRequired'));
       return;
     }
+    if (programTypeFieldConfig.required && !String(classForm.program_type || '').trim()) {
+      setClassEditTab('general');
+      setFeedback(programTypeFieldConfig.requiredFeedback || `${programTypeFieldConfig.label || 'Program type'} is required`);
+      return;
+    }
     if (showClassCoachFields && !String(classForm.trainer_name || '').trim()) {
       setClassEditTab('general');
       setFeedback(getAdminPageCopy('classCreatorRequired', { creator: creatorLabel }));
