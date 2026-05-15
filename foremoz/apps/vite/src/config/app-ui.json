@@ -1046,7 +1046,7 @@
       {
         "id": "administrative",
         "title": "Others program",
-        "description": "Untuk program administratif atau kebutuhan lain dengan input seperti membership.",
+        "description": "Untuk program administratif atau kebutuhan lain seperti cuti atau transfer membership.",
         "tag": "Administrative",
         "formProfile": "membership",
         "visualClass": "membership",
