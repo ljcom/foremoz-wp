@@ -170,6 +170,7 @@ export function validateAppUiConfig(config = appUiConfig) {
     'adminPage.productTableColumns',
     'adminPage.packageTableColumns',
     'adminPage.trainerPackageTableColumns',
+    'adminPage.programListCardFields',
     'adminPage.salesMemberTableColumns',
     'adminPage.ptUserTableColumns',
     'adminPage.salesUserTableColumns',
