@@ -1339,6 +1339,16 @@
     "transactionPagination": {
       "pageSize": 10
     },
+    "programListCardFields": [
+      { "id": "coach", "label": "Coach", "visible": true },
+      { "id": "location", "label": "Location", "visible": true },
+      { "id": "category", "label": "Category", "visible": true },
+      { "id": "schedule", "label": "Schedule", "visible": true },
+      { "id": "capacity", "label": "Capacity", "visible": false },
+      { "id": "price", "label": "Price", "visible": true },
+      { "id": "period", "label": "Periode", "visible": false },
+      { "id": "max_meeting", "label": "Max meeting", "visible": false }
+    ],
     "saasExtensionMonths": [
       { "value": "1", "label": "1" },
       { "value": "3", "label": "3" },
