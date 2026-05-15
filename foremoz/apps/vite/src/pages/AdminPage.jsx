@@ -1424,6 +1424,13 @@ function resolvePaymentOperationLink(item, lookups = {}) {
   return '-';
 }
 
+function resolveAdminMemberDisplayName(memberId, memberRows = []) {
+  const normalizedMemberId = String(memberId || '').trim();
+  if (!normalizedMemberId) return '-';
+  const member = (memberRows || []).find((row) => String(row?.member_id || '').trim() === normalizedMemberId) || null;
+  return String(member?.member_name || member?.full_name || '').trim() || normalizedMemberId;
+}
+
 function estimateEventPostingPrice(durationMinutes) {
   const blocks = Math.max(1, Math.ceil(Number(durationMinutes || 60) / 60));
   return blocks * 99000;
@@ -2691,6 +2698,7 @@ export default function AdminPage() {
   });
   const filteredTransactions = transactions.filter((item) => {
     const q = transactionQuery.toLowerCase();
+    const memberDisplayName = resolveAdminMemberDisplayName(item.member_id, members).toLowerCase();
     const statusMatch = transactionStatusFilter === 'all'
       ? true
       : String(item.status || '').toLowerCase() === transactionStatusFilter;
@@ -2705,11 +2713,53 @@ export default function AdminPage() {
       String(item.no_transaction || '').toLowerCase().includes(q) ||
       String(item.product || '').toLowerCase().includes(q) ||
       String(item.member_id || '').toLowerCase().includes(q) ||
+      memberDisplayName.includes(q) ||
       String(item.status || '').toLowerCase().includes(q) ||
       operationLink.includes(q)
     );
   });
   const transactionPagination = getPaginationState(filteredTransactions, transactionPage, TRANSACTION_PAGE_SIZE);
+  function getTransactionTableCell(item, columnValue) {
+    if (columnValue === 'member_id') return resolveAdminMemberDisplayName(item.member_id, members);
+    if (columnValue === 'product') {
+      return (
+        <div>
+          <strong>{item.product}</strong>
+          <p className="admin-operation-link">{item.operation_link || '-'}</p>
+        </div>
+      );
+    }
+    if (columnValue === 'price') return `${item.currency || 'IDR'} ${item.price}`;
+    if (columnValue === 'status') return String(item.status || '-').toUpperCase();
+    if (columnValue === 'actions') {
+      return (
+        <div className="row-actions admin-action-strip">
+          {TRANSACTION_ACTIONS.filter((action) => isAdminActionVisible(action, item)).map((action) => {
+            const runAction = () => {
+              if (action.value === 'view') viewTransaction(item);
+              if (action.value === 'confirm') confirmTransaction(item);
+              if (action.value === 'reject') rejectTransaction(item);
+            };
+            return (
+              <span
+                role="button"
+                tabIndex={0}
+                className="admin-action-chip"
+                key={action.value}
+                onClick={runAction}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') runAction();
+                }}
+              >
+                {action.label}
+              </span>
+            );
+          })}
+        </div>
+      );
+    }
+    return item[columnValue] || '-';
+  }
   const filteredEventCheckinParticipants = useMemo(() => {
     const q = normalizeToken(eventCheckinSearch);
     if (!q) return eventParticipants;
@@ -8451,44 +8501,9 @@ export default function AdminPage() {
                       <tbody>
                         {transactionPagination.rows.map((item, idx) => (
                           <tr key={item.transaction_id} className={idx % 2 === 0 ? 'admin-data-row' : 'admin-data-row admin-data-row-alt'}>
-                            <td className="admin-data-cell">{item.no_transaction}</td>
-                            <td className="admin-data-cell">{item.member_id || '-'}</td>
-                            <td className="admin-data-cell">
-                              <div>
-                                <strong>{item.product}</strong>
-                                <p className="admin-operation-link">{item.operation_link || '-'}</p>
-                              </div>
-                            </td>
-                            <td className="admin-data-cell">{item.qty}</td>
-                            <td className="admin-data-cell">{item.currency || 'IDR'} {item.price}</td>
-                            <td className="admin-data-cell">{item.method || '-'}</td>
-                            <td className="admin-data-cell">{String(item.status || '-').toUpperCase()}</td>
-                            <td className="admin-data-cell">{item.review_note || '-'}</td>
-                            <td className="admin-data-cell">
-                              <div className="row-actions admin-action-strip">
-                                {TRANSACTION_ACTIONS.filter((action) => isAdminActionVisible(action, item)).map((action) => {
-                                  const runAction = () => {
-                                    if (action.value === 'view') viewTransaction(item);
-                                    if (action.value === 'confirm') confirmTransaction(item);
-                                    if (action.value === 'reject') rejectTransaction(item);
-                                  };
-                                  return (
-                                    <span
-                                      role="button"
-                                      tabIndex={0}
-                                      className="admin-action-chip"
-                                      key={action.value}
-                                      onClick={runAction}
-                                      onKeyDown={(e) => {
-                                        if (e.key === 'Enter' || e.key === ' ') runAction();
-                                      }}
-                                    >
-                                      {action.label}
-                                    </span>
-                                  );
-                                })}
-                              </div>
-                            </td>
+                            {TRANSACTION_TABLE_COLUMNS.map((column) => (
+                              <td className="admin-data-cell" key={column.value}>{getTransactionTableCell(item, column.value)}</td>
+                            ))}
                           </tr>
                         ))}
                       </tbody>

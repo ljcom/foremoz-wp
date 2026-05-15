@@ -124,6 +124,7 @@
 - [x] Hide Admin Program list Capacity, Periode, and Max meeting fields through JSON config.
 - [x] Restore Admin Program list Capacity, Periode, and Max meeting fields through JSON config.
 - [x] Hide Admin Program list Capacity, Periode, and Max meeting fields using valid config keys.
+- [x] Display member names in Admin transaction list member column.
 
 ## Known Follow-up
 - [x] Continue migrating remaining admin/detail page copy into the existing i18n/config layer.
