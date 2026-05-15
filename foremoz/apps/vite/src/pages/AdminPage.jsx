@@ -642,6 +642,7 @@ function createEmptyClassForm() {
   return {
     class_type: 'open_access',
     class_name: '',
+    program_type: '',
     title: '',
     description: '',
     location: '',
@@ -762,6 +763,7 @@ function splitClassCustomFields(value, primaryCategory = '') {
     category_tags: _categoryTags,
     registration_mode: _registrationMode,
     class_template_id: _classTemplateId,
+    program_type: _programType,
     member_pre_info_text: _memberPreInfoText,
     member_pre_info_attachments: _memberPreInfoAttachments,
     member_post_info_text: _memberPostInfoText,
@@ -777,6 +779,7 @@ function splitClassCustomFields(value, primaryCategory = '') {
     categories_text: normalizedPrimaryCategory,
     tags_text: seoTags.join(', '),
     registration_mode: normalizedRegistrationMode,
+    program_type: String(source.program_type || ''),
     location: String(source.location || ''),
     image_url: String(source.image_url || ''),
     gallery_images_text: Array.isArray(source.gallery_images) ? source.gallery_images.join('\n') : '',
@@ -816,6 +819,11 @@ function buildClassCustomFieldsPayload(formValue) {
     base.class_template_id = String(formValue.class_template_id || '').trim();
   } else {
     delete base.class_template_id;
+  }
+  if (String(formValue?.program_type || '').trim()) {
+    base.program_type = String(formValue.program_type || '').trim();
+  } else {
+    delete base.program_type;
   }
   if (String(formValue?.location || '').trim()) {
     base.location = String(formValue.location || '').trim();
@@ -2573,6 +2581,9 @@ export default function AdminPage() {
   const classEditorTemplate = String(classTemplateWizard.template || 'custom').trim().toLowerCase() || 'custom';
   const classEditorFormProfile = getClassEditorFormProfile(classEditorTemplate);
   const classTemplateFormFields = useMemo(() => getClassTemplateFormFields(classEditorTemplate), [classEditorTemplate]);
+  const programTypeFieldConfig = classTemplateFormFields.program_type || {};
+  const programTypeFieldOptions = getClassTemplateFieldOptions(programTypeFieldConfig);
+  const isProgramTypeSelectField = String(programTypeFieldConfig.control || '').trim().toLowerCase() === 'select' && programTypeFieldOptions.length > 0;
   const classNameFieldConfig = classTemplateFormFields.class_name || {};
   const classNameFieldOptions = getClassTemplateFieldOptions(classNameFieldConfig);
   const isClassNameSelectField = String(classNameFieldConfig.control || '').trim().toLowerCase() === 'select' && classNameFieldOptions.length > 0;
@@ -2948,6 +2959,7 @@ export default function AdminPage() {
     setClassForm({
       class_type: item.class_type || 'scheduled',
       class_name: item.class_name || '',
+      program_type: classCustomFields.program_type,
       title: item.title || item.class_name || '',
       description: item.description || '',
       location: classCustomFields.location,
@@ -6419,6 +6431,16 @@ export default function AdminPage() {
                       <>
                         <div className="class-general-layout">
                           <div className="class-general-main">
+                            {isProgramTypeSelectField ? (
+                              <label>
+                                {programTypeFieldConfig.label || 'Program type'}
+                                <select value={classForm.program_type} onChange={(e) => setClassForm((p) => ({ ...p, program_type: e.target.value }))}>
+                                  {programTypeFieldOptions.map((option) => (
+                                    <option key={option.value} value={option.value}>{option.label || option.value}</option>
+                                  ))}
+                                </select>
+                              </label>
+                            ) : null}
                             <label>
                               {classNameFieldConfig.label || 'Program Name'}
                               {isClassNameSelectField ? (

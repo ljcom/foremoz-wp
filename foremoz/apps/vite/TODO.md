@@ -117,6 +117,7 @@
 - [x] Configure Administrative program name dropdown and hide commission field from JSON config.
 - [x] Add Administrative program dropdown placeholder and hide location field from JSON config.
 - [x] Restore Administrative program name to the default text input from JSON config.
+- [x] Add Administrative Program type dropdown above Program Name from JSON config.
 
 ## Known Follow-up
 - [x] Continue migrating remaining admin/detail page copy into the existing i18n/config layer.
